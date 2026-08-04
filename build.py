@@ -233,6 +233,19 @@ def setup_msvc_env(arch: str) -> dict[str, str]:
         if "=" in line:
             key, _, value = line.partition("=")
             env[key] = value
+
+    # Remove a broken 'cl' env var that may point to a non-existent compiler.
+    # If left in place, cl.exe treats the path string as extra source files and
+    # fails with C1083 / LNK1168 style errors.
+    for key in list(env.keys()):
+        if key.lower() == "cl":
+            value = env[key]
+            if not Path(value).exists():
+                print(
+                    f"[WARN] Removing broken 'cl' env var pointing to missing compiler: {value}"
+                )
+                del env[key]
+            break
     return env
 
 
@@ -625,22 +638,25 @@ def ensure_blackbone_builds(
             continue
 
         build_dir = blackbone_root / "build" / f"{generator_key}-{vs_arch}"
-        run(
-            [
-                "cmake",
-                "-S",
-                str(src_dir),
-                "-B",
-                str(build_dir),
-                "-G",
-                vs_generator,
-                "-A",
-                vs_arch,
-                "-DCMAKE_POLICY_DEFAULT_CMP0091=NEW",
-                "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded",
-            ]
-        )
-        run(["cmake", "--build", str(build_dir), "--config", "Release"])
+        cmake_cmd = [
+            "cmake",
+            "-S",
+            str(src_dir),
+            "-B",
+            str(build_dir),
+            "-G",
+            vs_generator,
+            "-DCMAKE_POLICY_DEFAULT_CMP0091=NEW",
+            "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded",
+        ]
+        if GENERATORS[generator_key]["ide"]:
+            cmake_cmd += ["-A", vs_arch]
+
+        env = None
+        if not GENERATORS[generator_key]["ide"]:
+            env = setup_msvc_env(arch)
+        run(cmake_cmd, env=env)
+        run(["cmake", "--build", str(build_dir), "--config", "Release"], env=env)
 
         lib = find_blackbone_lib(blackbone_root, vs_arch, generator_key)
         if lib is None:
@@ -691,65 +707,70 @@ def ensure_opencv_builds(
 
         if needs_configure:
             build_dir.mkdir(parents=True, exist_ok=True)
-            run(
-                [
-                    "cmake",
-                    "-S",
-                    str(opencv_source_dir),
-                    "-B",
-                    str(build_dir),
-                    "-G",
-                    vs_generator,
-                    "-A",
-                    vs_arch,
-                    "-DCMAKE_POLICY_DEFAULT_CMP0091=NEW",
-                    r"-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>",
-                    f"-DCMAKE_INSTALL_PREFIX={install_root}",
-                    "-DBUILD_SHARED_LIBS=OFF",
-                    "-DBUILD_WITH_STATIC_CRT=ON",
-                    f"-DBUILD_LIST={','.join(OPENCV_REQUIRED_MODULES)}",
-                    "-DBUILD_opencv_world=OFF",
-                    "-DBUILD_TESTS=OFF",
-                    "-DBUILD_PERF_TESTS=OFF",
-                    "-DBUILD_EXAMPLES=OFF",
-                    "-DBUILD_DOCS=OFF",
-                    "-DBUILD_PACKAGE=OFF",
-                    "-DBUILD_JAVA=OFF",
-                    "-DBUILD_opencv_apps=OFF",
-                    "-DBUILD_opencv_gapi=OFF",
-                    "-DBUILD_opencv_js=OFF",
-                    "-DBUILD_opencv_python_bindings_generator=OFF",
-                    "-DBUILD_opencv_python2=OFF",
-                    "-DBUILD_opencv_python3=OFF",
-                    "-DBUILD_PNG=ON",
-                    "-DBUILD_JPEG=ON",
-                    "-DBUILD_ZLIB=ON",
-                    "-DWITH_JASPER=OFF",
-                    "-DWITH_ADE=OFF",
-                    "-DWITH_WEBP=OFF",
-                    "-DWITH_TIFF=OFF",
-                    "-DWITH_OPENJPEG=OFF",
-                    "-DWITH_OPENEXR=OFF",
-                    "-DBUILD_JASPER=OFF",
-                    "-DBUILD_TIFF=OFF",
-                    "-DBUILD_WEBP=OFF",
-                    "-DBUILD_OPENJPEG=OFF",
-                    "-DBUILD_OPENEXR=OFF",
-                    "-DOPENCV_IO_ENABLE_OPENEXR=OFF",
-                    "-DWITH_IPP=OFF",
-                    "-DWITH_ITT=OFF",
-                    "-DWITH_OPENCL=OFF",
-                    "-DWITH_TBB=OFF",
-                    "-DWITH_OPENMP=OFF",
-                    "-DWITH_FFMPEG=OFF",
-                    "-DWITH_GSTREAMER=OFF",
-                    "-DWITH_MSMF=OFF",
-                ]
-            )
+            cmake_cmd = [
+                "cmake",
+                "-S",
+                str(opencv_source_dir),
+                "-B",
+                str(build_dir),
+                "-G",
+                vs_generator,
+                "-DCMAKE_POLICY_DEFAULT_CMP0091=NEW",
+                r"-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>",
+                f"-DCMAKE_INSTALL_PREFIX={install_root}",
+                "-DBUILD_SHARED_LIBS=OFF",
+                "-DBUILD_WITH_STATIC_CRT=ON",
+                f"-DBUILD_LIST={','.join(OPENCV_REQUIRED_MODULES)}",
+                "-DBUILD_opencv_world=OFF",
+                "-DBUILD_TESTS=OFF",
+                "-DBUILD_PERF_TESTS=OFF",
+                "-DBUILD_EXAMPLES=OFF",
+                "-DBUILD_DOCS=OFF",
+                "-DBUILD_PACKAGE=OFF",
+                "-DBUILD_JAVA=OFF",
+                "-DBUILD_opencv_apps=OFF",
+                "-DBUILD_opencv_gapi=OFF",
+                "-DBUILD_opencv_js=OFF",
+                "-DBUILD_opencv_python_bindings_generator=OFF",
+                "-DBUILD_opencv_python2=OFF",
+                "-DBUILD_opencv_python3=OFF",
+                "-DBUILD_PNG=ON",
+                "-DBUILD_JPEG=ON",
+                "-DBUILD_ZLIB=ON",
+                "-DWITH_JASPER=OFF",
+                "-DWITH_ADE=OFF",
+                "-DWITH_WEBP=OFF",
+                "-DWITH_TIFF=OFF",
+                "-DWITH_OPENJPEG=OFF",
+                "-DWITH_OPENEXR=OFF",
+                "-DBUILD_JASPER=OFF",
+                "-DBUILD_TIFF=OFF",
+                "-DBUILD_WEBP=OFF",
+                "-DBUILD_OPENJPEG=OFF",
+                "-DBUILD_OPENEXR=OFF",
+                "-DOPENCV_IO_ENABLE_OPENEXR=OFF",
+                "-DWITH_IPP=OFF",
+                "-DWITH_ITT=OFF",
+                "-DWITH_OPENCL=OFF",
+                "-DWITH_TBB=OFF",
+                "-DWITH_OPENMP=OFF",
+                "-DWITH_FFMPEG=OFF",
+                "-DWITH_GSTREAMER=OFF",
+                "-DWITH_MSMF=OFF",
+            ]
+            if GENERATORS[generator_key]["ide"]:
+                cmake_cmd += ["-A", vs_arch]
+            env = None
+            if not GENERATORS[generator_key]["ide"]:
+                env = setup_msvc_env(arch)
+            run(cmake_cmd, env=env)
             configured_arches.add(configure_key)
             changed = True
 
         if install_key not in installed_configs or not install_ready:
+            env = None
+            if not GENERATORS[generator_key]["ide"]:
+                env = setup_msvc_env(arch)
             run(
                 [
                     "cmake",
@@ -759,7 +780,8 @@ def ensure_opencv_builds(
                     build_type,
                     "--target",
                     "install",
-                ]
+                ],
+                env=env,
             )
             install_ready = has_opencv_install_layout(install_root, arch)
             if not install_ready:
@@ -964,7 +986,9 @@ examples:
     opencv_install_roots: dict[str, Path] = {}
     if not args.no_bootstrap_deps:
         dep_vs_generator_key = (
-            generator if generator.startswith("vs") else default_generator_key()
+            generator
+            if generator.startswith("vs") or generator in ("nmake", "ninja")
+            else default_generator_key()
         )
         dep_vs_generator = GENERATORS[dep_vs_generator_key]["cmake"]
         print("\n[INFO] Bootstrapping third-party dependencies...")
@@ -1031,8 +1055,21 @@ examples:
     build_dir = project_dir / "build" / build_dir_name
     build_dir.mkdir(parents=True, exist_ok=True)
 
+    # ── 静态链接 vcpkg 第三方依赖 ──
+    # 工程统一使用 /MT（静态 CRT，见 CMakeLists.txt 的 MultiThreaded + /MT），
+    # 而 vcpkg 默认 triplet (x64-windows) 为 /MD 动态链接。强制 vcpkg 使用
+    # *-windows-static triplet，让 minhook / gtest / directx-headers 全部以静态
+    # 库（/MT）形式参与链接，从而：
+    #   1) minhook 编进主 DLL/EXE，不再产生/依赖运行时的 minhook.x64.dll；
+    #   2) 与工程 /MT 运行时完全一致，消除潜在的 /MT vs /MD CRT 冲突。
+    # 静态包（x64-windows-static）已在 bootstrap 阶段安装，find_package 直接命中，
+    # 无需重新下载/编译。CMakeLists.txt 中基于 minhook_DIR 的静态探测逻辑与之兼容。
+    vcpkg_static_triplet = "x64-windows-static" if arch == "x64" else "x86-windows-static"
+    vcpkg_static_args = [f"-DVCPKG_TARGET_TRIPLET={vcpkg_static_triplet}"]
+
     # ── CMake configure ──
     print("\n[INFO] Configuring with CMake...")
+    print(f"[INFO] VCPKG_TARGET_TRIPLET = {vcpkg_static_triplet} (静态 /MT)")
     cmake_cmd = [
         "cmake",
         "-S",
@@ -1042,6 +1079,7 @@ examples:
         "-G",
         gen_info["cmake"],
         f"-DCMAKE_BUILD_TYPE={build_type}",
+        *vcpkg_static_args,
         *vcpkg_args,
         *blackbone_args,
         *opencv_args,

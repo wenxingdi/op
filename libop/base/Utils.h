@@ -63,8 +63,18 @@ template <typename T> void nextVal(const T &t, int *next) {
         }
     }
 }
+// KMP 子串查找,返回 t 在 s 中首次出现的下标,未找到返回 -1。
+// 修正两处:
+//   1) 命中条件原写作 j == s.size(),应为 j == t.size()(模式串走完才算命中);
+//      当 s.size() != t.size() 时旧版恒返回 -1。
+//   2) t 为空串时 next.data() 是 nullptr,nextVal 里 next[0] = -1 直接崩溃。
 template <typename T> int kmp(const T &s, const T &t) {
-    std::vector<int> next(t.size());
+    if (t.empty())
+        return 0;
+    if (s.size() < t.size())
+        return -1;
+
+    std::vector<int> next(t.size(), 0);
     nextVal(t, next.data());
     int i = 0, j = 0;
     while (i < (int)s.size() && j < (int)t.size()) {
@@ -75,7 +85,7 @@ template <typename T> int kmp(const T &s, const T &t) {
             j = next[j];
         }
     }
-    return j == s.size() ? i - j : -1;
+    return j == (int)t.size() ? i - j : -1;
 }
 
 namespace op {

@@ -420,3 +420,17 @@ install(TARGETS ${op_c_api}
   RUNTIME DESTINATION "${PROJECT_SOURCE_DIR}/bin/${_op_install_arch}"
   ARCHIVE DESTINATION "${PROJECT_SOURCE_DIR}/lib/${_op_install_arch}"
 )
+
+# MinHook 若以 DLL 形式链接(x64-windows triplet)，CMake install(TARGETS) 不会
+# 自动复制第三方 imported target 的 RUNTIME，需手动把 DLL 安装到 bin 目录。
+# 若以静态库形式链接(x64-windows-static triplet)，IMPORTED_LOCATION 指向 .lib，
+# 已编进主 DLL，无需也不应复制到 bin —— 下方仅当路径以 .dll 结尾时才复制。
+if(TARGET minhook::minhook)
+  get_target_property(_minhook_dll minhook::minhook IMPORTED_LOCATION_RELEASE)
+  if(NOT _minhook_dll)
+    get_target_property(_minhook_dll minhook::minhook IMPORTED_LOCATION)
+  endif()
+  if(_minhook_dll AND _minhook_dll MATCHES "\\.dll$" AND EXISTS "${_minhook_dll}")
+    install(FILES "${_minhook_dll}" DESTINATION "${PROJECT_SOURCE_DIR}/bin/${_op_install_arch}")
+  endif()
+endif()

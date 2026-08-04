@@ -23,7 +23,10 @@ std::wstring module_file_name(HINSTANCE instance) {
 void *RuntimeEnvironment::m_instance = nullptr;
 std::wstring RuntimeEnvironment::m_basePath;
 std::wstring RuntimeEnvironment::m_opName;
-int RuntimeEnvironment::m_showErrorMsg = 1;
+// 0=静默 1=MessageBox 弹窗 2=写 __op.log 3=stdout
+// 作为库,默认值必须是静默:setlog 在项目里有 ~190 个调用点,默认弹模态框会在
+// 多开场景下弹满屏并阻塞调用线程。需要排错时显式调用 SetShowErrorMsg(2) 写日志。
+int RuntimeEnvironment::m_showErrorMsg = 0;
 void RuntimeEnvironment::setInstance(void *instance) {
     m_instance = instance;
     std::wstring s = module_file_name(static_cast<HINSTANCE>(m_instance));

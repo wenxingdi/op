@@ -22,15 +22,31 @@ using bytearray = std::vector<uchar>;
 
 struct point_t {
     int x, y;
+
+    // OCR 结果按"阅读顺序"排序时的行高量化粒度(像素)。
+    // 历史实现用 |y1-y2| < 9 的容差比较来判定"同一行",但容差比较不满足传递性,
+    // 因此不是严格弱序(strict weak ordering)。把它交给 std::map / std::set /
+    // std::sort 属于标准规定的未定义行为:
+    //   a=(0,0) b=(0,8) c=(0,16) 时 a~b、b~c 等价却有 a<c,红黑树可能结构错乱。
+    // 现改为"先把 y 量化成行号,再按 x 字典序",语义近似且严格弱序成立。
+    // 需要按实际字号调整分行粒度时,修改这个值即可(0 或负数会被当作 1)。
+    static inline int row_height = 9;
+
     point_t() : x(0), y(0) {
     }
     point_t(int x_, int y_) : x(x_), y(y_) {
     }
+
+    // 行号:对 y 做 floor 除法,保证对负坐标也单调不减。
+    int row() const {
+        const int h = row_height > 0 ? row_height : 1;
+        return y >= 0 ? y / h : -((h - 1 - y) / h);
+    }
+
     bool operator<(const point_t &rhs) const {
-        if (std::abs(y - rhs.y) < 9)
-            return x < rhs.x;
-        else
-            return y < rhs.y;
+        const int r1 = row();
+        const int r2 = rhs.row();
+        return r1 != r2 ? r1 < r2 : x < rhs.x;
     }
     bool operator==(const point_t &rhs) const {
         return x == rhs.x && y == rhs.y;

@@ -5,7 +5,9 @@
 #include <Tlhelp32.h>
 #include <cwchar>
 #include <cstring>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <psapi.h>
 #include <string>
 #include <vector>
@@ -133,9 +135,9 @@ double WindowService::get_cpu_usage(DWORD ProcessID) // 获取指定进程CPU使
 {
     // cpu数量
     static int processor_count_ = -1;
-    // 上一次的时间
-    static __int64 last_time_ = 0;
-    static __int64 last_system_time_ = 0;
+    // 每个进程独立保存上一次采样，避免全局 static 在并发/多进程调用时互相覆盖算错
+    static std::map<DWORD, std::pair<__int64, __int64>> g_last; // pid -> (system_time, time)
+    static std::mutex g_mutex;
 
     FILETIME now;
     FILETIME creation_time;
@@ -169,10 +171,21 @@ double WindowService::get_cpu_usage(DWORD ProcessID) // 获取指定进程CPU使
     system_time = (FileTimeToInt64(kernel_time) + FileTimeToInt64(user_time)) / processor_count_; // CPU使用时间
     time = FileTimeToInt64(now);                                                                  // 现在的时间
 
-    last_system_time_ = system_time;
-    last_time_ = time;
+    // 读取该进程上一次采样，并写入本次，供下次差算
+    std::pair<__int64, __int64> prev{0, 0};
+    std::pair<__int64, __int64> first{system_time, time}; // 本次首采
+    bool has_prev = false;
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        auto it = g_last.find(ProcessID);
+        if (it != g_last.end()) {
+            prev = it->second;
+            has_prev = true;
+        }
+        g_last[ProcessID] = first;
+    }
 
-    Sleep(1000);
+    Sleep(1000); // 保留原采样间隔
 
     // hProcess = OpenProcess(PROCESS_QUERY_INFORMATION/*PROCESS_ALL_ACCESS*/,
     // false, ProcessID);
@@ -189,7 +202,13 @@ double WindowService::get_cpu_usage(DWORD ProcessID) // 获取指定进程CPU使
     system_time = (FileTimeToInt64(kernel_time) + FileTimeToInt64(user_time)) / processor_count_; // CPU使用时间
     time = FileTimeToInt64(now);                                                                  // 现在的时间
 
-    cpu = ((double)(system_time - last_system_time_) / (double)(time - last_time_)) * 100;
+    if (has_prev) {
+        // 用本进程上一次采样做差（滑动窗口，更准确）
+        cpu = ((double)(system_time - prev.first) / (double)(time - prev.second)) * 100;
+    } else {
+        // 首次：使用本次调用内的两次采样做差（等价于原实现）
+        cpu = ((double)(system_time - first.first) / (double)(time - first.second)) * 100;
+    }
     return cpu;
 }
 

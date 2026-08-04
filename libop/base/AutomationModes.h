@@ -3,24 +3,35 @@
 #define OP_BASE_AUTOMATION_MODES_H_
 #include "Types.h"
 #include <cstdint>
+// 这三个宏原先是"裸多语句"形式,展开后只有第一条语句受 if 控制:
+//     if (cond) SAFE_RELEASE(p); else foo();
+// 会展开成 if(cond) if(p) p->Release(); p = nullptr; else foo();  —— 编译错误/语义错乱。
+// 统一包进 do{...}while(0),让它们在语法上等价于单条语句。
 #define SAFE_CLOSE(h)                                                                                                  \
-    if (h)                                                                                                             \
-        CloseHandle(h);                                                                                                \
-    h = NULL;
+    do {                                                                                                               \
+        if ((h) && (h) != INVALID_HANDLE_VALUE)                                                                        \
+            CloseHandle(h);                                                                                            \
+        (h) = NULL;                                                                                                    \
+    } while (0)
+
 template <class Type> void SAFE_DELETE(Type *&ptr) {
     delete ptr;
     ptr = nullptr;
 }
 
 #define SAFE_DELETE_ARRAY(ptr)                                                                                         \
-    if (ptr)                                                                                                           \
-        delete[] ptr;                                                                                                  \
-    ptr = nullptr
+    do {                                                                                                               \
+        delete[](ptr);                                                                                                 \
+        (ptr) = nullptr;                                                                                               \
+    } while (0)
 
 #define SAFE_RELEASE(obj)                                                                                              \
-    if (obj)                                                                                                           \
-        obj->Release();                                                                                                \
-    obj = nullptr
+    do {                                                                                                               \
+        if (obj) {                                                                                                     \
+            (obj)->Release();                                                                                          \
+            (obj) = nullptr;                                                                                           \
+        }                                                                                                              \
+    } while (0)
 
 // #define _sto_wstring(s) boost::locale::conv::to_utf<wchar_t>(s, "GBK")
 // #define _wsto_string(s)  boost::locale::conv::from_utf(s,"GBK")
@@ -34,11 +45,13 @@ enum RENDER_TYPE {
     OPENGL = 3
 };
 
-#define MAKE_RENDER(type, flag) ((type << 16) | flag)
+// 参数与整体都要加括号:旧写法 GET_RENDER_TYPE(t) (t >> 16) 在
+// GET_RENDER_TYPE(x) * 2 处会展开成 x >> 32(移位优先级低于乘法)。
+#define MAKE_RENDER(type, flag) (((type) << 16) | (flag))
 
-#define GET_RENDER_TYPE(t) (t >> 16)
+#define GET_RENDER_TYPE(t) ((t) >> 16)
 
-#define GET_RENDER_FLAG(t) (t & 0xffff)
+#define GET_RENDER_FLAG(t) ((t) & 0xffff)
 
 constexpr int RDT_NORMAL = MAKE_RENDER(NORMAL, 0);
 constexpr int RDT_NORMAL_DXGI = MAKE_RENDER(NORMAL, 1);
@@ -71,9 +84,14 @@ constexpr int IBF_R8G8B8 = 2;
 // const size_t MAX_IMAGE_WIDTH = 1<<11;
 // const size_t SHARED_MEMORY_SIZE = 1080 * 1928 * 4;
 
-constexpr auto SHARED_RES_NAME_FORMAT = L"op_mutex_%d";
-constexpr auto MUTEX_NAME_FORMAT = L"op_shared_mem_%d";
-
+// 注意:下面两个函数名与它们生成的前缀在历史上是"反的"——
+//   MakeOpSharedResourceName() 生成 "op_mutex_<hwnd>"     (实际用作共享内存名)
+//   MakeOpMutexName()          生成 "op_shared_mem_<hwnd>" (实际用作互斥体名)
+// 宿主进程与被注入 DLL 共用本头文件,所以两边一致、功能正确;
+// 但改前缀会导致新旧版本的注入 DLL 互不认识,故此处只加注释不改名值。
+// 若要重命名,必须宿主与 hook DLL 同时重编译并重新分发。
+// (原先还有 SHARED_RES_NAME_FORMAT / MUTEX_NAME_FORMAT 两个常量,名值同样颠倒
+//  且全项目零引用,已删除。)
 inline std::wstring MakeOpSharedResourceName(HWND hwnd) {
     return std::wstring(L"op_mutex_") + std::to_wstring(reinterpret_cast<std::uintptr_t>(hwnd));
 }

@@ -6,6 +6,12 @@
 namespace op {
 
 namespace {
+
+// 防御性 wcslen：参数为 NULL 时返回 0 而非崩溃（调用方可能只传 class_name 而 title 为 NULL）
+static inline size_t safe_wcslen(const wchar_t *s) noexcept {
+    return s ? wcslen(s) : 0;
+}
+
 class WindowTextValue {
   public:
     WindowTextValue() = default;
@@ -108,7 +114,7 @@ HWND WindowService::FindChildWnd(HWND child_hwnd, const wchar_t *title, const wc
         } else if (title != NULL && classname != NULL) {
             auto WindowClassName = WindowClassNameText(child_hwnd);
             auto WindowTitle = WindowTitleText(child_hwnd);
-            if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+            if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                 const wchar_t *strfindclass = wcsstr(WindowClassName, classname); // 模糊匹配
                 const wchar_t *strfindtitle = wcsstr(WindowTitle, title);         // 模糊匹配
                 if (strfindclass && strfindtitle) {
@@ -133,7 +139,7 @@ HWND WindowService::FindChildWnd(HWND child_hwnd, const wchar_t *title, const wc
 
         } else if (title != NULL) {
             auto WindowTitle = WindowTitleText(child_hwnd);
-            if (wcslen(WindowTitle) > 1) {
+            if (safe_wcslen(WindowTitle) > 1) {
                 const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                 if (strfind) {
                     if (process_name) // EnumWindowByProcess
@@ -157,7 +163,7 @@ HWND WindowService::FindChildWnd(HWND child_hwnd, const wchar_t *title, const wc
 
         } else if (classname != NULL) {
             auto WindowClassName = WindowClassNameText(child_hwnd);
-            if (wcslen(WindowClassName) > 1) {
+            if (safe_wcslen(WindowClassName) > 1) {
                 const wchar_t *strfind = wcsstr(WindowClassName, classname); // 模糊匹配
                 if (strfind) {
                     if (process_name) // EnumWindowByProcess
@@ -226,7 +232,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     int indexpid = 0;
     if (process_name) // EnumWindowByProcess
     {
-        if (wcslen(process_name) < 1)
+        if (safe_wcslen(process_name) < 1)
             return false;
         npid.clear();
         enum_process_success_count = 0;
@@ -262,7 +268,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 1: // 1 : 匹配窗口标题,参数title有效
     {
-        if (wcslen(title) < 1)
+        if (safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         if (p == NULL)
@@ -270,7 +276,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
         p = ::GetWindow(p, GW_HWNDFIRST);
         while (p != NULL) {
             auto WindowTitle = WindowTitleText(p);
-            if (wcslen(WindowTitle) > 1) {
+            if (safe_wcslen(WindowTitle) > 1) {
                 const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                 if (strfind) {
                     if (process_name) // EnumWindowByProcess
@@ -298,7 +304,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 2: // 2 : 匹配窗口类名,参数class_name有效.
     {
-        if (wcslen(class_name) < 1)
+        if (safe_wcslen(class_name) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         if (p == NULL)
@@ -306,7 +312,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
         p = ::GetWindow(p, GW_HWNDFIRST);
         while (p != NULL) {
             auto WindowClassName = WindowClassNameText(p);
-            if (wcslen(WindowClassName) > 1) {
+            if (safe_wcslen(WindowClassName) > 1) {
                 const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                 if (strfind) {
                     if (process_name) // EnumWindowByProcess
@@ -333,7 +339,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 3: // 1.窗口标题+2.窗口类名
     {
-        if (wcslen(class_name) < 1 && wcslen(title) < 1)
+        if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         if (p == NULL)
@@ -342,7 +348,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
         while (p != NULL) {
             auto WindowClassName = WindowClassNameText(p);
             auto WindowTitle = WindowTitleText(p);
-            if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+            if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                 const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                 const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                 if (strfindclass && strfindtitle) {
@@ -409,7 +415,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 5: // 1.匹配窗口标题+//4 : 只匹配指定父窗口的第一层孩子窗口
     {
-        if (wcslen(title) < 1)
+        if (safe_wcslen(title) < 1)
             return false;
 
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
@@ -433,7 +439,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                     if (processpid == pid) {
                         auto WindowTitle = WindowTitleText(p);
-                        if (wcslen(WindowTitle) > 1) {
+                        if (safe_wcslen(WindowTitle) > 1) {
                             if (wcsstr(WindowTitle, title)) {
                                 AppendHwndText(retstring, retstringlen, p);
                                 bret = true;
@@ -448,7 +454,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
 
             } else {
                 auto WindowTitle = WindowTitleText(p);
-                if (wcslen(WindowTitle) > 1) {
+                if (safe_wcslen(WindowTitle) > 1) {
                     if (wcsstr(WindowTitle, title)) {
                         AppendHwndText(retstring, retstringlen, p);
                         bret = true;
@@ -462,7 +468,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 6: // 2 : 匹配窗口类名+4 : 只匹配指定父窗口的第一层孩子窗口
     {
-        if (wcslen(class_name) < 1)
+        if (safe_wcslen(class_name) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         if (p == NULL)
@@ -482,7 +488,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                 }
                 if (processpid == pid) {
                     auto WindowClassName = WindowClassNameText(p);
-                    if (wcslen(WindowClassName) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1) {
                         if (wcsstr(WindowClassName, class_name)) {
                             AppendHwndText(retstring, retstringlen, p);
                             bret = true;
@@ -495,7 +501,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                 }
             } else {
                 auto WindowClassName = WindowClassNameText(p);
-                if (wcslen(WindowClassName) > 1) {
+                if (safe_wcslen(WindowClassName) > 1) {
                     if (wcsstr(WindowClassName, class_name)) {
                         AppendHwndText(retstring, retstringlen, p);
                         bret = true;
@@ -508,7 +514,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 7: // 1.窗口标题+2.窗口类名+4 : 只匹配指定父窗口的第一层孩子窗口
     {
-        if (wcslen(class_name) < 1 && wcslen(title) < 1)
+        if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         if (p == NULL)
@@ -529,7 +535,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                 if (processpid == pid) {
                     auto WindowClassName = WindowClassNameText(p);
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                         const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                         if (strfindclass && strfindtitle) {
@@ -545,7 +551,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
             } else {
                 auto WindowClassName = WindowClassNameText(p);
                 auto WindowTitle = WindowTitleText(p);
-                if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                     const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                     const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                     if (strfindclass && strfindtitle) {
@@ -594,7 +600,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 9: // 1.窗口标题+8 : 匹配所有者窗口为0的窗口,即顶级窗口
     {
-        if (wcslen(title) < 1)
+        if (safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         if (p == NULL)
@@ -608,7 +614,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     GetWindowThreadProcessId(p, &pid);
                     if (EnumProcessbyName(pid, process_name)) {
                         auto WindowTitle = WindowTitleText(p);
-                        if (wcslen(WindowTitle) > 1) {
+                        if (safe_wcslen(WindowTitle) > 1) {
                             const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                             if (strfind) {
                                 AppendHwndText(retstring, retstringlen, p);
@@ -622,7 +628,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                 } else {
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                         if (strfind) {
                             AppendHwndText(retstring, retstringlen, p);
@@ -641,7 +647,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 10: // 2.窗口类名+8 : 匹配所有者窗口为0的窗口,即顶级窗口
     {
-        if (wcslen(class_name) < 1)
+        if (safe_wcslen(class_name) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         if (p == NULL)
@@ -655,7 +661,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     GetWindowThreadProcessId(p, &pid);
                     if (EnumProcessbyName(pid, process_name)) {
                         auto WindowClassName = WindowClassNameText(p);
-                        if (wcslen(WindowClassName) > 1) {
+                        if (safe_wcslen(WindowClassName) > 1) {
                             const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                             if (strfind) {
                                 AppendHwndText(retstring, retstringlen, p);
@@ -669,7 +675,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                 } else {
                     auto WindowClassName = WindowClassNameText(p);
-                    if (wcslen(WindowClassName) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1) {
                         const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                         if (strfind) {
                             AppendHwndText(retstring, retstringlen, p);
@@ -689,7 +695,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 11: ////1.窗口标题+2.窗口类名+8 : 匹配所有者窗口为0的窗口,即顶级窗口
     {
-        if (wcslen(class_name) < 1 && wcslen(title) < 1)
+        if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         if (p == NULL)
@@ -704,7 +710,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     if (EnumProcessbyName(pid, process_name)) {
                         auto WindowClassName = WindowClassNameText(p);
                         auto WindowTitle = WindowTitleText(p);
-                        if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                        if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                             const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                             const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                             if (strfindclass && strfindtitle) {
@@ -720,7 +726,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                 } else {
                     auto WindowClassName = WindowClassNameText(p);
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                         const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                         if (strfindclass && strfindtitle) {
@@ -780,7 +786,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     case 13: // 1.窗口标题+4 : 只匹配指定父窗口的第一层孩子窗口+8 :
              // 匹配所有者窗口为0的窗口,即顶级窗口
     {
-        if (wcslen(title) < 1)
+        if (safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -802,7 +808,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                         }
                         if (processpid == pid) {
                             auto WindowTitle = WindowTitleText(p);
-                            if (wcslen(WindowTitle) > 1) {
+                            if (safe_wcslen(WindowTitle) > 1) {
                                 const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                                 if (strfind) {
                                     AppendHwndText(retstring, retstringlen, p);
@@ -817,7 +823,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                 } else {
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                         if (strfind) {
                             AppendHwndText(retstring, retstringlen, p);
@@ -833,7 +839,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     case 14: // 2.窗口类名+4 : 只匹配指定父窗口的第一层孩子窗口+8 :
              // 匹配所有者窗口为0的窗口,即顶级窗口
     {
-        if (wcslen(class_name) < 1)
+        if (safe_wcslen(class_name) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -855,7 +861,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                         }
                         if (processpid == pid) {
                             auto WindowClassName = WindowClassNameText(p);
-                            if (wcslen(WindowClassName) > 1) {
+                            if (safe_wcslen(WindowClassName) > 1) {
                                 const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                                 if (strfind) {
                                     AppendHwndText(retstring, retstringlen, p);
@@ -870,7 +876,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                 } else {
                     auto WindowClassName = WindowClassNameText(p);
-                    if (wcslen(WindowClassName) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1) {
                         const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                         if (strfind) {
                             AppendHwndText(retstring, retstringlen, p);
@@ -886,7 +892,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     case 15: ////1.窗口标题+2.窗口类名+4 : 只匹配指定父窗口的第一层孩子窗口+8 :
              // 匹配所有者窗口为0的窗口,即顶级窗口
     {
-        if (wcslen(class_name) < 1 && wcslen(title) < 1)
+        if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -909,7 +915,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                         if (processpid == pid) {
                             auto WindowClassName = WindowClassNameText(p);
                             auto WindowTitle = WindowTitleText(p);
-                            if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                            if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                                 const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                                 const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                                 if (strfindclass && strfindtitle) {
@@ -926,7 +932,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                 } else {
                     auto WindowClassName = WindowClassNameText(p);
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                         const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                         if (strfindclass && strfindtitle) {
@@ -974,7 +980,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 17: // 1.窗口标题+//匹配可见的窗口
     {
-        if (wcslen(title) < 1)
+        if (safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -986,7 +992,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     GetWindowThreadProcessId(p, &pid);
                     if (EnumProcessbyName(pid, process_name)) {
                         auto WindowTitle = WindowTitleText(p);
-                        if (wcslen(WindowTitle) > 1) {
+                        if (safe_wcslen(WindowTitle) > 1) {
                             const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                             if (strfind) {
                                 AppendHwndText(retstring, retstringlen, p);
@@ -1000,7 +1006,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                 } else {
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                         if (strfind) {
                             AppendHwndText(retstring, retstringlen, p);
@@ -1019,7 +1025,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 18: // 2.窗口类名+//匹配可见的窗口
     {
-        if (wcslen(class_name) < 1)
+        if (safe_wcslen(class_name) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -1031,7 +1037,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     GetWindowThreadProcessId(p, &pid);
                     if (EnumProcessbyName(pid, process_name)) {
                         auto WindowClassName = WindowClassNameText(p);
-                        if (wcslen(WindowClassName) > 1) {
+                        if (safe_wcslen(WindowClassName) > 1) {
                             const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                             if (strfind) {
                                 AppendHwndText(retstring, retstringlen, p);
@@ -1045,7 +1051,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                 } else {
                     auto WindowClassName = WindowClassNameText(p);
-                    if (wcslen(WindowClassName) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1) {
                         const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                         if (strfind) {
                             AppendHwndText(retstring, retstringlen, p);
@@ -1064,7 +1070,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 19: ////1.窗口标题+2.窗口类名+匹配可见的窗口
     {
-        if (wcslen(class_name) < 1 && wcslen(title) < 1)
+        if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -1077,7 +1083,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     if (EnumProcessbyName(pid, process_name)) {
                         auto WindowClassName = WindowClassNameText(p);
                         auto WindowTitle = WindowTitleText(p);
-                        if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                        if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                             const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                             const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                             if (strfindclass && strfindtitle) {
@@ -1093,7 +1099,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                 } else {
                     auto WindowClassName = WindowClassNameText(p);
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                         const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                         if (strfindclass && strfindtitle) {
@@ -1151,7 +1157,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 21: // 1.窗口标题+4 : 只匹配指定父窗口的第一层孩子窗口+匹配可见的窗口
     {
-        if (wcslen(title) < 1)
+        if (safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -1173,7 +1179,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                         }
                         if (processpid == pid) {
                             auto WindowTitle = WindowTitleText(p);
-                            if (wcslen(WindowTitle) > 1) {
+                            if (safe_wcslen(WindowTitle) > 1) {
                                 const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                                 if (strfind) {
                                     AppendHwndText(retstring, retstringlen, p);
@@ -1188,7 +1194,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                 } else {
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                         if (strfind) {
                             AppendHwndText(retstring, retstringlen, p);
@@ -1203,7 +1209,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 22: // 2.窗口类名+4 : 只匹配指定父窗口的第一层孩子窗口+匹配可见的窗口
     {
-        if (wcslen(class_name) < 1)
+        if (safe_wcslen(class_name) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -1225,7 +1231,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                         }
                         if (processpid == pid) {
                             auto WindowClassName = WindowClassNameText(p);
-                            if (wcslen(WindowClassName) > 1) {
+                            if (safe_wcslen(WindowClassName) > 1) {
                                 const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                                 if (strfind) {
                                     AppendHwndText(retstring, retstringlen, p);
@@ -1240,7 +1246,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                 } else {
                     auto WindowClassName = WindowClassNameText(p);
-                    if (wcslen(WindowClassName) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1) {
                         const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                         if (strfind) {
                             AppendHwndText(retstring, retstringlen, p);
@@ -1256,7 +1262,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     case 23: // 1.窗口标题+2.窗口类名+4 :
              // 只匹配指定父窗口的第一层孩子窗口+16:匹配可见的窗口
     {
-        if (wcslen(class_name) < 1 && wcslen(title) < 1)
+        if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -1279,7 +1285,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                         if (processpid == pid) {
                             auto WindowClassName = WindowClassNameText(p);
                             auto WindowTitle = WindowTitleText(p);
-                            if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                            if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                                 const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                                 const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                                 if (strfindclass && strfindtitle) {
@@ -1296,7 +1302,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                 } else {
                     auto WindowClassName = WindowClassNameText(p);
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                         const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                         if (strfindclass && strfindtitle) {
@@ -1345,7 +1351,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     case 25: // 1.窗口标题+
              // 8:匹配所有者窗口为0的窗口,即顶级窗口+16:匹配可见的窗口
     {
-        if (wcslen(title) < 1)
+        if (safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -1357,7 +1363,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     GetWindowThreadProcessId(p, &pid);
                     if (EnumProcessbyName(pid, process_name)) {
                         auto WindowTitle = WindowTitleText(p);
-                        if (wcslen(WindowTitle) > 1) {
+                        if (safe_wcslen(WindowTitle) > 1) {
                             const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                             if (strfind) {
                                 AppendHwndText(retstring, retstringlen, p);
@@ -1371,7 +1377,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                 } else {
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                         if (strfind) {
                             AppendHwndText(retstring, retstringlen, p);
@@ -1391,7 +1397,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     case 26: // 2.窗口类名+
              // 8:匹配所有者窗口为0的窗口,即顶级窗口+16:匹配可见的窗口
     {
-        if (wcslen(class_name) < 1)
+        if (safe_wcslen(class_name) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -1403,7 +1409,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     GetWindowThreadProcessId(p, &pid);
                     if (EnumProcessbyName(pid, process_name)) {
                         auto WindowClassName = WindowClassNameText(p);
-                        if (wcslen(WindowClassName) > 1) {
+                        if (safe_wcslen(WindowClassName) > 1) {
                             const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                             if (strfind) {
                                 AppendHwndText(retstring, retstringlen, p);
@@ -1417,7 +1423,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                 } else {
                     auto WindowClassName = WindowClassNameText(p);
-                    if (wcslen(WindowClassName) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1) {
                         const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                         if (strfind) {
                             AppendHwndText(retstring, retstringlen, p);
@@ -1436,7 +1442,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     }
     case 27: // 1.窗口标题+2.窗口类名+8:匹配所有者窗口为0的窗口,即顶级窗口+16.匹配可见的窗口
     {
-        if (wcslen(class_name) < 1 && wcslen(title) < 1)
+        if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -1449,7 +1455,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     if (EnumProcessbyName(pid, process_name)) {
                         auto WindowClassName = WindowClassNameText(p);
                         auto WindowTitle = WindowTitleText(p);
-                        if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                        if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                             const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                             const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                             if (strfindclass && strfindtitle) {
@@ -1465,7 +1471,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                 } else {
                     auto WindowClassName = WindowClassNameText(p);
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                         const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                         if (strfindclass && strfindtitle) {
@@ -1525,7 +1531,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     case 29: ////1.窗口标题+4 :
              // 只匹配指定父窗口的第一层孩子窗口+8:匹配所有者窗口为0的窗口,即顶级窗口+16:匹配可见的窗口
     {
-        if (wcslen(title) < 1)
+        if (safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -1547,7 +1553,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                         }
                         if (processpid == pid) {
                             auto WindowTitle = WindowTitleText(p);
-                            if (wcslen(WindowTitle) > 1) {
+                            if (safe_wcslen(WindowTitle) > 1) {
                                 const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                                 if (strfind) {
                                     AppendHwndText(retstring, retstringlen, p);
@@ -1562,7 +1568,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                 } else {
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
                         if (strfind) {
                             AppendHwndText(retstring, retstringlen, p);
@@ -1578,7 +1584,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     case 30: // 2.窗口类名+4 :
              // 只匹配指定父窗口的第一层孩子窗口+8:匹配所有者窗口为0的窗口,即顶级窗口+16:匹配可见的窗口
     {
-        if (wcslen(class_name) < 1)
+        if (safe_wcslen(class_name) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -1600,7 +1606,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                         }
                         if (processpid == pid) {
                             auto WindowClassName = WindowClassNameText(p);
-                            if (wcslen(WindowClassName) > 1) {
+                            if (safe_wcslen(WindowClassName) > 1) {
                                 const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                                 if (strfind) {
                                     AppendHwndText(retstring, retstringlen, p);
@@ -1615,7 +1621,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                     }
                 } else {
                     auto WindowClassName = WindowClassNameText(p);
-                    if (wcslen(WindowClassName) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1) {
                         const wchar_t *strfind = wcsstr(WindowClassName, class_name); // 模糊匹配
                         if (strfind) {
                             AppendHwndText(retstring, retstringlen, p);
@@ -1631,7 +1637,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     case 31: // 1.窗口标题+2.窗口类名+4 :
              // 只匹配指定父窗口的第一层孩子窗口+8:匹配所有者窗口为0的窗口,即顶级窗口+16.匹配可见的窗口
     {
-        if (wcslen(class_name) < 1 && wcslen(title) < 1)
+        if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1)
             return false;
         HWND p = ::GetWindow(parent, GW_CHILD); // 获取桌面窗口的子窗口
         p = ::GetWindow(p, GW_HWNDFIRST);
@@ -1654,7 +1660,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                         if (processpid == pid) {
                             auto WindowClassName = WindowClassNameText(p);
                             auto WindowTitle = WindowTitleText(p);
-                            if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                            if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                                 const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                                 const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                                 if (strfindclass && strfindtitle) {
@@ -1671,7 +1677,7 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
                 } else {
                     auto WindowClassName = WindowClassNameText(p);
                     auto WindowTitle = WindowTitleText(p);
-                    if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                    if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                         const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                         const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
                         if (strfindclass && strfindtitle) {
@@ -1724,7 +1730,7 @@ bool WindowService::FindWindowByProcess(const wchar_t *class_name, const wchar_t
     bool bret = false;
     rethwnd = nullptr;
     if (process_name) {
-        if (wcslen(process_name) < 1)
+        if (safe_wcslen(process_name) < 1)
             return false;
         npid.clear();
         enum_process_success_count = 0;
@@ -1738,17 +1744,17 @@ bool WindowService::FindWindowByProcess(const wchar_t *class_name, const wchar_t
                 DWORD pid = 0;
                 GetWindowThreadProcessId(p, &pid);
                 if (EnumProcessbyName(pid, process_name)) {
-                    if (wcslen(class_name) < 1 && wcslen(title) < 1) {
+                    if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1) {
                         rethwnd = p;
                         bret = true;
                         break;
                     } else {
                         auto WindowClassName = WindowClassNameText(p);
                         auto WindowTitle = WindowTitleText(p);
-                        if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                        if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                             const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                             const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
-                            if ((wcslen(class_name) >= 1 && strfindclass) || (wcslen(title) >= 1 && strfindtitle)) {
+                            if ((safe_wcslen(class_name) >= 1 && strfindclass) || (safe_wcslen(title) >= 1 && strfindtitle)) {
                                 rethwnd = p;
                                 bret = true;
                                 break;
@@ -1759,9 +1765,9 @@ bool WindowService::FindWindowByProcess(const wchar_t *class_name, const wchar_t
                         if (child_hwnd != NULL) {
                             const wchar_t *classname = NULL;
                             const wchar_t *titles = NULL;
-                            if (wcslen(class_name) > 0)
+                            if (safe_wcslen(class_name) > 0)
                                 classname = class_name;
-                            if (wcslen(title) > 0)
+                            if (safe_wcslen(title) > 0)
                                 titles = titles;
                             HWND dret = FindChildWnd(child_hwnd, titles, classname, NULL, false, false, process_name);
                             if (dret != nullptr) {
@@ -1783,17 +1789,17 @@ bool WindowService::FindWindowByProcess(const wchar_t *class_name, const wchar_t
                 DWORD npid = 0;
                 GetWindowThreadProcessId(p, &npid);
                 if (Pid == npid) {
-                    if (wcslen(class_name) < 1 && wcslen(title) < 1) {
+                    if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1) {
                         rethwnd = p;
                         bret = true;
                         break;
                     } else {
                         auto WindowClassName = WindowClassNameText(p);
                         auto WindowTitle = WindowTitleText(p);
-                        if (wcslen(WindowClassName) > 1 && wcslen(WindowTitle) > 1) {
+                        if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
                             const wchar_t *strfindclass = wcsstr(WindowClassName, class_name); // 模糊匹配
                             const wchar_t *strfindtitle = wcsstr(WindowTitle, title);          // 模糊匹配
-                            if ((wcslen(class_name) >= 1 && strfindclass) || (wcslen(title) >= 1 && strfindtitle)) {
+                            if ((safe_wcslen(class_name) >= 1 && strfindclass) || (safe_wcslen(title) >= 1 && strfindtitle)) {
                                 rethwnd = p;
                                 bret = true;
                                 break;
@@ -1803,9 +1809,9 @@ bool WindowService::FindWindowByProcess(const wchar_t *class_name, const wchar_t
                         if (child_hwnd != NULL) {
                             const wchar_t *classname = NULL;
                             const wchar_t *titles = NULL;
-                            if (wcslen(class_name) > 0)
+                            if (safe_wcslen(class_name) > 0)
                                 classname = class_name;
-                            if (wcslen(title) > 0)
+                            if (safe_wcslen(title) > 0)
                                 titles = titles;
                             HWND dret = FindChildWnd(child_hwnd, titles, classname, NULL, false, false, process_name);
                             if (dret != nullptr) {

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <shlwapi.h>
 #include <sstream>
+#include <utility>
 #include <vector>
 // #define USE_BOOST_STACK_TRACE
 #ifdef USE_BOOST_STACK_TRACE
@@ -195,24 +196,27 @@ void string2lower(std::string &s) {
     std::transform(s.begin(), s.end(), s.begin(), tolower);
 }
 
-void replacea(std::string &str, const std::string &oldval, const std::string &newval) {
-    size_t x0 = 0, dx = newval.length() - oldval.length() + 1;
-    size_t idx = str.find(oldval, x0);
-    while (idx != -1 && x0 >= 0) {
-        str.replace(idx, oldval.length(), newval);
-        x0 = idx + dx;
-        idx = str.find(oldval, x0);
+// 旧实现用 dx = newval.len - oldval.len + 1 计算步进,newval 比 oldval 短时
+// size_t 下溢成天文数字,循环直接结束(漏替换);且 oldval 为空串时死循环。
+// 现改为直接从替换后的位置继续扫描。
+namespace {
+template <typename StrT> void replace_impl(StrT &str, const StrT &oldval, const StrT &newval) {
+    if (oldval.empty())
+        return;
+    typename StrT::size_type pos = 0;
+    while ((pos = str.find(oldval, pos)) != StrT::npos) {
+        str.replace(pos, oldval.length(), newval);
+        pos += newval.length(); // 跳过刚写入的内容,避免自我匹配造成的死循环
     }
+}
+} // namespace
+
+void replacea(std::string &str, const std::string &oldval, const std::string &newval) {
+    replace_impl(str, oldval, newval);
 }
 
 void replacew(std::wstring &str, const std::wstring &oldval, const std::wstring &newval) {
-    size_t x0 = 0, dx = newval.length() - oldval.length() + 1;
-    size_t idx = str.find(oldval, x0);
-    while (idx != -1 && x0 >= 0) {
-        str.replace(idx, oldval.length(), newval);
-        x0 = idx + dx;
-        idx = str.find(oldval, x0);
-    }
+    replace_impl(str, oldval, newval);
 }
 
 namespace op {
@@ -255,22 +259,55 @@ std::string GetLastErrorAsString() {
     return message;
 }
 
+// 带消息泵的延时。
+// 旧实现是 while(GetTickCount64() < deadline) 的忙等自旋:线程在整段延时里
+// 100% 占满一个 CPU 核。项目里 Delay/Delays 共 41 个调用点,其中 21 个在 input/
+// (每次点击、每次按键都会进来),多开 N 个实例就等于烧满 N 个核。
+// 现改为 MsgWaitForMultipleObjectsEx 阻塞等待:没有消息时线程真正挂起,
+// 有消息时唤醒并派发,消息泵语义与原来一致。
 bool Delay(long mis) {
+    if (mis <= 0)
+        return true;
+
     MSG msg = {};
-    auto deadline = ::GetTickCount64() + mis;
-    while (::GetTickCount64() < deadline) {
-        // 除收到'WM_QUIT'消息，结果始终都是大于0的
-        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) > 0) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
+    const ULONGLONG deadline = ::GetTickCount64() + static_cast<ULONGLONG>(mis);
+    for (;;) {
+        const ULONGLONG now = ::GetTickCount64();
+        if (now >= deadline)
+            break;
+
+        const DWORD remain = static_cast<DWORD>(deadline - now);
+        // MWMO_INPUTAVAILABLE:避免"消息已在队列里但未被标记为新消息"导致的漏唤醒。
+        const DWORD r = ::MsgWaitForMultipleObjectsEx(0, nullptr, remain, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+        if (r == WAIT_TIMEOUT)
+            break;
+        if (r == WAIT_FAILED) {
+            // 极端情况(线程无法建立消息队列)退化为纯睡眠,仍然不自旋。
+            ::Sleep(remain);
+            break;
+        }
+
+        while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT) {
+                // 不吞掉退出消息,重新投递给外层消息循环。
+                ::PostQuitMessage(static_cast<int>(msg.wParam));
+                return false;
+            }
+            ::TranslateMessage(&msg);
+            ::DispatchMessageW(&msg);
         }
     }
     return true;
 }
 
+// 随机延时。旧实现 mis_min + rand() % mis_max 会溢出上界:
+// Delays(100, 200) 实际产生 100~299。正确区间应为 [mis_min, mis_max]。
 bool Delays(long mis_min, long mis_max) {
     if (mis_min <= 0 || mis_max <= 0)
         return false;
-    long mis = mis_min + rand() % mis_max;
+    if (mis_max < mis_min)
+        std::swap(mis_min, mis_max);
+    const long span = mis_max - mis_min + 1;
+    const long mis = mis_min + (span > 0 ? rand() % span : 0);
     return Delay(mis);
 }

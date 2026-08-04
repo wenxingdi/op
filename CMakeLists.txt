@@ -152,6 +152,18 @@ endif()
 
 project ("op")
 include(CTest)
+
+# 修复：上方第 50 行的位数判定在 project() 之前执行。对 NMake 生成器，
+# CMAKE_GENERATOR_PLATFORM / CMAKE_VS_PLATFORM_NAME 均为空，且彼时
+# CMAKE_SIZEOF_VOID_P 尚未定义，导致 _op_target_is_64bit 被误判为 FALSE，
+# 静态 minhook 因此错选 x86-windows-static（不存在）而退回动态 DLL 链接。
+# project() 之后编译器已探测，CMAKE_SIZEOF_VOID_P 可用，据此重新判定以修正。
+if(DEFINED CMAKE_SIZEOF_VOID_P AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(_op_target_is_64bit TRUE)
+else()
+    set(_op_target_is_64bit FALSE)
+endif()
+
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 
