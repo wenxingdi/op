@@ -16,6 +16,7 @@
 #include "../hook/ApiResolver.h"
 #include "../base/AutomationModes.h"
 #include "../base/Utils.h"
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -28,7 +29,7 @@ std::wstring DisplayHook::mutex_name;
 void *DisplayHook::old_address;
 void *DisplayHook::hook_target;
 bool DisplayHook::is_hooked = false;
-static int is_capture;
+static std::atomic<int> is_capture{0};
 
 namespace {
 
@@ -157,7 +158,7 @@ int DisplayHook::setup(HWND hwnd_, int render_type_) {
     }
 
     set_capture_enabled(true);
-    return is_capture;
+    return is_capture.load();
 }
 
 int DisplayHook::release() {
@@ -175,11 +176,11 @@ int DisplayHook::release() {
 }
 
 bool DisplayHook::capture_enabled() {
-    return is_capture != 0;
+    return is_capture.load() != 0;
 }
 
 void DisplayHook::set_capture_enabled(bool enabled) {
-    is_capture = enabled ? 1 : 0;
+    is_capture.store(enabled ? 1 : 0);
 }
 
 } // namespace op::hook
