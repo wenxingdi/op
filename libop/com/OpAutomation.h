@@ -48,6 +48,11 @@ class ATL_NO_VTABLE OpAutomation
     void FinalRelease() {
     }
 
+    // 集中异常防护：覆盖全部经 IDispatch 分发的方法，防止 C++ 异常逃逸 COM 边界导致宿主崩溃
+    STDMETHOD(Invoke)(DISPID dispIdMember, REFIID riid, LCID lcid, WORD wFlags,
+                      DISPPARAMS *pDispParams, VARIANT *pVarResult,
+                      EXCEPINFO *pExcepInfo, UINT *puArgErr) override;
+
   private:
     op::Op obj;
 

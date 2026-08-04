@@ -5,6 +5,7 @@
 
 #include "../base/AutomationModes.h"
 #include <cstdint>
+#include <exception>
 #include <filesystem>
 #include <string>
 // OpAutomation
@@ -43,15 +44,33 @@ HRESULT RunCvRetOnly(LONG *ret, Callback &&callback) {
 OpAutomation::OpAutomation() {
 }
 
+STDMETHODIMP OpAutomation::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid,
+                                  WORD wFlags, DISPPARAMS *pDispParams,
+                                  VARIANT *pVarResult, EXCEPINFO *pExcepInfo,
+                                  UINT *puArgErr) {
+    try {
+        return IDispatchImpl<IOpAutomation, &IID_IOpAutomation, &LIBID_opLib,
+                             1, 0>::Invoke(dispIdMember, riid, lcid, wFlags,
+                                           pDispParams, pVarResult,
+                                           pExcepInfo, puArgErr);
+    } catch (const std::exception &e) {
+        if (pExcepInfo) {
+            pExcepInfo->scode = E_FAIL;
+            pExcepInfo->bstrDescription = CComBSTR(e.what()).Detach();
+        }
+        return E_FAIL;
+    } catch (...) {
+        if (pExcepInfo)
+            pExcepInfo->scode = E_FAIL;
+        return E_FAIL;
+    }
+}
+
 STDMETHODIMP OpAutomation::Ver(BSTR *ret) {
 
     // Tool::setlog("address=%d,str=%s", ver, ver);
     wstring s = obj.Ver();
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(ret);
-
-    return S_OK;
+    return CopyOutBstr(ret, s);
 }
 
 STDMETHODIMP OpAutomation::SetPath(BSTR path, LONG *ret) {
@@ -64,10 +83,7 @@ STDMETHODIMP OpAutomation::GetPath(BSTR *path) {
     wstring s;
     obj.GetPath(s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(path);
-    return S_OK;
+    return CopyOutBstr(path, s);
 }
 
 STDMETHODIMP OpAutomation::GetBasePath(BSTR *path) {
@@ -75,10 +91,7 @@ STDMETHODIMP OpAutomation::GetBasePath(BSTR *path) {
     wstring s;
     obj.GetBasePath(s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(path);
-    return S_OK;
+    return CopyOutBstr(path, s);
 }
 
 STDMETHODIMP OpAutomation::GetID(LONG *ret) {
@@ -138,30 +151,21 @@ STDMETHODIMP OpAutomation::AStarFindPath(LONG mapWidth, LONG mapHeight, BSTR dis
     wstring s;
     obj.AStarFindPath(mapWidth, mapHeight, disable_points, beginX, beginY, endX, endY, s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(path);
-    return S_OK;
+    return CopyOutBstr(path, s);
 }
 
 // 根据部分Ex接口的返回值，然后在所有坐标里找出距离指定坐标最近的那个坐标.
 STDMETHODIMP OpAutomation::FindNearestPos(BSTR all_pos, LONG type, LONG x, LONG y, BSTR *retstr) {
     std::wstring s;
     obj.FindNearestPos(all_pos, type, x, y, s);
-    CComBSTR newbstr;
-    auto hr = newbstr.Append(s.data());
-    hr = newbstr.CopyTo(retstr);
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 
 STDMETHODIMP OpAutomation::EnumWindow(LONGLONG parent, BSTR title, BSTR class_name, LONG filter, BSTR *retstr) {
     wstring s;
     obj.EnumWindow(static_cast<LONG_PTR>(parent), title, class_name, filter, s);
 
-    CComBSTR newbstr;
-    auto hr = newbstr.Append(s.data());
-    hr = newbstr.CopyTo(retstr);
-    return hr;
+    return CopyOutBstr(retstr, s);
 }
 
 STDMETHODIMP OpAutomation::EnumWindowByProcess(BSTR process_name, BSTR title, BSTR class_name, LONG filter,
@@ -169,23 +173,19 @@ STDMETHODIMP OpAutomation::EnumWindowByProcess(BSTR process_name, BSTR title, BS
     wstring s;
     obj.EnumWindowByProcess(process_name, title, class_name, filter, s);
 
-    CComBSTR newbstr;
-    newbstr.Append(s.data());
-    newbstr.CopyTo(retstring);
-    return S_OK;
+    return CopyOutBstr(retstring, s);
 }
 
 STDMETHODIMP OpAutomation::EnumProcess(BSTR name, BSTR *retstring) {
     wstring s;
     obj.EnumProcess(name, s);
 
-    CComBSTR newbstr;
-    newbstr.Append(s.data());
-    newbstr.CopyTo(retstring);
-    return S_OK;
+    return CopyOutBstr(retstring, s);
 }
 
 STDMETHODIMP OpAutomation::ClientToScreen(LONGLONG hwnd, VARIANT *x, VARIANT *y, LONG *bret) {
+    if (!x || !y || !bret)
+        return E_POINTER;
     x->vt = VT_I4;
     y->vt = VT_I4;
     long lx = x->lVal;
@@ -221,6 +221,8 @@ STDMETHODIMP OpAutomation::FindWindowEx(LONGLONG parent, BSTR class_name, BSTR t
 }
 
 STDMETHODIMP OpAutomation::GetClientRect(LONGLONG hwnd, VARIANT *x1, VARIANT *y1, VARIANT *x2, VARIANT *y2, LONG *nret) {
+    if (!x1 || !y1 || !x2 || !y2 || !nret)
+        return E_POINTER;
     x1->vt = VT_I4;
     y1->vt = VT_I4;
     x2->vt = VT_I4;
@@ -231,6 +233,8 @@ STDMETHODIMP OpAutomation::GetClientRect(LONGLONG hwnd, VARIANT *x1, VARIANT *y1
 }
 
 STDMETHODIMP OpAutomation::GetClientSize(LONGLONG hwnd, VARIANT *width, VARIANT *height, LONG *nret) {
+    if (!width || !height || !nret)
+        return E_POINTER;
     width->vt = VT_I4;
     height->vt = VT_I4;
     obj.GetClientSize(static_cast<LONG_PTR>(hwnd), &width->lVal, &height->lVal, nret);
@@ -267,10 +271,7 @@ STDMETHODIMP OpAutomation::GetProcessInfo(LONG pid, BSTR *retstring) {
     wstring s;
     obj.GetProcessInfo(pid, s);
 
-    CComBSTR newbstr;
-    newbstr.Append(s.data());
-    newbstr.CopyTo(retstring);
-    return S_OK;
+    return CopyOutBstr(retstring, s);
 }
 
 STDMETHODIMP OpAutomation::GetSpecialWindow(LONG flag, LONGLONG *rethwnd) {
@@ -289,10 +290,7 @@ STDMETHODIMP OpAutomation::GetWindowClass(LONGLONG hwnd, BSTR *retstring) {
     wstring s;
     obj.GetWindowClass(static_cast<LONG_PTR>(hwnd), s);
 
-    CComBSTR newbstr;
-    newbstr.Append(s.data());
-    newbstr.CopyTo(retstring);
-    return S_OK;
+    return CopyOutBstr(retstring, s);
 }
 
 STDMETHODIMP OpAutomation::GetWindowProcessId(LONGLONG hwnd, LONG *nretpid) {
@@ -305,13 +303,12 @@ STDMETHODIMP OpAutomation::GetWindowProcessPath(LONGLONG hwnd, BSTR *retstring) 
     wstring s;
     obj.GetWindowProcessPath(static_cast<LONG_PTR>(hwnd), s);
 
-    CComBSTR newbstr;
-    newbstr.Append(s.data());
-    newbstr.CopyTo(retstring);
-    return S_OK;
+    return CopyOutBstr(retstring, s);
 }
 
 STDMETHODIMP OpAutomation::GetWindowRect(LONGLONG hwnd, VARIANT *x1, VARIANT *y1, VARIANT *x2, VARIANT *y2, LONG *nret) {
+    if (!x1 || !y1 || !x2 || !y2 || !nret)
+        return E_POINTER;
     x1->vt = VT_I4;
     x2->vt = VT_I4;
     y1->vt = VT_I4;
@@ -332,10 +329,7 @@ STDMETHODIMP OpAutomation::GetWindowTitle(LONGLONG hwnd, BSTR *rettitle) {
     wstring s;
     obj.GetWindowTitle(static_cast<LONG_PTR>(hwnd), s);
 
-    CComBSTR newbstr;
-    newbstr.Append(s.data());
-    newbstr.CopyTo(rettitle);
-    return S_OK;
+    return CopyOutBstr(rettitle, s);
 }
 
 STDMETHODIMP OpAutomation::MoveWindow(LONGLONG hwnd, LONG x, LONG y, LONG *nret) {
@@ -345,6 +339,8 @@ STDMETHODIMP OpAutomation::MoveWindow(LONGLONG hwnd, LONG x, LONG y, LONG *nret)
 }
 
 STDMETHODIMP OpAutomation::ScreenToClient(LONGLONG hwnd, VARIANT *x, VARIANT *y, LONG *nret) {
+    if (!x || !y || !nret)
+        return E_POINTER;
     x->vt = VT_I4;
     y->vt = VT_I4;
     obj.ScreenToClient(static_cast<LONG_PTR>(hwnd), &x->lVal, &y->lVal, nret);
@@ -424,11 +420,7 @@ STDMETHODIMP OpAutomation::GetCmdStr(BSTR cmd, LONG millseconds, BSTR *retstr) {
     wstring s;
     obj.GetCmdStr(cmd, millseconds, s);
 
-    CComBSTR newstr;
-
-    auto hr = newstr.Append(s.data());
-    hr = newstr.CopyTo(retstr);
-    return hr;
+    return CopyOutBstr(retstr, s);
 }
 
 STDMETHODIMP OpAutomation::SetClipboard(BSTR str, LONG *ret) {
@@ -440,10 +432,7 @@ STDMETHODIMP OpAutomation::GetClipboard(BSTR *ret) {
     wstring s;
     obj.GetClipboard(s);
 
-    CComBSTR newstr;
-    auto hr = newstr.Append(s.data());
-    hr = newstr.CopyTo(ret);
-    return hr;
+    return CopyOutBstr(ret, s);
 }
 
 STDMETHODIMP OpAutomation::Delay(LONG mis, LONG *ret) {
@@ -490,6 +479,8 @@ STDMETHODIMP OpAutomation::IsBind(LONG *ret) {
 }
 
 STDMETHODIMP OpAutomation::GetCursorPos(VARIANT *x, VARIANT *y, LONG *ret) {
+    if (!x || !y || !ret)
+        return E_POINTER;
     x->vt = y->vt = VT_I4;
     obj.GetCursorPos(&x->lVal, &y->lVal, ret);
 
@@ -781,6 +772,8 @@ STDMETHODIMP OpAutomation::CmpColor(LONG x, LONG y, BSTR color, DOUBLE sim, LONG
 STDMETHODIMP OpAutomation::FindColor(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, LONG dir, VARIANT *x,
                                     VARIANT *y, LONG *ret) {
 
+    if (!x || !y || !ret)
+        return E_POINTER;
     x->vt = y->vt = VT_I4;
 
     obj.FindColor(x1, y1, x2, y2, color, sim, dir, &x->lVal, &y->lVal, ret);
@@ -793,10 +786,7 @@ STDMETHODIMP OpAutomation::FindColorEx(LONG x1, LONG y1, LONG x2, LONG y2, BSTR 
     wstring s;
     obj.FindColorEx(x1, y1, x2, y2, color, sim, dir, s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retstr);
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 // 查找指定区域内的颜色数量
 STDMETHODIMP OpAutomation::GetColorNum(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, LONG *ret) {
@@ -823,15 +813,14 @@ STDMETHODIMP OpAutomation::FindMultiColorEx(LONG x1, LONG y1, LONG x2, LONG y2, 
     wstring s;
     obj.FindMultiColorEx(x1, y1, x2, y2, first_color, offset_color, sim, dir, s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retstr);
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 // 查找指定区域内的图片
 STDMETHODIMP OpAutomation::FindPic(LONG x1, LONG y1, LONG x2, LONG y2, BSTR files, BSTR delta_color, DOUBLE sim,
                                   LONG dir, VARIANT *x, VARIANT *y, LONG *ret) {
 
+    if (!x || !y || !ret)
+        return E_POINTER;
     x->vt = y->vt = VT_I4;
     obj.FindPic(x1, y1, x2, y2, files, delta_color, sim, dir, &x->lVal, &y->lVal, ret);
 
@@ -843,11 +832,7 @@ STDMETHODIMP OpAutomation::FindPicEx(LONG x1, LONG y1, LONG x2, LONG y2, BSTR fi
     wstring s;
     obj.FindPicEx(x1, y1, x2, y2, files, delta_color, sim, dir, s);
 
-    CComBSTR newstr;
-    HRESULT hr;
-    newstr.Append(s.data());
-    hr = newstr.CopyTo(retstr);
-    return hr;
+    return CopyOutBstr(retstr, s);
 }
 // 这个函数可以查找多个图片, 并且返回所有找到的图像的坐标.此函数同FindPicEx.只是返回值不同.(file1, x, y | file2, x, y |
 // ...)
@@ -856,16 +841,13 @@ STDMETHODIMP OpAutomation::FindPicExS(LONG x1, LONG y1, LONG x2, LONG y2, BSTR f
 
     wstring s;
     obj.FindPicExS(x1, y1, x2, y2, files, delta_color, sim, dir, s);
-    CComBSTR newstr;
-    HRESULT hr;
-    newstr.Append(s.data());
-    hr = newstr.CopyTo(retstr);
-
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 // 查找指定区域内的颜色块,颜色格式"RRGGBB-DRDGDB",注意,和按键的颜色格式相反
 STDMETHODIMP OpAutomation::FindColorBlock(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, LONG count,
                                          LONG height, LONG width, VARIANT *x, VARIANT *y, LONG *ret) {
+    if (!x || !y || !ret)
+        return E_POINTER;
     x->vt = y->vt = VT_I4;
     obj.FindColorBlock(x1, y1, x2, y2, color, sim, count, height, width, &x->lVal, &y->lVal, ret);
     return S_OK;
@@ -875,22 +857,14 @@ STDMETHODIMP OpAutomation::FindColorBlockEx(LONG x1, LONG y1, LONG x2, LONG y2, 
                                            LONG height, LONG width, BSTR *retstr) {
     std::wstring s;
     obj.FindColorBlockEx(x1, y1, x2, y2, color, sim, count, height, width, s);
-    CComBSTR newstr;
-    HRESULT hr;
-    newstr.Append(s.data());
-    hr = newstr.CopyTo(retstr);
-
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 // 获取(x,y)的颜色
 STDMETHODIMP OpAutomation::GetColor(LONG x, LONG y, BSTR *ret) {
     wstring s;
     obj.GetColor(x, y, s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(ret);
-    return S_OK;
+    return CopyOutBstr(ret, s);
 }
 
 STDMETHODIMP OpAutomation::SetDisplayInput(BSTR mode, LONG *ret) {
@@ -918,6 +892,8 @@ STDMETHODIMP OpAutomation::LoadMemPic(BSTR pic_name, long long data, LONG size, 
 }
 
 STDMETHODIMP OpAutomation::GetPicSize(BSTR pic_name, VARIANT *width, VARIANT *height, LONG *ret) {
+    if (!width || !height || !ret)
+        return E_POINTER;
     width->vt = height->vt = VT_I4;
     obj.GetPicSize(pic_name, &width->lVal, &height->lVal, ret);
     return S_OK;
@@ -939,6 +915,8 @@ STDMETHODIMP OpAutomation::GetScreenData(LONG x1, LONG y1, LONG x2, LONG y2, LON
 STDMETHODIMP OpAutomation::GetScreenDataBmp(LONG x1, LONG y1, LONG x2, LONG y2, VARIANT *data, VARIANT *size,
                                            LONG *ret) {
 #if OP64
+    if (!data || !size || !ret)
+        return E_POINTER;
     data->vt = VT_I8;
     size->vt = VT_I8;
     data->llVal = 0;
@@ -966,6 +944,8 @@ STDMETHODIMP OpAutomation::GetScreenDataBmp(LONG x1, LONG y1, LONG x2, LONG y2, 
 }
 
 STDMETHODIMP OpAutomation::GetScreenFrameInfo(LONG *frame_id, LONG *time) {
+    if (!frame_id || !time)
+        return E_POINTER;
     obj.GetScreenFrameInfo(frame_id, time);
     return S_OK;
 }
@@ -974,10 +954,7 @@ STDMETHODIMP OpAutomation::GetScreenFrameInfo(LONG *frame_id, LONG *time) {
 STDMETHODIMP OpAutomation::MatchPicName(BSTR pic_name, BSTR *ret) {
     wstring s;
     obj.MatchPicName(pic_name, s);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(ret);
-    return S_OK;
+    return CopyOutBstr(ret, s);
 }
 
 // 设置字库文件
@@ -990,10 +967,7 @@ STDMETHODIMP OpAutomation::SetDict(LONG idx, BSTR file_name, LONG *ret) {
 STDMETHODIMP OpAutomation::GetDict(LONG idx, LONG font_index, BSTR *retstr) {
     std::wstring s;
     obj.GetDict(idx, font_index, s);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retstr);
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 
 // 从内存字节设置全局字库槽，支持 OP 二进制 .dict 和文本字库内容。
@@ -1069,10 +1043,7 @@ STDMETHODIMP OpAutomation::GetNowDict(LONG *ret) {
 STDMETHODIMP OpAutomation::FetchWord(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, BSTR word, BSTR *ret_str) {
     wstring s;
     obj.FetchWord(x1, y1, x2, y2, color, word, s);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(ret_str);
-    return S_OK;
+    return CopyOutBstr(ret_str, s);
 }
 
 STDMETHODIMP OpAutomation::FetchWordEx(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR word,
@@ -1246,25 +1217,20 @@ STDMETHODIMP OpAutomation::Ocr(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, D
     wstring s;
     obj.Ocr(x1, y1, x2, y2, color, sim, s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(ret_str);
-    return S_OK;
+    return CopyOutBstr(ret_str, s);
 }
 // 回识别到的字符串，以及每个字符的坐标.
 STDMETHODIMP OpAutomation::OcrEx(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *ret_str) {
     wstring s;
     obj.OcrEx(x1, y1, x2, y2, color, sim, s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(ret_str);
-    return S_OK;
+    return CopyOutBstr(ret_str, s);
 }
 // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
 STDMETHODIMP OpAutomation::FindStr(LONG x1, LONG y1, LONG x2, LONG y2, BSTR strs, BSTR color, DOUBLE sim, VARIANT *retx,
                                   VARIANT *rety, LONG *ret) {
-
+    if (!retx || !rety || !ret)
+        return E_POINTER;
     retx->vt = rety->vt = VT_INT;
     obj.FindStr(x1, y1, x2, y2, strs, color, sim, &retx->lVal, &rety->lVal, ret);
 
@@ -1276,20 +1242,14 @@ STDMETHODIMP OpAutomation::FindStrEx(LONG x1, LONG y1, LONG x2, LONG y2, BSTR st
     wstring s;
     obj.FindStrEx(x1, y1, x2, y2, strs, color, sim, s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retstr);
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 
 STDMETHODIMP OpAutomation::OcrAuto(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE sim, BSTR *retstr) {
     wstring s;
     obj.OcrAuto(x1, y1, x2, y2, sim, s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retstr);
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 
 // 从文件中识别图片
@@ -1297,30 +1257,21 @@ STDMETHODIMP OpAutomation::OcrFromFile(BSTR file_name, BSTR color_format, DOUBLE
     wstring s;
     obj.OcrFromFile(file_name, color_format, sim, s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retstr);
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 // 从文件中识别图片,无需指定颜色
 STDMETHODIMP OpAutomation::OcrAutoFromFile(BSTR file_name, DOUBLE sim, BSTR *retstr) {
     wstring s;
     obj.OcrAutoFromFile(file_name, sim, s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retstr);
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 
 STDMETHODIMP OpAutomation::FindLine(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr) {
     wstring s;
     obj.FindLine(x1, y1, x2, y2, color, sim, s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retstr);
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 
 STDMETHODIMP OpAutomation::SetOcrEngine(BSTR path_of_engine, BSTR dll_name, BSTR argv, LONG *ret) {
@@ -1358,10 +1309,7 @@ STDMETHODIMP OpAutomation::ReadData(LONGLONG hwnd, BSTR address, LONG size, BSTR
     wstring s;
     obj.ReadData(static_cast<LONG_PTR>(hwnd), address, size, s);
 
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retstr);
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 
 STDMETHODIMP OpAutomation::ReadInt(LONGLONG hwnd, BSTR address, LONG type, LONGLONG *ret) {
@@ -1412,9 +1360,7 @@ STDMETHODIMP OpAutomation::ReadString(LONGLONG hwnd, BSTR address, LONG type, LO
 
     wstring s;
     obj.ReadString(static_cast<LONG_PTR>(hwnd), address, type, len, s);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    return newstr.CopyTo(retstr);
+    return CopyOutBstr(retstr, s);
 }
 
 STDMETHODIMP OpAutomation::WriteString(LONGLONG hwnd, BSTR address, LONG type, BSTR value, LONG *ret) {
@@ -1455,19 +1401,13 @@ STDMETHODIMP OpAutomation::CvGetTemplateCount(LONG *ret) {
 STDMETHODIMP OpAutomation::CvGetAllTemplateNames(BSTR *retstr) {
     wstring s;
     obj.CvGetAllTemplateNames(s);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retstr);
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 
 STDMETHODIMP OpAutomation::CvGetOpenCvVersion(BSTR *retstr) {
     wstring s;
     obj.CvGetOpenCvVersion(s);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retstr);
-    return S_OK;
+    return CopyOutBstr(retstr, s);
 }
 
 STDMETHODIMP OpAutomation::CvLoadTemplateList(BSTR template_list, LONG *ret) {
@@ -1576,10 +1516,7 @@ STDMETHODIMP OpAutomation::CvMatchTemplate(LONG x, LONG y, LONG width, LONG heig
                                           BSTR *retjson, LONG *ret) {
     wstring s;
     obj.CvMatchTemplate(x, y, width, height, template_name, threshold, dir, strip_mode, method, color_mode, s, ret);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retjson);
-    return S_OK;
+    return CopyOutBstr(retjson, s);
 }
 
 STDMETHODIMP OpAutomation::CvMatchTemplateScale(LONG x, LONG y, LONG width, LONG height, BSTR template_name,
@@ -1587,10 +1524,7 @@ STDMETHODIMP OpAutomation::CvMatchTemplateScale(LONG x, LONG y, LONG width, LONG
                                                BSTR *retjson, LONG *ret) {
     wstring s;
     obj.CvMatchTemplateScale(x, y, width, height, template_name, scales, threshold, method, color_mode, s, ret);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retjson);
-    return S_OK;
+    return CopyOutBstr(retjson, s);
 }
 
 STDMETHODIMP OpAutomation::CvMatchAnyTemplate(LONG x, LONG y, LONG width, LONG height, BSTR template_names,
@@ -1598,10 +1532,7 @@ STDMETHODIMP OpAutomation::CvMatchAnyTemplate(LONG x, LONG y, LONG width, LONG h
                                              BSTR *retjson, LONG *ret) {
     wstring s;
     obj.CvMatchAnyTemplate(x, y, width, height, template_names, threshold, dir, strip_mode, method, color_mode, s, ret);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retjson);
-    return S_OK;
+    return CopyOutBstr(retjson, s);
 }
 
 STDMETHODIMP OpAutomation::CvMatchAllTemplates(LONG x, LONG y, LONG width, LONG height, BSTR template_names,
@@ -1609,39 +1540,27 @@ STDMETHODIMP OpAutomation::CvMatchAllTemplates(LONG x, LONG y, LONG width, LONG 
                                               BSTR *retjson, LONG *ret) {
     wstring s;
     obj.CvMatchAllTemplates(x, y, width, height, template_names, threshold, dir, strip_mode, method, color_mode, s, ret);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retjson);
-    return S_OK;
+    return CopyOutBstr(retjson, s);
 }
 
 STDMETHODIMP OpAutomation::CvFeatureMatchTemplate(LONG x, LONG y, LONG width, LONG height, BSTR template_name,
                                                  DOUBLE threshold, BSTR *retjson, LONG *ret) {
     wstring s;
     obj.CvFeatureMatchTemplate(x, y, width, height, template_name, threshold, s, ret);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retjson);
-    return S_OK;
+    return CopyOutBstr(retjson, s);
 }
 
 STDMETHODIMP OpAutomation::CvEdgeMatchTemplate(LONG x, LONG y, LONG width, LONG height, BSTR template_name,
                                               DOUBLE threshold, BSTR *retjson, LONG *ret) {
     wstring s;
     obj.CvEdgeMatchTemplate(x, y, width, height, template_name, threshold, s, ret);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retjson);
-    return S_OK;
+    return CopyOutBstr(retjson, s);
 }
 
 STDMETHODIMP OpAutomation::CvShapeMatchTemplate(LONG x, LONG y, LONG width, LONG height, BSTR template_name,
                                                DOUBLE threshold, BSTR *retjson, LONG *ret) {
     wstring s;
     obj.CvShapeMatchTemplate(x, y, width, height, template_name, threshold, s, ret);
-    CComBSTR newstr;
-    newstr.Append(s.data());
-    newstr.CopyTo(retjson);
-    return S_OK;
+    return CopyOutBstr(retjson, s);
 }
 
