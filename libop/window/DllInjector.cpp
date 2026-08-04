@@ -26,7 +26,10 @@ class remote_process_memory {
 
     void reset() noexcept {
         if (process_ && address_) {
-            ::VirtualFreeEx(process_, address_, size_, MEM_DECOMMIT);
+            // MEM_RELEASE 才真正归还远程地址空间；MEM_DECOMMIT 只释放物理页，
+            // 虚拟地址空间仍被占用，重复注入会累积不可用地址（MEM_RELEASE 时
+            // dwSize 必须为 0）。
+            ::VirtualFreeEx(process_, address_, 0, MEM_RELEASE);
             address_ = nullptr;
         }
     }
@@ -110,11 +113,20 @@ long DllInjector::InjectDll(DWORD pid, LPCTSTR dllPath, long &error_code) {
         error_code = ::GetLastError();
         return -5;
     }
-    // 等待远线程结束
-    WaitForSingleObject(remoteThread.get(), INFINITE);
-    // 取DLL在目标进程的句柄
-    DWORD remoteModule;
-    GetExitCodeThread(remoteThread.get(), &remoteModule);
+    // 等待远线程结束（带 10s 超时：目标进程挂起时不再无限阻塞调用线程。
+    // 超时后远程线程可能仍在目标进程执行，RAII 会释放路径内存——
+    // 目标进程若已卡死 10s 本就异常，属可接受取舍）
+    DWORD waitResult = ::WaitForSingleObject(remoteThread.get(), 10000);
+    if (waitResult != WAIT_OBJECT_0) {
+        error_code = (waitResult == WAIT_TIMEOUT) ? ERROR_TIMEOUT : ::GetLastError();
+        return -6;
+    }
+    // 取DLL在目标进程的句柄（LoadLibraryW 失败时远线程返回 0）
+    DWORD remoteModule = 0;
+    if (!::GetExitCodeThread(remoteThread.get(), &remoteModule) || remoteModule == 0) {
+        error_code = ::GetLastError() ? ::GetLastError() : ERROR_PROC_NOT_FOUND;
+        return -7;
+    }
 
     // 恢复线程
     // ResumeThread(processInfo.hThread);

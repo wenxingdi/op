@@ -445,13 +445,19 @@ long ProcessMemory::WriteString(HWND hwnd, const wstring &address, long type, co
 
 bool ProcessMemory::prepare_process(HWND hwnd) {
     _hwnd = hwnd;
-    if (!_hwnd)
+    if (!_hwnd) {
+        // 切回"读写当前进程"模式：立即释放之前附加的远程进程句柄
+        // （否则旧 BlackBone 句柄会保持打开直到下次 Attach 或析构）
+        _proc.Detach();
         return true;
+    }
     if (!::IsWindow(hwnd))
         return false;
 
     DWORD pid = 0;
     ::GetWindowThreadProcessId(hwnd, &pid);
+    // BlackBone Process::Attach 内部先 Detach 旧进程再 Open 新进程，
+    // 切换窗口句柄不会泄漏旧进程对象。
     return _proc.Attach(pid) >= 0;
 }
 
