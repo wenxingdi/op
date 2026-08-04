@@ -7,6 +7,7 @@
 
 %{
     #define OP_API
+#include <exception>
 #include "../include/libop.h"
 %}
 
@@ -34,6 +35,21 @@
     void RunApp(const wchar_t *cmdline, long mode, long *ret) {
         unsigned long pid = 0;
         $self->RunApp(cmdline, mode, &pid, ret);
+    }
+}
+
+// C++ 异常→Python 异常：防止 C++ 异常逃逸导致 Python 解释器崩溃
+// （修改本文件后需在有 SWIG 的环境执行 `swig -c++ -python -o op_wrap.cxx op.i`
+//   重新生成 wrapper，否则改动不生效）
+%exception {
+    try {
+        $action
+    } catch (const std::exception &e) {
+        PyErr_SetString(PyExc_RuntimeError, e.what());
+        SWIG_fail;
+    } catch (...) {
+        PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+        SWIG_fail;
     }
 }
 

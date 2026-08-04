@@ -24,6 +24,17 @@ class remote_process_memory {
         return address_;
     }
 
+    // 放弃所有权（dtor 不再释放）。用于超时路径：远线程可能仍在目标进程执行
+    // LoadLibraryW，其参数指向本块路径内存；若立即 VirtualFreeEx 释放，远线程
+    // 将访问已释放内存导致目标进程 AV。改为放弃所有权，让远线程继续安全使用，
+    // 直到目标进程退出由 OS 回收。代价：超时场景泄漏一块路径内存（通常 <1KB）。
+    void *release() noexcept {
+        void *a = address_;
+        address_ = nullptr;
+        process_ = nullptr;
+        return a;
+    }
+
     void reset() noexcept {
         if (process_ && address_) {
             // MEM_RELEASE 才真正归还远程地址空间；MEM_DECOMMIT 只释放物理页，
@@ -118,6 +129,10 @@ long DllInjector::InjectDll(DWORD pid, LPCTSTR dllPath, long &error_code) {
     // 目标进程若已卡死 10s 本就异常，属可接受取舍）
     DWORD waitResult = ::WaitForSingleObject(remoteThread.get(), 10000);
     if (waitResult != WAIT_OBJECT_0) {
+        // 超时/失败：远线程可能仍在目标进程执行 LoadLibraryW，其参数指向 remoteMemory。
+        // 放弃路径内存所有权（不立即 VirtualFreeEx），让远线程继续安全使用，
+        // 直到目标进程退出由 OS 回收。代价：超时场景泄漏一块路径内存（通常 <1KB）。
+        (void)remoteMemory.release();
         error_code = (waitResult == WAIT_TIMEOUT) ? ERROR_TIMEOUT : ::GetLastError();
         return -6;
     }

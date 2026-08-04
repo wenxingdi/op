@@ -182,7 +182,6 @@ double WindowService::get_cpu_usage(DWORD ProcessID) // 获取指定进程CPU使
             prev = it->second;
             has_prev = true;
         }
-        g_last[ProcessID] = first;
     }
 
     Sleep(1000); // 保留原采样间隔
@@ -201,6 +200,12 @@ double WindowService::get_cpu_usage(DWORD ProcessID) // 获取指定进程CPU使
     GetSystemTimeAsFileTime(&now);
     system_time = (FileTimeToInt64(kernel_time) + FileTimeToInt64(user_time)) / processor_count_; // CPU使用时间
     time = FileTimeToInt64(now);                                                                  // 现在的时间
+
+    // 用第二次采样作为下次基准（差分窗口回到 ~1s；原实现存第一次采样导致连续调用窗口 ~2s）
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_last[ProcessID] = {system_time, time};
+    }
 
     if (has_prev) {
         // 用本进程上一次采样做差（滑动窗口，更准确）
