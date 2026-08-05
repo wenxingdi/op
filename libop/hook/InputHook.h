@@ -24,6 +24,9 @@ class InputHook {
     static int lockInput(int lock);
     static bool mouseLocked();
     static bool keyboardLocked();
+    // 设置 dx 输入通道开关，attrs 是 DX_ATTR_* 位掩码。
+    static int setInputAttr(int attrs);
+    static bool channelEnabled(int channel);
     static void moveTo(LPARAM lp);
     static void button(LPARAM lp, int key, bool down);
     static void updateWheel(WPARAM, LPARAM, bool horizontal);
@@ -44,6 +47,8 @@ class InputHook {
     static unsigned long long m_cursorHash;
     static unsigned long long m_cursorMeta;
     static LONG m_inputLock;
+    // dx 输入通道开关位掩码，默认三通道全开，保持旧行为。
+    static LONG m_dxAttrs;
 };
 
 } // namespace op::hook

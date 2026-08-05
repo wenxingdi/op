@@ -113,20 +113,17 @@ int Pipe::close(DWORD process_wait_ms) {
         }
     }
 
-    // 超时杀掉进程后，管道里可能还有已经输出的数据，先给读线程一点时间消费。
-    const ULONGLONG drain_deadline = ::GetTickCount64() + (process_exited ? 100 : 200);
-    while (_reading.load() && ::GetTickCount64() < drain_deadline) {
-        ::Sleep(1);
-    }
-
+    // The reader thread exits on its own once the child closes its stdout
+    // (ReadFile returns ERROR_BROKEN_PIPE), which is guaranteed after we close
+    // our write end and (on timeout) terminate the process tree. Just stop the
+    // loop and join; no need to forcibly cancel I/O.
     _reading = false;
 
     if (_pthread) {
         if (_pthread->joinable()) {
-            ::CancelSynchronousIo(_pthread->native_handle());
-            SAFE_CLOSE(_hread);
             _pthread->join();
         }
+        SAFE_DELETE(_pthread);
     }
     SAFE_DELETE(_pthread);
     SAFE_CLOSE(_hread);
@@ -152,29 +149,21 @@ int Pipe::on_write(const string &info) {
 }
 
 void Pipe::reader() {
-    const static int buf_size = 1 << 10;
-    char buf[buf_size];
+    // Blocking reads: when the child closes its stdout the next ReadFile returns
+    // FALSE with ERROR_BROKEN_PIPE, which ends the loop naturally. This removes
+    // the previous PeekNamedPipe + Sleep(1) busy-poll and the need to forcibly
+    // cancel the I/O from close().
+    const static int buf_size = 1 << 12;
+    std::vector<char> buf(buf_size);
     unsigned long read_len = 0;
     while (_reading.load()) {
-        DWORD available = 0;
-        if (!::PeekNamedPipe(_hread, nullptr, 0, nullptr, &available, nullptr)) {
+        if (!::ReadFile(_hread, buf.data(), static_cast<DWORD>(buf.size()), &read_len, nullptr)) {
             _reading = false;
             break;
         }
-        if (available == 0) {
-            ::Sleep(1);
-            continue;
-        }
-
-        memset(buf, 0, buf_size * sizeof(char));
-        const DWORD chunk = std::min<DWORD>(buf_size - 1, available);
-        if (ReadFile(_hread, buf, chunk, &read_len, NULL) && read_len > 0) {
-            on_read(string(buf, read_len));
-            continue;
-        }
-
-        _reading = false;
-        break;
+        if (read_len == 0)
+            break;
+        on_read(string(buf.data(), read_len));
     }
 }
 

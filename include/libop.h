@@ -228,6 +228,12 @@ class OP_API Op {
     void UnBindWindow(_Out_ long *ret);
     // 临时锁定目标窗口的外部输入。只对 dx 鼠标、dx 键盘有效。
     void LockInput(_In_ long lock, _Out_ long *ret);
+    // 设置 dx 输入通道开关。只对 dx 鼠标、dx 键盘有效。
+    // attr=0 时 value 是完整掩码；attr 取 1(DirectInput)/2(RawInput)/4(窗口消息) 或其组合时，
+    // value 非 0 表示打开这些通道，0 表示关闭。默认 7（三通道全开）。
+    void SetDxAttr(_In_ long attr, _In_ long value, _Out_ long *ret);
+    // 获取当前的 dx 输入通道开关掩码。
+    void GetDxAttr(_Out_ long *ret);
     // 获取当前对象已经绑定的显示窗口句柄. 无绑定返回0
     void GetBindWindow(_Out_ LONG_PTR *ret);
     // 判定当前对象是否已绑定窗口.

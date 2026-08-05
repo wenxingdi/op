@@ -20,4 +20,11 @@
 #define OP_WM_KEYDOWN (WM_USER + WM_KEYDOWN)
 #define OP_WM_KEYUP (WM_USER + WM_KEYUP)
 #define OP_WM_CHAR (WM_USER + WM_CHAR)
+
+// dx 输入通道开关（位掩码）。一次 dx 输入事件默认同时推送到下面三个通道，
+// 目标程序只读其中一路时，可以关掉多余通道以减少暴露面。
+#define DX_ATTR_DINPUT 0x01    // DirectInput：缓冲事件队列 + GetDeviceState 即时状态
+#define DX_ATTR_RAWINPUT 0x02  // Raw Input：WM_INPUT 原始包队列
+#define DX_ATTR_WINDOWMSG 0x04 // 窗口消息：WM_MOUSEMOVE / WM_KEYDOWN 等转发给原窗口过程
+#define DX_ATTR_ALL (DX_ATTR_DINPUT | DX_ATTR_RAWINPUT | DX_ATTR_WINDOWMSG)
 #endif // OP_HOOK_HOOK_PROTOCOL_H_

@@ -90,8 +90,17 @@ int HttpOcrService::release() {
 }
 
 int HttpOcrService::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
-    const std::lock_guard<std::mutex> lock(m_mutex);
     result.clear();
+
+    // Snapshot endpoint/timeout under lock; the HTTP request below runs concurrently
+    // so multiple ocr() calls from different threads are not serialized.
+    std::string endpoint;
+    int timeout_ms = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        endpoint = m_endpoint;
+        timeout_ms = m_timeout_ms;
+    }
 
     if (data == nullptr || w <= 0 || h <= 0 || (bpp != 1 && bpp != 3 && bpp != 4)) {
         return -1;
@@ -108,19 +117,28 @@ int HttpOcrService::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
         return -3;
     }
 
-    std::string req = "{\"image\":\"" + image_b64 + "\",\"width\":" + std::to_string(w) +
-                      ",\"height\":" + std::to_string(h) + ",\"bpp\":" + std::to_string(bpp) + "}";
+    std::string req;
+    req.reserve(image_b64.size() + 96);
+    req += "{\"image\":\"";
+    req += image_b64;
+    req += "\",\"width\":";
+    req += std::to_string(w);
+    req += ",\"height\":";
+    req += std::to_string(h);
+    req += ",\"bpp\":";
+    req += std::to_string(bpp);
+    req += "}";
 
     ParsedUrl parsed;
-    if (!parse_url(m_endpoint, parsed)) {
-        cout << "ocr endpoint invalid: " << m_endpoint << endl;
+    if (!parse_url(endpoint, parsed)) {
+        cout << "ocr endpoint invalid: " << endpoint << endl;
         return -4;
     }
 
     std::string resp;
     DWORD status_code = 0;
-    if (!http_post_json(parsed, req, m_timeout_ms, resp, status_code, L"op-ocr-client/1.0")) {
-        cout << "ocr request failed: endpoint=" << m_endpoint << endl;
+    if (!http_post_json(parsed, req, timeout_ms, resp, status_code, L"op-ocr-client/1.0")) {
+        cout << "ocr request failed: endpoint=" << endpoint << endl;
         return -5;
     }
     if (status_code != 200) {

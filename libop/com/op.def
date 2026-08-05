@@ -13,6 +13,7 @@ EXPORTS
 	SetInputHook	PRIVATE
 	ReleaseInputHook	PRIVATE
 	SetInputLock	PRIVATE
+	SetInputAttr	PRIVATE
 	GetInputCursorShapeHash	PRIVATE
 	GetInputCursorShapeMeta	PRIVATE
 	GetInputCursorShapeHashLow	PRIVATE

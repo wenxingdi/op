@@ -78,6 +78,13 @@ class AStar {
                 if (outside(next) || blocked(next)) {
                     continue;
                 }
+                // 禁止对角移动穿越墙角：相邻两正交格任一为墙则不允许斜穿。
+                if (dir.x != 0 && dir.y != 0) {
+                    if (blocked({current.pos.x + dir.x, current.pos.y}) ||
+                        blocked({current.pos.x, current.pos.y + dir.y})) {
+                        continue;
+                    }
+                }
 
                 const int next_index = index(next);
                 if (closed[next_index]) {
@@ -130,6 +137,9 @@ class AStar {
     }
 
     bool blocked(Vec2i pos) const {
+        if (outside(pos)) {
+            return true;
+        }
         return _walls.empty() || _walls[index(pos)];
     }
 

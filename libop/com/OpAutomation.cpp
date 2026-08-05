@@ -467,6 +467,16 @@ STDMETHODIMP OpAutomation::LockInput(LONG lock, LONG *ret) {
     return S_OK;
 }
 
+STDMETHODIMP OpAutomation::SetDxAttr(LONG attr, LONG value, LONG *ret) {
+    obj.SetDxAttr(attr, value, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetDxAttr(LONG *ret) {
+    obj.GetDxAttr(ret);
+    return S_OK;
+}
+
 STDMETHODIMP OpAutomation::GetBindWindow(LONGLONG *ret) {
     LONG_PTR hwnd = 0;
     obj.GetBindWindow(&hwnd);

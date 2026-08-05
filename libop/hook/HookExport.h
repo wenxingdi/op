@@ -20,6 +20,10 @@ DLL_API long __stdcall ReleaseInputHook();
 // 返回值:1 成功，0失败
 DLL_API long __stdcall SetInputLock(int lock);
 
+// 描述： 设置 dx 输入通道开关，attrs 为 DX_ATTR_* 位掩码。
+// 返回值:1 成功，0失败
+DLL_API long __stdcall SetInputAttr(int attrs);
+
 // 描述： 获取目标进程内最近一次 SetCursor 的光标 hash。
 DLL_API unsigned long long __stdcall GetInputCursorShapeHash();
 

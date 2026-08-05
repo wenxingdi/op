@@ -6,6 +6,7 @@ __all__ = [
     "DisplayInputMode",
     "DisplayInputPrefix",
     "DisplayMode",
+    "DxInputChannel",
     "FindDirection",
     "KeypadDelayType",
     "KeypadMode",
@@ -151,6 +152,15 @@ class KeypadMode(str, Enum):
     NORMAL_HD = "normal.hd"
     WINDOWS = "windows"
     DX = "dx"
+
+
+class DxInputChannel(IntFlag):
+    """dx 输入的投递通道，用于 set_dx_attr。默认三通道全开。"""
+
+    DINPUT = 0x01
+    RAWINPUT = 0x02
+    WINDOWMSG = 0x04
+    ALL = 0x07
 
 
 class MouseDelayType(str, Enum):

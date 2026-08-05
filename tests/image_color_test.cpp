@@ -2210,3 +2210,49 @@ TEST(ImageColorTest, SetDisplayInputMemBareRawPointerFailsWithoutChangingCurrent
     op.GetColor(1, 1, color);
     EXPECT_EQ(color, L"030201") << "Failed mem mode parsing should not clobber the previous display input";
 }
+
+// 回归：直接驱动 BindingSession::requestCapture 的 pic/mem 路径，验证改动 A 的越界防御。
+// 走 op::Op 门面时 RectConvert 会在到达 requestCapture 前钳制越界坐标，故必须直连 requestCapture。
+TEST(ImageColorTest, RequestCapturePicMemBoundsCheck) {
+    const int width = 32;
+    const int height = 32;
+    vector<uchar> raw_bgra(static_cast<size_t>(width) * height * 4, 0xff);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            auto idx = static_cast<size_t>(y * width + x) * 4;
+            raw_bgra[idx + 0] = static_cast<uchar>(x);      // B = x
+            raw_bgra[idx + 1] = static_cast<uchar>(y);      // G = y
+            raw_bgra[idx + 2] = static_cast<uchar>(x ^ y);  // R = x^y
+            raw_bgra[idx + 3] = 0xff;                       // A
+        }
+    }
+    const wstring mode = L"mem:" + PtrToWString(raw_bgra.data(), true) + L",32,32,bgra";
+    unsigned char px[4] = {};
+
+    // 合法全幅子区：成功且拷到 (0,0) 像素。
+    ASSERT_EQ(OpRequestCaptureForTest(mode.c_str(), 0, 0, 16, 16, px), 1);
+    EXPECT_EQ(px[0], 0);
+    EXPECT_EQ(px[1], 0);
+    EXPECT_EQ(px[2], 0);
+    EXPECT_EQ(px[3], 0xff);
+
+    // 合法偏移子区 (4,8)：拷到 _pic 像素(4,8)，验证 x1/y1 偏移正确。
+    ASSERT_EQ(OpRequestCaptureForTest(mode.c_str(), 4, 8, 4, 4, px), 1);
+    EXPECT_EQ(px[0], 4);
+    EXPECT_EQ(px[1], 8);
+    EXPECT_EQ(px[2], static_cast<uchar>(4 ^ 8));
+    EXPECT_EQ(px[3], 0xff);
+
+    // 越界变体：全部应被防御检查拒绝（返回 0，不崩溃、不越界 memcpy）。
+    EXPECT_EQ(OpRequestCaptureForTest(mode.c_str(), -1, 0, 16, 16, px), 0) << "x1<0 must be rejected";
+    EXPECT_EQ(OpRequestCaptureForTest(mode.c_str(), 0, -1, 16, 16, px), 0) << "y1<0 must be rejected";
+    EXPECT_EQ(OpRequestCaptureForTest(mode.c_str(), 0, 0, 40, 16, px), 0) << "x1+w>pw must be rejected";
+    EXPECT_EQ(OpRequestCaptureForTest(mode.c_str(), 0, 0, 16, 40, px), 0) << "y1+h>ph must be rejected";
+    EXPECT_EQ(OpRequestCaptureForTest(mode.c_str(), 20, 20, 16, 16, px), 0) << "20+16>32 overflow must be rejected";
+    EXPECT_EQ(OpRequestCaptureForTest(mode.c_str(), 0, 0, 0, 16, px), 0) << "w<=0 must be rejected";
+    EXPECT_EQ(OpRequestCaptureForTest(mode.c_str(), 0, 0, 16, 0, px), 0) << "h<=0 must be rejected";
+    EXPECT_EQ(OpRequestCaptureForTest(mode.c_str(), 1000, 1000, 1, 1, px), 0) << "far OOB must be rejected";
+
+    // mem_mode 设置失败应返回 <0（不触及 requestCapture）。
+    EXPECT_LT(OpRequestCaptureForTest(L"garbage", 0, 0, 1, 1, px), 0) << "invalid mem_mode must fail setup";
+}

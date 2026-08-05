@@ -119,6 +119,34 @@ long call_set_input_lock(HWND hwnd, int lock) {
     return ret;
 }
 
+long call_set_input_attr(HWND hwnd, int attrs) {
+    DWORD pid = 0;
+    ::GetWindowThreadProcessId(hwnd, &pid);
+    if (pid == 0)
+        return 0;
+
+    blackbone::Process proc;
+    const NTSTATUS status = proc.Attach(pid);
+    if (!NT_SUCCESS(status)) {
+        setlog(L"input hook attr attach failed. pid=%d hwnd=%p status=0x%X", pid, hwnd, status);
+        return 0;
+    }
+
+    long ret = 0;
+    const std::wstring dll_name = resolve_hook_dll(proc);
+    using set_input_attr_t = long(__stdcall *)(int);
+    auto remote = blackbone::MakeRemoteFunction<set_input_attr_t>(proc, dll_name, "SetInputAttr");
+    if (remote) {
+        auto call_ret = remote(attrs);
+        ret = call_ret.result();
+    } else {
+        setlog(L"remote function 'SetInputAttr' not found in %s.", dll_name.c_str());
+    }
+
+    proc.Detach();
+    return ret;
+}
+
 bool call_cursor_shape(HWND hwnd, unsigned long long &hash, unsigned long long &meta) {
     DWORD pid = 0;
     ::GetWindowThreadProcessId(hwnd, &pid);
@@ -203,6 +231,18 @@ long LockInput(HWND hwnd, int lock) {
         return lock == 0 ? 1 : 0;
 
     return call_set_input_lock(hwnd, lock);
+}
+
+long SetInputAttr(HWND hwnd, int attrs) {
+    if (!hwnd)
+        return 0;
+
+    std::lock_guard<std::mutex> guard(g_mutex);
+    // 只有已经注入过 Hook 的窗口才有远端通道开关可设。
+    if (g_bind_refs.find(hwnd) == g_bind_refs.end())
+        return 0;
+
+    return call_set_input_attr(hwnd, attrs);
 }
 
 bool GetCursorShape(HWND hwnd, unsigned long long &hash, unsigned long long &meta) {

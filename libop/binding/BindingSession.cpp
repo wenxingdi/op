@@ -16,6 +16,7 @@
 #endif
 
 #include "../capture/sources/MemoryImageSource.h"
+#include "../hook/HookProtocol.h"
 #include "../hook/InputHookClient.h"
 #include "../input/keyboard/DxKeyboard.h"
 #include "../input/keyboard/WinKeyboard.h"
@@ -44,6 +45,41 @@ std::wstring to_lower_ascii(std::wstring value) {
         return static_cast<wchar_t>(std::towlower(ch));
     });
     return value;
+}
+
+// 解析 dx 输入的通道后缀。s 必须以 "dx" 开头（主模式 dx）。
+// 成功返回 true；mask 输出后缀位掩码（0 表示无后缀，沿用默认全开）。
+// 支持 "dx" / "dx.dinput" / "dx.raw" / "dx.win" 及组合 "dx.dinput+raw"（大小写不敏感）。
+static bool parse_dx_channel_suffix(const std::wstring &s, int &mask) {
+    mask = 0;
+    if (s.rfind(L"dx", 0) != 0)
+        return false;
+    if (s == L"dx")
+        return true; // 无后缀，保持默认全开
+    if (s.size() <= 3 || s[2] != L'.')
+        return false;
+    const std::wstring suffix = s.substr(3); // 跳过 "dx."
+    size_t start = 0;
+    for (;;) {
+        const size_t pos = suffix.find(L'+', start);
+        const std::wstring token =
+            (pos == std::wstring::npos) ? suffix.substr(start) : suffix.substr(start, pos - start);
+        if (token.empty())
+            return false;
+        const std::wstring low = to_lower_ascii(token);
+        if (low == L"dinput" || low == L"di")
+            mask |= DX_ATTR_DINPUT;
+        else if (low == L"raw" || low == L"rawinput")
+            mask |= DX_ATTR_RAWINPUT;
+        else if (low == L"win" || low == L"window" || low == L"windowmsg")
+            mask |= DX_ATTR_WINDOWMSG;
+        else
+            return false; // 非法后缀
+        if (pos == std::wstring::npos)
+            break;
+        start = pos + 1;
+    }
+    return true;
 }
 
 std::wstring window_class_name(HWND hwnd) {
@@ -137,8 +173,8 @@ const wchar_t *display_mode_name(int display) {
 
 BindingSession::BindingSession()
     : _display_hwnd(0), _input_hwnd(0), _is_bind(0), _display(0), _mode(0), _mouse_mode(INPUT_TYPE::IN_NORMAL),
-      _keypad_mode(INPUT_TYPE::IN_NORMAL), _capture(nullptr), _mouse(std::make_unique<WinMouse>()),
-      _keyboard(std::make_unique<WinKeyboard>()) {
+      _keypad_mode(INPUT_TYPE::IN_NORMAL), _dx_attr(DX_ATTR_ALL), _capture(nullptr),
+      _mouse(std::make_unique<WinMouse>()), _keyboard(std::make_unique<WinKeyboard>()) {
     _display_method = std::make_pair<wstring, wstring>(L"screen", L"");
 }
 
@@ -210,26 +246,36 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
     if (!auto_display)
         display_candidates.push_back(display);
     // check mouse
+    int mouse_dx_mask = 0;
     if (smouse == L"normal")
         mouse = INPUT_TYPE::IN_NORMAL;
     else if (smouse == L"windows")
         mouse = INPUT_TYPE::IN_WINDOWS;
-    else if (smouse == L"dx")
+    else if (smouse.rfind(L"dx", 0) == 0) {
         mouse = INPUT_TYPE::IN_DX;
-    else {
+        if (!parse_dx_channel_suffix(smouse, mouse_dx_mask)) {
+            setlog(L"error mouse mode: %s", smouse.c_str());
+            return 0;
+        }
+    } else {
         setlog(L"error mouse mode: %s", smouse.c_str());
         return 0;
     }
     // check keypad
+    int keypad_dx_mask = 0;
     if (skeypad == L"normal")
         keypad = INPUT_TYPE::IN_NORMAL;
     else if (skeypad == L"normal.hd")
         keypad = INPUT_TYPE::IN_NORMAL2;
     else if (skeypad == L"windows")
         keypad = INPUT_TYPE::IN_WINDOWS;
-    else if (skeypad == L"dx")
+    else if (skeypad.rfind(L"dx", 0) == 0) {
         keypad = INPUT_TYPE::IN_DX;
-    else {
+        if (!parse_dx_channel_suffix(skeypad, keypad_dx_mask)) {
+            setlog(L"error keypad mode: %s", skeypad.c_str());
+            return 0;
+        }
+    } else {
         setlog(L"error keypad mode: %s", skeypad.c_str());
         return 0;
     }
@@ -244,6 +290,12 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
         setlog(L"normal.wgc requires Windows 10 build 18362 or later");
         return 0;
     }
+
+    // dx 通道后缀（"dx.dinput" 等）：合并 mouse/keypad 的显式通道掩码，覆盖 _dx_attr。
+    // 仅在写了后缀时才覆盖；纯 "dx" 不动 _dx_attr，保留默认全开或此前 SetDxAttr 的设置。
+    const int bind_dx_mask = mouse_dx_mask | keypad_dx_mask;
+    if (bind_dx_mask != 0)
+        _dx_attr = bind_dx_mask;
 
     auto prepare_backends = [&]() {
         _mode = mode;
@@ -264,6 +316,12 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
         const long display_ret = _capture->Bind(displayWnd, display);
         const long mouse_ret = display_ret == 1 ? _mouse->Bind(inputWnd, mouse) : 0;
         const long keypad_ret = (display_ret == 1 && mouse_ret == 1) ? _keyboard->Bind(inputWnd, keypad) : 0;
+        // dx 输入注入成功后再把通道开关下发给远端 Hook；默认值无需多做一次跨进程调用。
+        const bool dx_input = mouse == INPUT_TYPE::IN_DX || keypad == INPUT_TYPE::IN_DX;
+        if (keypad_ret == 1 && dx_input && _dx_attr != DX_ATTR_ALL) {
+            if (op::hook::input_hook_client::SetInputAttr(inputWnd, _dx_attr) != 1)
+                setlog("apply dx input attr failed. hwnd=%p attr=%d", inputWnd, _dx_attr);
+        }
         return std::make_tuple(display_ret, mouse_ret, keypad_ret);
     };
 
@@ -291,7 +349,6 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
         if (auto_display && i + 1 < display_candidates.size()) {
             setlog(L"normal.auto selected %s but bind failed, fallback to %s", display_mode_name(display),
                    display_mode_name(display_candidates[i + 1]));
-            reset_bind_state(false);
         }
     }
     if (!bind_ok) {
@@ -327,6 +384,36 @@ long BindingSession::LockInput(long lock) {
         return 0;
 
     return op::hook::input_hook_client::LockInput(_input_hwnd, static_cast<int>(lock));
+}
+
+long BindingSession::SetDxAttr(long attr, long value) {
+    int next = _dx_attr;
+    if (attr == 0) {
+        // attr=0：value 直接就是完整掩码。
+        if (value < 0 || (value & ~DX_ATTR_ALL) != 0)
+            return 0;
+        next = static_cast<int>(value);
+    } else {
+        if (attr < 0 || (attr & ~DX_ATTR_ALL) != 0)
+            return 0;
+        if (value != 0)
+            next |= static_cast<int>(attr);
+        else
+            next &= ~static_cast<int>(attr);
+    }
+
+    _dx_attr = next;
+
+    // 当前没有生效中的 dx 输入绑定时只记录配置，等下次绑定成功后统一下发。
+    if (!_is_bind || !_input_hwnd ||
+        (_mouse_mode != INPUT_TYPE::IN_DX && _keypad_mode != INPUT_TYPE::IN_DX))
+        return 1;
+
+    return op::hook::input_hook_client::SetInputAttr(_input_hwnd, _dx_attr);
+}
+
+long BindingSession::GetDxAttr() {
+    return _dx_attr;
 }
 
 long BindingSession::reset_bind_state(bool restore_default_input) {
@@ -562,6 +649,14 @@ bool BindingSession::requestCapture(int x1, int y1, int w, int h, Image &img) {
     if (method == L"screen")
         return _capture && _capture->requestCapture(x1, y1, w, h, img);
     else if (method == L"pic" || method == L"mem") {
+        // 防御性边界校验：pic/mem 路径不走 RectConvert，直接调用者可能传入越界坐标；
+        // 越界 memcpy 会读 _pic 外内存（UB/崩溃），这里 fail-loud 返回 false。
+        const int pw = _pic.width;
+        const int ph = _pic.height;
+        if (x1 < 0 || y1 < 0 || w <= 0 || h <= 0 || x1 + w > pw || y1 + h > ph) {
+            setlog(L"requestCapture out of pic bounds: x=%d y=%d w=%d h=%d pic=%dx%d", x1, y1, w, h, pw, ph);
+            return false;
+        }
         img.create(w, h);
         for (int i = 0; i < h; i++)
             memcpy(img.ptr<uchar>(i), _pic.ptr<uchar>(i + y1) + x1 * 4, w * 4);

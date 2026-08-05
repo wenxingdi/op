@@ -205,6 +205,14 @@ bool http_post_json(const ParsedUrl &url, const std::string &body, int timeout_m
         WinHttpQueryHeaders(request.get(), WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
                             WINHTTP_HEADER_NAME_BY_INDEX, &status_code, &size, WINHTTP_NO_HEADER_INDEX);
 
+        // A 4xx/5xx from the inference server means the request failed; do not treat
+        // the error body as a successful detection/ocr result. (status_code stays 0 if
+        // the header is absent, preserving the previous tolerant behavior.)
+        if (status_code != 0 && status_code >= 400) {
+            ok = false;
+            break;
+        }
+
         while (true) {
             DWORD avail = 0;
             if (!WinHttpQueryDataAvailable(request.get(), &avail)) {
@@ -261,8 +269,7 @@ int configure_endpoint(std::string &m_endpoint, int &m_timeout_ms, const std::ws
         }
     }
     if (timeout_ms <= 0 && default_timeout_ms_fallback > 0) {
-        // try resolve timeout from env (OCR uses OP_OCR_TIMEOUT_MS, YOLO uses OP_YOLO_TIMEOUT_MS)
-        // the caller passes the default via the function — we just keep existing timeout_ms logic
+        timeout_ms = default_timeout_ms_fallback;
     }
 
     auto maybe_set_endpoint = [&](const std::string &candidate) {

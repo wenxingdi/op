@@ -3,6 +3,8 @@
 #include "../../include/libop.h"
 #include "../memory/ProcessMemory.h"
 #include "../base/Environment.h"
+#include "binding/BindingSession.h"
+#include "image/Image.h"
 
 #include <Windows.h>
 #include <cstdint>
@@ -504,6 +506,14 @@ int OP_CALL OpLockInput(op_handle handle, int lock) {
     return call_ret(handle, [&](op::Op &op, long *ret) { op.LockInput(lock, ret); });
 }
 
+int OP_CALL OpSetDxAttr(op_handle handle, int attr, int value) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.SetDxAttr(attr, value, ret); });
+}
+
+int OP_CALL OpGetDxAttr(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.GetDxAttr(ret); });
+}
+
 intptr_t OP_CALL OpGetBindWindow(op_handle handle) {
     return call_intptr(handle, [](op::Op &op, LONG_PTR *ret) { op.GetBindWindow(ret); });
 }
@@ -754,6 +764,26 @@ int OP_CALL OpGetColorNum(op_handle handle, int x1, int y1, int x2, int y2, cons
 
 int OP_CALL OpSetDisplayInput(op_handle handle, const wchar_t *mode) {
     return call_ret(handle, [&](op::Op &op, long *ret) { op.SetDisplayInput(safe_text(mode), ret); });
+}
+
+int OP_CALL OpRequestCaptureForTest(const wchar_t *mem_mode, int x1, int y1, int w, int h,
+                                    unsigned char out_pixel[4]) {
+    if (!mem_mode || !out_pixel)
+        return -2;
+    op::binding::BindingSession session;
+    if (session.set_display_method(mem_mode) != 1)
+        return -1;
+    op::Image out;
+    if (!session.requestCapture(x1, y1, w, h, out))
+        return 0;
+    if (out.empty())
+        return 0;
+    const auto *p = out.ptr<unsigned char>(0);
+    out_pixel[0] = p[0];
+    out_pixel[1] = p[1];
+    out_pixel[2] = p[2];
+    out_pixel[3] = p[3];
+    return 1;
 }
 
 int OP_CALL OpLoadPic(op_handle handle, const wchar_t *file_name) {

@@ -74,8 +74,16 @@ int YoloDetector::release() {
 }
 
 int YoloDetector::detect(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_rec_t &result) {
-    const std::lock_guard<std::mutex> lock(m_mutex);
     result.clear();
+    // Snapshot endpoint/timeout under lock; the HTTP request below runs concurrently
+    // so multiple detect() calls from different threads are not serialized.
+    std::string endpoint;
+    int timeout_ms = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        endpoint = m_endpoint;
+        timeout_ms = m_timeout_ms;
+    }
     if (data == nullptr || w <= 0 || h <= 0 || (bpp != 1 && bpp != 3 && bpp != 4))
         return -1;
     const size_t pixel_bytes_size_t = static_cast<size_t>(w) * static_cast<size_t>(h) * static_cast<size_t>(bpp);
@@ -86,17 +94,29 @@ int YoloDetector::detect(byte *data, int w, int h, int bpp, double conf, double 
     if (!base64_encode(data, static_cast<int>(pixel_bytes_size_t), image_b64))
         return -3;
 
-    std::string req = "{\"image\":\"" + image_b64 + "\",\"width\":" + std::to_string(w) +
-                      ",\"height\":" + std::to_string(h) + ",\"bpp\":" + std::to_string(bpp) +
-                      ",\"conf\":" + std::to_string(conf) + ",\"iou\":" + std::to_string(iou) + "}";
+    std::string req;
+    req.reserve(image_b64.size() + 128);
+    req += "{\"image\":\"";
+    req += image_b64;
+    req += "\",\"width\":";
+    req += std::to_string(w);
+    req += ",\"height\":";
+    req += std::to_string(h);
+    req += ",\"bpp\":";
+    req += std::to_string(bpp);
+    req += ",\"conf\":";
+    req += std::to_string(conf);
+    req += ",\"iou\":";
+    req += std::to_string(iou);
+    req += "}";
 
     ParsedUrl parsed;
-    if (!parse_url(m_endpoint, parsed))
+    if (!parse_url(endpoint, parsed))
         return -4;
 
     std::string resp;
     DWORD status_code = 0;
-    if (!http_post_json(parsed, req, m_timeout_ms, resp, status_code, L"op-yolo-client/1.0"))
+    if (!http_post_json(parsed, req, timeout_ms, resp, status_code, L"op-yolo-client/1.0"))
         return -5;
     if (status_code != 200)
         return -6;

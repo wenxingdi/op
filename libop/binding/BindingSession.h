@@ -27,6 +27,12 @@ class BindingSession {
                             long mode);
     virtual long UnBindWindow();
     virtual long LockInput(long lock);
+    // 设置 dx 输入通道开关。attr 为 0 时把 value 当作完整的 DX_ATTR_* 掩码；
+    // attr 为 DX_ATTR_* 位（可组合）时，value 非 0 表示打开这些通道，0 表示关闭。
+    // 会话级配置：解绑不会清空，下次绑定 dx 输入时自动下发。
+    virtual long SetDxAttr(long attr, long value);
+    // 返回当前的 dx 输入通道开关掩码。
+    virtual long GetDxAttr();
     // 返回当前绑定的显示窗口句柄。使用 BindWindowEx 时，输入句柄可能不同于这个句柄。
     virtual LONG_PTR GetBindWindow();
     virtual long IsBind();
@@ -56,6 +62,8 @@ class BindingSession {
     int _mode;
     int _mouse_mode;
     int _keypad_mode;
+    // dx 输入通道开关，默认三通道全开。由 SetDxAttr 维护，不随解绑重置。
+    int _dx_attr;
     std::pair<wstring, wstring> _display_method;
     Image _pic;
 

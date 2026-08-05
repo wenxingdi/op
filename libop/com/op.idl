@@ -93,6 +93,8 @@ interface IOpAutomation : IDispatch
 	[id(103)] HRESULT IsBind([out, retval] LONG* ret);
 	[id(104)] HRESULT BindWindowEx([in] hyper display_hwnd, [in] hyper input_hwnd, [in] BSTR display, [in] BSTR mouse, [in] BSTR keypad, [in] LONG mode, [out, retval] LONG* ret);
 	[id(105)] HRESULT LockInput([in] LONG lock, [out, retval] LONG* ret);
+	[id(106)] HRESULT SetDxAttr([in] LONG attr, [in] LONG value, [out, retval] LONG* ret);
+	[id(107)] HRESULT GetDxAttr([out, retval] LONG* ret);
 	//mouse & ketboard 120-149
 	[id(120)] HRESULT GetCursorPos([out] VARIANT* x, [out] VARIANT* y, [out, retval] LONG* ret);
 	[id(121)] HRESULT MoveR([in] LONG x, [in] LONG y, [out, retval] LONG* ret);

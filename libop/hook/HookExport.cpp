@@ -103,6 +103,13 @@ long __stdcall SetInputLock(int lock) {
     return InputHook::lockInput(lock);
 }
 
+long __stdcall SetInputAttr(int attrs) {
+    // 未 Hook 时设置没有意义：setup 会把通道重置成默认全开。
+    if (!InputHook::is_hooked)
+        return 0;
+    return InputHook::setInputAttr(attrs);
+}
+
 unsigned long long __stdcall GetInputCursorShapeHash() {
     return InputHook::cursorShapeHash();
 }

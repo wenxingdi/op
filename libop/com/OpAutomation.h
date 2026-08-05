@@ -187,6 +187,10 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(UnBindWindow)(LONG *ret);
     // 临时锁定目标窗口的外部输入。只对 dx 鼠标、dx 键盘有效。
     STDMETHOD(LockInput)(LONG lock, LONG *ret);
+    // 设置 dx 输入通道开关（1=DirectInput 2=RawInput 4=窗口消息，attr=0 时 value 为完整掩码）。
+    STDMETHOD(SetDxAttr)(LONG attr, LONG value, LONG *ret);
+    // 获取当前的 dx 输入通道开关掩码。
+    STDMETHOD(GetDxAttr)(LONG *ret);
     // 获取当前对象已经绑定的窗口句柄. 无绑定返回0
     STDMETHOD(GetBindWindow)(LONGLONG *ret);
     // 判定当前对象是否已绑定窗口.

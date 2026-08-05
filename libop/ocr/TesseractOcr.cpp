@@ -138,6 +138,8 @@ int TesseractOcr::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
 
     }
 
+    delete ri; // GetIterator() returns an iterator the caller owns; free it to avoid a per-call leak.
+
     // Pix* px = m_api->GetInputImage();
 
     // pixWrite("test_oux.bmp", px, IFF_BMP);

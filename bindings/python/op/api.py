@@ -406,6 +406,18 @@ class Op:
     def lock_input(self, lock: int) -> bool:
         return self._call_ok("OpLockInput", int(lock))
 
+    def set_dx_attr(self, attr: int, value: int) -> bool:
+        """设置 dx 输入通道开关。
+
+        attr 为 0 时 value 是完整掩码；attr 取 1(DirectInput)/2(RawInput)/4(窗口消息)
+        或其组合时，value 非 0 表示打开这些通道，0 表示关闭。默认 7（三通道全开）。
+        """
+        return self._call_ok("OpSetDxAttr", int(attr), int(value))
+
+    def get_dx_attr(self) -> int:
+        """返回当前的 dx 输入通道开关掩码。"""
+        return self._call_int("OpGetDxAttr")
+
     def get_bind_window(self) -> int:
         return self._call_intptr("OpGetBindWindow")
 

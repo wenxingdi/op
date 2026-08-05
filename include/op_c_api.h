@@ -111,6 +111,9 @@ OP_C_API int OP_CALL OpBindWindowEx(op_handle handle, intptr_t display_hwnd, int
                                     const wchar_t *display, const wchar_t *mouse, const wchar_t *keypad, int mode);
 OP_C_API int OP_CALL OpUnBindWindow(op_handle handle);
 OP_C_API int OP_CALL OpLockInput(op_handle handle, int lock);
+// dx 输入通道开关：1=DirectInput 2=RawInput 4=窗口消息；attr=0 时 value 为完整掩码。
+OP_C_API int OP_CALL OpSetDxAttr(op_handle handle, int attr, int value);
+OP_C_API int OP_CALL OpGetDxAttr(op_handle handle);
 OP_C_API intptr_t OP_CALL OpGetBindWindow(op_handle handle);
 OP_C_API int OP_CALL OpIsBind(op_handle handle);
 
@@ -192,6 +195,10 @@ OP_C_API const wchar_t *OP_CALL OpGetColor(op_handle handle, int x, int y);
 OP_C_API int OP_CALL OpGetColorNum(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
                                    double sim);
 OP_C_API int OP_CALL OpSetDisplayInput(op_handle handle, const wchar_t *mode);
+// 测试专用：直接驱动 BindingSession::requestCapture 的 pic/mem 路径，用于验证越界防御（改动 A）。
+// 返回 1=成功(已写入 out_pixel 左上角像素)；0=被越界检查拒绝；<0=mem_mode 设置失败。
+OP_C_API int OP_CALL OpRequestCaptureForTest(const wchar_t *mem_mode, int x1, int y1, int w, int h,
+                                             unsigned char out_pixel[4]);
 OP_C_API int OP_CALL OpLoadPic(op_handle handle, const wchar_t *file_name);
 OP_C_API int OP_CALL OpFreePic(op_handle handle, const wchar_t *file_name);
 OP_C_API int OP_CALL OpLoadMemPic(op_handle handle, const wchar_t *file_name, void *data, int size);

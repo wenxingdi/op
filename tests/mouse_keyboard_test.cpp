@@ -1,5 +1,6 @@
 #include "test_support.h"
 
+#include "../libop/hook/HookProtocol.h"
 #include "../libop/input/mouse/CursorShape.h"
 #include <chrono>
 #include <iostream>
@@ -769,6 +770,194 @@ TEST(MouseKeyTest, DxModeDeliversWindowAndRawInput) {
     EXPECT_EQ(unbind_ret, 1);
 }
 
+TEST(MouseKeyTest, DxAttrDefaultsToAllChannelsAndValidatesArguments) {
+    op::Op op;
+
+    long ret = 0;
+    op.GetDxAttr(&ret);
+    EXPECT_EQ(ret, DX_ATTR_ALL);
+
+    // attr 取具体通道位时，value 决定开关。
+    op.SetDxAttr(DX_ATTR_WINDOWMSG, 0, &ret);
+    EXPECT_EQ(ret, 1);
+    op.GetDxAttr(&ret);
+    EXPECT_EQ(ret, DX_ATTR_DINPUT | DX_ATTR_RAWINPUT);
+
+    op.SetDxAttr(DX_ATTR_WINDOWMSG, 1, &ret);
+    EXPECT_EQ(ret, 1);
+    op.GetDxAttr(&ret);
+    EXPECT_EQ(ret, DX_ATTR_ALL);
+
+    // 组合位一次开关多个通道。
+    op.SetDxAttr(DX_ATTR_RAWINPUT | DX_ATTR_WINDOWMSG, 0, &ret);
+    EXPECT_EQ(ret, 1);
+    op.GetDxAttr(&ret);
+    EXPECT_EQ(ret, DX_ATTR_DINPUT);
+
+    // attr=0 时 value 就是完整掩码。
+    op.SetDxAttr(0, DX_ATTR_RAWINPUT, &ret);
+    EXPECT_EQ(ret, 1);
+    op.GetDxAttr(&ret);
+    EXPECT_EQ(ret, DX_ATTR_RAWINPUT);
+
+    // 非法位一律拒绝，并且不能改动已有配置。
+    op.SetDxAttr(0x10, 1, &ret);
+    EXPECT_EQ(ret, 0);
+    op.SetDxAttr(0, 0x08, &ret);
+    EXPECT_EQ(ret, 0);
+    op.SetDxAttr(-1, 1, &ret);
+    EXPECT_EQ(ret, 0);
+    op.GetDxAttr(&ret);
+    EXPECT_EQ(ret, DX_ATTR_RAWINPUT);
+
+    // 允许三通道全关。
+    op.SetDxAttr(0, 0, &ret);
+    EXPECT_EQ(ret, 1);
+    op.GetDxAttr(&ret);
+    EXPECT_EQ(ret, 0);
+}
+
+TEST(MouseKeyTest, DxModeChannelSwitchStopsWindowMessages) {
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+
+    long ret = 0;
+    // 绑定之前先关掉窗口消息通道，验证绑定成功后配置会自动下发到远端 Hook。
+    op.SetDxAttr(DX_ATTR_WINDOWMSG, 0, &ret);
+    ASSERT_EQ(ret, 1);
+
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"dx", L"windows", 0, &ret);
+    if (ret != 1) {
+        GTEST_SKIP() << "DX mouse bind unavailable on current environment";
+    }
+
+    RAWINPUTDEVICE devices[2] = {};
+    devices[0].usUsagePage = 0x01;
+    devices[0].usUsage = 0x02;
+    devices[0].hwndTarget = window.hwnd;
+    devices[1].usUsagePage = 0x01;
+    devices[1].usUsage = 0x06;
+    devices[1].hwndTarget = window.hwnd;
+    EXPECT_TRUE(::RegisterRawInputDevices(devices, 2, sizeof(RAWINPUTDEVICE)));
+    PumpMessagesFor(50);
+    window.ResetCounts();
+
+    op.MoveTo(18, 26, &ret);
+    EXPECT_EQ(ret, 1);
+    op.LeftClick(&ret);
+    EXPECT_EQ(ret, 1);
+    PumpMessagesFor(120);
+
+    // 窗口消息通道已关：原窗口过程收不到点击。
+    EXPECT_EQ(window.left_down, 0);
+    EXPECT_EQ(window.left_up, 0);
+    // Raw Input 通道不受影响。
+    EXPECT_GE(window.raw_left_down, 1);
+    EXPECT_GE(window.raw_left_up, 1);
+
+    // 重新打开后立即恢复，不需要重新绑定。
+    op.SetDxAttr(DX_ATTR_WINDOWMSG, 1, &ret);
+    EXPECT_EQ(ret, 1);
+    window.ResetCounts();
+    op.LeftClick(&ret);
+    EXPECT_EQ(ret, 1);
+    PumpMessagesFor(120);
+    EXPECT_GE(window.left_down, 1);
+    EXPECT_GE(window.left_up, 1);
+
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
+}
+
+TEST(MouseKeyTest, DxModeChannelSwitchStopsRawInput) {
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"dx", L"windows", 0, &ret);
+    if (ret != 1) {
+        GTEST_SKIP() << "DX mouse bind unavailable on current environment";
+    }
+
+    RAWINPUTDEVICE devices[2] = {};
+    devices[0].usUsagePage = 0x01;
+    devices[0].usUsage = 0x02;
+    devices[0].hwndTarget = window.hwnd;
+    devices[1].usUsagePage = 0x01;
+    devices[1].usUsage = 0x06;
+    devices[1].hwndTarget = window.hwnd;
+    EXPECT_TRUE(::RegisterRawInputDevices(devices, 2, sizeof(RAWINPUTDEVICE)));
+    PumpMessagesFor(50);
+
+    // 绑定生效后再关 Raw Input 通道，验证实时下发。
+    op.SetDxAttr(DX_ATTR_RAWINPUT, 0, &ret);
+    EXPECT_EQ(ret, 1);
+    window.ResetCounts();
+
+    op.MoveTo(24, 32, &ret);
+    EXPECT_EQ(ret, 1);
+    op.LeftClick(&ret);
+    EXPECT_EQ(ret, 1);
+    PumpMessagesFor(120);
+
+    // Raw Input 通道已关，窗口消息通道照常。
+    EXPECT_EQ(window.raw_left_down, 0);
+    EXPECT_EQ(window.raw_left_up, 0);
+    EXPECT_GE(window.left_down, 1);
+    EXPECT_GE(window.left_up, 1);
+
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
+}
+
+TEST(MouseKeyTest, BindWindowDxSuffixInvalidReturnsZero) {
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+    long ret = 0;
+    // 非法 dx 通道后缀：解析阶段直接失败，不进入注入，返回 0。
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"dx.foo", L"windows", 0, &ret);
+    EXPECT_EQ(ret, 0);
+}
+
+TEST(MouseKeyTest, BindWindowDxSuffixDefaultsToAllWhenNoSuffix) {
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"dx", L"windows", 0, &ret);
+    if (ret != 1)
+        GTEST_SKIP() << "DX mouse bind unavailable on current environment";
+    op.GetDxAttr(&ret);
+    EXPECT_EQ(ret, DX_ATTR_ALL);
+}
+
+TEST(MouseKeyTest, BindWindowDxSuffixNarrowsToDinput) {
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+    long ret = 0;
+    // 后缀 "dx.dinput"：解析应在 bind 前把 _dx_attr 置为 DINPUT（不依赖 DX 注入是否成功）。
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"dx.dinput", L"windows", 0, &ret);
+    op.GetDxAttr(&ret);
+    EXPECT_EQ(ret, DX_ATTR_DINPUT);
+}
+
+TEST(MouseKeyTest, BindWindowDxSuffixCombinesMouseKeypad) {
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+    long ret = 0;
+    // mouse="dx.dinput" 与 keypad="dx.raw" 的后缀按位 OR 合并为 DINPUT|RAWINPUT。
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"dx.dinput", L"dx.raw", 0, &ret);
+    op.GetDxAttr(&ret);
+    EXPECT_EQ(ret, DX_ATTR_DINPUT | DX_ATTR_RAWINPUT);
+}
+
 TEST(MouseKeyTest, DxModeDeliversAdvancedMouseButtonsAndWheel) {
     op::Op op;
     MouseEventWindow window;
@@ -957,7 +1146,8 @@ TEST(MouseKeyTest, DxModeGetCursorShapeUsesHookedSetCursor) {
 
     long ret = 0;
     op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"dx", L"windows", 0, &ret);
-    ASSERT_EQ(ret, 1);
+    if (ret != 1)
+        GTEST_SKIP() << "DX bind unavailable on current environment";
 
     window.SetTestCursor(::LoadCursorW(nullptr, IDC_ARROW));
     ASSERT_EQ(1, ::SendMessageW(window.hwnd, WM_SETCURSOR, reinterpret_cast<WPARAM>(window.hwnd),
