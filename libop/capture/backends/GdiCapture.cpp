@@ -156,6 +156,17 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
         return false;
     }
 
+    // 每帧重算客户区相对窗口的偏移，避免绑定后窗口 resize / 最大化 / 去边框导致
+    // 边框宽度过时，进而使 normal / gdi 模式下 FindPic 坐标整体错位。
+    {
+        RECT wrc;
+        ::GetWindowRect(_hwnd, &wrc);
+        POINT cpt = { 0 };
+        ::ClientToScreen(_hwnd, &cpt);
+        dx_ = cpt.x - wrc.left;
+        dy_ = cpt.y - wrc.top;
+    }
+
     img.create(w, h);
     if (_render_type == RDT_NORMAL) { // normal 拷贝的大小为实际需要的大小
         release_capture_bitmap(_hmdc, _hbmpscreen, _hbmp_old);

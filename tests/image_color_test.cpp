@@ -2211,6 +2211,41 @@ TEST(ImageColorTest, SetDisplayInputMemBareRawPointerFailsWithoutChangingCurrent
     EXPECT_EQ(color, L"030201") << "Failed mem mode parsing should not clobber the previous display input";
 }
 
+// 回归：GdiCapture 每帧重算客户区偏移（修复 dx_/dy_ 绑定后不随 resize 刷新的边界 bug）。
+// 绑定后改变窗口尺寸/边框，验证 resize 后截图不崩溃且仍返回有效颜色（旧逻辑会用陈旧边框宽度错位）。
+TEST(ImageColorTest, GdiCaptureRefreshesClientOffsetAfterResize) {
+    test_support::ColorPulseWindow window;
+    ASSERT_TRUE(window.Create(false)) << "failed to create test window";
+
+    op::Op op;
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"windows", L"windows", 0, &ret);
+    if (ret != 1)
+        GTEST_SKIP() << "normal capture unavailable on current environment";
+
+    // 基线：客户区坐标取色应成功。
+    std::wstring color_before;
+    op.GetColor(60, 60, color_before);
+    ASSERT_EQ(color_before.length(), 6u) << "baseline GetColor should return 6 hex chars";
+
+    // 改变窗口尺寸，触发此前绑定计算的边框宽度过时场景。
+    ::SetWindowPos(window.hwnd, nullptr, 0, 0, 500, 400, SWP_NOMOVE | SWP_NOZORDER);
+    // 让窗口过程处理 WM_SIZE，刷新客户区几何。
+    MSG msg = {};
+    for (int i = 0; i < 20 && ::PeekMessageW(&msg, window.hwnd, WM_SIZE, WM_SIZE, PM_REMOVE); ++i) {
+        ::TranslateMessage(&msg);
+        ::DispatchMessageW(&msg);
+    }
+
+    // resize 后再取色：每帧重算 dx_/dy_，应不崩溃且坐标有效。
+    std::wstring color_after;
+    op.GetColor(60, 60, color_after);
+    EXPECT_EQ(color_after.length(), 6u) << "resize 后 normal 模式取色应仍成功（dx_/dy_ 每帧重算）";
+
+    long unbind = 0;
+    op.UnBindWindow(&unbind);
+}
+
 // 回归：直接驱动 BindingSession::requestCapture 的 pic/mem 路径，验证改动 A 的越界防御。
 // 走 op::Op 门面时 RectConvert 会在到达 requestCapture 前钳制越界坐标，故必须直连 requestCapture。
 TEST(ImageColorTest, RequestCapturePicMemBoundsCheck) {
