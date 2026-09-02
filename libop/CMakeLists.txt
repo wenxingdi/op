@@ -177,7 +177,23 @@ set(OP_NETWORK_SOURCES
 
 set(OP_OCR_SOURCES
   "ocr/OcrService.cpp"
+  "ocr/OnnxOcrEngine.cpp"
 )
+# 注意：ocr_models.rc（OCR 模型资源）不放在 libop 静态库里，
+# 因为 MSVC 链接器会丢弃静态库中无人引用的 .res 对象，导致 op_c_api_x64.dll
+# 缺资源。改为在下方各 DLL 目标（op_com / op_c_api）里直接编译，保证两个 DLL 都内嵌模型。
+
+# 由模板生成 ocr_models.rc，把模型文件绝对路径注入资源（避免仓库迁移后路径失效）。
+set(_op_ocr_models_dir "${CMAKE_CURRENT_SOURCE_DIR}/../build/_deps/ocr_models")
+set(OCR_MODEL_DET "${_op_ocr_models_dir}/ch_PP-OCRv4_det_infer.onnx")
+set(OCR_MODEL_REC "${_op_ocr_models_dir}/ch_PP-OCRv4_rec_infer.onnx")
+set(OCR_MODEL_KEYS "${_op_ocr_models_dir}/ppocr_keys_v1.txt")
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/ocr/ocr_models.rc.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/ocr_models.rc"
+  @ONLY
+)
+set(_op_ocr_models_rc "${CMAKE_CURRENT_BINARY_DIR}/ocr_models.rc")
 
 set(OP_YOLO_SOURCES
   "yolo/YoloDetector.cpp"
@@ -269,12 +285,16 @@ set(OP_COM_SOURCES
   "${OP_COM_I_C}"
   "${CMAKE_CURRENT_SOURCE_DIR}/com/op.def"
   "${CMAKE_CURRENT_SOURCE_DIR}/com/op.rc"
+  # 内置 OCR 模型资源（与 op_c_api 共用同一份 .rc，各自独立编入 DLL）
+  "${_op_ocr_models_rc}"
 )
 
 set(OP_C_API_SOURCES
   "c_api/op_c_api.cpp"
   "hook/HookExport.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/c_api/op_c_api.rc"
+  # 内置 OCR 模型资源（与 op_com 共用同一份 .rc，各自独立编入 DLL）
+  "${_op_ocr_models_rc}"
 )
 
 set(OP_COMMON_DEFINITIONS
@@ -392,6 +412,64 @@ target_link_libraries(${op_c_api} PRIVATE minhook::minhook)
 target_link_libraries(libop       PRIVATE Microsoft::DirectX-Headers)
 target_link_libraries(${op_com}   PRIVATE Microsoft::DirectX-Headers)
 target_link_libraries(${op_c_api} PRIVATE Microsoft::DirectX-Headers)
+
+# ---- 内置 ONNX Runtime OCR 引擎（模型编入 DLL 资源段）----
+# 链接策略（用户决策：2026-08-28 选「共享」）：
+#   * 优先静态 onnxruntime_static.lib  -> 0 新增 DLL（需源码构建或旧版 v1.14.1 主包内含）
+#   * 否则共享 onnxruntime.lib(导入库) -> +2 DLL(onnxruntime.dll + onnxruntime_providers_shared.dll)，随插件分发
+# 注：Microsoft 不为 Windows x64 发布独立静态包，≥1.16 主包亦不含静态库，故默认走共享。
+set(_op_onnxrt_root "${CMAKE_CURRENT_SOURCE_DIR}/../build/_deps/onnxruntime")
+file(GLOB _op_onnxrt_dirs "${_op_onnxrt_root}/*")
+foreach(_d ${_op_onnxrt_dirs})
+  if(IS_DIRECTORY "${_d}/include" AND IS_DIRECTORY "${_d}/lib")
+    set(ONNXRUNTIME_DIR "${_d}")
+  endif()
+endforeach()
+if(DEFINED ONNXRUNTIME_DIR AND ONNXRUNTIME_DIR)
+  message(STATUS "ONNX Runtime found: ${ONNXRUNTIME_DIR}")
+  foreach(_t libop ${op_com} ${op_c_api})
+    target_include_directories(${_t} PRIVATE "${ONNXRUNTIME_DIR}/include")
+  endforeach()
+  set(_op_onnxrt_static "${ONNXRUNTIME_DIR}/lib/onnxruntime_static.lib")
+  set(_op_onnxrt_shared  "${ONNXRUNTIME_DIR}/lib/onnxruntime.lib")
+  set(_op_onnxrt_prov   "${ONNXRUNTIME_DIR}/lib/onnxruntime_providers_shared.lib")
+  if(EXISTS "${_op_onnxrt_static}")
+    # 静态链接：0 新增 DLL（需要 onnxruntime 静态库，预编译通常不含）
+    foreach(_t libop ${op_com} ${op_c_api})
+      target_link_libraries(${_t} PRIVATE "${_op_onnxrt_static}"
+        advapi32 userenv ole32 shell32 user32 gdi32 crypt32 rpcrt4 ncrypt ws2_32)
+    endforeach()
+    message(STATUS "ONNX Runtime: STATIC linking (0 extra DLL)")
+  elseif(EXISTS "${_op_onnxrt_shared}")
+    # 共享链接：+2 DLL（onnxruntime.dll + onnxruntime_providers_shared.dll），随插件分发
+    foreach(_t libop ${op_com} ${op_c_api})
+      target_link_libraries(${_t} PRIVATE "${_op_onnxrt_shared}")
+      if(EXISTS "${_op_onnxrt_prov}")
+        target_link_libraries(${_t} PRIVATE "${_op_onnxrt_prov}")
+      endif()
+    endforeach()
+    # 构建期把运行时 DLL 拷到插件输出目录旁，保证 OcrEx 运行期可加载
+    foreach(_t ${op_com} ${op_c_api})
+      add_custom_command(TARGET ${_t} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${ONNXRUNTIME_DIR}/lib/onnxruntime.dll"
+                "$<TARGET_FILE_DIR:${_t}>/onnxruntime.dll"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${ONNXRUNTIME_DIR}/lib/onnxruntime_providers_shared.dll"
+                "$<TARGET_FILE_DIR:${_t}>/onnxruntime_providers_shared.dll"
+        COMMENT "Copy onnxruntime DLLs next to ${_t}")
+    endforeach()
+    # 安装期把运行时 DLL 一并装入 bin/<arch>（与插件同目录，供运行期加载）
+    install(FILES "${ONNXRUNTIME_DIR}/lib/onnxruntime.dll"
+                   "${ONNXRUNTIME_DIR}/lib/onnxruntime_providers_shared.dll"
+            DESTINATION "${PROJECT_SOURCE_DIR}/bin/${_op_install_arch}")
+    message(STATUS "ONNX Runtime: SHARED linking (+2 DLL: onnxruntime.dll, onnxruntime_providers_shared.dll)")
+  else()
+    message(WARNING "Neither onnxruntime_static.lib nor onnxruntime.lib found under ${ONNXRUNTIME_DIR}/lib; built-in OCR disabled")
+  endif()
+else()
+  message(WARNING "ONNX Runtime not found under ${_op_onnxrt_root}; built-in OCR disabled")
+endif()
 
 target_link_libraries(libop PRIVATE dwmapi.lib)
 target_link_libraries(${op_com} PRIVATE dwmapi.lib)

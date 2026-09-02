@@ -394,6 +394,9 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(OcrAutoFromFile)(BSTR file_name, DOUBLE sim, BSTR *retstr);
     // 查找频幕中的直线
     STDMETHOD(FindLine)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr);
+    // 查找直线(扩展版): retstr 为"角度,距离", ret 为该直线上的点数(可信度)
+    STDMETHOD(FindLineEx)
+    (LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr, LONG *ret);
     // 设置 HTTP OCR 引擎地址和参数.
     STDMETHOD(SetOcrEngine)(BSTR path_of_engine, BSTR dll_name, BSTR argv, LONG *ret);
     STDMETHOD(SetYoloEngine)(BSTR path_of_engine, BSTR dll_name, BSTR argv, LONG *ret);

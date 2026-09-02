@@ -1,0 +1,9 @@
+// 本文件由 CMake 在配置期根据 ocr_models.rc.in 生成（路径注入），请勿手动修改。
+// 模型文件在构建时由 build/_deps/ocr_models/ 嵌入 DLL 资源段（RCDATA）。
+// 资源 ID 必须与 ocr/ocr_models.h 保持一致（此处内联定义，避免 RC 阶段依赖头文件路径）。
+#define IDR_OCR_DET  101
+#define IDR_OCR_REC  102
+#define IDR_OCR_KEYS 104
+IDR_OCR_DET  OCRMODEL  "@OCR_MODEL_DET@"
+IDR_OCR_REC  OCRMODEL  "@OCR_MODEL_REC@"
+IDR_OCR_KEYS OCRMODEL  "@OCR_MODEL_KEYS@"

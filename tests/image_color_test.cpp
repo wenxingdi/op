@@ -929,11 +929,39 @@ TEST(ImageColorTest, BinaryPreprocessIsDisabledByDefault) {
     SetMemBmp(op, width, height, pixels, ret);
     ASSERT_EQ(ret, 1);
 
+    // Explicitly disable preprocessing: the "disabled" contract must hold
+    // regardless of the library default (which is now mode=1 — remove isolated points).
+    op.SetBinaryPreprocess(0, 0, 0, 0, &ret);
+    ASSERT_EQ(ret, 1);
+
     wstring preview;
     op.GetBinaryPreview(0, 0, width, height, L"000000", 1.0, preview, &ret);
 
     EXPECT_EQ(ret, 5);
     EXPECT_EQ(preview, L"6,4\n.....#\n.#.#..\n.#.#..\n......");
+}
+
+TEST(ImageColorTest, BinaryPreprocessRemovesIsolatedPointsByDefault) {
+    op::Op op;
+    long ret = 0;
+    const int width = 6;
+    const int height = 4;
+    auto pixels = MakePixels(width, height);
+    PaintPixel(pixels, width, 5, 0, 0x00, 0x00, 0x00);
+    PaintPixel(pixels, width, 1, 1, 0x00, 0x00, 0x00);
+    PaintPixel(pixels, width, 3, 1, 0x00, 0x00, 0x00);
+    PaintPixel(pixels, width, 1, 2, 0x00, 0x00, 0x00);
+    PaintPixel(pixels, width, 3, 2, 0x00, 0x00, 0x00);
+    SetMemBmp(op, width, height, pixels, ret);
+    ASSERT_EQ(ret, 1);
+
+    // Default preprocessing (mode=1) removes the fully-isolated single point at
+    // (5,0) but must NOT touch the two connected 2x2 components.
+    wstring preview;
+    op.GetBinaryPreview(0, 0, width, height, L"000000", 1.0, preview, &ret);
+
+    EXPECT_EQ(ret, 4);
+    EXPECT_EQ(preview, L"6,4\n......\n.#.#..\n.#.#..\n......");
 }
 
 TEST(ImageColorTest, BinaryPreprocessRemovesNoiseAndBridgesOnePixelGaps) {
@@ -2290,4 +2318,68 @@ TEST(ImageColorTest, RequestCapturePicMemBoundsCheck) {
 
     // mem_mode 设置失败应返回 <0（不触及 requestCapture）。
     EXPECT_LT(OpRequestCaptureForTest(L"garbage", 0, 0, 1, 1, px), 0) << "invalid mem_mode must fail setup";
+}
+
+// FindLineEx：在内存位图上画一条水平线，验证扩展版输出的“直线上点数”可作为可信度使用。
+// FindLine 本身无阈值、即便图中没有直线也必定返回一条“最强”直线，调用方无从判断真伪；
+// 扩展版把霍夫累加器峰值一并输出，本用例钉住该语义，且确认旧接口结果不被改变。
+TEST(ImageColorTest, FindLineExReportsPointCountAsConfidence) {
+    op::Op op;
+    long ret = 0;
+    const int width = 16;
+    const int height = 16;
+
+    // 全黑背景 + 第 8 行整行白色（长度 16 的水平线）
+    auto pixels = MakePixels(width, height, 0x00, 0x00, 0x00);
+    for (int x = 0; x < width; ++x)
+        PaintPixel(pixels, width, x, 8, 0xff, 0xff, 0xff);
+
+    auto bmp = BuildBmp32TopDown(width, height, pixels);
+    wstring mode = L"mem:" + PtrToWString(bmp.data());
+    op.SetDisplayInput(mode.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+
+    wstring line;
+    long point_count = -1;
+    op.FindLineEx(0, 0, width, height, L"ffffff", 1.0, line, &point_count);
+
+    // 每个前景点对每个角度只投一票，累加器峰值不可能超过前景点数；16 点共线故峰值恰为 16。
+    EXPECT_EQ(point_count, 16) << "point count must equal the number of collinear pixels";
+    ASSERT_FALSE(line.empty()) << "line descriptor must not be empty";
+
+    // 只做区间断言：90 度附近存在多个等票的累加器桶，具体落在哪个桶依赖浮点取整，
+    // 断言精确字符串会让用例变脆。水平线对应法线角度约 90 度、到区域左上角距离约 8。
+    const auto comma = line.find(L',');
+    ASSERT_NE(comma, wstring::npos) << "line must be formatted as \"angle,distance\"";
+    const long angle = stol(line.substr(0, comma));
+    const long distance = stol(line.substr(comma + 1));
+    EXPECT_GE(angle, 85);
+    EXPECT_LE(angle, 95);
+    EXPECT_GE(distance, 7);
+    EXPECT_LE(distance, 8);
+
+    // 回归保护：扩展版不得改变旧接口在相同入参下的结果。
+    wstring legacy;
+    op.FindLine(0, 0, width, height, L"ffffff", 1.0, legacy);
+    EXPECT_EQ(legacy, line) << "FindLineEx must not change FindLine's existing result";
+}
+
+// 无任何匹配颜色的点时，点数必须为 0 —— 这正是调用方判定“本次结果不可信”的依据。
+TEST(ImageColorTest, FindLineExReturnsZeroCountWhenNoForeground) {
+    op::Op op;
+    long ret = 0;
+    const int width = 16;
+    const int height = 16;
+
+    auto pixels = MakePixels(width, height, 0x00, 0x00, 0x00);
+    auto bmp = BuildBmp32TopDown(width, height, pixels);
+    wstring mode = L"mem:" + PtrToWString(bmp.data());
+    op.SetDisplayInput(mode.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+
+    wstring line;
+    long point_count = -1;
+    op.FindLineEx(0, 0, width, height, L"ffffff", 1.0, line, &point_count);
+
+    EXPECT_EQ(point_count, 0) << "no foreground pixel must yield zero confidence";
 }

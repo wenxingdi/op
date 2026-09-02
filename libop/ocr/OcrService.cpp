@@ -1,4 +1,5 @@
 #include "OcrService.h"
+#include "OnnxOcrEngine.h"
 #include "../network/HttpClient.h"
 #include "../base/Utils.h"
 #include <iostream>
@@ -51,24 +52,20 @@ int resolve_default_timeout_ms() {
 }
 } // namespace
 
-HttpOcrService::HttpOcrService() : m_endpoint(resolve_default_endpoint()), m_timeout_ms(resolve_default_timeout_ms()) {
+// ---- HttpOcrEngine（原 HttpOcrService 的 HTTP 实现，作可选远程兜底）----
+HttpOcrEngine::HttpOcrEngine() : m_endpoint(resolve_default_endpoint()), m_timeout_ms(resolve_default_timeout_ms()) {
     if (!normalize_endpoint(m_endpoint, kOcrDefaultPathSuffix)) {
         // 配置写错时退回主 OCR 服务，避免静默切到旧 Tesseract 后端。
         m_endpoint = kPaddleNcnnOcrDefaultEndpoint;
     }
-    cout << "HttpOcrService::HttpOcrService(), endpoint=" << m_endpoint << endl;
+    cout << "HttpOcrEngine::HttpOcrEngine(), endpoint=" << m_endpoint << endl;
 }
 
-HttpOcrService::~HttpOcrService() {
+HttpOcrEngine::~HttpOcrEngine() {
     release();
 }
 
-HttpOcrService *HttpOcrService::getInstance() {
-    static HttpOcrService sOcrEngine;
-    return &sOcrEngine;
-}
-
-int HttpOcrService::init(const std::wstring &engine, const std::wstring &dllName, const vector<string> &argvs) {
+int HttpOcrEngine::init(const std::wstring &engine, const std::wstring &dllName, const std::vector<std::string> &argvs) {
     std::lock_guard<std::mutex> lock(m_mutex);
 
     // Resolve fallback endpoint/timeout if not yet set
@@ -84,12 +81,12 @@ int HttpOcrService::init(const std::wstring &engine, const std::wstring &dllName
                               3000);
 }
 
-int HttpOcrService::release() {
+int HttpOcrEngine::release() {
     std::lock_guard<std::mutex> lock(m_mutex);
     return 0;
 }
 
-int HttpOcrService::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
+int HttpOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
     result.clear();
 
     // Snapshot endpoint/timeout under lock; the HTTP request below runs concurrently
@@ -194,6 +191,46 @@ int HttpOcrService::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
     }
 
     return n;
+}
+
+// ---- HttpOcrService（OCR 引擎管理器单例）----
+HttpOcrService::HttpOcrService() = default;
+HttpOcrService::~HttpOcrService() = default;
+
+HttpOcrService *HttpOcrService::getInstance() {
+    static HttpOcrService sInstance;
+    return &sInstance;
+}
+
+int HttpOcrService::init(const std::wstring &engine, const std::wstring &dllName,
+                        const std::vector<std::string> &argv) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const std::string eng = _ws2string(engine);
+    std::string dummy;
+    const bool is_http = (eng.rfind("http", 0) == 0) || try_resolve_ocr_backend(eng, dummy);
+    if (is_http) {
+        m_engine = std::make_unique<HttpOcrEngine>();
+        cout << "HttpOcrService: selected HttpOcrEngine (remote)" << endl;
+    } else {
+        // 空 / "onnx" / "builtin" / 未知 → 内置进程内引擎（默认）
+        m_engine = std::make_unique<OnnxOcrEngine>();
+        cout << "HttpOcrService: selected OnnxOcrEngine (built-in)" << endl;
+    }
+    return m_engine->init(engine, dllName, argv);
+}
+
+int HttpOcrService::release() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_engine.reset();
+    return 0;
+}
+
+int HttpOcrService::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_engine) {
+        return -1;
+    }
+    return m_engine->ocr(data, w, h, bpp, result);
 }
 
 } // namespace op::ocr

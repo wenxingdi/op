@@ -222,7 +222,9 @@ def setup_msvc_env(arch: str) -> dict[str, str]:
 
     # Run vcvarsall and dump the environment
     cmd = f'"{vcvarsall}" {vcvars_arch} && set'
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    # errors="replace": some env values may carry non-UTF8 bytes; a strict
+    # decode would throw in the reader thread and corrupt the captured result.
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, errors="replace")
     if result.returncode != 0:
         print(f"[ERROR] vcvarsall.bat failed:\n{result.stderr}")
         sys.exit(1)
@@ -246,6 +248,45 @@ def setup_msvc_env(arch: str) -> dict[str, str]:
                 )
                 del env[key]
             break
+
+    # --- Workaround: the sandbox blocks reg.exe, so vcvarsall cannot locate the
+    #     Windows SDK via the registry and leaves INCLUDE/LIB/PATH without SDK
+    #     paths. Inject them manually when absent. On a normal machine where
+    #     vcvarsall already added them this is a no-op. ---
+    _sdk_root = r"C:\Program Files (x86)\Windows Kits\10"
+    if os.path.isdir(_sdk_root):
+        try:
+            _inc_versions = sorted(
+                d
+                for d in os.listdir(os.path.join(_sdk_root, "Include"))
+                if os.path.isdir(os.path.join(_sdk_root, "Include", d))
+            )
+        except OSError:
+            _inc_versions = []
+        if _inc_versions:
+            _sdk_ver = _inc_versions[-1]
+            _sdk_inc = os.path.join(_sdk_root, "Include", _sdk_ver)
+            _sdk_lib = os.path.join(_sdk_root, "Lib", _sdk_ver)
+            _extra_inc = [
+                os.path.join(_sdk_inc, d)
+                for d in ("ucrt", "um", "shared", "winrt", "cppwinrt")
+                if os.path.isdir(os.path.join(_sdk_inc, d))
+            ]
+            _extra_lib = [
+                os.path.join(_sdk_lib, d)
+                for d in (r"ucrt\x64", r"um\x64")
+                if os.path.isdir(os.path.join(_sdk_lib, d))
+            ]
+            _sdk_bin = os.path.join(_sdk_root, "bin", _sdk_ver, "x64")
+            if "Windows Kits" not in env.get("INCLUDE", ""):
+                _inc = env.get("INCLUDE", "")
+                env["INCLUDE"] = ";".join(_extra_inc + ([_inc] if _inc else []))
+            if "Windows Kits" not in env.get("LIB", ""):
+                _lib = env.get("LIB", "")
+                env["LIB"] = ";".join(_extra_lib + ([_lib] if _lib else []))
+            if os.path.isdir(_sdk_bin):
+                env["PATH"] = env.get("PATH", "") + ";" + _sdk_bin
+
     return env
 
 

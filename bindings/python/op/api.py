@@ -1384,6 +1384,18 @@ class Op:
     def find_line(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
         return self._call_string("OpFindLine", int(x1), int(y1), int(x2), int(y2), color, float(sim))
 
+    def find_line_ex(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> tuple[str, int]:
+        """查找直线并同时返回可信度。
+
+        返回 ``(line, point_count)``：``line`` 为 ``"角度,距离"``（距离相对区域左上角），
+        ``point_count`` 为该直线上的点数。``FindLine`` 无阈值、即便图中没有直线也会返回一条
+        噪点拟合的"幻觉线"，因此应当用 ``point_count`` 自行判定：数值越大越可信，
+        ``0`` 表示未截图成功或区域内没有匹配颜色的点。
+        """
+        return self._call_string_with_int(
+            "OpFindLineEx", int(x1), int(y1), int(x2), int(y2), color, float(sim)
+        )
+
     # Memory
     def read_data(self, address: str, size: int, hwnd: int = 0) -> str:
         return self._call_string("OpReadData", int(hwnd), address, int(size))

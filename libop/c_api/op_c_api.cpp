@@ -1282,6 +1282,12 @@ const wchar_t *OP_CALL OpOcrEx(op_handle handle, int x1, int y1, int x2, int y2,
     return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.OcrEx(x1, y1, x2, y2, safe_text(color), sim, ret); });
 }
 
+const wchar_t *OP_CALL OpAutoOcr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, double sim) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.AutoOcr(x1, y1, x2, y2, safe_text(color), sim, ret);
+    });
+}
+
 int OP_CALL OpFindStr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *strs, const wchar_t *color,
                       double sim, int *x, int *y) {
     return call_ret(handle, [&](op::Op &op, long *ret) {
@@ -1310,6 +1316,13 @@ const wchar_t *OP_CALL OpOcrFromFile(op_handle handle, const wchar_t *file_name,
     });
 }
 
+const wchar_t *OP_CALL OpAutoOcrFromFile(op_handle handle, const wchar_t *file_name, const wchar_t *color_format,
+                                        double sim) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.AutoOcrFromFile(safe_text(file_name), safe_text(color_format), sim, ret);
+    });
+}
+
 const wchar_t *OP_CALL OpOcrAutoFromFile(op_handle handle, const wchar_t *file_name, double sim) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.OcrAutoFromFile(safe_text(file_name), sim, ret); });
 }
@@ -1318,6 +1331,16 @@ const wchar_t *OP_CALL OpFindLine(op_handle handle, int x1, int y1, int x2, int 
                                   double sim) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) {
         op.FindLine(x1, y1, x2, y2, safe_text(color), sim, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpFindLineEx(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
+                                    double sim, int *point_count) {
+    out_value(point_count, 0);
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        long count = 0;
+        op.FindLineEx(x1, y1, x2, y2, safe_text(color), sim, ret, &count);
+        out_value(point_count, static_cast<int>(count));
     });
 }
 

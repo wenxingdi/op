@@ -758,12 +758,30 @@ void OcrTest::SetUp() {
     if (!GetEnvString(L"OP_SKIP_OCR_TESTS").empty())
         GTEST_SKIP() << "OCR tests are disabled by OP_SKIP_OCR_TESTS.";
 
+    const std::wstring backend = GetEnvString(L"OP_OCR_BACKEND");
+    const bool use_builtin = _wcsicmp(backend.c_str(), L"builtin") == 0 ||
+                              _wcsicmp(backend.c_str(), L"onnx") == 0;
+    if (use_builtin) {
+        // 内置 PP-OCRv4 引擎（OnnxOcrEngine，模型内嵌于 op_x64.dll）无需外部 HTTP 服务。
+        // 直接激活并跳过健康检查，使 OCR 用例可在无外部服务环境下验证内置推理链路。
+        op.SetOcrEngine(L"onnx", L"", L"");
+        return;
+    }
+
     if (!IsOcrServerHealthy()) {
         GTEST_SKIP() << "OCR service is not running. Configure OP_OCR_URL/OP_OCR_BACKEND and start the service to run OCR tests.";
     }
 }
 
 void OcrTest::TearDown() {
+    const std::wstring backend = GetEnvString(L"OP_OCR_BACKEND");
+    const bool use_builtin = _wcsicmp(backend.c_str(), L"builtin") == 0 ||
+                              _wcsicmp(backend.c_str(), L"onnx") == 0;
+    if (use_builtin) {
+        op.SetOcrEngine(L"onnx", L"", L"");
+        return;
+    }
+
     const std::wstring endpoint = GetConfiguredOcrEndpoint();
     if (!endpoint.empty()) {
         op.SetOcrEngine(endpoint.c_str(), L"", L"--timeout=3000");

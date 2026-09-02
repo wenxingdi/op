@@ -334,6 +334,7 @@ def _bind(dll: ctypes.WinDLL) -> ctypes.WinDLL:
         ("OpOcrFromFile", c_wchar_p, [op_handle, c_wchar_p, c_wchar_p, c_double]),
         ("OpOcrAutoFromFile", c_wchar_p, [op_handle, c_wchar_p, c_double]),
         ("OpFindLine", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
+        ("OpFindLineEx", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double, c_int_p]),
         ("OpWriteData", c_int, [op_handle, intptr_t, c_wchar_p, c_wchar_p, c_int]),
         ("OpReadData", c_wchar_p, [op_handle, intptr_t, c_wchar_p, c_int]),
         ("OpReadInt", c_int, [op_handle, intptr_t, c_wchar_p, c_int, c_int64_p]),

@@ -311,3 +311,50 @@ wheelhouse*
 .venv*
 
 SKILL.md
+
+# ===== Personal OCR debug / analysis artifacts (not part of the library) =====
+# ONNX / OCR ad-hoc debug tools (built locally, not shipped)
+/autoocr_pipe.cpp
+/autoocr_pipe.exe
+/autoocr_pipe_build.py
+/ocr_bmp.cpp
+/ocr_bmp.exe
+/ocr_bmp_build.py
+/OnnxOcrEngine_dbg.cpp
+/binarize.py
+/ocr_bench.py
+/amplify.py
+/build_test.py
+/smoke_build.py
+/smoke_ocr.cpp
+/smoke_ocr.exe
+/ocr_dll_check.py
+/op_autoocr_check.py
+/op_autoocr_file_check.py
+/verify_res.py
+/ocr_models_smoke.res
+# Runtime DLLs are fetched/copied by CMake build (_deps); do not track at repo root
+/onnxruntime.dll
+/onnxruntime_providers_shared.dll
+# Ad-hoc debug output dumps
+/autoocr_*.txt
+/ocr_*.txt
+/ocr_dll_*.txt
+/out_bin/
+# Audit / deep-dive analysis scripts & reports (archive separately if needed)
+/scripts/l2_audit_out.txt
+/scripts/scan_dict_superset.py
+/scripts/verify_dict_superset.py
+/scripts/verify_dict_sync.py
+/scripts/BLOCK_LINE_CAPTURE_DEEPDIVE.md
+/scripts/DICT_SUPERSET_REPORT.md
+/scripts/DX_INPUT_CHANNEL_REPORT.md
+/scripts/FINDCOLOR_DEEPDIVE.md
+/scripts/FINDPIC_DEEPDIVE.md
+/scripts/OCR_DICTIONARY_DEEPDIVE.md
+/scripts/OCR_FUNCTION_COVERAGE.md
+/scripts/OP_CAPABILITY_INVENTORY.md
+/scripts/OP_DICT_MUSTDO.md
+# Personal download / reference guides (not library source)
+/download_blackbone_guide.txt
+/download_opencv_guide.txt

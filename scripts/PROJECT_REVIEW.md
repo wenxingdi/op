@@ -86,3 +86,71 @@
 6. **L2 低风险存量**：D(62 new 未判空)/F(35 .at 无 try)/H(46 整型截断) 在当前 /EHa + 业务约束下不触发，可选整改。
 7. **工具/审计产物归档**：`build_cn.py`/`setup_msvc_env.bat`/`scripts/*.py`/`scripts/*_REPORT.md` 决定入库或移出仓库根，保持工作区整洁。
 8. **构建环境固化**：把 nmake 增量重编所需的环境（MSVC+WinSDK+atlmfc 的 INCLUDE/LIB/PATH，含 winrt/cppwinrt/atlmfc）写进 `setup_msvc_env.bat` 并入库，避免每次手工拼装（OpAutomation.cpp 需 atlmfc 这类依赖易遗漏）。
+
+---
+
+## 五、最新进度追踪（截至 2026-09-02）
+
+> 本节追踪金字塔评审（L0–L3，止于 `8e4bdca` 优化轮）之后到当前的项目进展。原评审结论（一~四章）不变。数据来自 `git log` / `git status` 与当日工作日志。
+
+### 5.1 已提交的新提交（评审后）
+| commit | 主题 | 状态 |
+|---|---|---|
+| `b63fe74` | fix(capture): GdiCapture 每帧重算客户区偏移，消除窗口 resize 后 FindPic 错位 | ✅ 已入库 |
+| `9f197e5` | refactor: 金字塔评审 L2 逐功能解剖 + dx 输入三通道开关 | ✅ 已入库 |
+| `8e4bdca` | 优化(P1–P3): CPU 采样基准 / 注入超时释放 / SWIG 异常 / 验证闭环 / 构建环境 | ✅ 已入库（见 2026-08-06 日志） |
+
+### 5.2 工作区工作线（已于 2026-09-02 提交）
+**① OCR 引擎架构重构 + 进程内 ONNX 内置引擎（构建验证通过，未提交，架构级）**
+- 动机：原 OCR 仅支持远程 HTTP 服务（需外部部署）；现改为「进程内内置引擎默认 + HTTP 远程兜底可选」。
+- 落地：
+  - `OcrService.h/.cpp`：新增抽象 `OcrEngine` 接口；`HttpOcrEngine`（原 `HttpOcrService` 的 HTTP 实现，远程兜底）；`OnnxOcrEngine`（进程内默认，pimpl 隔离 onnxruntime 头依赖）。`HttpOcrService` 退化为引擎选择器（按 engine 串选 Onnx/Http）。
+  - 新增 `OnnxOcrEngine.cpp/.h`（untracked，pimpl）：基于 ONNX Runtime 的 PP-OCRv4（det+rec 模型编入 DLL 资源段 `ocr_models.rc.in`）。
+  - `libop/CMakeLists.txt`：ONNX Runtime 链接——静态优先（0 新增 DLL）/ 否则共享（+2 DLL：`onnxruntime.dll` + `onnxruntime_providers_shared.dll`，随插件分发）；模型资源 rc 注入。
+- **构建验证（2026-09-02，用户指令"先验证"）已通过**：
+  - cmake 重配成功纳入——日志 `ONNX Runtime found` + `SHARED linking (+2 DLL)` + `Generating done`；`op_x64.dir/build.make` 含 `OnnxOcrEngine`（15 处）。
+  - `nmake op_x64` EXIT=0：`OnnxOcrEngine.cpp.obj` 两 target(libop/op_x64) 均编译；`op_x64.dll` **25.4MB**（无模型时仅几 MB，证明 det/rec/keys 三模型资源已编入 DLL 资源段 `OCRMODEL`）；`onnxruntime` 符号链接进 dll。
+  - `nmake op_test` EXIT=0：OcrService 接口重构（OcrEngine 抽象 + HttpOcrEngine + 引擎选择器）未破坏 `ocr_test.cpp` 等编译。
+  - 跑 op_test 排除 WgcTest：167 用例 / 131 通过 / 1 FAILED（`MouseKeyTest.WaitKeyScanAllWithWaitFindsKey`，沙箱无键盘焦点、环境相关、与验证前基线一致）/ 0 segfault；`OcrFixture` 25 用例因 OCR 服务未起全 SKIP（日志可见 `selected HttpOcrEngine (remote)` 选择器路径正常）。
+  - **三层（编译+链接+资源编入）+ 编译回归均验证通过，无新增回归。**
+- 状态：代码落地 + 构建验证通过，**已提交**（见 §5.4）。运行时识别正确性需 GUI 环境加载模型跑真实图，本沙箱不可行（与「ONNX 引擎无运行时测试证据」短板一致，非回归）。
+
+**② FindLineEx 落地（已完成，低风险高收益）**
+- 纯新增 `FindLineEx`（保留 `FindLine` 原签名，零 ABI 风险），把霍夫累加器峰值（直线上点数 `point_count`）作 `long *ret` 出参；COM/C-API/Python/Go 全链路（11 处 / 9 文件）。
+- 验证：自建 2 用例 PASSED；`nmake op_test` EXIT=0；回归 167/131/1FAILED(环境相关 MouseKeyTest)/0 segfault。
+- 状态：已完成，**已提交**（见 §5.4）。
+
+**③ ImageSearchService 默认去噪增强（已完成）**
+- `_binary_preprocess_mode` 默认 `0→1`（删孤立 1px 噪点）；精确模式 `SetBinaryPreprocess(0,0,2,1)` 关回。
+- 连带：`BinaryPreprocessIsDisabledByDefault` 测试改为显式 `SetBinaryPreprocess(0,...)` 验证 disabled 路径，并新增 `BinaryPreprocessRemovesIsolatedPointsByDefault` 钉默认 mode=1。
+- 状态：已完成，**已提交**（见 §5.4）。
+
+**④ 测试与工具**
+- `tests/image_color_test.cpp` +92 行（FindLineEx×2 + BinaryPreprocess 修正×2）；`tests/test_support.cpp` +18 行（mem 位图辅助）。
+- `scripts/run_tests.ps1` 补 UTF-8 BOM（修 PS5.1 按 GBK 误读致 ParserError）。
+- 一批 untracked OCR 调试工具（`autoocr_pipe*`/`ocr_bmp*`/`binarize.py`/`ocr_bench.py`/`OnnxOcrEngine_dbg.*`）：个人调试用，建议归档、不入库。
+
+### 5.3 进度小结
+- 金字塔评审（L0–L3）全部入库，崩溃/并发类高危缺陷清零，COM 层异常安全达标。
+- 评审后优化轮 + capture 修复 + L2 解剖已入库。
+- 当前主力方向：**OCR 引擎内置化（ONNX）**——从「依赖外部服务」向「开箱即用进程内识别」演进，架构级升级，**构建验证通过、未提交**（详见 5.2 ①）。
+- 验证闭环仍是短板：op_test 无 CI；ONNX 引擎缺**运行时识别**证据（环境无 GUI/服务未起时整 Fixture SKIP——已验证"编译+链接+资源编入+编译回归"四层，仅缺真实图识别输出，需 GUI 环境补测）。
+
+### 5.4 提交记录（2026-09-02）
+
+> 用户指令"一起提交，做好记录"：将 §5.2 的 ①②③ 代码工作合并为一次提交，调试工具/分析产物按建议不入主库。
+
+**提交范围（1 次提交）**
+- 21 个已跟踪文件改动：`bindings/go/{dll_windows,ocr_windows}.go`、`bindings/python/op/{_ffi,api}.py`、`build.py`、`include/{libop,op_c_api}.h`、`libop/CMakeLists.txt`、`libop/c_api/op_c_api.cpp`、`libop/com/{OpAutomation.{h,cpp},op.idl}`、`libop/image/ImageSearchService.{h,cpp}`、`libop/ocr/OcrService.{h,cpp}`、`libop/op/OpOcr.cpp`、`scripts/{PROJECT_REVIEW,run_tests.ps1}`、`tests/{image_color_test,test_support}.cpp`。
+- 4 个 ONNX 引擎新源文件（untracked→纳入版本控制）：`libop/ocr/OnnxOcrEngine.cpp` / `OnnxOcrEngine.h` / `ocr_models.h` / `ocr_models.rc.in`。
+- `.gitignore` 增补：个人 OCR 调试工具 / 分析产物 / 根目录 `onnxruntime*.dll` 忽略规则（保持工作树干净，不入库）。
+
+**不入主库（已 .gitignore）**
+- 调试工具：`autoocr_pipe*`、`ocr_bmp*`、`OnnxOcrEngine_dbg.cpp`、`binarize.py`、`ocr_bench.py`、`smoke_*`、`*_check.py`、`verify_res.py`、`amplify.py`、`build_test.py`、`ocr_models_smoke.res`、各 `*_result*.txt` / `ocr_dll_*.txt` / `out_bin/`。
+- 分析文档：`scripts/*.md` 深读报告 + `scripts/{scan,verify}_dict_*.py` + `l2_audit_out.txt`（如需留存可另行归档提交）。
+- 根目录 `onnxruntime.dll` / `onnxruntime_providers_shared.dll`（由 CMake 构建期从 `_deps` 复制，不跟踪）。
+
+**提交后状态**
+- `git status` 应仅剩被忽略的调试产物（untracked, ignored）；新增 ONNX 引擎源文件已纳入版本控制。
+- 提交信息（中文基调，沿用 `fix:`/`refactor:`/`feat:` 风格）见 `git log`。
+- 提交哈希见下方记忆日志与 `git log --oneline -1`。

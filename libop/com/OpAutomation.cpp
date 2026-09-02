@@ -1284,6 +1284,16 @@ STDMETHODIMP OpAutomation::FindLine(LONG x1, LONG y1, LONG x2, LONG y2, BSTR col
     return CopyOutBstr(retstr, s);
 }
 
+STDMETHODIMP OpAutomation::FindLineEx(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr,
+                                      LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    wstring s;
+    obj.FindLineEx(x1, y1, x2, y2, color, sim, s, ret);
+
+    return CopyOutBstr(retstr, s);
+}
+
 STDMETHODIMP OpAutomation::SetOcrEngine(BSTR path_of_engine, BSTR dll_name, BSTR argv, LONG *ret) {
     return SetOutValue(ret, obj.SetOcrEngine(path_of_engine, dll_name, argv));
 }

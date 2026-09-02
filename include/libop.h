@@ -532,6 +532,9 @@ class OP_API Op {
     // 回识别到的字符串，以及每个字符的坐标.
     void OcrEx(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
                _Out_ std::wstring &ret_str);
+    // 区域截图后按颜色二值化再做免字库 OCR：输入区域、颜色、相似度。
+    void AutoOcr(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
+                 _Out_ std::wstring &ret_str);
     // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
     void FindStr(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *strs, _In_ const wchar_t *color,
                  _In_ double sim, _Out_ long *retx, _Out_ long *rety, _Out_ long *ret);
@@ -542,11 +545,18 @@ class OP_API Op {
     void OcrAuto(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double sim, _Out_ std::wstring &ret_str);
     // 从文件中识别图片
     void OcrFromFile(_In_ const wchar_t *file_name, _In_ const wchar_t *color_format, _In_ double sim, _Out_ std::wstring &retstr);
+    // 文件版 AutoOcr：读取图片后按颜色二值化再做免字库 OCR。
+    void AutoOcrFromFile(_In_ const wchar_t *file_name, _In_ const wchar_t *color_format, _In_ double sim, _Out_ std::wstring &retstr);
     // 从文件中识别图片,无需指定颜色
     void OcrAutoFromFile(_In_ const wchar_t *file_name, _In_ double sim, _Out_ std::wstring &retstr);
     // 查找频幕中的直线
     void FindLine(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
                   _Out_ std::wstring &retstr);
+    // 查找屏幕中的直线(扩展版): 额外返回该直线上的点数(霍夫累加器峰值)。
+    // FindLine 无阈值、永远返回一条"最强"直线，即便图中并无直线也会返回噪点拟合的结果；
+    // 本扩展把点数一并输出，调用者可据此判断结果是否可信(点数越大越可信，0 表示未截图/无前景点)。
+    void FindLineEx(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
+                    _In_ double sim, _Out_ std::wstring &retstr, _Out_ long *ret);
 
     // 向某进程写入数据
     void WriteData(_In_ LONG_PTR hwnd, _In_ const wchar_t *address, _In_ const wchar_t *data, _In_ long size, _Out_ long *ret);

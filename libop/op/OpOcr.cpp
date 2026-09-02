@@ -425,6 +425,16 @@ void op::Op::OcrEx(long x1, long y1, long x2, long y2, const wchar_t *color, dou
     });
     retstr = str;
 }
+
+// 区域截图后按颜色二值化再做免字库 OCR
+void op::Op::AutoOcr(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &retstr) {
+    wstring str;
+    const std::wstring color_text = color ? color : L"";
+    internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        m_context->image_proc.autoocr(color_text, sim, str);
+    });
+    retstr = str;
+}
 // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
 void op::Op::FindStr(long x1, long y1, long x2, long y2, const wchar_t *strs, const wchar_t *color, double sim,
                     long *retx, long *rety, long *ret) {
@@ -463,6 +473,12 @@ void op::Op::OcrFromFile(const wchar_t *file_name, const wchar_t *color_format, 
     m_context->image_proc.OcrFromFile(file_name, color_format, sim, str);
     retstr = str;
 }
+
+void op::Op::AutoOcrFromFile(const wchar_t *file_name, const wchar_t *color_format, double sim, std::wstring &retstr) {
+    wstring str;
+    m_context->image_proc.autoocrFromFile(file_name ? file_name : L"", color_format ? color_format : L"", sim, str);
+    retstr = str;
+}
 // 从文件中识别图片,无需指定颜色
 void op::Op::OcrAutoFromFile(const wchar_t *file_name, double sim, std::wstring &retstr) {
     wstring str;
@@ -473,4 +489,19 @@ void op::Op::OcrAutoFromFile(const wchar_t *file_name, double sim, std::wstring 
 void op::Op::FindLine(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, wstring &retstr) {
     internal::with_captured_region(m_context.get(), x1, y1, x2, y2,
                                    [&]() { m_context->image_proc.FindLine(color, sim, retstr); });
+}
+
+// 查找直线(扩展版): 额外输出直线上的点数，供调用者判断结果可信度。
+// 未绑定窗口/区域无效时 lambda 不会执行，此时 retstr 为空且点数为 0。
+void op::Op::FindLineEx(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, wstring &retstr,
+                        long *ret) {
+    long point_count = 0;
+    retstr.clear();
+    internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        point_count = m_context->image_proc.FindLine(color, sim, retstr);
+    });
+    if (point_count < 0)
+        point_count = 0;
+    if (ret)
+        *ret = point_count;
 }

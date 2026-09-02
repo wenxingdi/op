@@ -178,7 +178,10 @@ ImageSearchService::ImageSearchService() {
     for (bool &it : _private_dict_overrides)
         it = false;
     _enable_cache = 1;
-    _binary_preprocess_mode = 0;
+    // 默认开启保守去噪（mode=1）：自动删除完全孤立的 1 像素噪点。
+    // 不误伤连通笔画（笔画端点至少含 1 个邻居），可显著缓解"大→太"类噪点误判。
+    // 如需完全精确的逐像素模式，调用 SetBinaryPreprocess(0, 0, 2, 1) 关回。
+    _binary_preprocess_mode = 1;
     _binary_isolated_threshold = 0;
     _binary_min_component_area = 2;
     _binary_bridge_gap = 1;
@@ -712,7 +715,7 @@ long ImageSearchService::RenameWordDict(const wstring &dict_info, const wstring 
 long ImageSearchService::OCR(const wstring &color, double sim, std::wstring &out_str) {
     out_str.clear();
     if (sim < 0. || sim > 1.)
-        sim = 1.;
+        sim = 0.7;  // 默认置信度阈值：免字库 onnx 输出 conf≈0.85+，1.0 会全滤掉
     long s = 0;
     auto dict = ActiveDict(_curr_idx);
     if (!dict) {
@@ -729,6 +732,44 @@ long ImageSearchService::OCR(const wstring &color, double sim, std::wstring &out
     }
 
     return s;
+}
+
+long ImageSearchService::autoocr(const wstring &color, double sim, wstring &out_str) {
+    out_str.clear();
+    if (sim < 0. || sim > 1.)
+        sim = 0.7; // 默认置信度阈值：免字库 onnx 输出 conf≈0.85+，1.0 会全滤掉
+
+    // 1) 按颜色二值化 -> _binary（WORD_COLOR=1 命中文字，WORD_BKCOLOR=0 背景）
+    std::vector<color_df_t> colors;
+    str2colordfs(color, colors);
+    bgr2binary(colors);
+
+    auto dict = ActiveDict(_curr_idx);
+    if (dict) {
+        // 字库兜底：在颜色二值化结果上做字库 OCR
+        return ImageSearchAlgorithms::Ocr(*dict, sim, out_str);
+    }
+
+    // 2) 免字库：把二值图转成白字黑底 BGRA 缓冲，喂给 OnnxOcrEngine
+    int w = _binary.width, h = _binary.height;
+    if (w <= 0 || h <= 0)
+        return 0;
+    std::vector<unsigned char> buf(static_cast<size_t>(w) * h * 4, 0);
+    const unsigned char *bin = _binary.data();
+    for (int i = 0; i < w * h; ++i) {
+        unsigned char v = bin[i] ? 255 : 0; // 命中文字->白，背景->黑
+        buf[i * 4 + 0] = v;                 // B
+        buf[i * 4 + 1] = v;                 // G
+        buf[i * 4 + 2] = v;                 // R
+        buf[i * 4 + 3] = 255;               // A
+    }
+    vocr_rec_t res;
+    HttpOcrService::getInstance()->ocr(buf.data(), w, h, 4, res);
+    for (auto &it : res) {
+        if (it.confidence >= sim - 1e-9)
+            out_str += it.text;
+    }
+    return 0;
 }
 
 wstring ImageSearchService::GetColor(long x, long y) {
@@ -1033,7 +1074,7 @@ void ImageSearchService::files2mats(const wstring &files, std::vector<PicMatchTe
 long ImageSearchService::OcrEx(const wstring &color, double sim, std::wstring &retstr) {
     retstr.clear();
     if (sim < 0. || sim > 1.)
-        sim = 1.;
+        sim = 0.7;
     auto dict = ActiveDict(_curr_idx);
     if (!dict) {
         vocr_rec_t res;
@@ -1113,7 +1154,7 @@ long ImageSearchService::OcrAuto(double sim, std::wstring &retstr) {
 long ImageSearchService::OcrFromFile(const wstring &files, const wstring &color, double sim, std::wstring &retstr) {
     retstr.clear();
     if (sim < 0. || sim > 1.)
-        sim = 1.;
+        sim = 0.7;
     wstring fullpath;
     if (Path2GlobalPath(files, _curr_path, fullpath)) {
         _src.read(fullpath.data());
@@ -1125,12 +1166,24 @@ long ImageSearchService::OcrFromFile(const wstring &files, const wstring &color,
 long ImageSearchService::OcrAutoFromFile(const wstring &files, double sim, std::wstring &retstr) {
     retstr.clear();
     if (sim < 0. || sim > 1.)
-        sim = 1.;
+        sim = 0.7;
     wstring fullpath;
 
     if (Path2GlobalPath(files, _curr_path, fullpath)) {
         _src.read(fullpath.data());
         return OCR(L"", sim, retstr);
+    }
+    return 0;
+}
+
+long ImageSearchService::autoocrFromFile(const wstring &files, const wstring &color, double sim, std::wstring &retstr) {
+    retstr.clear();
+    if (sim < 0. || sim > 1.)
+        sim = 0.7;
+    wstring fullpath;
+    if (Path2GlobalPath(files, _curr_path, fullpath)) {
+        _src.read(fullpath.data());
+        return autoocr(color, sim, retstr); // 复用真实 autoocr：颜色二值化后再免字库 OCR
     }
     return 0;
 }

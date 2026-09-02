@@ -220,6 +220,7 @@ var (
 	procOcrFromFile            *windows.LazyProc
 	procOcrAutoFromFile        *windows.LazyProc
 	procFindLine               *windows.LazyProc
+	procFindLineEx             *windows.LazyProc
 	procWriteData              *windows.LazyProc
 	procReadData               *windows.LazyProc
 	procReadInt                *windows.LazyProc
@@ -449,6 +450,7 @@ func bindProcs() {
 	procOcrFromFile = dll.NewProc("OpOcrFromFile")
 	procOcrAutoFromFile = dll.NewProc("OpOcrAutoFromFile")
 	procFindLine = dll.NewProc("OpFindLine")
+	procFindLineEx = dll.NewProc("OpFindLineEx")
 	procWriteData = dll.NewProc("OpWriteData")
 	procReadData = dll.NewProc("OpReadData")
 	procReadInt = dll.NewProc("OpReadInt")

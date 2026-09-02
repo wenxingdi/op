@@ -264,6 +264,10 @@ interface IOpAutomation : IDispatch
 	[id(333)] HRESULT CvConnectedComponents([in] BSTR src_file, [in] DOUBLE min_area, [out] BSTR* retjson, [out, retval] LONG* ret);
 	[id(334)] HRESULT CvFindContours([in] BSTR src_file, [in] DOUBLE min_area, [out] BSTR* retjson, [out, retval] LONG* ret);
 	[id(335)] HRESULT CvPreprocessPipeline([in] BSTR src_file, [in] BSTR dst_file, [in] BSTR pipeline, [out, retval] LONG* ret);
+	// FindLineEx: retstr = "angle,distance", return value = point count on that line (0 = not captured / untrusted).
+	// NOTE: new methods must be appended at the END of the interface, otherwise the vtable order
+	//       of existing methods changes and binary compatibility is broken.
+	[id(348)] HRESULT FindLineEx([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out] BSTR* retstr, [out, retval] LONG* ret);
 
 
 

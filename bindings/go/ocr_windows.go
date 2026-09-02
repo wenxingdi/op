@@ -355,3 +355,17 @@ func (o *Op) FindLine(x1, y1, x2, y2 int, color string, sim float64) string {
 	ret, _, _ := procFindLine.Call(o.handle, uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2), strArg(color), f64Arg(sim))
 	return wcharString(ret)
 }
+
+// FindLineEx 查找直线并同时返回可信度。
+// 返回 (line, pointCount)：line 为 "角度,距离"（距离相对区域左上角），pointCount 为该直线上的点数。
+// FindLine 无阈值，即便图中并没有直线也会返回一条噪点拟合的结果，应据 pointCount 判定是否可信；
+// 0 表示未截图成功或区域内没有匹配颜色的点。
+func (o *Op) FindLineEx(x1, y1, x2, y2 int, color string, sim float64) (string, int) {
+	if !o.valid() {
+		return "", 0
+	}
+
+	var count int32
+	ret, _, _ := procFindLineEx.Call(o.handle, uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2), strArg(color), f64Arg(sim), int32Ptr(&count))
+	return wcharString(ret), int(count)
+}

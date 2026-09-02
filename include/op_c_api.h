@@ -324,6 +324,8 @@ OP_C_API const wchar_t *OP_CALL OpOcr(op_handle handle, int x1, int y1, int x2, 
                                       double sim);
 OP_C_API const wchar_t *OP_CALL OpOcrEx(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
                                         double sim);
+OP_C_API const wchar_t *OP_CALL OpAutoOcr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
+                                          double sim);
 OP_C_API int OP_CALL OpFindStr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *strs,
                                const wchar_t *color, double sim, int *x, int *y);
 OP_C_API const wchar_t *OP_CALL OpFindStrEx(op_handle handle, int x1, int y1, int x2, int y2,
@@ -331,9 +333,15 @@ OP_C_API const wchar_t *OP_CALL OpFindStrEx(op_handle handle, int x1, int y1, in
 OP_C_API const wchar_t *OP_CALL OpOcrAuto(op_handle handle, int x1, int y1, int x2, int y2, double sim);
 OP_C_API const wchar_t *OP_CALL OpOcrFromFile(op_handle handle, const wchar_t *file_name,
                                               const wchar_t *color_format, double sim);
+OP_C_API const wchar_t *OP_CALL OpAutoOcrFromFile(op_handle handle, const wchar_t *file_name,
+                                                 const wchar_t *color_format, double sim);
 OP_C_API const wchar_t *OP_CALL OpOcrAutoFromFile(op_handle handle, const wchar_t *file_name, double sim);
 OP_C_API const wchar_t *OP_CALL OpFindLine(op_handle handle, int x1, int y1, int x2, int y2,
                                            const wchar_t *color, double sim);
+/* 查找直线(扩展版): 返回"角度,距离"; point_count 输出该直线上的点数。
+ * FindLine 永远返回一条"最强"直线(无阈值)，point_count 越大越可信；0 表示未截图或无前景点。*/
+OP_C_API const wchar_t *OP_CALL OpFindLineEx(op_handle handle, int x1, int y1, int x2, int y2,
+                                             const wchar_t *color, double sim, int *point_count);
 
 // Memory
 OP_C_API int OP_CALL OpWriteData(op_handle handle, intptr_t hwnd, const wchar_t *address, const wchar_t *data,

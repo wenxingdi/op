@@ -1,4 +1,4 @@
-# run_tests.ps1 — op_test 运行器（解决 Windows CONSOLE gtest 在 Git Bash 下无 stdout 的问题）
+﻿# run_tests.ps1 — op_test 运行器（解决 Windows CONSOLE gtest 在 Git Bash 下无 stdout 的问题）
 # 用法: powershell -NoProfile -ExecutionPolicy Bypass -File run_tests.ps1 [-Filter "图案"]
 # 依赖: op_x64.dll / op_c_api_x64.dll 需在 build\libop\ 下（nmake 构建产物）
 param(
