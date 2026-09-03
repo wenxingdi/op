@@ -293,22 +293,63 @@ void db_postprocess(const std::vector<float> &score, int HH, int WW, float sx, f
         }
 }
 
+// 字符白名单规则（--charset= 参数）。ASCII 语法：
+//   @zh           展开 keys 内全部中文（CJK Unified U+4E00-U+9FFF）
+//   其余可打印 ASCII 字符（如 0-9 [ ] , - +）按字面加入
+// 示例: --charset=@zh0123456789[],-+   （只识别中文 + 数字 + 五个符号）
+// 空规则 = 全字典（默认，与原行为一致）。keys/rule 均单字节 ASCII 时编码无关。
+struct CharSetRule {
+    bool zh = false;
+    std::string chars; // 显式允许的单字节 ASCII 字符集合（去重）
+};
+
+CharSetRule parse_charset_rule(const std::string &rule) {
+    CharSetRule r;
+    size_t i = 0;
+    while (i < rule.size()) {
+        unsigned char u = static_cast<unsigned char>(rule[i]);
+        if (u == '@') {
+            if (i + 2 < rule.size() && (rule[i + 1] == 'z' || rule[i + 1] == 'Z') &&
+                (rule[i + 2] == 'h' || rule[i + 2] == 'H')) {
+                r.zh = true;
+                i += 3;
+                continue;
+            }
+            ++i; // 孤立 @ 忽略
+            continue;
+        }
+        if (u >= 0x21 && u <= 0x7E && r.chars.find(rule[i]) == std::string::npos)
+            r.chars.push_back(rule[i]);
+        // 其余（非 ASCII，如 ACP 中文残留）忽略：显式中文请用 @zh 全量展开
+        ++i;
+    }
+    return r;
+}
+
 // CTC 贪婪解码：argmax 后折叠重复并去 blank(0)。每步以最优类别概率作为置信度。
 // 维度判定：类别数 C 是较大的那一维，序列长 T 是较小的那一维。
+// mask：可选类别白名单（非空即启用）。mask[0] 恒 1=blank 始终允许；mask[c]==1
+//   允许类别 c 参与 argmax，c >= mask.size() 视为禁止（覆盖模型类别多于 keys 的
+//   尾部错位，无需 mask 与 C 等长）。白名单外字符概率被屏蔽，形近字符
+//   （0/O、,/.、1/l）竞争被消除。空 mask = 全字典（默认）。
 std::string ctc_greedy(const std::vector<float> &out, const std::vector<int64_t> &shape,
-                        const std::vector<std::string> &keys, float &conf) {
+                        const std::vector<std::string> &keys, float &conf,
+                        const std::vector<uint8_t> &mask) {
     int A = int(shape[1]), B = int(shape[2]);
     int C = std::max(A, B), T = std::min(A, B);
     bool tc_layout = (B == C); // [N,T,C]：类别在 dim2(B)；[N,C,T]：类别在 dim1(A)
+    const bool constrained = !mask.empty();
+    const size_t MC = mask.size();
     double conf_sum = 0.0;
     int nsteps = 0;
     std::string text;
     int lastc = -1;
     for (int t = 0; t < T; ++t) {
-        // 找最大/最小值做数值稳定，并同时定位 argmax
+        // 在（白名单内）类别中找最大/最小值做数值稳定，并同时定位 argmax
         float mx = -1e30f, bestv = -1e30f, mn = 1e30f;
         int best = 0;
         for (int c = 0; c < C; ++c) {
+            if (constrained && ((size_t)c >= MC || !mask[c])) continue; // mask[0]=1 保证 blank 可选
             float v = tc_layout ? out[size_t(t) * C + c] : out[size_t(c) * T + t];
             if (v > mx) mx = v;
             if (v < mn) mn = v;
@@ -319,17 +360,19 @@ std::string ctc_greedy(const std::vector<float> &out, const std::vector<int64_t>
         }
         // 判定模型输出是否已为概率（softmax）：所有值非负且 ≤1。
         // 若是，则 out[best] 本身即该步置信度（直接取最优类概率）；
-        // 否则视为 logits，按 softmax 求最优类概率。避免「概率再 softmax」被摊平致 conf≈0。
+        // 否则视为 logits，按 softmax 求最优类概率。白名单约束下 softmax
+        // 只在允许类别子集上归一，避免 conf 被屏蔽类别摊薄导致阈值误滤。
         float prob;
         if (mn >= -1e-5f && mx <= 1.0f + 1e-5f) {
             prob = bestv; // 已是概率
         } else {
             float sum = 0.0f;
             for (int c = 0; c < C; ++c) {
+                if (constrained && ((size_t)c >= MC || !mask[c])) continue;
                 float v = tc_layout ? out[size_t(t) * C + c] : out[size_t(c) * T + t];
                 sum += std::exp(v - mx);
             }
-            prob = std::exp(bestv - mx) / sum;
+            prob = sum > 0.f ? std::exp(bestv - mx) / sum : 0.f;
         }
         if (best != 0 && best != lastc) {
             int ki = best - 1; // blank=0，keys[i] 对应类别 i+1
@@ -352,11 +395,37 @@ public:
     std::unique_ptr<Ort::Session> rec;
     std::vector<std::string> keys;
     std::vector<uint8_t> m_det, m_rec, m_keys; // 持有模型 buffer 保证会话生命周期内有效
+    CharSetRule m_rule;                        // --charset= 解析结果（空=全字典）
+    std::vector<uint8_t> m_mask;               // 类别白名单（尺寸=keys+1；空=全放行）
     bool ok = false;
 
     Impl() {
         sopts.SetIntraOpNumThreads(1);
         sopts.SetGraphOptimizationLevel(ORT_ENABLE_ALL);
+    }
+
+    // keys 就绪后构建类别 mask：blank(0) 恒允许；keys[i] 对应类别 i+1。
+    // 尺寸 = keys+1；模型类别多于 keys 的尾部类别在 ctc_greedy 中按越界视为禁止。
+    void build_mask() {
+        m_mask.clear();
+        if (!m_rule.zh && m_rule.chars.empty())
+            return; // 未设置白名单 -> 空 mask = 全字典（默认行为）
+        m_mask.assign(keys.size() + 1, 0);
+        m_mask[0] = 1; // blank 恒允许
+        for (size_t i = 0; i < keys.size(); ++i) {
+            bool allow = false;
+            if (m_rule.zh) {
+                std::wstring w = utf8_to_wstring(keys[i]);
+                if (w.size() == 1) {
+                    wchar_t u = w[0];
+                    if (u >= 0x4E00 && u <= 0x9FFF) allow = true; // CJK 统一表意
+                }
+            }
+            if (!allow && keys[i].size() == 1 &&
+                m_rule.chars.find(keys[i][0]) != std::string::npos)
+                allow = true;
+            m_mask[i + 1] = allow ? 1 : 0;
+        }
     }
 
     bool load() {
@@ -378,7 +447,9 @@ public:
                 keys.push_back(line);
             }
         }
-        cout << "OnnxOcrEngine: models loaded, keys=" << keys.size() << endl;
+        build_mask();
+        cout << "OnnxOcrEngine: models loaded, keys=" << keys.size()
+             << ", charset_mask=" << (m_mask.empty() ? 0 : int(m_mask.size()) - 1) << endl;
         ok = true;
         return true;
     }
@@ -391,7 +462,13 @@ int OnnxOcrEngine::init(const std::wstring &engine, const std::wstring &dllName,
                         const std::vector<std::string> &argv) {
     (void)engine;
     (void)dllName;
-    (void)argv;
+    // 解析 --charset=<规则>：如 --charset=@zh0123456789[],-+
+    for (const std::string &a : argv) {
+        if (a.rfind("--charset=", 0) == 0) {
+            m_impl->m_rule = parse_charset_rule(a.substr(10));
+            break;
+        }
+    }
     return m_impl->load() ? 0 : -1;
 }
 
@@ -464,7 +541,7 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
         if (!ort_run(*m_impl->rec, rin, rshape, rout, roshape)) continue;
         if (roshape.size() != 3) continue;
         float conf = 0;
-        std::string txt = ctc_greedy(rout, roshape, m_impl->keys, conf);
+        std::string txt = ctc_greedy(rout, roshape, m_impl->keys, conf, m_impl->m_mask);
         if (txt.empty()) continue;
 
         ocr_rec_t rec;

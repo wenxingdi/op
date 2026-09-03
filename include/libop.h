@@ -451,6 +451,12 @@ class OP_API Op {
     void CvShapeMatchTemplate(_In_ long x, _In_ long y, _In_ long width, _In_ long height, _In_ const wchar_t *template_name,
                               _In_ double threshold, _Out_ std::wstring &retjson, _Out_ long *ret);
     //----------------------ocr-------------------------
+    // 选择 OCR 引擎并透传启动参数。engine: "onnx"/空=内置(默认)；http(s):// 或 backend 别名=远程 HTTP。
+    // argv 空格分隔，支持 --timeout=3000、--model-dir=path；内置 ONNX 另支持：
+    //   --charset=<规则>  解码期字符白名单（只识别白名单内字符，形近误识如 0/O、,/. 被消除）。
+    //                      语法：@zh = keys 内全部中文(U+4E00-9FFF)；其余可打印 ASCII 按字面加入。
+    //                      例：--charset=@zh0123456789[],-+  （中文+数字+[ ] , - + 五符号）
+    //                      未设置 = 全字典（默认，与原行为一致）。
     long SetOcrEngine(_In_ const wchar_t *path_of_engine, _In_ const wchar_t *dll_name, _In_ const wchar_t *argv);
     long SetYoloEngine(_In_ const wchar_t *path_of_engine, _In_ const wchar_t *dll_name, _In_ const wchar_t *argv);
     void YoloDetect(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
