@@ -2383,3 +2383,91 @@ TEST(ImageColorTest, FindLineExReturnsZeroCountWhenNoForeground) {
 
     EXPECT_EQ(point_count, 0) << "no foreground pixel must yield zero confidence";
 }
+
+// FindLineExS：min_points 阈值必须压制幻觉线——短线索产生的低峰值不再返回直线描述。
+// （单个孤立点会被默认去噪直接删除，故用 3 像素短线验证阈值语义本身。）
+TEST(ImageColorTest, FindLineExSThresholdSuppressesHallucination) {
+    op::Op op;
+    long ret = 0;
+    const int width = 16;
+    const int height = 16;
+
+    // 全黑背景 + 3 像素水平短线：峰值 = 3，低于常规直线但非孤立点（去噪保留）
+    auto pixels = MakePixels(width, height, 0x00, 0x00, 0x00);
+    for (int x = 7; x <= 9; ++x)
+        PaintPixel(pixels, width, x, 8, 0xff, 0xff, 0xff);
+
+    auto bmp = BuildBmp32TopDown(width, height, pixels);
+    wstring mode = L"mem:" + PtrToWString(bmp.data());
+    op.SetDisplayInput(mode.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+
+    wstring line;
+    long peak = -1;
+    op.FindLineExS(0, 0, width, height, L"ffffff", 1.0, 5, line, &peak);
+    EXPECT_EQ(peak, 3) << "3 collinear pixels vote at most 3 per accumulator bucket";
+    EXPECT_TRUE(line.empty()) << "peak below min_points must yield empty line descriptor";
+
+    // 阈值降到 3：同一画面应恢复返回直线，且峰值真实回传
+    op.FindLineExS(0, 0, width, height, L"ffffff", 1.0, 3, line, &peak);
+    EXPECT_EQ(peak, 3);
+    ASSERT_FALSE(line.empty());
+}
+
+// FindLineExS：16 点共线场景下行为与 FindLineEx 一致（峰值 16），阈值 100 时置空。
+TEST(ImageColorTest, FindLineExSMatchesFindLineExOnRealLine) {
+    op::Op op;
+    long ret = 0;
+    const int width = 16;
+    const int height = 16;
+
+    auto pixels = MakePixels(width, height, 0x00, 0x00, 0x00);
+    for (int x = 0; x < width; ++x)
+        PaintPixel(pixels, width, x, 8, 0xff, 0xff, 0xff);
+
+    auto bmp = BuildBmp32TopDown(width, height, pixels);
+    wstring mode = L"mem:" + PtrToWString(bmp.data());
+    op.SetDisplayInput(mode.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+
+    wstring line;
+    long peak = -1;
+    op.FindLineExS(0, 0, width, height, L"ffffff", 1.0, 0, line, &peak);
+    EXPECT_EQ(peak, 16);
+    ASSERT_FALSE(line.empty());
+
+    op.FindLineExS(0, 0, width, height, L"ffffff", 1.0, 100, line, &peak);
+    EXPECT_EQ(peak, 16) << "peak is still reported for calibration even below threshold";
+    EXPECT_TRUE(line.empty());
+}
+
+// FindColorBlockExS：mode=0 与 FindColorBlockEx 完全一致（兼容）；mode=1 把重合窗口聚成单一块。
+TEST(ImageColorTest, FindColorBlockExSClustersOverlappingWindows) {
+    op::Op op;
+    long ret = 0;
+    const int width = 10;
+    const int height = 10;
+
+    // 黑色背景 + (1,1) 起 6x6 白色实心块；4x4 滑动窗口会产生 7x7=49 个重合命中
+    auto pixels = MakePixels(width, height, 0x00, 0x00, 0x00);
+    for (int y = 1; y <= 6; ++y)
+        for (int x = 1; x <= 6; ++x)
+            PaintPixel(pixels, width, x, y, 0xff, 0xff, 0xff);
+
+    auto bmp = BuildBmp32TopDown(width, height, pixels);
+    wstring mode = L"mem:" + PtrToWString(bmp.data());
+    op.SetDisplayInput(mode.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+
+    wstring raw_legacy;
+    op.FindColorBlockEx(0, 0, width, height, L"ffffff", 1.0, 1, 4, 4, raw_legacy);
+
+    wstring raw_new;
+    op.FindColorBlockExS(0, 0, width, height, L"ffffff", 1.0, 1, 4, 4, 0, raw_new);
+    EXPECT_EQ(raw_new, raw_legacy) << "mode=0 must be byte-identical to FindColorBlockEx";
+    ASSERT_FALSE(raw_new.empty());
+
+    wstring clustered;
+    op.FindColorBlockExS(0, 0, width, height, L"ffffff", 1.0, 1, 4, 4, 1, clustered);
+    EXPECT_EQ(clustered, L"0,0") << "49 overlapping windows must merge into a single block origin";
+}

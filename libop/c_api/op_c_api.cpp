@@ -1418,5 +1418,41 @@ int OP_CALL OpWriteString(op_handle handle, intptr_t hwnd, const wchar_t *addres
     });
 }
 
+const wchar_t *OP_CALL OpFindData(op_handle handle, intptr_t hwnd, const wchar_t *addr_range, const wchar_t *string) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.FindDataEx(static_cast<LONG_PTR>(hwnd), safe_text(addr_range), safe_text(string), 1, 0, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpFindDataEx(op_handle handle, intptr_t hwnd, const wchar_t *addr_range,
+                                    const wchar_t *string, int step, int count) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.FindDataEx(static_cast<LONG_PTR>(hwnd), safe_text(addr_range), safe_text(string), step, count, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpGetModuleBaseAddr(op_handle handle, intptr_t hwnd, const wchar_t *module) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.GetModuleBaseAddr(static_cast<LONG_PTR>(hwnd), safe_text(module), ret);
+    });
+}
+
+const wchar_t *OP_CALL OpFindColorBlockExS(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
+                                           double sim, int count, int height, int width, int mode) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.FindColorBlockExS(x1, y1, x2, y2, safe_text(color), sim, count, height, width, mode, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpFindLineExS(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
+                                     double sim, int min_points, int *out_count) {
+    out_value(out_count, 0);
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        long count = 0;
+        op.FindLineExS(x1, y1, x2, y2, safe_text(color), sim, min_points, ret, &count);
+        out_value(out_count, static_cast<int>(count));
+    });
+}
+
 #undef OP_WIDEN_TEXT
 #undef OP_WIDEN_TEXT2

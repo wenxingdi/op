@@ -357,6 +357,21 @@ OP_C_API const wchar_t *OP_CALL OpReadString(op_handle handle, intptr_t hwnd, co
                                              int len);
 OP_C_API int OP_CALL OpWriteString(op_handle handle, intptr_t hwnd, const wchar_t *address, int type,
                                    const wchar_t *value);
+// 特征码搜索：string 十六进制串支持 ?? 通配；addr_range "start-end" 十六进制，空=全部已提交可读区。
+// 返回 "addr|addr|..."（大写十六进制）；count<=0 用默认上限 1024。
+OP_C_API const wchar_t *OP_CALL OpFindData(op_handle handle, intptr_t hwnd, const wchar_t *addr_range,
+                                           const wchar_t *string);
+OP_C_API const wchar_t *OP_CALL OpFindDataEx(op_handle handle, intptr_t hwnd, const wchar_t *addr_range,
+                                             const wchar_t *string, int step, int count);
+// 取模块基址（大写十六进制串）；失败返回空串。
+OP_C_API const wchar_t *OP_CALL OpGetModuleBaseAddr(op_handle handle, intptr_t hwnd, const wchar_t *module);
+// 颜色块增强版：mode=0 raw；mode=1 重合窗口聚类合并，每块只返回一个左上角坐标。
+OP_C_API const wchar_t *OP_CALL OpFindColorBlockExS(op_handle handle, int x1, int y1, int x2, int y2,
+                                                    const wchar_t *color, double sim, int count, int height,
+                                                    int width, int mode);
+// 找线增强版：去噪 + min_points 阈值；未达阈值返回空串（点数值经 out_count 返回真实峰值）。
+OP_C_API const wchar_t *OP_CALL OpFindLineExS(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
+                                              double sim, int min_points, int *out_count);
 
 #ifdef __cplusplus
 }

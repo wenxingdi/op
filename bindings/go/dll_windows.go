@@ -231,6 +231,9 @@ var (
 	procWriteDouble            *windows.LazyProc
 	procReadString             *windows.LazyProc
 	procWriteString            *windows.LazyProc
+	procFindData               *windows.LazyProc
+	procFindDataEx             *windows.LazyProc
+	procGetModuleBaseAddr      *windows.LazyProc
 )
 
 func init() {
@@ -461,6 +464,11 @@ func bindProcs() {
 	procWriteDouble = dll.NewProc("OpWriteDouble")
 	procReadString = dll.NewProc("OpReadString")
 	procWriteString = dll.NewProc("OpWriteString")
+	procFindData = dll.NewProc("OpFindData")
+	procFindDataEx = dll.NewProc("OpFindDataEx")
+	procGetModuleBaseAddr = dll.NewProc("OpGetModuleBaseAddr")
+	procFindColorBlockExS = dll.NewProc("OpFindColorBlockExS")
+	procFindLineExS = dll.NewProc("OpFindLineExS")
 }
 
 func defaultDLLPath() string {

@@ -505,3 +505,17 @@ void op::Op::FindLineEx(long x1, long y1, long x2, long y2, const wchar_t *color
     if (ret)
         *ret = point_count;
 }
+
+// 查找直线(增强版): 去噪 + min_points 阈值；未达阈值时 retstr 置空，ret 返回真实峰值点数。
+void op::Op::FindLineExS(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, long min_points,
+                         wstring &retstr, long *ret) {
+    long point_count = 0;
+    retstr.clear();
+    internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        point_count = m_context->image_proc.FindLineExS(color, sim, min_points, retstr);
+    });
+    if (point_count < 0)
+        point_count = 0;
+    if (ret)
+        *ret = point_count;
+}

@@ -105,6 +105,16 @@ func (o *Op) FindColorBlockEx(x1, y1, x2, y2 int, color string, sim float64, cou
 	return wcharString(ret)
 }
 
+// FindColorBlockExS 颜色块增强版：mode=0 raw（同 FindColorBlockEx）；mode=1 重合窗口聚类合并，每块只返回一个左上角坐标。
+func (o *Op) FindColorBlockExS(x1, y1, x2, y2 int, color string, sim float64, count, height, width int, mode int) string {
+	if !o.valid() {
+		return ""
+	}
+
+	ret, _, _ := procFindColorBlockExS.Call(o.handle, uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2), strArg(color), f64Arg(sim), uintptr(count), uintptr(height), uintptr(width), uintptr(mode))
+	return wcharString(ret)
+}
+
 func (o *Op) GetColor(x, y int) string {
 	if !o.valid() {
 		return ""

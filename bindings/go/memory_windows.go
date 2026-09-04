@@ -94,3 +94,34 @@ func (o *Op) WriteString(hwnd uintptr, address string, typ int, value string) in
 	ret, _, _ := procWriteString.Call(o.handle, hwnd, strArg(address), uintptr(typ), strArg(value))
 	return int(ret)
 }
+
+// FindData 特征码搜索内存：pattern 十六进制串支持 ?? 通配；addrRange "start-end" 十六进制，空=全部已提交可读区。
+// 返回 "addr|addr|..."（大写十六进制）。
+func (o *Op) FindData(hwnd uintptr, addrRange, pattern string) string {
+	if !o.valid() {
+		return ""
+	}
+
+	ret, _, _ := procFindData.Call(o.handle, hwnd, strArg(addrRange), strArg(pattern))
+	return wcharString(ret)
+}
+
+// FindDataEx 同 FindData；step<=0 视为 1，count<=0 用默认上限 1024。
+func (o *Op) FindDataEx(hwnd uintptr, addrRange, pattern string, step, count int) string {
+	if !o.valid() {
+		return ""
+	}
+
+	ret, _, _ := procFindDataEx.Call(o.handle, hwnd, strArg(addrRange), strArg(pattern), uintptr(step), uintptr(count))
+	return wcharString(ret)
+}
+
+// GetModuleBaseAddr 取目标进程模块基址（大写十六进制串）；失败返回空串。
+func (o *Op) GetModuleBaseAddr(hwnd uintptr, module string) string {
+	if !o.valid() {
+		return ""
+	}
+
+	ret, _, _ := procGetModuleBaseAddr.Call(o.handle, hwnd, strArg(module))
+	return wcharString(ret)
+}

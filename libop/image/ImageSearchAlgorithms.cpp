@@ -7,8 +7,14 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
+#include <limits>
 #include <numeric>
 #include <queue>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "../base/Utils.h"
 
@@ -958,6 +964,116 @@ _quick_return:
     if (cnt) {
         retstr.pop_back();
     }
+    return cnt;
+}
+
+namespace {
+
+// 并查集：重合滑动窗口聚类。窗口 [j,j+w)×[i,i+h)，相交即 |Δj|<w && |Δi|<h，
+// 链式相交（A交B、B交C）同属一簇。
+class window_cluster {
+  public:
+    explicit window_cluster(size_t n) : parent_(n), min_j_(n), min_i_(n) {
+        for (size_t k = 0; k < n; ++k) {
+            parent_[k] = k;
+            min_j_[k] = INT_MAX;
+            min_i_[k] = INT_MAX;
+        }
+    }
+
+    size_t find(size_t k) {
+        while (parent_[k] != k) {
+            parent_[k] = parent_[parent_[k]];
+            k = parent_[k];
+        }
+        return k;
+    }
+
+    void unite(size_t a, size_t b) {
+        const size_t ra = find(a), rb = find(b);
+        if (ra == rb)
+            return;
+        parent_[rb] = ra;
+        min_j_[ra] = (std::min)(min_j_[ra], min_j_[rb]);
+        min_i_[ra] = (std::min)(min_i_[ra], min_i_[rb]);
+    }
+
+    void set_origin(size_t k, int j, int i) {
+        min_j_[k] = j;
+        min_i_[k] = i;
+    }
+
+    int origin_j(size_t k) {
+        return min_j_[find(k)];
+    }
+    int origin_i(size_t k) {
+        return min_i_[find(k)];
+    }
+
+  private:
+    std::vector<size_t> parent_;
+    std::vector<int> min_j_;
+    std::vector<int> min_i_;
+};
+
+} // namespace
+
+long ImageSearchAlgorithms::FindColorBlockExS(long count, long height, long width, long mode, std::wstring &retstr) {
+    retstr.clear();
+    if (_binary.empty() || count <= 0 || height <= 0 || width <= 0 || height > _binary.height || width > _binary.width)
+        return 0;
+    if (mode == 0)
+        return FindColorBlockEx(count, height, width, retstr);
+
+    // mode=1：先收集全部命中窗口锚点，再按网格哈希 + 并查集聚类。
+    // cell 尺寸 = 窗口尺寸，相交窗口锚点必落在相邻 2×2 cell 内，避免 O(n²)。
+    record_sum(_binary);
+    std::vector<std::pair<int, int>> hits;
+    for (int i = 0; i <= _binary.height - height; ++i) {
+        for (int j = 0; j <= _binary.width - width; ++j) {
+            if (region_sum(j, i, j + width, i + height) >= count)
+                hits.emplace_back(j, i);
+        }
+    }
+    if (hits.empty())
+        return 0;
+
+    window_cluster uf(hits.size());
+    std::unordered_map<uint64_t, std::vector<size_t>> cells;
+    const int cw = static_cast<int>(width), ch = static_cast<int>(height);
+    for (size_t k = 0; k < hits.size(); ++k) {
+        const int j = hits[k].first, i = hits[k].second;
+        uf.set_origin(k, j, i);
+        const int cj = j / cw, ci = i / ch;
+        // 只查左上的 2×2 cell（其余方向由那些锚点查过来时覆盖），防重复比较
+        for (int dy = -1; dy <= 0; ++dy) {
+            for (int dx = -1; dx <= 0; ++dx) {
+                auto it = cells.find((static_cast<uint64_t>(static_cast<uint32_t>(ci + dy)) << 32) |
+                                     static_cast<uint32_t>(cj + dx));
+                if (it == cells.end())
+                    continue;
+                for (const size_t other : it->second) {
+                    const int oj = hits[other].first, oi = hits[other].second;
+                    if (std::abs(j - oj) < cw && std::abs(i - oi) < ch)
+                        uf.unite(k, other);
+                }
+            }
+        }
+        cells[(static_cast<uint64_t>(static_cast<uint32_t>(ci)) << 32) | static_cast<uint32_t>(cj)].push_back(k);
+    }
+
+    // 每簇输出左上角，按出现顺序去重
+    std::unordered_set<size_t> seen;
+    int cnt = 0;
+    for (size_t k = 0; hits.size() - k > 0 && cnt <= _max_return_obj_ct; ++k) {
+        const size_t root = uf.find(k);
+        if (!seen.insert(root).second)
+            continue;
+        retstr += to_wstring(uf.origin_j(root) + _x1 + _dx) + L"," + to_wstring(uf.origin_i(root) + _y1 + _dy) + L"|";
+        ++cnt;
+    }
+    if (cnt)
+        retstr.pop_back();
     return cnt;
 }
 

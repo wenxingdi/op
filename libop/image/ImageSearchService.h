@@ -48,6 +48,8 @@ class ImageSearchService : public ImageSearchAlgorithms {
 
     long FindColorBlockEx(const wstring &color, double sim, long count, long height, long width, wstring &retstr);
 
+    long FindColorBlockExS(const wstring &color, double sim, long count, long height, long width, long mode, wstring &retstr);
+
     std::wstring GetColor(long x, long y);
 
     long GetColorNum(const wstring &color, double sim);
@@ -123,6 +125,9 @@ class ImageSearchService : public ImageSearchAlgorithms {
     long OcrAutoFromFile(const wstring &files, double sim, std::wstring &retstr);
 
     long FindLine(const wstring &color, double sim, wstring &retStr);
+
+    // 带阈值 + 去噪的找线：峰值点数 < min_points 时清空 retstr（根治幻觉线）。
+    long FindLineExS(const wstring &color, double sim, long min_points, wstring &retStr);
 
     long LoadPic(const wstring &files);
 

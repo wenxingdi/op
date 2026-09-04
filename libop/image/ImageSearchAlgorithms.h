@@ -126,6 +126,9 @@ class ImageSearchAlgorithms {
 
     long FindColorBlockEx(long count, long height, long width, std::wstring &retstr);
 
+    // mode=0 raw（兼容 FindColorBlockEx）；mode=1 重合窗口聚类合并，返回各簇左上角。
+    long FindColorBlockExS(long count, long height, long width, long mode, std::wstring &retstr);
+
     long Ocr(Dictionary &dict, double sim, std::wstring &ret_str);
 
     long OcrEx(Dictionary &dict, double sim, std::wstring &out_str);

@@ -151,3 +151,35 @@ void op::Op::WriteString(LONG_PTR hwnd, const wchar_t *address, long type, const
         internal::set_result(ret, 0L);
     }
 }
+
+void op::Op::FindData(LONG_PTR hwnd, const wchar_t *addr_range, const wchar_t *string, std::wstring &retstr) {
+    FindDataEx(hwnd, addr_range, string, 1, 0, retstr);
+}
+
+void op::Op::FindDataEx(LONG_PTR hwnd, const wchar_t *addr_range, const wchar_t *string, long step, long count,
+                        std::wstring &retstr) {
+    retstr.clear();
+    if (!string)
+        return;
+    hwnd = resolve_memory_hwnd(this, hwnd);
+    try {
+        ProcessMemory mem;
+        retstr = mem.FindData(reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd)), addr_range ? addr_range : L"",
+                              string, step, count);
+    } catch (...) {
+        retstr.clear();
+    }
+}
+
+void op::Op::GetModuleBaseAddr(LONG_PTR hwnd, const wchar_t *module, std::wstring &retstr) {
+    retstr.clear();
+    if (!module || !*module)
+        return;
+    hwnd = resolve_memory_hwnd(this, hwnd);
+    try {
+        ProcessMemory mem;
+        retstr = mem.GetModuleBaseAddr(reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd)), module);
+    } catch (...) {
+        retstr.clear();
+    }
+}

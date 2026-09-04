@@ -176,6 +176,15 @@ void op::Op::FindColorBlockEx(long x1, long y1, long x2, long y2, const wchar_t 
     });
 }
 
+void op::Op::FindColorBlockExS(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, long count,
+                              long height, long width, long mode, std::wstring &retstr) {
+
+    retstr.clear();
+    internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        m_context->image_proc.FindColorBlockExS(color, sim, count, height, width, mode, retstr);
+    });
+}
+
 // 获取(x,y)的颜色
 void op::Op::GetColor(long x, long y, std::wstring &ret) {
     color_t cr;

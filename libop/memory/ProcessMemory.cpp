@@ -565,4 +565,208 @@ void ProcessMemory::bin2hexs(const vector<uchar> &bin, wstring &hex) {
     }
 }
 
+namespace {
+
+// 解析特征码：去空白后按字节对解析，"??"（或 "? " 组合的两个问号）为通配，其余须为十六进制对。
+// 返回 false 表示格式非法（空串/奇数长度/含非十六进制且非问号字符）。
+bool is_hex_char(wchar_t c) {
+    return (c >= L'0' && c <= L'9') || (c >= L'A' && c <= L'F') || (c >= L'a' && c <= L'f');
+}
+
+bool parse_pattern(const wstring &pattern, vector<uchar> &bytes, vector<uchar> &mask) {
+    wstring clean;
+    clean.reserve(pattern.size());
+    for (wchar_t c : pattern) {
+        if (c == L' ' || c == L'\t' || c == L',')
+            continue;
+        clean.push_back(c);
+    }
+    if (clean.empty() || clean.size() % 2 != 0)
+        return false;
+    const size_t n = clean.size() / 2;
+    bytes.assign(n, 0);
+    mask.assign(n, 0);
+    for (size_t i = 0; i < n; ++i) {
+        const wchar_t c0 = clean[i * 2];
+        const wchar_t c1 = clean[i * 2 + 1];
+        if (c0 == L'?' && c1 == L'?')
+            continue; // 通配字节：mask 保持 0
+        if (!is_hex_char(c0) || !is_hex_char(c1))
+            return false;
+        const int hi = hex2bin(towupper(c0));
+        const int lo = hex2bin(towupper(c1));
+        bytes[i] = static_cast<uchar>((hi << 4) | lo);
+        mask[i] = 1;
+    }
+    return true;
+}
+
+// 解析 "start-end" 十六进制范围；空串 = [0, UINTPTR_MAX]。
+bool parse_range(const wstring &range, uintptr_t &begin, uintptr_t &end) {
+    begin = 0;
+    end = UINTPTR_MAX;
+    if (range.empty())
+        return true;
+    const size_t dash = range.find(L'-');
+    if (dash == wstring::npos)
+        return false;
+    const wstring lo = range.substr(0, dash);
+    const wstring hi = range.substr(dash + 1);
+    if (!lo.empty())
+        begin = static_cast<uintptr_t>(parse_hex_word(lo));
+    if (!hi.empty())
+        end = static_cast<uintptr_t>(parse_hex_word(hi));
+    return end >= begin;
+}
+
+bool region_is_readable(const MEMORY_BASIC_INFORMATION &mbi) {
+    if (mbi.State != MEM_COMMIT)
+        return false;
+    const DWORD p = mbi.Protect & 0xFF;
+    switch (p) {
+    case PAGE_READONLY:
+    case PAGE_READWRITE:
+    case PAGE_WRITECOPY:
+    case PAGE_EXECUTE_READ:
+    case PAGE_EXECUTE_READWRITE:
+    case PAGE_EXECUTE_WRITECOPY:
+        return true;
+    default:
+        return false; // PAGE_NOACCESS / PAGE_GUARD / PAGE_EXECUTE（不可读）
+    }
+}
+
+// 在 buf 内按 step 扫描特征码；anchor 为首个非通配字节下标（调用前已保证存在）。
+// 候选起点 i 的范围 [0, buf_size-m]；anchor 字节位于 i+anchor，memchr 只在该窗口内找锚。
+void scan_chunk(const uchar *buf, size_t buf_size, const vector<uchar> &bytes, const vector<uchar> &mask,
+                size_t anchor, size_t step, vector<uintptr_t> &hits, uintptr_t chunk_base, size_t max_results) {
+    const size_t m = bytes.size();
+    if (buf_size < m)
+        return;
+    const uchar anchor_byte = bytes[anchor];
+    const size_t start_hi = buf_size - m; // 特征码起点的最后一个合法下标
+    for (size_t i = 0; i <= start_hi && hits.size() < max_results; i += step) {
+        const size_t from = i + anchor;
+        const uchar *p =
+            static_cast<const uchar *>(memchr(buf + from, anchor_byte, start_hi - i + 1));
+        if (!p)
+            break;
+        i = static_cast<size_t>(p - buf) - anchor; // i 回到特征码起点，末尾 i+=step 推进
+        bool ok = true;
+        for (size_t j = 0; j < m; ++j) {
+            if (mask[j] && buf[i + j] != bytes[j]) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok)
+            hits.push_back(chunk_base + i);
+    }
+}
+
+} // namespace
+
+wstring ProcessMemory::FindData(HWND hwnd, const wstring &range, const wstring &pattern, long step, long max_results) {
+    const size_t kDefaultMax = 1024;
+    const size_t kMaxPattern = 256;
+    const size_t kChunk = 16 * 1024 * 1024;
+
+    vector<uchar> bytes, mask;
+    if (!parse_pattern(pattern, bytes, mask) || bytes.empty() || bytes.size() > kMaxPattern)
+        return L"";
+    size_t anchor = 0;
+    while (anchor < mask.size() && !mask[anchor])
+        ++anchor;
+    if (anchor == mask.size())
+        return L""; // 全通配无意义
+    if (step <= 0)
+        step = 1;
+    const size_t max_hits = max_results > 0 ? static_cast<size_t>(max_results) : kDefaultMax;
+
+    uintptr_t range_begin = 0, range_end = UINTPTR_MAX;
+    if (!parse_range(range, range_begin, range_end))
+        return L"";
+
+    // 搜索独立走 OpenProcess/VirtualQueryEx，不经 BlackBone（枚举与分块读只需 VM_READ）。
+    HANDLE proc = ::GetCurrentProcess();
+    HANDLE opened = NULL;
+    DWORD pid = 0;
+    if (hwnd) {
+        if (!::IsWindow(hwnd))
+            return L"";
+        ::GetWindowThreadProcessId(hwnd, &pid);
+        opened = ::OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+        if (!opened)
+            return L"";
+        proc = opened;
+    }
+
+    vector<uintptr_t> hits;
+    vector<uchar> chunk(static_cast<size_t>(kChunk));
+    uintptr_t addr = range_begin;
+    while (addr <= range_end && hits.size() < max_hits) {
+        MEMORY_BASIC_INFORMATION mbi{};
+        if (::VirtualQueryEx(proc, reinterpret_cast<LPCVOID>(addr), &mbi, sizeof(mbi)) != sizeof(mbi))
+            break;
+        if (mbi.State == MEM_FREE && mbi.RegionSize == 0)
+            break;
+        const uintptr_t region_base = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
+        const uintptr_t region_end = region_base + static_cast<uintptr_t>(mbi.RegionSize) - 1;
+        if (region_end < range_begin) { // 整个区域在范围之前
+            addr = region_end + 1;
+            continue;
+        }
+        if (region_base > range_end)
+            break;
+        const uintptr_t scan_lo_save = region_base > range_begin ? region_base : range_begin;
+        if (scan_lo_save > range_end)
+            break;
+        if (region_is_readable(mbi)) {
+            const uintptr_t scan_lo = scan_lo_save;
+            const uintptr_t scan_hi = region_end < range_end ? region_end : range_end;
+            uintptr_t cur = scan_lo;
+            while (cur <= scan_hi && hits.size() < max_hits) {
+                const uintptr_t remain = scan_hi - cur + 1;
+                const size_t want = remain > kChunk ? static_cast<size_t>(kChunk) : static_cast<size_t>(remain);
+                SIZE_T got = 0;
+                // 末尾多读 m-1 字节，避免跨块特征码漏检（读失败则按精确长度重试一次）
+                size_t want_ext = want + (bytes.size() - 1);
+                if (want_ext > remain)
+                    want_ext = static_cast<size_t>(remain);
+                if (!::ReadProcessMemory(proc, reinterpret_cast<LPCVOID>(cur), chunk.data(), want_ext, &got) ||
+                    got < want)
+                    break;
+                scan_chunk(chunk.data(), got, bytes, mask, anchor, static_cast<size_t>(step), hits, cur, max_hits);
+                if (got < want_ext)
+                    break; // 区域尾部，读不满说明到头
+                cur += want;
+            }
+        }
+        addr = region_end + 1;
+        if (addr <= region_base)
+            break; // region_end 已触顶（UINTPTR_MAX），防回绕死循环
+    }
+    if (opened)
+        ::CloseHandle(opened);
+
+    wstring out;
+    for (size_t i = 0; i < hits.size(); ++i) {
+        if (i)
+            out.push_back(L'|');
+        out += toUpperHex(hits[i]);
+    }
+    return out;
+}
+
+wstring ProcessMemory::GetModuleBaseAddr(HWND hwnd, const wstring &module) {
+    if (module.empty())
+        return L"";
+    if (!prepare_process(hwnd))
+        return L"";
+    const size_t addr = str2address(L"<" + module + L">");
+    if (addr == 0)
+        return L"";
+    return toUpperHex(addr);
+}
+
 } // namespace op

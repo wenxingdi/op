@@ -1388,6 +1388,54 @@ STDMETHODIMP OpAutomation::WriteString(LONGLONG hwnd, BSTR address, LONG type, B
     return S_OK;
 }
 
+STDMETHODIMP OpAutomation::FindData(LONGLONG hwnd, BSTR addr_range, BSTR string, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+
+    wstring s;
+    obj.FindDataEx(static_cast<LONG_PTR>(hwnd), addr_range, string, 1, 0, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::FindDataEx(LONGLONG hwnd, BSTR addr_range, BSTR string, LONG step, LONG count,
+                                      BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+
+    wstring s;
+    obj.FindDataEx(static_cast<LONG_PTR>(hwnd), addr_range, string, step, count, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::GetModuleBaseAddr(LONGLONG hwnd, BSTR module_name, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+
+    wstring s;
+    obj.GetModuleBaseAddr(static_cast<LONG_PTR>(hwnd), module_name, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::FindColorBlockExS(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, LONG count,
+                                             LONG height, LONG width, LONG mode, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+
+    wstring s;
+    obj.FindColorBlockExS(x1, y1, x2, y2, color, static_cast<double>(sim), count, height, width, mode, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::FindLineExS(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, LONG min_points,
+                                       BSTR *retstr, LONG *ret) {
+    if (!retstr)
+        return E_POINTER;
+
+    wstring s;
+    obj.FindLineExS(x1, y1, x2, y2, color, static_cast<double>(sim), min_points, s, ret);
+    return CopyOutBstr(retstr, s);
+}
+
 STDMETHODIMP OpAutomation::CvLoadTemplate(BSTR name, BSTR file_path, LONG *ret) {
     obj.CvLoadTemplate(name, file_path, ret);
     return S_OK;

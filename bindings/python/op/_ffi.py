@@ -345,6 +345,11 @@ def _bind(dll: ctypes.WinDLL) -> ctypes.WinDLL:
         ("OpWriteDouble", c_int, [op_handle, intptr_t, c_wchar_p, c_double]),
         ("OpReadString", c_wchar_p, [op_handle, intptr_t, c_wchar_p, c_int, c_int]),
         ("OpWriteString", c_int, [op_handle, intptr_t, c_wchar_p, c_int, c_wchar_p]),
+        ("OpFindData", c_wchar_p, [op_handle, intptr_t, c_wchar_p, c_wchar_p]),
+        ("OpFindDataEx", c_wchar_p, [op_handle, intptr_t, c_wchar_p, c_wchar_p, c_int, c_int]),
+        ("OpGetModuleBaseAddr", c_wchar_p, [op_handle, intptr_t, c_wchar_p]),
+        ("OpFindColorBlockExS", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double, c_int, c_int, c_int, c_int]),
+        ("OpFindLineExS", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double, c_int, c_int_p]),
     ]
 
     for name, restype, argtypes in signatures:

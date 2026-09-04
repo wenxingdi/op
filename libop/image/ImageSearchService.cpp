@@ -318,6 +318,12 @@ long ImageSearchService::FindColorBlockEx(const wstring &color, double sim, long
     return ImageSearchAlgorithms::FindColorBlockEx(count, height, width, retstr);
 }
 
+long ImageSearchService::FindColorBlockExS(const wstring &color, double sim, long count, long height, long width,
+                                           long mode, wstring &retstr) {
+    str2binaryfbk(color, sim);
+    return ImageSearchAlgorithms::FindColorBlockExS(count, height, width, mode, retstr);
+}
+
 long ImageSearchService::GetColorNum(const wstring &color, double sim) {
     std::vector<color_df_t> colors;
     str2colordfs(color, colors);
@@ -1194,6 +1200,18 @@ long ImageSearchService::FindLine(const wstring &color, double sim, wstring &ret
         sim = 1.;
     str2binaryfbk(color, sim);
     return ImageSearchAlgorithms::FindLine(retStr);
+}
+
+long ImageSearchService::FindLineExS(const wstring &color, double sim, long min_points, wstring &retStr) {
+    retStr.clear();
+    if (sim < 0. || sim > 1.)
+        sim = 1.;
+    // 走 point 链路：二值化后应用孤立点去噪（与 OCR 链路同一套 _binary_preprocess 配置）
+    str2pointbinaryfbk(color, sim);
+    const long peak = ImageSearchAlgorithms::FindLine(retStr);
+    if (peak < min_points)
+        retStr.clear(); // 未达阈值：视为无可靠直线，防止幻觉线
+    return peak < 0 ? 0 : peak;
 }
 
 } // namespace op::image

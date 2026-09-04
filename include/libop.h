@@ -371,6 +371,10 @@ class OP_API Op {
     // 查找指定区域内的所有颜色块, 颜色格式"RRGGBB-DRDGDB", 注意, 和按键的颜色格式相反
     void FindColorBlockEx(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                           _In_ double sim, _In_ long count, _In_ long height, _In_ long width, _Out_ std::wstring &retstr);
+    // 颜色块增强版：mode=0 raw（同 FindColorBlockEx）；mode=1 重合窗口聚类合并，每个色块只返回一个左上角坐标
+    void FindColorBlockExS(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
+                           _In_ double sim, _In_ long count, _In_ long height, _In_ long width, _In_ long mode,
+                           _Out_ std::wstring &retstr);
     // 获取(x,y)的颜色
     void GetColor(_In_ long x, _In_ long y, _Out_ std::wstring &ret);
     //
@@ -563,6 +567,10 @@ class OP_API Op {
     // 本扩展把点数一并输出，调用者可据此判断结果是否可信(点数越大越可信，0 表示未截图/无前景点)。
     void FindLineEx(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                     _In_ double sim, _Out_ std::wstring &retstr, _Out_ long *ret);
+    // 查找直线(增强版): 二值化走孤立点去噪 + min_points 阈值。
+    // 峰值点数 < min_points 时 retstr 置空(视为无可靠直线，根治幻觉线)，ret 仍返回真实峰值点数供阈值标定。
+    void FindLineExS(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
+                     _In_ double sim, _In_ long min_points, _Out_ std::wstring &retstr, _Out_ long *ret);
 
     // 向某进程写入数据
     void WriteData(_In_ LONG_PTR hwnd, _In_ const wchar_t *address, _In_ const wchar_t *data, _In_ long size, _Out_ long *ret);
@@ -577,6 +585,13 @@ class OP_API Op {
     void WriteDouble(_In_ LONG_PTR hwnd, _In_ const wchar_t *address, _In_ double value, _Out_ long *ret);
     void ReadString(_In_ LONG_PTR hwnd, _In_ const wchar_t *address, _In_ long type, _In_ long len, _Out_ std::wstring &retstr);
     void WriteString(_In_ LONG_PTR hwnd, _In_ const wchar_t *address, _In_ long type, _In_ const wchar_t *value, _Out_ long *ret);
+    // 特征码搜索内存：pattern 十六进制串支持 ?? 通配；range "start-end" 十六进制，空=全部已提交可读区。
+    // 返回 "addr|addr|..." 大写十六进制；count<=0 用默认上限 1024。空范围扫全空间最坏数十秒，建议收窄 range。
+    void FindData(_In_ LONG_PTR hwnd, _In_ const wchar_t *addr_range, _In_ const wchar_t *string, _Out_ std::wstring &retstr);
+    void FindDataEx(_In_ LONG_PTR hwnd, _In_ const wchar_t *addr_range, _In_ const wchar_t *string, _In_ long step,
+                    _In_ long count, _Out_ std::wstring &retstr);
+    // 取目标进程（hwnd=0 为本进程）模块基址，返回大写十六进制串；失败返回空。
+    void GetModuleBaseAddr(_In_ LONG_PTR hwnd, _In_ const wchar_t *module, _Out_ std::wstring &retstr);
 };
 
 } // namespace op

@@ -1452,6 +1452,36 @@ class Op:
     ) -> bool:
         return self._call_ok("OpWriteString", int(hwnd), address, int(string_type), str(value))
 
+    def find_data(self, addr_range: str, string: str, hwnd: int = 0) -> str:
+        """特征码搜索内存，string 十六进制串支持 ?? 通配；返回 "addr|addr|..."。addr_range 空=全部可读区。"""
+        return self._call_string("OpFindData", int(hwnd), addr_range, str(string))
+
+    def find_data_ex(self, addr_range: str, string: str, step: int = 1, count: int = 0, hwnd: int = 0) -> str:
+        """特征码搜索；step<=0 视为 1，count<=0 用默认上限 1024。"""
+        return self._call_string("OpFindDataEx", int(hwnd), addr_range, str(string), int(step), int(count))
+
+    def get_module_base_addr(self, module: str, hwnd: int = 0) -> str:
+        """取目标进程模块基址（大写十六进制串）；失败返回空串。"""
+        return self._call_string("OpGetModuleBaseAddr", int(hwnd), str(module))
+
+    def find_color_block_ex_s(
+        self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float, count: int, height: int, width: int,
+        mode: int = 1,
+    ) -> str:
+        """颜色块增强版：mode=0 raw；mode=1 重合窗口聚类合并，每块只返回一个左上角坐标。"""
+        return self._call_string(
+            "OpFindColorBlockExS", int(x1), int(y1), int(x2), int(y2), str(color), float(sim), int(count),
+            int(height), int(width), int(mode),
+        )
+
+    def find_line_ex_s(
+        self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float, min_points: int = 0,
+    ) -> tuple[str, int]:
+        """找线增强版：去噪 + min_points 阈值。返回 (retstr, 峰值点数)；未达阈值时 retstr 为空串。"""
+        return self._call_string_with_int(
+            "OpFindLineExS", int(x1), int(y1), int(x2), int(y2), str(color), float(sim), int(min_points)
+        )
+
     @staticmethod
     def _normalize_hex_data(data: str | bytes | bytearray | memoryview, size: int | None) -> tuple[str, int]:
         if isinstance(data, (bytes, bytearray, memoryview)):

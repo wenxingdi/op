@@ -52,6 +52,13 @@ class ProcessMemory {
     void hex2bins(vector<uchar> &bin, const wstring &hex, size_t size);
     void bin2hexs(const vector<uchar> &bin, wstring &hex);
 
+    // 特征码搜索：pattern 为十六进制串，支持 ?? 通配（如 "55 8B EC ?? 8B"）。
+    // range 为 "start-end"（十六进制，空 = 全部已提交可读区）；step<=0 视为 1。
+    // 返回 "addr|addr|..." 大写十六进制；max_results<=0 用默认上限 1024。
+    std::wstring FindData(HWND hwnd, const wstring &range, const wstring &pattern, long step, long max_results);
+    // 取目标进程（hwnd=0 为本进程）模块基址，返回大写十六进制串；失败返回空。
+    std::wstring GetModuleBaseAddr(HWND hwnd, const wstring &module);
+
   private:
     // 每次读写前准备进程上下文，当前进程场景不用 attach。
     bool prepare_process(HWND hwnd);

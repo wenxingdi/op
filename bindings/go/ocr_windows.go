@@ -369,3 +369,15 @@ func (o *Op) FindLineEx(x1, y1, x2, y2 int, color string, sim float64) (string, 
 	ret, _, _ := procFindLineEx.Call(o.handle, uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2), strArg(color), f64Arg(sim), int32Ptr(&count))
 	return wcharString(ret), int(count)
 }
+
+// FindLineExS 查找直线(增强版)：二值化走孤立点去噪 + min_points 阈值。
+// 峰值点数 < min_points 时返回空 line（视为无可靠直线），pointCount 仍为真实峰值点数供阈值标定。
+func (o *Op) FindLineExS(x1, y1, x2, y2 int, color string, sim float64, minPoints int) (string, int) {
+	if !o.valid() {
+		return "", 0
+	}
+
+	var count int32
+	ret, _, _ := procFindLineExS.Call(o.handle, uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2), strArg(color), f64Arg(sim), uintptr(minPoints), int32Ptr(&count))
+	return wcharString(ret), int(count)
+}

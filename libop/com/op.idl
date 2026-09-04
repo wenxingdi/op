@@ -229,6 +229,16 @@ interface IOpAutomation : IDispatch
 	[id(257)] HRESULT WriteDouble([in] hyper hwnd, [in] BSTR address, [in] DOUBLE value, [out, retval] LONG* ret);
 	[id(258)] HRESULT ReadString([in] hyper hwnd, [in] BSTR address, [in] LONG type, [in] LONG len, [out, retval] BSTR* retstr);
 	[id(259)] HRESULT WriteString([in] hyper hwnd, [in] BSTR address, [in] LONG type, [in] BSTR value, [out, retval] LONG* ret);
+	// 特征码搜索：string 十六进制串支持 ?? 通配；addr_range "start-end" 十六进制，空=全部已提交可读区。retstr = "addr|addr|..."
+	[id(260)] HRESULT FindData([in] hyper hwnd, [in] BSTR addr_range, [in] BSTR string, [out, retval] BSTR* retstr);
+	// step<=0 视为 1；count<=0 用默认上限 1024
+	[id(261)] HRESULT FindDataEx([in] hyper hwnd, [in] BSTR addr_range, [in] BSTR string, [in] LONG step, [in] LONG count, [out, retval] BSTR* retstr);
+	// 取模块基址，retstr = 大写十六进制串；失败返回空串
+	[id(262)] HRESULT GetModuleBaseAddr([in] hyper hwnd, [in] BSTR module_name, [out, retval] BSTR* retstr);
+	// 颜色块增强版：mode=0 raw（同 FindColorBlockEx）；mode=1 重合窗口聚类合并，每块只返回一个左上角坐标
+	[id(263)] HRESULT FindColorBlockExS([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] LONG count, [in] LONG height, [in] LONG width, [in] LONG mode, [out, retval] BSTR* retstr);
+	// 找线增强版：去噪 + min_points 阈值；峰值点数 < min_points 时 retstr 置空（ret 仍返回真实峰值点数）
+	[id(264)] HRESULT FindLineExS([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] LONG min_points, [out] BSTR* retstr, [out, retval] LONG* ret);
 	[id(300)] HRESULT CvLoadTemplate([in] BSTR name, [in] BSTR file_path, [out, retval] LONG* ret);
 	[id(301)] HRESULT CvLoadMaskedTemplate([in] BSTR name, [in] BSTR template_path, [in] BSTR mask_path, [out, retval] LONG* ret);
 	[id(302)] HRESULT CvRemoveTemplate([in] BSTR name, [out, retval] LONG* ret);

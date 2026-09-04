@@ -417,6 +417,13 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(WriteDouble)(LONGLONG hwnd, BSTR address, DOUBLE value, LONG *ret);
     STDMETHOD(ReadString)(LONGLONG hwnd, BSTR address, LONG type, LONG len, BSTR *retstr);
     STDMETHOD(WriteString)(LONGLONG hwnd, BSTR address, LONG type, BSTR value, LONG *ret);
+    STDMETHOD(FindData)(LONGLONG hwnd, BSTR addr_range, BSTR string, BSTR *retstr);
+    STDMETHOD(FindDataEx)(LONGLONG hwnd, BSTR addr_range, BSTR string, LONG step, LONG count, BSTR *retstr);
+    STDMETHOD(GetModuleBaseAddr)(LONGLONG hwnd, BSTR module_name, BSTR *retstr);
+    STDMETHOD(FindColorBlockExS)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, LONG count, LONG height,
+                                 LONG width, LONG mode, BSTR *retstr);
+    STDMETHOD(FindLineExS)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, LONG min_points, BSTR *retstr,
+                           LONG *ret);
     //-----------------------opcv---------------------------------
     STDMETHOD(CvLoadTemplate)(BSTR name, BSTR file_path, LONG *ret);
     STDMETHOD(CvLoadMaskedTemplate)(BSTR name, BSTR template_path, BSTR mask_path, LONG *ret);

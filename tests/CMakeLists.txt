@@ -134,6 +134,7 @@ set(OP_TEST_SOURCES
   "ocr_test.cpp"
   "yolo_test.cpp"
   "utils_test.cpp"
+  "memory_search_test.cpp"
   "../libop/window/WindowLayout.cpp"
   "../libop/input/mouse/CursorShape.cpp"
   "${OP_COM_I_C}"
