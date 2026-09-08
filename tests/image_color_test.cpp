@@ -2274,6 +2274,78 @@ TEST(ImageColorTest, GdiCaptureRefreshesClientOffsetAfterResize) {
     op.UnBindWindow(&unbind);
 }
 
+// 回归：绑定后把窗口放大到明显超过绑定时刻客户区尺寸，整窗 Capture 必须按新尺寸截取。
+// 旧缺陷：GdiCapture 未 override refreshMetrics()，RectConvert 每次把请求区域钳到绑定时刻的
+// get_width()/get_height() 上限 —— 绑定 220x180 后放大，整窗 Capture 只截到 220x180，
+// 新区域内 GetColor 越界返回 000000（真机冒烟 smoke_real.py A 组暴露）。
+TEST(ImageColorTest, GdiCaptureRefreshesFrameSizeAfterEnlarge) {
+    test_support::ColorPulseWindow window;
+    ASSERT_TRUE(window.Create(false)) << "failed to create test window";
+
+    op::Op op;
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"windows", L"windows", 0, &ret);
+    if (ret != 1)
+        GTEST_SKIP() << "normal capture unavailable on current environment";
+
+    // 绑定时刻客户区尺寸。
+    long w0 = 0, h0 = 0, ok0 = 0;
+    op.GetClientSize((long)(intptr_t)window.hwnd, &w0, &h0, &ok0);
+    ASSERT_EQ(ok0, 1);
+    ASSERT_GT(w0, 0);
+    ASSERT_GT(h0, 0);
+
+    // 放大窗口（外框尺寸增量，客户区必然超出绑定时刻尺寸）。
+    ::SetWindowPos(window.hwnd, nullptr, 0, 0, static_cast<int>(w0 + 200), static_cast<int>(h0 + 200),
+                   SWP_NOMOVE | SWP_NOZORDER);
+    MSG msg = {};
+    for (int i = 0; i < 40 && ::PeekMessageW(&msg, window.hwnd, WM_SIZE, WM_SIZE, PM_REMOVE); ++i) {
+        ::TranslateMessage(&msg);
+        ::DispatchMessageW(&msg);
+    }
+    // 强制重绘放大后新增区域（窗口过程 FillRect 全客户区，填当前色）。
+    ::InvalidateRect(window.hwnd, nullptr, TRUE);
+    ::UpdateWindow(window.hwnd);
+
+    long w1 = 0, h1 = 0, ok1 = 0;
+    op.GetClientSize((long)(intptr_t)window.hwnd, &w1, &h1, &ok1);
+    ASSERT_EQ(ok1, 1);
+    ASSERT_GT(w1, w0) << "test requires enlarged width beyond bind-time size";
+    ASSERT_GT(h1, h0) << "test requires enlarged height beyond bind-time size";
+
+    // 1) 放大后整窗 Capture 到文件：文件宽高必须等于新客户区尺寸（旧逻辑被钳成旧尺寸）。
+    const std::wstring cap_file = test_support::GetTempBmpPath(L"op_gdi_enlarge_capture.bmp");
+    DeleteFileW(cap_file.c_str());
+    long cap_ret = 0;
+    op.Capture(0, 0, w1, h1, cap_file.c_str(), &cap_ret);
+    EXPECT_EQ(cap_ret, 1) << "enlarged whole-window capture should succeed";
+    if (cap_ret == 1) {
+        long fw = 0, fh = 0;
+        FILE *f = nullptr;
+        if (_wfopen_s(&f, cap_file.c_str(), L"rb") == 0 && f) {
+            unsigned char hdr[26] = {0};
+            fread(hdr, 1, sizeof(hdr), f);
+            fclose(f);
+            if (hdr[0] == 'B' && hdr[1] == 'M') {
+                memcpy(&fw, hdr + 18, 4);
+                memcpy(&fh, hdr + 22, 4);
+            }
+        }
+        EXPECT_EQ(fw, w1) << "capture file width should follow enlarged client width";
+        EXPECT_EQ(fh, h1) << "capture file height should follow enlarged client height";
+        DeleteFileW(cap_file.c_str());
+    }
+
+    // 2) 新客户区内、绑定时刻尺寸之外的点取色应有效：旧逻辑越界返回黑/失败。
+    std::wstring color_far;
+    op.GetColor(w1 - 20, h1 - 20, color_far);
+    EXPECT_EQ(color_far.length(), 6u) << "GetColor inside enlarged area should succeed";
+    EXPECT_NE(color_far, L"000000") << "GetColor inside enlarged area should not be frame-miss black";
+
+    long unbind = 0;
+    op.UnBindWindow(&unbind);
+}
+
 // 回归：直接驱动 BindingSession::requestCapture 的 pic/mem 路径，验证改动 A 的越界防御。
 // 走 op::Op 门面时 RectConvert 会在到达 requestCapture 前钳制越界坐标，故必须直连 requestCapture。
 TEST(ImageColorTest, RequestCapturePicMemBoundsCheck) {

@@ -151,6 +151,16 @@ long GdiCapture::UnBindEx() {
     return 1;
 }
 
+void GdiCapture::refreshMetrics() {
+    if (!::IsWindow(_hwnd))
+        return;
+    RECT rc2;
+    if (::GetClientRect(_hwnd, &rc2)) {
+        _width = rc2.right - rc2.left;
+        _height = rc2.bottom - rc2.top;
+    }
+}
+
 bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
     // step 1.判断 窗口是否存在
     if (!::IsWindow(_hwnd))

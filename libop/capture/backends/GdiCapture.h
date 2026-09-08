@@ -20,6 +20,9 @@ class GdiCapture : public ICaptureBackend {
     long UnBindEx() override;
 
     virtual bool requestCapture(int x1, int y1, int w, int h, Image &img) override;
+    // 绑定后窗口 resize/最大化/去边框会改变客户区尺寸；RectConvert 用 get_width()/get_height()
+    // 钳制请求区域上限，故每次截图前刷新一次，避免放大后被钳到绑定时刻的旧尺寸。
+    void refreshMetrics() override;
 
   private:
     // 设备句柄
