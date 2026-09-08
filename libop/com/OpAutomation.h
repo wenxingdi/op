@@ -424,6 +424,8 @@ class ATL_NO_VTABLE OpAutomation
                                  LONG width, LONG mode, BSTR *retstr);
     STDMETHOD(FindLineExS)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, LONG min_points, BSTR *retstr,
                            LONG *ret);
+    STDMETHOD(AutoOcrLine)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr);
+    STDMETHOD(AutoOcrEx)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr, LONG *ret);
     //-----------------------opcv---------------------------------
     STDMETHOD(CvLoadTemplate)(BSTR name, BSTR file_path, LONG *ret);
     STDMETHOD(CvLoadMaskedTemplate)(BSTR name, BSTR template_path, BSTR mask_path, LONG *ret);

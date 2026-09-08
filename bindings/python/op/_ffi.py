@@ -328,6 +328,8 @@ def _bind(dll: ctypes.WinDLL) -> ctypes.WinDLL:
         ("OpGetWordResultStr", c_wchar_p, [op_handle, c_wchar_p, c_int]),
         ("OpOcr", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
         ("OpOcrEx", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
+        ("OpAutoOcrLine", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
+        ("OpAutoOcrEx", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double, c_int_p]),
         ("OpFindStr", c_int, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_wchar_p, c_double, c_int_p, c_int_p]),
         ("OpFindStrEx", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_wchar_p, c_double]),
         ("OpOcrAuto", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_double]),

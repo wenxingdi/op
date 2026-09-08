@@ -214,6 +214,8 @@ var (
 	procGetWordResultStr       *windows.LazyProc
 	procOcr                    *windows.LazyProc
 	procOcrEx                  *windows.LazyProc
+	procAutoOcrLine            *windows.LazyProc
+	procAutoOcrEx              *windows.LazyProc
 	procFindStr                *windows.LazyProc
 	procFindStrEx              *windows.LazyProc
 	procOcrAuto                *windows.LazyProc
@@ -447,6 +449,8 @@ func bindProcs() {
 	procGetWordResultStr = dll.NewProc("OpGetWordResultStr")
 	procOcr = dll.NewProc("OpOcr")
 	procOcrEx = dll.NewProc("OpOcrEx")
+	procAutoOcrLine = dll.NewProc("OpAutoOcrLine")
+	procAutoOcrEx = dll.NewProc("OpAutoOcrEx")
 	procFindStr = dll.NewProc("OpFindStr")
 	procFindStrEx = dll.NewProc("OpFindStrEx")
 	procOcrAuto = dll.NewProc("OpOcrAuto")

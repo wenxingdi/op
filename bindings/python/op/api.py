@@ -1366,6 +1366,24 @@ class Op:
     def ocr_ex(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
         return self._call_string("OpOcrEx", int(x1), int(y1), int(x2), int(y2), color, float(sim))
 
+    def autoocr_line(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
+        """单行快模式 AutoOcr：颜色二值化后整图直接 rec（跳过检测）。
+
+        适用于读出区/固定单行文本，速度显著快于 :meth:`ocr` / :meth:`autoocr`；
+        区域须只含单行文本，否则结果语义由调用方承担。
+        """
+        return self._call_string("OpAutoOcrLine", int(x1), int(y1), int(x2), int(y2), color, float(sim))
+
+    def autoocr_ex(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> tuple[str, int]:
+        """结构化 AutoOcr，返回 ``(items, count)``。
+
+        ``items`` 格式 ``"x1,y1,x2,y2,conf,text|..."``，坐标为屏幕绝对坐标，
+        ``conf`` 为置信度（0~1，两位小数）；``count`` 为命中行数。
+        """
+        return self._call_string_with_int(
+            "OpAutoOcrEx", int(x1), int(y1), int(x2), int(y2), color, float(sim)
+        )
+
     def find_str(self, x1: int, y1: int, x2: int, y2: int, strs: str, color: str, sim: float) -> tuple[int, int, int]:
         return self._call_result_point("OpFindStr", int(x1), int(y1), int(x2), int(y2), strs, color, float(sim))
 

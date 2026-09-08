@@ -435,6 +435,26 @@ void op::Op::AutoOcr(long x1, long y1, long x2, long y2, const wchar_t *color, d
     });
     retstr = str;
 }
+// 单行快模式 AutoOcr：颜色二值化后整图直接 rec（跳过检测）
+void op::Op::AutoOcrLine(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &retstr) {
+    wstring str;
+    const std::wstring color_text = color ? color : L"";
+    internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        m_context->image_proc.autoocr_line(color_text, sim, str);
+    });
+    retstr = str;
+}
+// 结构化 AutoOcr：输出 "x1,y1,x2,y2,conf,text|..."（屏幕绝对坐标）
+long op::Op::AutoOcrEx(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &retstr) {
+    wstring str;
+    const std::wstring color_text = color ? color : L"";
+    long ct = 0;
+    internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        ct = m_context->image_proc.autoocr_ex(color_text, sim, str);
+    });
+    retstr = str;
+    return ct;
+}
 // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
 void op::Op::FindStr(long x1, long y1, long x2, long y2, const wchar_t *strs, const wchar_t *color, double sim,
                     long *retx, long *rety, long *ret) {

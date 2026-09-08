@@ -233,4 +233,12 @@ int HttpOcrService::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
     return m_engine->ocr(data, w, h, bpp, result);
 }
 
+int HttpOcrService::ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_engine) {
+        return -1;
+    }
+    return m_engine->ocr_line(data, w, h, bpp, result);
+}
+
 } // namespace op::ocr

@@ -17,6 +17,11 @@ public:
                    const std::vector<std::string> &argv) = 0;
   // 对 w×h×bpp 像素 buffer 做 OCR，结果写入 result（bbox + text + confidence）
   virtual int ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) = 0;
+  // 单行直识别：跳过检测，对整图直接做 rec（快路径，适用于读出区/固定单行文本）。
+  // 默认实现转调 ocr()（det+rec），兼容无单行能力的后端（如 HTTP）。
+  virtual int ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
+    return ocr(data, w, h, bpp, result);
+  }
 };
 
 // HTTP 后端（原 HttpOcrService 的 HTTP 实现），保留作可选远程兜底。
@@ -46,6 +51,7 @@ public:
            const std::vector<std::string> &argv);
   int release();
   int ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result);
+  int ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &result);
 
 private:
   HttpOcrService();

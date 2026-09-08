@@ -326,6 +326,12 @@ OP_C_API const wchar_t *OP_CALL OpOcrEx(op_handle handle, int x1, int y1, int x2
                                         double sim);
 OP_C_API const wchar_t *OP_CALL OpAutoOcr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
                                           double sim);
+/* 单行快模式 AutoOcr：颜色二值化后整图直接 rec（跳过检测），适用于读出区/固定单行文本 */
+OP_C_API const wchar_t *OP_CALL OpAutoOcrLine(op_handle handle, int x1, int y1, int x2, int y2,
+                                              const wchar_t *color, double sim);
+/* 结构化 AutoOcr：返回 "x1,y1,x2,y2,conf,text|..."（屏幕绝对坐标），find_count 输出命中行数 */
+OP_C_API const wchar_t *OP_CALL OpAutoOcrEx(op_handle handle, int x1, int y1, int x2, int y2,
+                                            const wchar_t *color, double sim, int *find_count);
 OP_C_API int OP_CALL OpFindStr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *strs,
                                const wchar_t *color, double sim, int *x, int *y);
 OP_C_API const wchar_t *OP_CALL OpFindStrEx(op_handle handle, int x1, int y1, int x2, int y2,

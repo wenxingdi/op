@@ -1436,6 +1436,21 @@ STDMETHODIMP OpAutomation::FindLineExS(LONG x1, LONG y1, LONG x2, LONG y2, BSTR 
     return CopyOutBstr(retstr, s);
 }
 
+STDMETHODIMP OpAutomation::AutoOcrLine(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr) {
+    wstring s;
+    obj.AutoOcrLine(x1, y1, x2, y2, color, static_cast<double>(sim), s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::AutoOcrEx(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr,
+                                     LONG *ret) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    *ret = obj.AutoOcrEx(x1, y1, x2, y2, color, static_cast<double>(sim), s);
+    return CopyOutBstr(retstr, s);
+}
+
 STDMETHODIMP OpAutomation::CvLoadTemplate(BSTR name, BSTR file_path, LONG *ret) {
     obj.CvLoadTemplate(name, file_path, ret);
     return S_OK;

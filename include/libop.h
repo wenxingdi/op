@@ -545,6 +545,13 @@ class OP_API Op {
     // 区域截图后按颜色二值化再做免字库 OCR：输入区域、颜色、相似度。
     void AutoOcr(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
                  _Out_ std::wstring &ret_str);
+    // 单行快模式 AutoOcr：颜色二值化后整图直接 rec（跳过检测），适用于读出区/固定单行文本。
+    // 区域须只含单行文本，否则结果语义由使用方承担。
+    void AutoOcrLine(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
+                     _In_ double sim, _Out_ std::wstring &ret_str);
+    // 结构化 AutoOcr：输出 "x1,y1,x2,y2,conf,text|..."（bbox 为屏幕绝对坐标），返回命中行数。
+    long AutoOcrEx(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
+                   _In_ double sim, _Out_ std::wstring &ret_str);
     // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
     void FindStr(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *strs, _In_ const wchar_t *color,
                  _In_ double sim, _Out_ long *retx, _Out_ long *rety, _Out_ long *ret);

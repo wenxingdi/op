@@ -778,6 +778,102 @@ long ImageSearchService::autoocr(const wstring &color, double sim, wstring &out_
     return 0;
 }
 
+long ImageSearchService::autoocr_line(const wstring &color, double sim, wstring &out_str) {
+    out_str.clear();
+    if (sim < 0. || sim > 1.)
+        sim = 0.7;
+
+    // 1) 按颜色二值化 -> _binary（命中文字=1，背景=0）
+    std::vector<color_df_t> colors;
+    str2colordfs(color, colors);
+    bgr2binary(colors);
+
+    auto dict = ActiveDict(_curr_idx);
+    if (dict) {
+        // 字库兜底：在颜色二值化结果上做字库 OCR
+        return ImageSearchAlgorithms::Ocr(*dict, sim, out_str);
+    }
+
+    // 2) 免字库：白字黑底 BGRA 缓冲 -> 单行直 rec（跳过 det，快路径）
+    int w = _binary.width, h = _binary.height;
+    if (w <= 0 || h <= 0)
+        return 0;
+    std::vector<unsigned char> buf(static_cast<size_t>(w) * h * 4, 0);
+    const unsigned char *bin = _binary.data();
+    for (int i = 0; i < w * h; ++i) {
+        unsigned char v = bin[i] ? 255 : 0; // 命中文字->白，背景->黑
+        buf[i * 4 + 0] = v;                 // B
+        buf[i * 4 + 1] = v;                 // G
+        buf[i * 4 + 2] = v;                 // R
+        buf[i * 4 + 3] = 255;               // A
+    }
+    vocr_rec_t res;
+    HttpOcrService::getInstance()->ocr_line(buf.data(), w, h, 4, res);
+    for (auto &it : res) {
+        if (it.confidence >= sim - 1e-9)
+            out_str += it.text;
+    }
+    return 0;
+}
+
+long ImageSearchService::autoocr_ex(const wstring &color, double sim, wstring &out_str) {
+    out_str.clear();
+    if (sim < 0. || sim > 1.)
+        sim = 0.7;
+
+    // 1) 按颜色二值化 -> _binary
+    std::vector<color_df_t> colors;
+    str2colordfs(color, colors);
+    bgr2binary(colors);
+
+    auto dict = ActiveDict(_curr_idx);
+    if (dict) {
+        // 字库兜底：沿用 OcrEx 的 "x,y,text|..." 格式
+        return ImageSearchAlgorithms::OcrEx(*dict, sim, out_str);
+    }
+
+    // 2) 免字库：白字黑底 BGRA 缓冲 -> det+rec，bbox 偏移为屏幕绝对坐标
+    int w = _binary.width, h = _binary.height;
+    if (w <= 0 || h <= 0)
+        return 0;
+    std::vector<unsigned char> buf(static_cast<size_t>(w) * h * 4, 0);
+    const unsigned char *bin = _binary.data();
+    for (int i = 0; i < w * h; ++i) {
+        unsigned char v = bin[i] ? 255 : 0;
+        buf[i * 4 + 0] = v;
+        buf[i * 4 + 1] = v;
+        buf[i * 4 + 2] = v;
+        buf[i * 4 + 3] = 255;
+    }
+    vocr_rec_t res;
+    HttpOcrService::getInstance()->ocr(buf.data(), w, h, 4, res);
+    long find_ct = 0;
+    wchar_t confbuf[16];
+    for (auto &it : res) {
+        if (it.confidence < sim - 1e-9)
+            continue;
+        swprintf(confbuf, 16, L"%.2f", it.confidence);
+        out_str += std::to_wstring(it.left_top.x + _x1 + _dx);
+        out_str += L",";
+        out_str += std::to_wstring(it.left_top.y + _y1 + _dy);
+        out_str += L",";
+        out_str += std::to_wstring(it.right_bottom.x + _x1 + _dx);
+        out_str += L",";
+        out_str += std::to_wstring(it.right_bottom.y + _y1 + _dy);
+        out_str += L",";
+        out_str += confbuf;
+        out_str += L",";
+        out_str += it.text;
+        out_str += L"|";
+        ++find_ct;
+        if (find_ct > _max_return_obj_ct)
+            break;
+    }
+    if (!out_str.empty() && out_str.back() == L'|')
+        out_str.pop_back();
+    return find_ct;
+}
+
 wstring ImageSearchService::GetColor(long x, long y) {
     color_t cr;
     if (ImageSearchAlgorithms::GetPixel(x, y, cr)) {

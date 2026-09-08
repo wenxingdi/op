@@ -1288,6 +1288,23 @@ const wchar_t *OP_CALL OpAutoOcr(op_handle handle, int x1, int y1, int x2, int y
     });
 }
 
+const wchar_t *OP_CALL OpAutoOcrLine(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
+                                     double sim) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.AutoOcrLine(x1, y1, x2, y2, safe_text(color), sim, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpAutoOcrEx(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, double sim,
+                                   int *find_count) {
+    long ct = 0;
+    const wchar_t *ret = call_string(handle, [&](op::Op &op, std::wstring &s) {
+        ct = op.AutoOcrEx(x1, y1, x2, y2, safe_text(color), sim, s);
+    });
+    out_int(find_count, ct);
+    return ret;
+}
+
 int OP_CALL OpFindStr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *strs, const wchar_t *color,
                       double sim, int *x, int *y) {
     return call_ret(handle, [&](op::Op &op, long *ret) {

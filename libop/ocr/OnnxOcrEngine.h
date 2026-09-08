@@ -15,6 +15,8 @@ public:
   int init(const std::wstring &engine, const std::wstring &dllName,
            const std::vector<std::string> &argv) override;
   int ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) override;
+  // 单行直识别：整图直接 rec，跳过 det。bbox 恒为整图 (0,0)-(w,h)。
+  int ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &result) override;
 
 private:
   class Impl;

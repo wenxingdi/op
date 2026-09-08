@@ -109,6 +109,13 @@ class ImageSearchService : public ImageSearchAlgorithms {
     // 与 OCR() 的区别：强制先按颜色二值化，适用于彩色背景下隔离指定颜色文字。
     long autoocr(const wstring &color, double sim, std::wstring &out_str);
 
+    // 单行快模式 autoocr：颜色二值化后整图直接 rec（跳过检测），
+    // 适用于读出区/固定单行文本；语义责任在使用方（区域须只含单行）。
+    long autoocr_line(const wstring &color, double sim, std::wstring &out_str);
+
+    // 结构化 autoocr：输出 "x1,y1,x2,y2,conf,text|..."（bbox 已偏移为屏幕绝对坐标）。
+    long autoocr_ex(const wstring &color, double sim, std::wstring &out_str);
+
     long OcrEx(const wstring &color, double sim, std::wstring &out_str);
 
     long FindStr(const wstring &str, const wstring &color, double sim, long &retx, long &rety);

@@ -399,6 +399,33 @@ public:
     std::vector<uint8_t> m_mask;               // 类别白名单（尺寸=keys+1；空=全放行）
     bool ok = false;
 
+    // 对单张 BGR 图直接做 rec（跳过检测）：缩放+归一化+CTC 解码。
+    // 返回 false = 推理失败；txt 为 UTF-8（可为空）。
+    bool rec_image(const BGR &roi, std::string &txt, float &conf) {
+        const int RH = 48, RW = 320;
+        float ratio = float(roi.w) / roi.h;
+        int tw = int(std::ceil(48.0f * ratio));
+        if (tw > RW) tw = RW;
+        BGR rs = resize_bilinear(roi, RH, tw);
+        std::vector<float> rin(size_t(3) * RH * RW, 0.0f);
+        for (int c = 0; c < 3; ++c) {
+            int src = 2 - c; // RGB 顺序（PP-OCR rec 约定）
+            for (int y = 0; y < RH; ++y)
+                for (int x = 0; x < tw; ++x) {
+                    float v = rs.at(y, x)[src] / 255.0f;
+                    v = (v - 0.5f) / 0.5f; // rec 归一化：[-1,1]
+                    rin[size_t(c) * RH * RW + size_t(y) * RW + x] = v;
+                }
+        }
+        std::vector<int64_t> rshape = {1, 3, RH, RW};
+        std::vector<float> rout;
+        std::vector<int64_t> roshape;
+        if (!ort_run(*rec, rin, rshape, rout, roshape)) return false;
+        if (roshape.size() != 3) return false;
+        txt = ctc_greedy(rout, roshape, keys, conf, m_mask);
+        return true;
+    }
+
     Impl() {
         sopts.SetIntraOpNumThreads(1);
         sopts.SetGraphOptimizationLevel(ORT_ENABLE_ALL);
@@ -520,28 +547,9 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
         if (std::abs(ang) > 15.0 && std::abs(ang) < 75.0 && roi.w > 1.3 * roi.h)
             roi = rotate(roi, -ang);
 
-        const int RH = 48, RW = 320;
-        float ratio = float(roi.w) / roi.h;
-        int tw = int(std::ceil(48.0f * ratio));
-        if (tw > RW) tw = RW;
-        BGR rs = resize_bilinear(roi, RH, tw);
-        std::vector<float> rin(size_t(3) * RH * RW, 0.0f);
-        for (int c = 0; c < 3; ++c) {
-            int src = 2 - c; // RGB 顺序（PP-OCR rec 约定）
-            for (int y = 0; y < RH; ++y)
-                for (int x = 0; x < tw; ++x) {
-                    float v = rs.at(y, x)[src] / 255.0f;
-                    v = (v - 0.5f) / 0.5f; // rec 归一化：[-1,1]
-                    rin[size_t(c) * RH * RW + size_t(y) * RW + x] = v;
-                }
-        }
-        std::vector<int64_t> rshape = {1, 3, RH, RW};
-        std::vector<float> rout;
-        std::vector<int64_t> roshape;
-        if (!ort_run(*m_impl->rec, rin, rshape, rout, roshape)) continue;
-        if (roshape.size() != 3) continue;
+        std::string txt;
         float conf = 0;
-        std::string txt = ctc_greedy(rout, roshape, m_impl->keys, conf, m_impl->m_mask);
+        if (!m_impl->rec_image(roi, txt, conf)) continue;
         if (txt.empty()) continue;
 
         ocr_rec_t rec;
@@ -553,6 +561,34 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
         ++n;
     }
     return n;
+}
+
+int OnnxOcrEngine::ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
+    result.clear();
+    if (!m_impl->ok) return -1;
+    if (data == nullptr || w <= 0 || h <= 0 || (bpp != 1 && bpp != 3 && bpp != 4)) return -1;
+    if (size_t(w) * h * bpp > 64ULL * 1024 * 1024) return -2;
+
+    BGR img = to_bgr(data, w, h, bpp);
+
+    // 倾斜校正（PCA 主轴）：与 ocr() 的单行 rec 分支一致
+    BGR roi = img;
+    double ang = pca_angle(roi);
+    if (std::abs(ang) > 15.0 && std::abs(ang) < 75.0 && roi.w > 1.3 * roi.h)
+        roi = rotate(roi, -ang);
+
+    std::string txt;
+    float conf = 0;
+    if (!m_impl->rec_image(roi, txt, conf)) return -3;
+    if (txt.empty()) return 0;
+
+    ocr_rec_t rec;
+    rec.left_top = point_t(0, 0);
+    rec.right_bottom = point_t(w, h);
+    rec.text = utf8_to_wstring(txt); // txt 是 PP-OCR 输出的 UTF-8，必须用 CP_UTF8 解码
+    rec.confidence = conf;
+    result.push_back(rec);
+    return 1;
 }
 
 } // namespace op::ocr
