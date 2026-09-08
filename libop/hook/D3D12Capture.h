@@ -23,10 +23,15 @@ class D3D12Capture final {
   private:
     D3D12Capture();
     ~D3D12Capture();
+    D3D12Capture(const D3D12Capture &) = delete;
+    D3D12Capture &operator=(const D3D12Capture &) = delete;
 
-    std::uintptr_t commandQueueOffset_ = 0;
-    std::uint64_t presentPointer_ = 0;
-    std::uint64_t presentTrampoline_ = 0;
+    // 自建拷贝队列与围栏：无法从 swapchain 可靠获取游戏原 command queue
+    //（旧实现对 swapchain 对象首 8 字节解引用当队列指针，属野指针调用）。
+    Microsoft::WRL::ComPtr<ID3D12CommandQueue> copyQueue_;
+    Microsoft::WRL::ComPtr<ID3D12Fence> fence_;
+    HANDLE fenceEvent_ = NULL;
+    UINT64 fenceValue_ = 0;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> readbackResource_;
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator> commandAllocator_;

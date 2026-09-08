@@ -137,9 +137,9 @@ bool WindowService::GetWindowState(HWND hwnd, LONG flag) {
     HWND wnd = hwnd;
     if (flag == 0) // 0://判断窗口是否存在
         bret = ::IsWindow(wnd);
-    else if (flag == 1) // 判断窗口是否处于激活
+    else if (flag == 1) // 判断窗口是否处于激活（前台窗口）
     {
-        if (::GetActiveWindow() == wnd)
+        if (::GetForegroundWindow() == wnd)
             bret = true;
     } else if (flag == 2) // 2 : 判断窗口是否可见
         bret = ::IsWindowVisible(wnd);
@@ -147,9 +147,9 @@ bool WindowService::GetWindowState(HWND hwnd, LONG flag) {
         bret = ::IsIconic(wnd);
     else if (flag == 4) // 4 : 判断窗口是否最大化
         bret = ::IsZoomed(wnd);
-    else if (flag == 5) // 5 : 判断窗口是否置顶
+    else if (flag == 5) // 5 : 判断窗口是否置顶（WS_EX_TOPMOST）
     {
-        if (::GetForegroundWindow() == wnd)
+        if (::GetWindowLongPtrW(wnd, GWL_EXSTYLE) & WS_EX_TOPMOST)
             bret = true;
     } else if (flag == 6) // 6 : 判断窗口是否无响应
         bret = ::IsHungAppWindow(wnd);

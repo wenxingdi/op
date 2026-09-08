@@ -355,13 +355,30 @@ int OnnxYoloEngine::init(const std::wstring &engine, const std::wstring &dllName
         } else if (a.rfind("--labels=", 0) == 0) {
             m_impl->m_labels.clear();
             std::string list = a.substr(9);
-            size_t pos = 0;
-            while (pos <= list.size()) {
-                size_t comma = list.find(',', pos);
-                std::string one = (comma == std::string::npos) ? list.substr(pos) : list.substr(pos, comma - pos);
-                if (!one.empty()) m_impl->m_labels.push_back(utf8_to_wstring(one));
-                if (comma == std::string::npos) break;
-                pos = comma + 1;
+            if (!list.empty() && list[0] == '@') {
+                // @file：从 UTF-8 文本文件按行读取类别（ultralytics classes.txt 格式，每行一个）
+                const std::string path = list.substr(1);
+                std::ifstream f(path, std::ios::binary);
+                if (!f) {
+                    cout << "OnnxYoloEngine: labels file not found: " << path << endl;
+                } else {
+                    std::string line;
+                    while (std::getline(f, line)) {
+                        while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+                            line.pop_back();
+                        if (!line.empty())
+                            m_impl->m_labels.push_back(utf8_to_wstring(line));
+                    }
+                }
+            } else {
+                size_t pos = 0;
+                while (pos <= list.size()) {
+                    size_t comma = list.find(',', pos);
+                    std::string one = (comma == std::string::npos) ? list.substr(pos) : list.substr(pos, comma - pos);
+                    if (!one.empty()) m_impl->m_labels.push_back(utf8_to_wstring(one));
+                    if (comma == std::string::npos) break;
+                    pos = comma + 1;
+                }
             }
         }
     }

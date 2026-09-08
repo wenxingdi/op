@@ -847,11 +847,19 @@ long ImageSearchService::autoocr_ex(const wstring &color, double sim, wstring &o
     }
     vocr_rec_t res;
     HttpOcrService::getInstance()->ocr(buf.data(), w, h, 4, res);
+    // det 结果按阅读序稳定排序（上→下、同行左→右），输出顺序确定
+    std::stable_sort(res.begin(), res.end(), [](const auto &a, const auto &b) {
+        if (a.left_top.y != b.left_top.y)
+            return a.left_top.y < b.left_top.y;
+        return a.left_top.x < b.left_top.x;
+    });
     long find_ct = 0;
     wchar_t confbuf[16];
     for (auto &it : res) {
         if (it.confidence < sim - 1e-9)
             continue;
+        if (find_ct >= _max_return_obj_ct)
+            break; // 先判上限再收集（修正 off-by-one）
         swprintf(confbuf, 16, L"%.2f", it.confidence);
         out_str += std::to_wstring(it.left_top.x + _x1 + _dx);
         out_str += L",";
@@ -866,8 +874,6 @@ long ImageSearchService::autoocr_ex(const wstring &color, double sim, wstring &o
         out_str += it.text;
         out_str += L"|";
         ++find_ct;
-        if (find_ct > _max_return_obj_ct)
-            break;
     }
     if (!out_str.empty() && out_str.back() == L'|')
         out_str.pop_back();
@@ -902,6 +908,8 @@ int ImageSearchService::str2colordfs(const wstring &color_str, std::vector<color
     }
     split(ret ? color_str.substr(1) : color_str, vstr, L"|");
     for (auto &it : vstr) {
+        if (it.empty()) // 空段（前导/连续 '|'）跳过，防空 vector 取下标
+            continue;
         split(it, vstr2, L"-");
         cr.color.str2color(vstr2[0]);
         const bool has_explicit_df = vstr2.size() == 2;
@@ -919,6 +927,8 @@ void ImageSearchService::str2colors(const wstring &color, std::vector<color_t> &
     vcolor.clear();
     split(color, vstr, L"|");
     for (auto &it : vstr) {
+        if (it.empty()) // 空段（前导/连续 '|'）跳过
+            continue;
         cr.str2color(it);
         vcolor.push_back(cr);
     }

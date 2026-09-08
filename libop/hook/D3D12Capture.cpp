@@ -25,9 +25,14 @@ D3D12Capture *D3D12Capture::Get() {
 }
 
 D3D12Capture::D3D12Capture() {
+    fenceEvent_ = ::CreateEvent(nullptr, FALSE, FALSE, nullptr);
 }
 
 D3D12Capture::~D3D12Capture() {
+    if (fenceEvent_) {
+        ::CloseHandle(fenceEvent_);
+        fenceEvent_ = NULL;
+    }
 }
 
 HRESULT D3D12Capture::CaptureFrames(HWND windowHandleToCapture, std::wstring_view folderToSaveFrames, int maxFrames) {
@@ -57,6 +62,31 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
     hr = swapChain->GetDevice(__uuidof(ID3D12Device), &device);
     if (FAILED(hr)) {
         return;
+    }
+
+    // 首次调用时自建 DIRECT 拷贝队列与围栏（拷贝是独立队列，无需游戏原 queue）。
+    if (!copyQueue_) {
+        D3D12_COMMAND_QUEUE_DESC queueDesc = {};
+        queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+        queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+        hr = device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&copyQueue_));
+        if (FAILED(hr)) {
+            return;
+        }
+        hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence_));
+        if (FAILED(hr)) {
+            return;
+        }
+    }
+
+    // 等待上一帧提交的 GPU 拷贝完成，再读 readback（防读到半写帧）。
+    if (fenceValue_ > 0 && fence_) {
+        if (fence_->GetCompletedValue() < fenceValue_) {
+            if (fenceEvent_) {
+                fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
+                ::WaitForSingleObject(fenceEvent_, INFINITE);
+            }
+        }
     }
 
     Microsoft::WRL::ComPtr<ID3D12Resource> resource;
@@ -152,6 +182,18 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
         }
     }
 
+    // command allocator 每次记录命令前必须 Reset（上一帧 ExecuteCommandLists 已由围栏等待完成）。
+    if (!commandAllocator_) {
+        hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator_));
+        if (FAILED(hr)) {
+            return;
+        }
+    }
+    hr = commandAllocator_->Reset();
+    if (FAILED(hr)) {
+        return;
+    }
+
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> copyCommandList;
     hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator_.Get(), nullptr,
                                    IID_PPV_ARGS(&copyCommandList));
@@ -164,12 +206,12 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
     copyCommandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
     copyCommandList->Close();
 
-    const char *start = static_cast<char *>(static_cast<void *>(swapChain3.Get()));
-    ID3D12CommandQueue *commandQueue = reinterpret_cast<ID3D12CommandQueue *>(
-        *static_cast<const std::uintptr_t *>(static_cast<const void *>(start + commandQueueOffset_)));
-
     ID3D12CommandList *commandLists[] = {copyCommandList.Get()};
-    commandQueue->ExecuteCommandLists(ARRAYSIZE(commandLists), commandLists);
+    copyQueue_->ExecuteCommandLists(ARRAYSIZE(commandLists), commandLists);
+
+    // 本帧拷贝入队完成后推进围栏，下帧 CPU 等待其完成再读 readback。
+    ++fenceValue_;
+    copyQueue_->Signal(fence_.Get(), fenceValue_);
 }
 
 void dx12_capture(IDXGISwapChain *swapChain) {

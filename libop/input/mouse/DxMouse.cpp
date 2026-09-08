@@ -45,9 +45,8 @@ long DxMouse::UnBind() {
 }
 
 long DxMouse::GetCursorPos(long &x, long &y) {
-    BOOL ret = FALSE;
-    POINT pt;
-    ret = ::GetCursorPos(&pt);
+    POINT pt = {0, 0}; // 失败时输出 (0,0)，避免未初始化垃圾坐标
+    BOOL ret = ::GetCursorPos(&pt);
     if (_hwnd && _hwnd != ::GetDesktopWindow()) {
         ret = ::ScreenToClient(_hwnd, &pt);
     }

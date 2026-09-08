@@ -11,6 +11,10 @@
 #include "../../image/Image.h"
 #include "../../base/AutomationModes.h"
 #include "../../base/Utils.h"
+#include "../../ipc/SharedMemory.h"
+#include "../../ipc/ProcessMutex.h"
+
+#include <memory>
 
 namespace {
 
@@ -215,13 +219,18 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
         }
 
         // 函数获取指定兼容位图的位，然后将其作一个DIB—设备无关位图（Device-Independent
-        //  Bitmap）使用的指定格式复制到一个缓冲区中 _pmutex->lock();
+        //  Bitmap）使用的指定格式复制到一个缓冲区中
+        if (!ensureSharedFrameCapacity(w, h)) {
+            setlog("GdiCapture: ensureSharedFrameCapacity(%d,%d) failed", w, h);
+            release_capture_bitmap(_hmdc, _hbmpscreen, _hbmp_old);
+            return false;
+        }
+        _pmutex->lock();
         uchar *pshare = _shmem->data<byte>();
         fmtFrameInfo(pshare, _hwnd, w, h);
         GetDIBits(_hmdc, _hbmpscreen, 0L, (DWORD)h, pshare + sizeof(FrameInfo), (LPBITMAPINFO)&_bih,
                   (DWORD)DIB_RGB_COLORS);
 
-        //_pmutex->unlock();
         release_capture_bitmap(_hmdc, _hbmpscreen, _hbmp_old);
 
         // 将数据拷贝到目标注意实际数据是反的
@@ -232,6 +241,7 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
             const auto row = gdi_row(pixels, w, h - 1 - i, 0, w);
             memcpy(img.ptr<uchar>(i), row.data(), row.size());
         }
+        _pmutex->unlock();
     } else if (RDT_GDI_DX2 == _render_type) {
         ATL::CImage image;
         image.Create(w, h, _device_caps);
@@ -284,9 +294,16 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
             ::PrintWindow(_hwnd, _hmdc, 0);
         }
         // 函数获取指定兼容位图的位，然后将其作一个DIB—设备无关位图（Device-Independent
-        //  Bitmap）使用的指定格式复制到一个缓冲区中 _pmutex->lock();
+        //  Bitmap）使用的指定格式复制到一个缓冲区中
+        if (!ensureSharedFrameCapacity(ww, wh)) {
+            setlog("GdiCapture: ensureSharedFrameCapacity(%d,%d) failed", ww, wh);
+            release_capture_bitmap(_hmdc, _hbmpscreen, _hbmp_old);
+            return false;
+        }
+        _pmutex->lock();
         uchar *pshare = _shmem->data<byte>();
-        fmtFrameInfo(pshare, _hwnd, w, h);
+        // 头尺寸与实际写下的整窗载荷一致（共享段已按当前整窗容量扩容）。
+        fmtFrameInfo(pshare, _hwnd, ww, wh);
         GetDIBits(_hmdc, _hbmpscreen, 0L, (DWORD)wh, pshare + sizeof(FrameInfo), (LPBITMAPINFO)&_bih,
                   (DWORD)DIB_RGB_COLORS);
 
@@ -298,8 +315,39 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
             const auto row = gdi_row(pixels, ww, wh - 1 - i - y1 - dy_, x1 + dx_, w);
             memcpy(img.ptr<uchar>(i), row.data(), row.size());
         }
+        _pmutex->unlock();
     }
     return 1;
+}
+
+bool GdiCapture::ensureSharedFrameCapacity(int width, int height) {
+    if (width <= 0 || height <= 0)
+        return false;
+    const size_t required = sizeof(FrameInfo) + static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
+    if (_shmem && _shmem->size() >= required)
+        return true;
+    if (!_pmutex)
+        return false;
+
+    // 单进程自用（GDI 帧不经远端注入进程），重建无远端句柄竞争；
+    // 仍持互斥锁保护与 getFrameInfo 的并发读。
+    _pmutex->lock();
+    if (_shmem && _shmem->size() >= required) { // 双检：等待锁期间可能已被扩容
+        _pmutex->unlock();
+        return true;
+    }
+    SAFE_DELETE(_shmem);
+    auto shmem = std::make_unique<SharedMemory>();
+    const bool opened = shmem->open_create(_shared_res_name, required);
+    if (!opened) {
+        _pmutex->unlock();
+        setlog(L"GdiCapture: rebuild shared memory failed %s size=%llu", _shared_res_name.c_str(),
+               static_cast<unsigned long long>(required));
+        return false;
+    }
+    _shmem = shmem.release();
+    _pmutex->unlock();
+    return true;
 }
 
 void GdiCapture::release_device_context() {

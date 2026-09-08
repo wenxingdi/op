@@ -576,10 +576,14 @@ long ImageSearchAlgorithms::FindColorEx(vector<color_df_t> &colors, double sim, 
     for_each_scan_point(range, dir, [&](int j, int i) {
         for (const auto &it : prepared_colors) { // 对每个颜色描述
             if (color_matches_prepared(_src.at<color_t>(i, j), it)) {
+                if (find_ct >= _max_return_obj_ct) // 已达上限：不再收集，立即停止
+                    return true;
                 retstr += std::to_wstring(j + _x1 + _dx) + L"," + std::to_wstring(i + _y1 + _dy);
                 retstr += L"|";
                 ++find_ct;
-                return find_ct > _max_return_obj_ct;
+                if (find_ct >= _max_return_obj_ct)
+                    return true; // 集满立即停止，避免多扫
+                break;           // 该像素按首个命中色计一次
             }
         }
         return false;
@@ -684,10 +688,13 @@ long ImageSearchAlgorithms::FindMultiColorEx(std::vector<color_df_t> &first_colo
                     break;
             }
             if (err_ct <= max_err_ct) {
+                if (find_ct >= _max_return_obj_ct) // 已达上限：不再收集，立即停止
+                    return true;
                 retstr += to_wstring(j + _x1 + _dx) + L"," + to_wstring(i + _y1 + _dy);
                 retstr += L"|";
                 ++find_ct;
-                return find_ct > _max_return_obj_ct;
+                if (find_ct >= _max_return_obj_ct)
+                    return true; // 集满立即停止，避免多扫
             }
         }
         return false;

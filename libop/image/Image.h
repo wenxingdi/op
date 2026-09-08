@@ -212,6 +212,10 @@ struct Image {
         image_detail::StreamPtr stream(raw_stream);
         HRESULT hr = img.Load(stream.get());
         if (hr == S_OK) {
+            // 与 read(LPCTSTR) 一致：拒绝不支持的位深（16bpp 等），
+            // 避免 translate 无写入分支时返回未初始化内存。
+            if (!image_detail::IsSupportedImageFormat(img))
+                return false;
             create(img.GetWidth(), img.GetHeight());
             translate((unsigned char *)img.GetBits(), img.GetBPP() / 8, img.GetPitch());
             return true;
