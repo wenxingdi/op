@@ -794,24 +794,55 @@ long ImageSearchService::autoocr_line(const wstring &color, double sim, wstring 
         return ImageSearchAlgorithms::Ocr(*dict, sim, out_str);
     }
 
-    // 2) 免字库：白字黑底 BGRA 缓冲 -> 单行直 rec（跳过 det，快路径）
+    // 2) 免字库快路径：二值图水平投影切行 -> 每行独立直 rec（跳过 det，保持快路径）。
+    //    必须裁行：整区域直 rec 会把含上下留白的区域等比压扁（字符糊），
+    //    真机实测整窗 160px 高、文本行仅 35px 时 10px 级字符必错字（愿->原、丢负号）。
     int w = _binary.width, h = _binary.height;
     if (w <= 0 || h <= 0)
         return 0;
-    std::vector<unsigned char> buf(static_cast<size_t>(w) * h * 4, 0);
     const unsigned char *bin = _binary.data();
-    for (int i = 0; i < w * h; ++i) {
-        unsigned char v = bin[i] ? 255 : 0; // 命中文字->白，背景->黑
-        buf[i * 4 + 0] = v;                 // B
-        buf[i * 4 + 1] = v;                 // G
-        buf[i * 4 + 2] = v;                 // R
-        buf[i * 4 + 3] = 255;               // A
+    // 水平投影：统计每行前景(文字)像素
+    std::vector<int> row(size_t(h), 0);
+    for (int y = 0; y < h; ++y) {
+        const unsigned char *p = bin + size_t(y) * w;
+        int cnt = 0;
+        for (int x = 0; x < w; ++x)
+            if (p[x]) ++cnt;
+        row[size_t(y)] = cnt;
     }
-    vocr_rec_t res;
-    HttpOcrService::getInstance()->ocr_line(buf.data(), w, h, 4, res);
-    for (auto &it : res) {
-        if (it.confidence >= sim - 1e-9)
-            out_str += it.text;
+    // 按行间空隙切段：行内字符纵向像素连续（或 <=2px 微隙），行间留白通常 >=3px；
+    // 段高 < kMinH 视为噪点残留，丢弃。
+    const int kMaxInLineGap = 3, kMinSegH = 5;
+    std::vector<std::pair<int, int>> segs; // (y0, y1) 含
+    for (int y = 0; y < h;) {
+        if (row[size_t(y)] == 0) { ++y; continue; }
+        int y0 = y, y1 = y, gap = 0;
+        for (++y; y < h; ++y) {
+            if (row[size_t(y)] != 0) { y1 = y; gap = 0; }
+            else if (++gap > kMaxInLineGap) break;
+        }
+        if (y1 - y0 + 1 >= kMinSegH) segs.push_back({y0, y1});
+    }
+    if (segs.empty())
+        return 0;
+
+    for (const auto &s : segs) {
+        int seg_h = s.second - s.first + 1;
+        const unsigned char *bin0 = bin + size_t(s.first) * w;
+        std::vector<unsigned char> buf(static_cast<size_t>(w) * seg_h * 4, 0);
+        for (int i = 0; i < w * seg_h; ++i) {
+            unsigned char v = bin0[i] ? 255 : 0; // 命中文字->白，背景->黑
+            buf[i * 4 + 0] = v;                  // B
+            buf[i * 4 + 1] = v;                  // G
+            buf[i * 4 + 2] = v;                  // R
+            buf[i * 4 + 3] = 255;                // A
+        }
+        vocr_rec_t res;
+        HttpOcrService::getInstance()->ocr_line(buf.data(), w, seg_h, 4, res);
+        for (auto &it : res) {
+            if (it.confidence >= sim - 1e-9)
+                out_str += it.text;
+        }
     }
     return 0;
 }

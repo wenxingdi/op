@@ -13,8 +13,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <sstream>
 #include <iostream>
+#include <thread>
 
 using std::cout;
 using std::endl;
@@ -427,7 +429,8 @@ public:
     }
 
     Impl() {
-        sopts.SetIntraOpNumThreads(1);
+        // 推理线程数不在构造里设（避免锁死单线程）：init() 按 --threads= 参数决定，
+        // 缺省 min(4, 核) —— 单线程跑 PP-OCRv4 rec 约 40ms+，远达不到 9-13ms 目标。
         sopts.SetGraphOptimizationLevel(ORT_ENABLE_ALL);
     }
 
@@ -489,12 +492,25 @@ int OnnxOcrEngine::init(const std::wstring &engine, const std::wstring &dllName,
                         const std::vector<std::string> &argv) {
     (void)engine;
     (void)dllName;
-    // 解析 --charset=<规则>：如 --charset=@zh0123456789[],-+
+    bool have_threads = false;
+    int threads = 0;
+    // 解析 --charset=<规则>：如 --charset=@zh0123456789[],-+；--threads=N：推理 intra-op 线程数
     for (const std::string &a : argv) {
         if (a.rfind("--charset=", 0) == 0) {
             m_impl->m_rule = parse_charset_rule(a.substr(10));
-            break;
+        } else if (a.rfind("--threads=", 0) == 0) {
+            threads = atoi(a.c_str() + 10);
+            have_threads = true;
         }
+    }
+    // 线程策略：--threads=N>0 显式指定；--threads=0 不调用 Set（走 ORT 默认=全物理核）；
+    // 缺省 min(4, 核) —— rec 单行 320x48 4 线程约 10-15ms，覆盖 9-13ms 目标且不失控。
+    if (have_threads && threads > 0) {
+        m_impl->sopts.SetIntraOpNumThreads(threads);
+    } else if (!have_threads) {
+        unsigned hw = std::thread::hardware_concurrency();
+        int def = (hw == 0) ? 4 : int(std::min<unsigned>(4u, hw));
+        m_impl->sopts.SetIntraOpNumThreads(def);
     }
     return m_impl->load() ? 0 : -1;
 }
