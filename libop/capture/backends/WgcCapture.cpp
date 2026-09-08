@@ -72,12 +72,16 @@ bool shouldUseWgcWorkerThread() {
     return !IsWindows10BuildOrGreater(kWindows11Build22000);
 }
 
-constexpr unsigned long kWin10RequestInitWaitMs = 300;
+// Win10 worker 时序参数（真机 WgcTest 暴露：300ms init 等待对慢速首帧不足、
+// 200ms cleanup 等待令背靠背重绑连锁失败——均上调至 2s 覆盖正常态；
+// 真超时仍失败并打日志，不无限阻塞。Win11 不走 worker 路径，零影响。）
+constexpr unsigned long kWin10RequestInitWaitMs = 2000;
 constexpr unsigned long kWin10InitialFrameWaitMs = 500;
 constexpr unsigned long kWin10MetricsFrameWaitMs = 800;
 constexpr unsigned long kWin10FreshFrameWaitMs = 100;
 constexpr unsigned long kWin10CloseWaitMs = 1500;
-constexpr unsigned long kWin10CleanupBindWaitMs = 200;
+constexpr unsigned long kWin10CleanupBindWaitMs = 2000;
+constexpr unsigned long kWin10BorderlessAccessWaitMs = 2000;
 std::atomic<int> g_win10WgcCleanupInFlight{0};
 
 bool waitForWin10WgcCleanup(unsigned long timeout_ms) {
@@ -103,15 +107,29 @@ void debugWgcCloseHresult(const char *operation, winrt::hresult_error &err) {
     debugWgcCloseMessage(buffer);
 }
 
-// Windows 10 this runs in the WGC worker thread, so a slow Borderless access
-// request does not block the caller's BindWindow thread.
+// Windows 10 worker 线程内请求 Borderless 访问。系统 GraphicsCaptureAccess 服务在连续会话
+// 切换/忙碌时可静默阻塞数秒：原无限 .get() 会卡死 worker -> init 永不 ready -> 主线程取帧
+// 全程超时（真机 WgcTest 全组跑第 5 例即此，单跑因系统状态干净而秒过）。改带超时轮询
+// Status：Completed 才去边框；超时/失败保留边框降级（截图带边框但有内容），绝不阻断 init。
 void applySessionOptions(const winrt::Windows::Graphics::Capture::GraphicsCaptureSession &session) {
     try {
         if (wgcSessionPropertyPresent(L"IsBorderRequired")) {
-            winrt::Windows::Graphics::Capture::GraphicsCaptureAccess::RequestAccessAsync(
-                winrt::Windows::Graphics::Capture::GraphicsCaptureAccessKind::Borderless)
-                .get();
-            session.IsBorderRequired(false);
+            auto access_op = winrt::Windows::Graphics::Capture::GraphicsCaptureAccess::RequestAccessAsync(
+                winrt::Windows::Graphics::Capture::GraphicsCaptureAccessKind::Borderless);
+            const unsigned long long deadline = ::GetTickCount64() + kWin10BorderlessAccessWaitMs;
+            while (access_op.Status() == winrt::Windows::Foundation::AsyncStatus::Started &&
+                   ::GetTickCount64() < deadline) {
+                ::Sleep(10);
+            }
+            if (access_op.Status() == winrt::Windows::Foundation::AsyncStatus::Completed) {
+                (void)access_op.GetResults(); // 已 Completed，同步取结果不阻塞
+                session.IsBorderRequired(false);
+            } else {
+                setlog("Request WGC borderless access %s (%d), capture keeps window border",
+                       access_op.Status() == winrt::Windows::Foundation::AsyncStatus::Error ? "failed"
+                                                                                            : "timed out",
+                       static_cast<int>(access_op.Status()));
+            }
         }
     } catch (winrt::hresult_error &err) {
         setlog("Request WGC borderless access failed (0x%08X): %s", err.code().value,
@@ -124,6 +142,25 @@ void applySessionOptions(const winrt::Windows::Graphics::Capture::GraphicsCaptur
             session.IsCursorCaptureEnabled(false);
         }
     } catch (...) {
+    }
+}
+
+// Win10 worker 内 Init 的 SEH 保护壳。真机 WgcTest 全组实证：18362 的
+// Windows.Graphics.Capture 在背靠背会话创建时，CreateForWindow 内部会产生不经
+// C++ EH 派发的访问违例（kernelbase+0x3a839，/EHa catch(...) 接不住；dump 证
+// worker 线程 0xC0000005，主线程无恙）。__try/__except 在 EH 链更底层求值，
+// 可兜住此类崩溃：进程不亡，转 init 失败 + 进程级熔断（后续 WGC 请求快速失败），
+// 保证 WgcTest 全组跑完不中断。仅 Win10 worker 路径使用；Win11 不走 worker，零影响。
+// 注：本函数不得引入需栈展开的本地 C++ 对象（C2712）。
+bool win10InitSehGuard(WgcCapture *self, HWND hwnd) noexcept {
+    __try {
+        return self->Init(hwnd, false);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        WgcCapture::MarkWin10WgcBroken();
+        setlog("WgcCapture::Init SEH fault code=0x%08lX hwnd=%p -- WGC broken in this process, "
+               "subsequent WGC requests will fail fast",
+               ::GetExceptionCode(), hwnd);
+        return false;
     }
 }
 
@@ -161,13 +198,33 @@ bool WgcCapture::DeferBindReleaseAfterUnBind() const {
 }
 
 long WgcCapture::BindExOnWindows10(HWND hwnd) {
+    if (IsWin10WgcBroken()) {
+        setlog("BindEx: WGC broken by previous in-process SEH fault on Windows 10, bind skipped");
+        return 0;
+    }
     if (!waitForWin10WgcCleanup(kWin10CleanupBindWaitMs)) {
         setlog("BindEx: previous WGC cleanup is still pending on Windows 10");
         return 0;
     }
 
     if (win10Worker_.joinable()) {
-        win10Worker_.join();
+        // 带超时 join：worker 正常收尾会先置 win10WorkerCleaned_=true 再退出（runWin10Worker 尾）。
+        // 若其卡死在 Init 的 winrt .get() 等待，cleaned 永不为 true——此时 detach 兜底避免永久
+        // 阻塞 BindWindow；残留 worker 由下一轮 waitForWin10WgcCleanup 的全局计数+超时接管
+        // （超时失败会打日志并返回，降级为"失败"而非"挂死"）。
+        const unsigned long long deadline = ::GetTickCount64() + kWin10CleanupBindWaitMs;
+        while (win10Worker_.joinable() && !win10WorkerCleaned_.load() && ::GetTickCount64() < deadline) {
+            ::Sleep(10);
+        }
+        if (win10Worker_.joinable()) {
+            if (win10WorkerCleaned_.load()) {
+                win10Worker_.join();
+            } else {
+                win10Worker_.detach();
+                setlog("BindEx: previous WGC worker still alive after %lums, detached",
+                       kWin10CleanupBindWaitMs);
+            }
+        }
     }
 
     win10WorkerStop_.store(false);
@@ -279,9 +336,10 @@ long WgcCapture::UnBindExOnWindows10() {
 
 void WgcCapture::runWin10Worker(HWND hwnd) {
     g_win10WgcCleanupInFlight.fetch_add(1);
+    setlog("WGC worker start hwnd=%p", hwnd);
     (void)runInMtaApartment(
         [&]() -> long {
-            const bool ok = Init(hwnd, false);
+            const bool ok = win10InitSehGuard(this, hwnd);
             win10WorkerInitSucceeded_.store(ok);
             win10WorkerInitReady_.store(true);
             if (ok) {
@@ -370,6 +428,7 @@ void WgcCapture::closeWin10WorkerObjects() {
 }
 
 bool WgcCapture::Init(HWND _hwnd, bool use_frame_arrived_event) {
+    setlog("WgcCapture::Init start hwnd=%p", _hwnd);
     auto activation_factory = winrt::get_activation_factory<winrt::Windows::Graphics::Capture::GraphicsCaptureItem>();
     auto interop_factory = activation_factory.as<IGraphicsCaptureItemInterop>();
     winrt::Windows::Graphics::Capture::GraphicsCaptureItem item = {nullptr};
@@ -393,6 +452,7 @@ bool WgcCapture::Init(HWND _hwnd, bool use_frame_arrived_event) {
         setlog("GraphicsCaptureItem is null");
         return false;
     }
+    setlog("Init: GraphicsCaptureItem created ok");
 
     D3D_DRIVER_TYPE DriverTypes[] = {
         D3D_DRIVER_TYPE_HARDWARE,
@@ -440,6 +500,7 @@ bool WgcCapture::Init(HWND _hwnd, bool use_frame_arrived_event) {
         winrt::Windows::Graphics::Capture::Direct3D11CaptureFramePool::CreateFreeThreaded(
             device, winrt::Windows::Graphics::DirectX::DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, item.Size());
     const winrt::Windows::Graphics::Capture::GraphicsCaptureSession session = frame_pool.CreateCaptureSession(item);
+    setlog("Init: session created, applying options");
 
     applySessionOptions(session);
 
@@ -507,6 +568,10 @@ bool WgcCapture::Init(HWND _hwnd, bool use_frame_arrived_event) {
 
 bool WgcCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
     const bool win10_worker = shouldUseWgcWorkerThread();
+    if (win10_worker && IsWin10WgcBroken()) {
+        setlog("requestCapture: WGC broken by previous in-process SEH fault");
+        return false;
+    }
     if (win10_worker && !waitForWin10WorkerInit(kWin10RequestInitWaitMs)) {
         setlog("requestCapture: WGC worker init is not ready");
         return false;

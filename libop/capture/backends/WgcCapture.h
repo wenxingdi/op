@@ -36,6 +36,12 @@ class WgcCapture : public ICaptureBackend {
 
     bool Init(HWND _hwnd, bool use_frame_arrived_event = true);
 
+    // Win10 18362 WGC 系统组件崩溃熔断（进程级）：SEH 壳捕获到系统内部 AV 后置位，
+    // 后续 WGC Bind/requestCapture 快速失败，保证测试进程不中断（详见 WgcCapture.cpp）。
+    inline static std::atomic<bool> s_win10WgcBroken{false};
+    static bool IsWin10WgcBroken() { return s_win10WgcBroken.load(); }
+    static void MarkWin10WgcBroken() { s_win10WgcBroken.store(true); }
+
   private:
     ATL::CComPtr<ID3D11Device> d3dDevice_;
     ATL::CComPtr<ID3D11DeviceContext> d3dDeviceContext_;
