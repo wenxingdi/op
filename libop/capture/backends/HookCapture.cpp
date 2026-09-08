@@ -33,6 +33,35 @@ void release_remote_display_hook(blackbone::Process &proc, const std::wstring &d
     }
 }
 
+// 在目标进程远端设置/清除 DLL 搜索目录。blackbone Inject 走 LoadLibraryW(绝对路径)，
+// 被注入 DLL 的依赖(如 onnxruntime.dll 位于 op 库目录)按目标进程标准搜索序
+// (exe 目录->cwd->系统->PATH)解析、不含 m_opPath，缺失即 0xC0000135 注入失败。
+// 用法：注入前 SetDllDirectoryW(m_opPath)，LoadLibrary 完成依赖解析后传 nullptr 恢复。
+// 注意：AsmVariant 对 const wchar_t* 深拷贝到远端(dataPtr)，RPC 安全。
+bool set_remote_dll_search_dir(blackbone::Process &proc, const wchar_t *dir) {
+    using set_dll_dir_t = BOOL(__stdcall *)(const wchar_t *);
+    try {
+        auto pSetDllDir = blackbone::MakeRemoteFunction<set_dll_dir_t>(proc, L"kernel32.dll", "SetDllDirectoryW");
+        if (!pSetDllDir) {
+            if (dir) {
+                setlog(L"remote SetDllDirectoryW not resolvable.");
+            }
+            return false;
+        }
+        return pSetDllDir(dir).result() != FALSE;
+    } catch (const std::exception &e) {
+        if (dir) {
+            setlog(L"remote SetDllDirectoryW exception: %S (dir may still have taken effect)", e.what());
+        }
+        return false;
+    } catch (...) {
+        if (dir) {
+            setlog(L"remote SetDllDirectoryW unknown exception (dir may still have taken effect).");
+        }
+        return false;
+    }
+}
+
 struct HookFrameView {
     FrameInfo *info = nullptr;
     std::span<std::byte> pixels;
@@ -110,7 +139,15 @@ long HookCapture::BindEx(HWND hwnd, long render_type) {
             } else {
                 wstring opFile = m_opPath + L"\\" + dllname;
                 if (::PathFileExistsW(opFile.data())) {
+                    // 注入前补依赖搜索目录（见 set_remote_dll_search_dir 注释）。dir_ok=false 不代表未生效：
+                    // blackbone RPC 执行成功后取结果可能抛异常被 catch（实际目录已设置，Inject 随之成功），
+                    // 故恢复必须无条件执行，避免目标进程搜索路径残留 op 目录。
+                    const bool dir_ok = set_remote_dll_search_dir(proc, m_opPath.c_str());
+                    if (!dir_ok) {
+                        setlog(L"SetDllDirectoryW(remote) reported failure, proceed anyway. pid=%d", id);
+                    }
                     auto iret = proc.modules().Inject(opFile);
+                    set_remote_dll_search_dir(proc, nullptr);  // 恢复搜索路径，忽略结果
                     injected = (iret ? true : false);
                     if (!injected) {
                         setlog(L"Inject failed. pid=%d hwnd=%d status=0x%X dll=%s", id, _hwnd, iret.status,
@@ -242,7 +279,12 @@ long HookCapture::BindNox(HWND hwnd, long render_type) {
         } else {
             wstring opFile = m_opPath + L"\\" + dllname;
             if (::PathFileExistsW(opFile.data())) {
+                const bool dir_ok = set_remote_dll_search_dir(proc, m_opPath.c_str());
+                if (!dir_ok) {
+                    setlog(L"SetDllDirectoryW(remote) reported failure, proceed anyway. pid=%d", proc.pid());
+                }
                 auto iret = proc.modules().Inject(opFile);
+                set_remote_dll_search_dir(proc, nullptr);  // 无条件恢复搜索路径
                 injected = (iret ? true : false);
                 if (!injected) {
                     setlog(L"Inject failed. pid=%d hwnd=%d status=0x%X dll=%s", proc.pid(), _hwnd, iret.status,
