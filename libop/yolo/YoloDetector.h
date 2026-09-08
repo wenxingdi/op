@@ -1,9 +1,13 @@
 #pragma once
-#include "../base/Types.h"
+#include "YoloService.h"
+#include <memory>
 #include <mutex>
 
 namespace op::yolo {
 
+// 引擎选择器（单例，对外接口不变）。
+// SetYoloEngine 的 engine 参数以 "onnx" 开头 -> 进程内 OnnxYoloEngine；
+// 其余（含空、"yolo"、"yolo_http" 等）-> HttpYoloEngine（旧行为，默认）。
 class YoloDetector {
   private:
     YoloDetector();
@@ -19,8 +23,7 @@ class YoloDetector {
 
   private:
     std::mutex m_mutex;
-    std::string m_endpoint;
-    int m_timeout_ms;
+    std::unique_ptr<YoloEngine> m_engine;
 };
 
 } // namespace op::yolo

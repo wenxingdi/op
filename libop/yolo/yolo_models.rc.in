@@ -1,0 +1,5 @@
+// 本文件由 CMake 在配置期根据 yolo_models.rc.in 生成（仅当检测到自训模型文件）。
+// 模型文件在构建时由 build/_deps/yolo_models/yolo.onnx 嵌入 DLL 资源段（RCDATA）。
+// 资源 ID 必须与 yolo/yolo_models.h 保持一致（此处内联定义，避免 RC 阶段依赖头文件路径）。
+#define IDR_YOLO_MODEL 105
+IDR_YOLO_MODEL YOLOMODEL "@YOLO_MODEL@"

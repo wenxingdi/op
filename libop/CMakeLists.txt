@@ -195,8 +195,28 @@ configure_file(
 )
 set(_op_ocr_models_rc "${CMAKE_CURRENT_BINARY_DIR}/ocr_models.rc")
 
+# YOLO 模型（方案B：默认不内置，DLL 零增量）。将自训 onnx 放到
+# build/_deps/yolo_models/yolo.onnx 即在配置期自动生成 rc 并编入两个 DLL
+# 资源段；缺省只编译 OnnxYoloEngine（外挂模型路径方式）。
+set(_op_yolo_models_dir "${CMAKE_CURRENT_SOURCE_DIR}/../build/_deps/yolo_models")
+set(YOLO_MODEL "${_op_yolo_models_dir}/yolo.onnx")
+set(_op_yolo_models_rc "")
+if(EXISTS "${YOLO_MODEL}")
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/yolo/yolo_models.rc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/yolo_models.rc"
+    @ONLY
+  )
+  set(_op_yolo_models_rc "${CMAKE_CURRENT_BINARY_DIR}/yolo_models.rc")
+  message(STATUS "YOLO model found, embedding as resource: ${YOLO_MODEL}")
+else()
+  message(STATUS "YOLO model not present (build/_deps/yolo_models/yolo.onnx): OnnxYoloEngine external-path only")
+endif()
+
 set(OP_YOLO_SOURCES
   "yolo/YoloDetector.cpp"
+  "yolo/HttpYoloEngine.cpp"
+  "yolo/OnnxYoloEngine.cpp"
 )
 
 set(OP_MEMORY_SOURCES
@@ -288,6 +308,10 @@ set(OP_COM_SOURCES
   # 内置 OCR 模型资源（与 op_c_api 共用同一份 .rc，各自独立编入 DLL）
   "${_op_ocr_models_rc}"
 )
+# 内置 YOLO 模型资源（仅当构建期检测到自训模型时非空）
+if(_op_yolo_models_rc)
+  list(APPEND OP_COM_SOURCES "${_op_yolo_models_rc}")
+endif()
 
 set(OP_C_API_SOURCES
   "c_api/op_c_api.cpp"
@@ -296,6 +320,9 @@ set(OP_C_API_SOURCES
   # 内置 OCR 模型资源（与 op_com 共用同一份 .rc，各自独立编入 DLL）
   "${_op_ocr_models_rc}"
 )
+if(_op_yolo_models_rc)
+  list(APPEND OP_C_API_SOURCES "${_op_yolo_models_rc}")
+endif()
 
 set(OP_COMMON_DEFINITIONS
   WIN32
