@@ -597,6 +597,9 @@ bool BindingSession::check_bind() {
         return true;
 
     // 绑定前台桌面
+    // 自动回退：未显式绑定时区域截图/找图/取色会静默打到整个桌面，
+    // 可能掩盖"忘绑定/绑定失败"。若脚本本意是操作某窗口，请检查此前 BindWindow 返回值。
+    setlog(L"check_bind: no explicit bind, auto-bind desktop window (screen mode fallback)");
     return BindWindow(reinterpret_cast<LONG_PTR>(::GetDesktopWindow()), L"normal", L"normal", L"normal", 0);
 }
 
