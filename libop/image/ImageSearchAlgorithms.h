@@ -43,8 +43,6 @@ int check_transparent(Image *img);
 void get_match_points(const Image &img, vector<uint> &points, int transparent_count = 0);
 // 预处理找图模板，避免同一张图在多次查找时重复转灰度或提取透明点。
 void build_pic_match_template(Image &img, PicMatchTemplate &match);
-// 生成 KMP 的 next 表
-void gen_next(const Image &img, vector<int> &next);
 // 像素值求和
 int inline sum(uchar *begin, uchar *end) {
     int s = 0;
@@ -52,8 +50,6 @@ int inline sum(uchar *begin, uchar *end) {
         s += *begin++;
     return s;
 }
-
-void extractConnectivity(const ImageBin &src, int threshold, std::vector<ImageBin> &out);
 
 struct gray_diff_t {
     gray_diff_t(color_df_t const &cd) : gray(cd.color.toGray()), diff(cd.df.toGray()) {

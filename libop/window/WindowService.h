@@ -42,7 +42,6 @@ class WindowService {
     long SendStringIme(HWND hwnd, const std::wstring &str);
     // 2019.3
     long RunApp(const std::wstring &cmd, long mode, DWORD *pid);
-    static HWND GetTopWindowSp(HWND hwnd);
 
   private:
     bool EnumWindowInternal(HWND parent, const wchar_t *title, const wchar_t *class_name, LONG filter,

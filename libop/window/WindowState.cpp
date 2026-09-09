@@ -285,15 +285,4 @@ bool WindowService::SetWindowTransparent(HWND hwnd, LONG trans) {
     return bret;
 }
 
-HWND WindowService::GetTopWindowSp(HWND hwnd) {
-    HWND i = hwnd, temp;
-
-    while (GetWindowLongA(i, GWL_STYLE) > 0) {
-        temp = GetParent(i);
-        if (!temp)
-            break;
-    }
-    return i;
-}
-
 } // namespace op
