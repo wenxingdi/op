@@ -96,6 +96,15 @@ struct rect_t {
     void divideBlock(int count, bool vertical, std::vector<rect_t> &blocks) {
         assert(valid());
 
+        // 防御：count<=0 时 NumberGen 内 n/cnt 除零(release 崩溃)；
+        // count>span 时尾部产生 0 尺寸空块。统一早退/clamp 到 [1, span]。
+        if (count <= 0) {
+            blocks.clear();
+            return;
+        }
+        const int span = vertical ? height() : width();
+        if (count > span)
+            count = span;
         assert(count > 0);
         blocks.resize(count);
         if (vertical) {

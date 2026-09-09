@@ -5,6 +5,15 @@
 
 ## [Unreleased] — 2026-09
 
+### 2026-09-09（模块排查·批1 base 修复，4文件 +54/-30）
+
+- **base 模块体检（doc2/模块排查_base_2026-09-09.md）后执行 B1+S1+S2+S3**：
+  - **B1** `setlog(wchar)` 二次格式化 UB（崩溃级，触发面 58 处宽版调用）——抽 `setlog_text()` 内部输出体，宽/窄两版均"格式化一次→落盘"，不再把已展开文本当 format 二次 va_start/vsprintf_s（日志含 `%` 字面即 UB，`%s` 展开内容含百分号时可能崩）。
+  - **S1** `rect_t::divideBlock` release 除零 + 0 尺寸块——入口 `count<=0` 早退 clear、`count>span` clamp 到 span。
+  - **S2** `hex2bin` 不认小写 a-f（ProcessMemory.cpp:552 直调未 towupper 解析错乱）——本体入口归一化小写，全局通吃。
+  - **S3** `ThreadPool(0)` enqueue future 永不 ready——构造 `threads==0→1`（两调用方已防护，纯加固）。
+  - 验证：nmake 全库重编（头文件改动）8m52s EXIT=0 / 0 error；op_test 回归 182 用例 146 PASS / 1 已知 MouseKey 环境 FAIL / 2 DISABLED = **零回归**。产物已同步 bin/x64。
+
 ### 2026-09-08（夜·WgcTest 崩溃 SEH 熔断闭环，026123a，2文件 +81/-10）
 
 - **真机复跑（18:20）验证 P0 SEH 熔断生效**：EXIT_CODE=1（非崩溃码 -1073741819），WgcTest 全组 10 例**跑完不中断**。第 5 例 `NormalAutoUsesWgcForKnownBrowserClasses` 日志出现 `WgcCapture::Init SEH fault code=0xC0000005` → worker 正常收尾（init not ready）→ **FAIL 而非进程崩**；第 6-10 例 `BindEx: WGC broken by previous in-process SEH fault` 熔断快速失败。结果 4 PASSED / 6 FAILED 输出可读、根因明示。这是对 18362 WGC 系统组件崩溃（非我们代码 bug）的工程化兜底：**进程不亡、可判、可跑**，而非修复系统。

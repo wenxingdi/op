@@ -36,6 +36,9 @@ class ThreadPool {
 
 // the constructor just launches some amount of workers
 inline ThreadPool::ThreadPool(size_t threads) : stop(false) {
+    // 防御：0 线程时 enqueue 的 future 永不 ready，调用方 wait 死等
+    if (threads == 0)
+        threads = 1;
     for (size_t i = 0; i < threads; ++i)
         workers.emplace_back([this] {
             for (;;) {

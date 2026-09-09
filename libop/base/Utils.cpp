@@ -86,6 +86,42 @@ long Path2GlobalPath(const std::wstring &file, const std::wstring &curr_path, st
     return 0;
 }
 
+namespace {
+// 日志输出体(内部)：时间戳前缀 + 架构 + 级别，按 m_showErrorMsg 分发。
+// s 为已格式化完成的文本，绝不二次解析 —— 宽字符版经此落盘时不再把
+// 已展开文本当 format 调用 vsprintf_s（旧实现二次 va_start 读取不存在的
+// 可变参数，日志含 % 字面即 UB，可能崩溃）。
+long setlog_text(const std::string &s) {
+    SYSTEMTIME sys;
+    GetLocalTime(&sys);
+    char tm[128];
+    std::snprintf(tm, sizeof(tm), "[%4d/%02d/%02d %02d:%02d:%02d.%03d]", sys.wYear, sys.wMonth, sys.wDay, sys.wHour,
+                  sys.wMinute, sys.wSecond, sys.wMilliseconds);
+
+    std::stringstream ss;
+    ss << tm << (OP64 == 1 ? "x64" : "x32") << "info: " << s << std::endl;
+#ifdef USE_BOOST_STACK_TRACE
+    ss << "<stack>\n" << boost::stacktrace::stacktrace() << std::endl;
+#endif // USE_BOOST_STACK_TRACE
+
+    const std::string out = ss.str();
+    if (RuntimeEnvironment::m_showErrorMsg == 1) {
+        MessageBoxA(NULL, out.data(), "error", MB_ICONERROR);
+    } else if (RuntimeEnvironment::m_showErrorMsg == 2) {
+        std::fstream file;
+        file.open("__op.log", std::ios::app | std::ios::out);
+        if (!file.is_open())
+            return 0;
+        file << out << std::endl;
+        file.close();
+    } else if (RuntimeEnvironment::m_showErrorMsg == 3) {
+        std::cout << out << std::endl;
+    }
+
+    return 1;
+}
+} // namespace
+
 long setlog(const wchar_t *format, ...) {
     va_list args;
     va_start(args, format);
@@ -100,20 +136,12 @@ long setlog(const wchar_t *format, ...) {
     vswprintf_s(buffer.data(), buffer.size(), format, args);
     va_end(args);
 
-    std::wstring tmpw(buffer.data(), static_cast<size_t>(length));
-    std::string tmps = _ws2string(tmpw);
-
-    return setlog(tmps.data());
+    const std::wstring tmpw(buffer.data(), static_cast<size_t>(length));
+    return setlog_text(_ws2string(tmpw));
 }
 
 long setlog(const char *format, ...) {
-    std::stringstream ss(std::wstringstream::in | std::wstringstream::out);
     va_list args;
-    SYSTEMTIME sys;
-    GetLocalTime(&sys);
-    char tm[128];
-    std::snprintf(tm, sizeof(tm), "[%4d/%02d/%02d %02d:%02d:%02d.%03d]", sys.wYear, sys.wMonth, sys.wDay, sys.wHour,
-                  sys.wMinute, sys.wSecond, sys.wMilliseconds);
     va_start(args, format);
     const int length = _vscprintf(format, args);
     va_end(args);
@@ -126,26 +154,7 @@ long setlog(const char *format, ...) {
     vsprintf_s(buffer.data(), buffer.size(), format, args);
     va_end(args);
 
-    ss << tm << (OP64 == 1 ? "x64" : "x32") << "info: " << buffer.data() << std::endl;
-#ifdef USE_BOOST_STACK_TRACE
-    ss << "<stack>\n" << boost::stacktrace::stacktrace() << std::endl;
-#endif // USE_BOOST_STACK_TRACE
-
-    std::string s = ss.str();
-    if (RuntimeEnvironment::m_showErrorMsg == 1) {
-        MessageBoxA(NULL, s.data(), "error", MB_ICONERROR);
-    } else if (RuntimeEnvironment::m_showErrorMsg == 2) {
-        std::fstream file;
-        file.open("__op.log", std::ios::app | std::ios::out);
-        if (!file.is_open())
-            return 0;
-        file << s << std::endl;
-        file.close();
-    } else if (RuntimeEnvironment::m_showErrorMsg == 3) {
-        std::cout << s << std::endl;
-    }
-
-    return 1;
+    return setlog_text(buffer.data());
 }
 
 void split(const std::wstring &s, std::vector<std::wstring> &v, const std::wstring &c) {

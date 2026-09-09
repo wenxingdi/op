@@ -30,6 +30,9 @@ long setlog(const char *format, ...);
 std::string GetLastErrorAsString();
 
 int inline hex2bin(int c) {
+    // 归一化小写 a-f(调用方 ProcessMemory 等可能直接传原始字符,不保证已 toupper)
+    if (c >= L'a' && c <= L'f')
+        c -= (L'a' - L'A');
     return c <= L'9' ? c - L'0' : c - L'A' + 10;
 };
 
