@@ -19,6 +19,7 @@ CMakeSettings.json
 Build
 /lib
 bin/
+bindings/python/op/bin/
 bin_old/
 bld/
 out/
