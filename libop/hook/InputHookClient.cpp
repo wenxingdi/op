@@ -216,8 +216,18 @@ long UnBind(HWND hwnd) {
     if (--it->second > 0)
         return 1;
 
+    // 先请求远端释放再清本地引用：RPC 成功（ret==1）或 attach 失败（ret==0，进程多半
+    // 已退出、注入物随进程消亡）都可安全清理；仅 RPC 抛异常（进程可能存活但远端调用
+    // 失败、注入 DLL 可能残留）时保留条目供宿主重试 UnBind，避免状态不可恢复。
+    long ret = 0;
+    try {
+        ret = call_release_input_hook(hwnd);
+    } catch (...) {
+        setlog(L"input hook release RPC exception, keep bind ref for retry. hwnd=%p", hwnd);
+        return 0;
+    }
     g_bind_refs.erase(it);
-    return call_release_input_hook(hwnd);
+    return ret == 1 ? 1 : ret;
 }
 
 long LockInput(HWND hwnd, int lock) {

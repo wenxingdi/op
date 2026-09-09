@@ -818,9 +818,10 @@ bool pyramidFindAllMatches(
     return !results.empty();
 }
 
-// 复用单个 ORB 实例，避免重复构造。
+// 复用 ORB 实例避免重复构造；thread_local 隔离线程，避免多 COM 实例跨线程共享同一
+// cv::ORB 实例调 detectAndCompute（ORB 内部有状态，非线程安全）。
 cv::Ptr<cv::ORB> getOrbDetector() {
-    static cv::Ptr<cv::ORB> detector = cv::ORB::create(1000, 1.2f, 8, 5, 0, 2, cv::ORB::HARRIS_SCORE, 15, 10);
+    static thread_local cv::Ptr<cv::ORB> detector = cv::ORB::create(1000, 1.2f, 8, 5, 0, 2, cv::ORB::HARRIS_SCORE, 15, 10);
     return detector;
 }
 
