@@ -608,15 +608,22 @@ bool WgcCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
         return false;
     }
 
-    if (x1 < 0 || y1 < 0 || x1 >= _width || y1 >= _height) {
-        setlog("requestCapture: invalid client rect x=%d,y=%d,width=%ld,height=%ld", x1, y1, _width, _height);
+    long cap_width = 0, cap_height = 0;
+    {
+        // 与收帧线程/refreshWindowMetrics 的尺寸写入互斥取快照，避免读到撕裂的宽高组合。
+        std::scoped_lock shared_lock(sharedResourceMutex_);
+        cap_width = _width;
+        cap_height = _height;
+    }
+    if (x1 < 0 || y1 < 0 || x1 >= cap_width || y1 >= cap_height) {
+        setlog("requestCapture: invalid client rect x=%d,y=%d,width=%ld,height=%ld", x1, y1, cap_width, cap_height);
         return false;
     }
 
-    w = std::min<int>(w, static_cast<int>(_width) - x1);
-    h = std::min<int>(h, static_cast<int>(_height) - y1);
+    w = std::min<int>(w, static_cast<int>(cap_width) - x1);
+    h = std::min<int>(h, static_cast<int>(cap_height) - y1);
     if (w <= 0 || h <= 0) {
-        setlog("requestCapture: invalid capture size w=%d,h=%d,width=%ld,height=%ld", w, h, _width, _height);
+        setlog("requestCapture: invalid capture size w=%d,h=%d,width=%ld,height=%ld", w, h, cap_width, cap_height);
         return false;
     }
 
@@ -635,8 +642,13 @@ bool WgcCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
         // 尺寸变化后队列里可能已有新尺寸帧。先尝试抽取；只有新帧已经匹配当前客户区
         // 尺寸才直接使用。Windows 10 最大化时可能先吐旧尺寸/过渡帧，过早放行会导致
         // 第一次截图仍是旧画面，第二次才更新。
-        const long target_width = _width;
-        const long target_height = _height;
+        long target_width = 0, target_height = 0;
+        {
+            // 与收帧线程的尺寸写入互斥取快照。
+            std::scoped_lock shared_lock(sharedResourceMutex_);
+            target_width = _width;
+            target_height = _height;
+        }
         auto staging_matches_target = [&]() {
             std::scoped_lock lock(frameMutex_);
             if (!hasFrame_ || !stagingTexture_) {
@@ -849,6 +861,17 @@ bool WgcCapture::ensureSharedResources(int width, int height) {
     return false;
 }
 
+void WgcCapture::getFrameInfo(FrameInfo &info) {
+    // 与 ensureSharedResources 的 _shmem/_pmutex 删重建互斥（基类实现只锁 _pmutex，
+    // 在删重建窗口期访问已释放对象 = 悬垂 UB）。
+    std::scoped_lock shared_lock(sharedResourceMutex_);
+    if (!_pmutex || !_shmem)
+        return;
+    _pmutex->lock();
+    memcpy(&info, _shmem->data<uchar>(), sizeof(FrameInfo));
+    _pmutex->unlock();
+}
+
 bool WgcCapture::refreshWindowMetrics(bool *iconic_changed, bool *is_iconic) {
     RECT client_rect = {};
     const bool was_iconic = hasWindowState_ && lastWindowIconic_;
@@ -858,8 +881,13 @@ bool WgcCapture::refreshWindowMetrics(bool *iconic_changed, bool *is_iconic) {
     const bool now_iconic = iconic_before || (::IsIconic(_hwnd) != FALSE);
 
     // WGC 对外仍按客户区大小工作，上层坐标也按客户区理解。
-    _width = client_rect.right - client_rect.left;
-    _height = client_rect.bottom - client_rect.top;
+    {
+        // 与收帧线程（copyFrameToStaging）的尺寸写入互斥；宿主线程读尺寸
+        // （requestCapture/基类 get_width）也经同一把锁，消除跨线程数据竞态。
+        std::scoped_lock shared_lock(sharedResourceMutex_);
+        _width = client_rect.right - client_rect.left;
+        _height = client_rect.bottom - client_rect.top;
+    }
 
     const bool changed =
         !hasWindowState_ || lastClientWidth_ != _width || lastClientHeight_ != _height || was_iconic != now_iconic;
@@ -1205,8 +1233,12 @@ bool WgcCapture::copyFrameToStaging(const Direct3D11CaptureFrame &frame) {
         }
         // 直接在 GPU 侧只拷客户区，后续 CPU map 时不再需要标题栏/边框偏移。
         d3dDeviceContext_->CopySubresourceRegion(stagingTexture_, 0, 0, 0, 0, frame_surface.get(), 0, &client_box);
-        _width = client_w;
-        _height = client_h;
+        {
+            // 与宿主线程（requestCapture/refreshWindowMetrics/getFrameInfo）的尺寸读写互斥。
+            std::scoped_lock shared_lock(sharedResourceMutex_);
+            _width = client_w;
+            _height = client_h;
+        }
         hasFrame_ = true;
         ++frameSerial_;
     }

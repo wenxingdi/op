@@ -121,6 +121,12 @@ int Pipe::close(DWORD process_wait_ms) {
 
     if (_pthread) {
         if (_pthread->joinable()) {
+            // 兜底：子进程退出后若仍有孙进程持有管道写端句柄（CreateProcess
+            // bInheritHandles=true 会向子进程派生的后代传播），reader 的阻塞
+            // ReadFile 永远收不到 BROKEN_PIPE，join 将无限挂起。显式取消该线程
+            // 的同步 I/O 使 ReadFile 以 ERROR_OPERATION_ABORTED 返回并结束循环。
+            // 线程未处于阻塞 IO 时本调用返回 FALSE（ERROR_NOT_FOUND），无害。
+            ::CancelSynchronousIo(_pthread->native_handle());
             _pthread->join();
         }
         SAFE_DELETE(_pthread);

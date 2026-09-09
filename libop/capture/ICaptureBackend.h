@@ -51,7 +51,9 @@ class ICaptureBackend : public std::enable_shared_from_this<ICaptureBackend> {
         return _client_y;
     }
 
-    void getFrameInfo(FrameInfo &info);
+    // 读共享帧头。默认实现只锁 _pmutex；删除重建 _shmem/_pmutex 的后端
+    // （如 WgcCapture）需覆写并与自身的资源锁互斥，防止删重建窗口期悬垂访问。
+    virtual void getFrameInfo(FrameInfo &info);
 
   private:
     long bind_init();

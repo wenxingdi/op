@@ -33,6 +33,9 @@ class WgcCapture : public ICaptureBackend {
     virtual bool requestCapture(int x1, int y1, int w, int h, Image &img) override;
     void refreshMetrics() override;
     void waitForBindReady() override;
+    // 覆写：读共享帧头须与 ensureSharedResources 的 _shmem/_pmutex 删重建互斥，
+    // 基类默认实现只锁 _pmutex，无法防删重建窗口期悬垂访问。
+    void getFrameInfo(FrameInfo &info) override;
 
     bool Init(HWND _hwnd, bool use_frame_arrived_event = true);
 
