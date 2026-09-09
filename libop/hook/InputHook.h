@@ -3,6 +3,8 @@
 
 #include "../base/AutomationModes.h"
 
+#include <atomic>
+
 namespace op::hook {
 
 struct MouseState {
@@ -46,9 +48,9 @@ class InputHook {
     static bool m_cursorVisible;
     static unsigned long long m_cursorHash;
     static unsigned long long m_cursorMeta;
-    static LONG m_inputLock;
+    static std::atomic<LONG> m_inputLock;
     // dx 输入通道开关位掩码，默认三通道全开，保持旧行为。
-    static LONG m_dxAttrs;
+    static std::atomic<LONG> m_dxAttrs;
 };
 
 } // namespace op::hook

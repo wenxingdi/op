@@ -14,6 +14,7 @@
 #include "dinput.h"
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <atlbase.h>
 #include <cstring>
 #include <deque>
@@ -37,8 +38,8 @@ HCURSOR InputHook::m_cursor = nullptr;
 bool InputHook::m_cursorVisible = false;
 unsigned long long InputHook::m_cursorHash = 0;
 unsigned long long InputHook::m_cursorMeta = 0;
-LONG InputHook::m_inputLock = 0;
-LONG InputHook::m_dxAttrs = DX_ATTR_ALL;
+std::atomic<LONG> InputHook::m_inputLock = 0;
+std::atomic<LONG> InputHook::m_dxAttrs = DX_ATTR_ALL;
 bool InputHook::is_hooked = false;
 
 namespace {
@@ -67,6 +68,10 @@ void **g_mouseVtablePtr = nullptr;
 void **g_keyboardVtablePtr = nullptr;
 std::vector<void *> g_hookTargets;
 std::mutex g_eventMutex;
+// 保护 DirectInput/GetKeyState 状态镜像（m_mouseState/m_keyboardState/m_vkState/m_wheelDelta）：
+// 写侧是窗口消息线程（moveTo/button/updateWheel/updateKey），读侧是游戏轮询线程
+// （GetDeviceState/GetKeyState 系 hook），无锁 RMW 会丢位移/重复累加/状态撕裂。
+std::mutex g_stateMutex;
 std::deque<DIDEVICEOBJECTDATA> g_mouseEvents;
 std::deque<DIDEVICEOBJECTDATA> g_keyboardEvents;
 std::deque<std::pair<HRAWINPUT, RAWINPUT>> g_rawEvents;
@@ -488,11 +493,14 @@ void hook_raw_input() {
 
 void fill_mouse_state(DWORD size, LPVOID ptr) {
     // DirectInput 鼠标轴是相对移动量，读取后需要消费，避免同一次移动被重复返回。
+    // 与写侧（窗口消息线程累加）互斥：读-清零必须原子，否则丢位移/重复累加。
+    std::lock_guard<std::mutex> lock(g_stateMutex);
     const LONG dx = InputHook::m_mouseState.lAxisX;
     const LONG dy = InputHook::m_mouseState.lAxisY;
-    const LONG wheel = InputHook::consumeWheelDelta();
+    const LONG wheel = InputHook::m_wheelDelta;
     InputHook::m_mouseState.lAxisX = 0;
     InputHook::m_mouseState.lAxisY = 0;
+    InputHook::m_wheelDelta = 0;
 
     if (size == sizeof(DIMOUSESTATE)) {
         DIMOUSESTATE state = {};
@@ -520,6 +528,7 @@ void fill_mouse_state(DWORD size, LPVOID ptr) {
 
 void fill_keyboard_state(LPVOID ptr) {
     // DirectInput 键盘状态是 256 字节数组，最高位表示按下。
+    std::lock_guard<std::mutex> lock(g_stateMutex);
     memcpy(ptr, InputHook::m_keyboardState, 256);
 }
 
@@ -872,7 +881,12 @@ int InputHook::setup(HWND hwnd) {
         return 0;
 
     if (!hook_dinput()) {
-        setlog("input hook dinput setup failed");
+        // P1-9: 不再谎报成功——DirectInput 通道完全装不上（目标进程无 dinput 设备可挂）
+        // 时中止本次输入绑定，让宿主 Bind 显性失败，避免"绑定成功但 GetDeviceState 静默
+        // 全失效"。此刻尚未替换窗口过程，release() 只清理已装 hook，安全。
+        setlog("input hook dinput setup failed, abort input bind");
+        release();
+        return 0;
     }
     hook_win32_key_state();
     hook_win32_cursor();
@@ -930,12 +944,16 @@ int InputHook::release() {
     }
     g_eventSequence = 0;
     g_rawSequence = 0;
-    memset(&m_mouseState, 0, sizeof(m_mouseState));
-    memset(m_vkState, 0, sizeof(m_vkState));
-    memset(m_keyboardState, 0, sizeof(m_keyboardState));
-    m_lastMouseX = 0;
-    m_lastMouseY = 0;
-    m_wheelDelta = 0;
+    {
+        // 与读侧（GetDeviceState/GetKeyState 系 hook 可能仍在执行）互斥，防清零窗口期撕裂。
+        std::lock_guard<std::mutex> state_lock(g_stateMutex);
+        memset(&m_mouseState, 0, sizeof(m_mouseState));
+        memset(m_vkState, 0, sizeof(m_vkState));
+        memset(m_keyboardState, 0, sizeof(m_keyboardState));
+        m_lastMouseX = 0;
+        m_lastMouseY = 0;
+        m_wheelDelta = 0;
+    }
     m_cursor = nullptr;
     m_cursorVisible = false;
     m_cursorHash = 0;
@@ -986,6 +1004,8 @@ void InputHook::moveTo(LPARAM lp) {
     const bool dinput_on = channelEnabled(DX_ATTR_DINPUT);
     const bool rawinput_on = channelEnabled(DX_ATTR_RAWINPUT);
     if (dinput_on) {
+        // 累加与读侧（fill_mouse_state 读-清零）互斥，防位移丢失/重复。
+        std::lock_guard<std::mutex> state_lock(g_stateMutex);
         m_mouseState.lAxisX += dx;
         m_mouseState.lAxisY += dy;
     }
@@ -1008,13 +1028,15 @@ void InputHook::button(LPARAM lp, int key, bool down) {
     moveTo(lp);
     if (0 <= key && key < 5) {
         static constexpr int vk_buttons[] = {VK_LBUTTON, VK_MBUTTON, VK_RBUTTON, VK_XBUTTON1, VK_XBUTTON2};
-        // GetKeyState / GetAsyncKeyState 的状态镜像不属于三通道之一，始终维护。
-        m_vkState[vk_buttons[key]] = down ? 0x80 : 0;
-
         const bool dinput_on = channelEnabled(DX_ATTR_DINPUT);
         const bool rawinput_on = channelEnabled(DX_ATTR_RAWINPUT);
-        if (dinput_on)
-            m_mouseState.abButtons[key] = down ? 0x80 : 0;
+        {
+            std::lock_guard<std::mutex> state_lock(g_stateMutex);
+            // GetKeyState / GetAsyncKeyState 的状态镜像不属于三通道之一，始终维护。
+            m_vkState[vk_buttons[key]] = down ? 0x80 : 0;
+            if (dinput_on)
+                m_mouseState.abButtons[key] = down ? 0x80 : 0;
+        }
         if (!dinput_on && !rawinput_on)
             return;
 
@@ -1037,9 +1059,11 @@ void InputHook::updateWheel(WPARAM wp, LPARAM lp, bool horizontal) {
     const SHORT delta = static_cast<SHORT>(HIWORD(wp));
     const bool dinput_on = channelEnabled(DX_ATTR_DINPUT);
     const bool rawinput_on = channelEnabled(DX_ATTR_RAWINPUT);
-    // m_wheelDelta 只被 DirectInput 的 GetDeviceState 消费。
-    if (dinput_on)
+    if (dinput_on) {
+        // m_wheelDelta 只被 DirectInput 的 GetDeviceState 消费；累加与消费互斥。
+        std::lock_guard<std::mutex> state_lock(g_stateMutex);
         m_wheelDelta += delta;
+    }
     if (!dinput_on && !rawinput_on)
         return;
 
@@ -1052,6 +1076,7 @@ void InputHook::updateWheel(WPARAM wp, LPARAM lp, bool horizontal) {
 }
 
 LONG InputHook::consumeWheelDelta() {
+    std::lock_guard<std::mutex> lock(g_stateMutex);
     const LONG delta = m_wheelDelta;
     m_wheelDelta = 0;
     return delta;
@@ -1062,28 +1087,30 @@ void InputHook::updateKey(WPARAM vk, bool down) {
         return;
 
     const BYTE value = down ? 0x80 : 0;
-    // GetKeyState / GetAsyncKeyState 的状态镜像不属于三通道之一，始终维护。
-    m_vkState[vk] = value;
-
-    // DirectInput 键盘数组使用 DIK/扫描码下标，不能直接拿 VK 当下标。
     const BYTE dik = dik_code(vk);
-    if (dik != 0) {
-        const bool dinput_on = channelEnabled(DX_ATTR_DINPUT);
-        const bool rawinput_on = channelEnabled(DX_ATTR_RAWINPUT);
-        if (dinput_on)
+    const bool dinput_on = channelEnabled(DX_ATTR_DINPUT);
+    const bool rawinput_on = channelEnabled(DX_ATTR_RAWINPUT);
+    {
+        std::lock_guard<std::mutex> state_lock(g_stateMutex);
+        // GetKeyState / GetAsyncKeyState 的状态镜像不属于三通道之一，始终维护。
+        m_vkState[vk] = value;
+        // DirectInput 键盘数组使用 DIK/扫描码下标，不能直接拿 VK 当下标。
+        if (dik != 0 && dinput_on)
             m_keyboardState[dik] = value;
-        if (!dinput_on && !rawinput_on)
-            return;
-
-        std::lock_guard<std::mutex> lock(g_eventMutex);
-        if (dinput_on)
-            push_dinput_event(g_keyboardEvents, dik, key_data(down));
-        if (rawinput_on)
-            push_raw_event(make_raw_keyboard(vk, down));
     }
+    if (dik == 0 || (!dinput_on && !rawinput_on))
+        return;
+
+    std::lock_guard<std::mutex> lock(g_eventMutex);
+    if (dinput_on)
+        push_dinput_event(g_keyboardEvents, dik, key_data(down));
+    if (rawinput_on)
+        push_raw_event(make_raw_keyboard(vk, down));
 }
 
 bool InputHook::isKeyDown(int vk) {
+    // 与写侧（updateKey/button 状态镜像更新）互斥，防读到半更新字节。
+    std::lock_guard<std::mutex> lock(g_stateMutex);
     return 0 <= vk && vk < 256 && (m_vkState[vk] & 0x80);
 }
 
@@ -1195,11 +1222,15 @@ BOOL WINAPI hkGetKeyboardState(PBYTE key_state) {
     else
         memset(key_state, 0, 256);
 
-    for (int i = 0; i < 256; ++i) {
-        if (virtual_key_locked(i))
-            key_state[i] &= 0x7F;
-        if (InputHook::m_vkState[i] & 0x80)
-            key_state[i] |= 0x80;
+    {
+        // 与写侧状态镜像更新互斥，防读到半更新字节。
+        std::lock_guard<std::mutex> lock(g_stateMutex);
+        for (int i = 0; i < 256; ++i) {
+            if (virtual_key_locked(i))
+                key_state[i] &= 0x7F;
+            if (InputHook::m_vkState[i] & 0x80)
+                key_state[i] |= 0x80;
+        }
     }
     return ret;
 }
