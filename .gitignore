@@ -288,7 +288,9 @@ __pycache__/
 /tool_ex
 !/doc/*.chm
 
-/doc2
+# doc2 = 验收/核查工作区（bmp/exe/py 等产物不入库），但 markdown 验收记录纳入版本历史
+/doc2/*
+!/doc2/*.md
 
 /Ref
 
