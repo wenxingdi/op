@@ -5,6 +5,15 @@
 
 ## [Unreleased] — 2026-09
 
+### 2026-09-16（DX 注入崩溃闭环 + 绑定层收口，4 提交）
+
+- **背景**：DX 输入通道（mouse/keypad 含 `dx`）绑定时注入宿主 `op_c_api_x64.dll`，其隐式依赖 `onnxruntime.dll`。上一轮 `/DELAYLOAD` 只把「加载期失败 `0xC0000135`」推迟成「运行期失败」—— 目标进程执行 `InputHook::setup` 触碰 ONNX 符号时，延迟加载在**目标进程**内搜不到 onnxruntime → **目标进程 `0xC0000005` 崩溃**。唯一变量对照：目标目录有/无 `onnxruntime.dll` → bind=1+存活 / bind=0+崩溃。
+- **修复（方案 A1）`c4420ae`**：新增 `libop/hook/DliFailureHook.cpp` 实现 `__pfnDliFailureHook2` —— `dliFailLoadLib` 时改用**本模块所在目录**（op 安装目录）的绝对路径 + `LOAD_WITH_ALTERED_SEARCH_PATH` 兜底加载；非 onnxruntime 的失败一律不干预。两个 `/DELAYLOAD` 目标各编入一份，故显式列入 `OP_COM_SOURCES` / `OP_C_API_SOURCES`。**坑**：`delayimp.h` 默认把该符号声明为 `const`，覆写须先 `#define DELAYIMP_INSECURE_WRITABLE_HOOKS`；实测无 LNK2005（delayimp.lib 的默认钩子是弱符号）。修复后**目标进程不再需要自带 onnxruntime.dll**。
+- **验证（真机，自控目标 `dx_target.exe` 置于不含 onnxruntime 的目录）**：绑定矩阵 **10/10 bind=1**（修复前该场景 bind=0 且目标崩溃）；端到端送达 `MoveTo+LeftClick` → move=1 down=1 up=1、`KeyPress(F1)` → key=1；目标进程全程存活。
+- **回归**：`op_test` 197 用例 **155 PASS / 35 SKIP / 7 FAILED**。其中 WGC 6 项经 **A/B 判别**（换回修复前 DLL 跑同一 `--gtest_filter=WgcTest.*` → 同样 6 FAILED + 同样 `WgcCapture::Init SEH fault 0xC0000005`）确认为**本机既有 WGC 环境问题**（首个用例 SEH 后熔断连带），与本次改动无因果；另 1 项为已知 `MouseKeyTest.WaitKey` 环境失败。
+- **绑定层收口**：`21108d6` Go 补 `SetDxAttr`/`GetDxAttr`（本机无 Go 工具链，未 `go build`）；`6b0af21` SWIG 4.4.1 重新生成，补齐落后契约的 **12 个方法**（wrapper `_wrap_Op_*` 223→235，`_pyop.pyd` 424,960 B，`import _pyop` 后 235 个 `Op_*` 全可见）；`228751a` 四类验证工具入库（`api_surface_diff.py` / `five_layer_matrix.py` / `check_swig_sync.py` / `dx_probe.py` / `dx_target.cpp` + `build_dx_target.py`）。
+- **DX 门槛 B（按"够用"原则降级为文档化，未做）**：目标进程须已加载 `dinput8.dll`，否则 `hook_dinput()` 失败即**整体拒绝**输入绑定（`InputHook.cpp:883-890`，P1-9 引入），无辜牵连 `dx.raw` / `dx.win`。改"按需判定"需先把期望通道掩码传进 `SetInputHook`（现第二参数被忽略），属**增强而非必需**。
+
 ### 2026-09-16（base 修复补针对性测试 + 判别力验证，2文件）
 
 - **背景**：73dce39 的四项修复此前只有"编译 + 全量回归"验证（证明未引入回归，未证明修复行为生效）；原 `tests/utils_test.cpp` 仅 2 个 happy-path 用例（ThreadPool(4) / divideBlock(2)）。
@@ -110,6 +119,7 @@
 
 ## 测试基线
 
+- **op_test 全量（2026-09-16 A1 后实测，无 filter）：197 用例 / 155 PASS / 35 SKIP / 7 FAILED**。7 FAILED = WGC 6（首个用例 `WgcCapture::Init` SEH 0xC0000005 → 熔断连带，**已用 A/B 判别确认为既有环境问题**）+ `MouseKeyTest.WaitKey`（已知环境项）。
 - op_test 当前（2026-09-09 P1/P2 后实测，`--gtest_filter=-WgcTest.*`）：**182 用例，146 PASSED / 1 已知环境 FAIL（MouseKeyTest.WaitKey）/ 余为 SKIP，零回归**。WgcTest 需真机（沙箱无 WGC worker 会 segfault，非回归；真机隔离跑 `doc2/run_wgc_isolated.bat` 预期 10/10）。
 - 运行方式：`scripts/run_tests.ps1`，或 Git Bash：`PATH+="build/nmake-x64-Release/libop" ./tests/op_test.exe`。
 
