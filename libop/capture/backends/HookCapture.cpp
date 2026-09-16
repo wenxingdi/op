@@ -359,6 +359,12 @@ bool HookCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
         const FrameInfo info = pInfo ? *pInfo : FrameInfo{};
         if (!isHookFrameReady(info, _hwnd)) {
             _pmutex->unlock();
+            // 目标进程没有向共享帧写入可用画面。hook 型显示模式(dx/dx2/opengl
+            // 系列)依赖目标自身的 Present/SwapBuffers 调用：纯 GDI/Qt 软件绘制
+            // 的窗口不会产生这类帧，表现就是 bind 成功但 capture/找色全空。
+            setlog(L"hook frame not ready: hwnd=%p, target produced no present frame "
+                   L"(use display 'normal'/'gdi'/'dx2' for GDI/Qt-rendered windows)",
+                   static_cast<void *>(_hwnd));
             return false;
         }
 

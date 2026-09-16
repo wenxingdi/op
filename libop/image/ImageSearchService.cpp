@@ -195,7 +195,17 @@ long ImageSearchService::Capture(const std::wstring &file) {
     if (!fpath.is_absolute())
         fpath = std::filesystem::path(_curr_path) / fpath;
 
-    return _src.write(fpath.c_str());
+    const long ret = _src.write(fpath.c_str());
+    if (ret != 1) {
+        // 抓屏本身已成功，失败的是落盘这一步。CImage::Save 按扩展名查 GDI+
+        // 编码器：路径没有扩展名、或扩展名不受支持（可用 .bmp/.png/.jpg/
+        // .jpeg/.gif/.tif/.tiff），会直接返回非 S_OK；其次是目录不存在或
+        // 无写权限。这三种原因表现完全一样（capture 返回 0 且无任何提示）。
+        setlog(L"capture write failed: %s (%dx%d), check the file extension"
+               L"(.bmp/.png/.jpg) and that the directory exists",
+               fpath.c_str(), _src.width, _src.height);
+    }
+    return ret;
 }
 
 long ImageSearchService::CmpColor(long x, long y, const std::wstring &scolor, double sim) {

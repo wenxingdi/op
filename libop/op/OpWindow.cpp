@@ -150,8 +150,15 @@ void op::Op::GetClientRect(LONG_PTR hwnd, long *x1, long *y1, long *x2, long *y2
     long top = 0;
     long right = 0;
     long bottom = 0;
-    internal::set_result(nret,
-                         m_context->window_service.GetClientRect(reinterpret_cast<HWND>(hwnd), left, top, right, bottom));
+    auto target = reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd));
+    internal::set_result(nret, m_context->window_service.GetClientRect(target, left, top, right, bottom));
+    // 最小化窗口的矩形是 -32000 哨兵值。它会被调用方当作正常尺寸继续参与
+    // 坐标换算与裁剪，结果是一个巨大的负数（表现为"坐标全乱"），而这里
+    // 是唯一能提前说明原因的地方。
+    if (target && ::IsIconic(target)) {
+        setlog(L"get_client_rect: hwnd=%p is minimized, the rect is a -32000 sentinel; restore it first",
+               static_cast<void *>(target));
+    }
     internal::set_result(x1, left);
     internal::set_result(y1, top);
     internal::set_result(x2, right);
