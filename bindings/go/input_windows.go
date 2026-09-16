@@ -225,6 +225,29 @@ func (o *Op) LockInput(lock int) int {
 	return int(ret)
 }
 
+// SetDxAttr 设置 dx 输入通道开关。
+//
+// attr 为 0 时 value 是完整掩码；attr 取 1(DirectInput) / 2(RawInput) / 4(窗口消息)
+// 或其组合时，value 非 0 表示打开这些通道，0 表示关闭。默认 7（三通道全开）。
+func (o *Op) SetDxAttr(attr, value int) int {
+	if !o.valid() {
+		return 0
+	}
+
+	ret, _, _ := procSetDxAttr.Call(o.handle, uintptr(attr), uintptr(value))
+	return int(ret)
+}
+
+// GetDxAttr 返回当前的 dx 输入通道开关掩码。
+func (o *Op) GetDxAttr() int {
+	if !o.valid() {
+		return 0
+	}
+
+	ret, _, _ := procGetDxAttr.Call(o.handle)
+	return int(ret)
+}
+
 func (o *Op) GetKeyState(vkCode int) int {
 	if !o.valid() {
 		return 0

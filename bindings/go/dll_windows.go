@@ -77,6 +77,8 @@ var (
 	procBindWindowEx           *windows.LazyProc
 	procUnBindWindow           *windows.LazyProc
 	procLockInput              *windows.LazyProc
+	procSetDxAttr              *windows.LazyProc
+	procGetDxAttr              *windows.LazyProc
 	procGetBindWindow          *windows.LazyProc
 	procIsBind                 *windows.LazyProc
 	procGetCursorPos           *windows.LazyProc
@@ -312,6 +314,8 @@ func bindProcs() {
 	procBindWindowEx = dll.NewProc("OpBindWindowEx")
 	procUnBindWindow = dll.NewProc("OpUnBindWindow")
 	procLockInput = dll.NewProc("OpLockInput")
+	procSetDxAttr = dll.NewProc("OpSetDxAttr")
+	procGetDxAttr = dll.NewProc("OpGetDxAttr")
 	procGetBindWindow = dll.NewProc("OpGetBindWindow")
 	procIsBind = dll.NewProc("OpIsBind")
 	procGetCursorPos = dll.NewProc("OpGetCursorPos")
