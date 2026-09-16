@@ -5,6 +5,15 @@
 
 ## [Unreleased] — 2026-09
 
+### 2026-09-16（base 修复补针对性测试 + 判别力验证，2文件）
+
+- **背景**：73dce39 的四项修复此前只有"编译 + 全量回归"验证（证明未引入回归，未证明修复行为生效）；原 `tests/utils_test.cpp` 仅 2 个 happy-path 用例（ThreadPool(4) / divideBlock(2)）。
+- **新增 5 个回归用例**（utils_test.cpp 2→7）：S3 `ThreadPool(0)`（用 wait_for 防挂死）、S1 `count<=0` 清空 + `count>span` clamp、S2 hex2bin 小写、B1 setlog 宽版不再二次解析（**比对 `__op.log` 内容而非返回值**——旧实现同样返回 1）。
+- **tests/CMakeLists.txt**：`../libop/base/Utils.cpp` + `Environment.cpp` 编入测试目标（`setlog` 未从 DLL 导出，直接 include 会 LNK2019，跟随 WindowLayout/CursorShape 既有模式），补链接 `shlwapi.lib`。
+- **判别力验证（回退对照，实证）**：`git restore --source=73dce39^` 回退 base 重编实测 —— B1 用例**进程中断**（UB 实致崩溃，非理论风险）、S1 zero-count 触发 `Assertion failed: count > 0`（Types.h:99，EXIT=3）、S1 count>span FAIL（size=20≠10 + 20 个 0 宽块）、S2 FAIL（'a'=42/'f'=47 恰为 c-'A'+10）、S3 FAIL（wait_for 5s 超时）。恢复后 7/7 PASS。**5/5 捕获旧缺陷，判别力成立**。
+- **附带发现**：op_test（`/MT`、**无 NDEBUG**）与生产（`/MD`、`/DNDEBUG`）编译标志不一致 → S1 在测试中表现 assert 中止、生产中才是除零（报告"release 除零"表述成立）；测试对跨 DLL 内存传递无覆盖（观察项）。
+- 验证：全量回归 **187 用例 / 151 PASS / 35 SKIP / 1 FAILED（已知 MouseKey）= 零回归**。
+
 ### 2026-09-09（模块排查·批1 base 修复，4文件 +54/-30）
 
 - **base 模块体检（doc2/模块排查_base_2026-09-09.md）后执行 B1+S1+S2+S3**：
