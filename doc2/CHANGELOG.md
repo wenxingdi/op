@@ -5,6 +5,16 @@
 
 ## [Unreleased] — 2026-09
 
+### 2026-09-16（晚 · 四处静默失败补日志 + DPI 检测，`896f3af`）
+
+- **背景**：真机复盘中确认四类失败**全程无声**（返回 False 或哨兵值，无日志、无异常、无错误码），使用者只能反复试错。本次统一策略：**只加日志，不改任何返回值与控制流** → 零兼容风险。共 4 文件 +64/-4 行。
+- **① capture 落盘失败**（`image/ImageSearchService.cpp` `Capture()`）：记录完整路径 + 尺寸 + "检查扩展名与目录"。真因：`CImage::Save` 按扩展名查 GDI+ 编码器，无扩展名/未知扩展名直接返回非 `S_OK` → `capture` 返回 0 且无提示（**抓屏其实早已成功**，失败的只是写文件）。
+- **② hook 显示模式无帧**（`capture/backends/HookCapture.cpp` `requestCapture()`）：记录 hwnd + "目标未产生 present 帧" + 建议改用 `normal`/`gdi`/`dx2`。`dx` 显示模式依赖目标自身的 Present/SwapBuffers 调用，纯 GDI/Qt 渲染窗口（如 BlueStacks）永不产生该类帧，表现为 **bind 成功但图色全空**。
+- **③ 窗口最小化**（`op/OpWindow.cpp` `GetClientRect()`）：记录一行提示 `-32000` 哨兵值。该值会被调用方当作正常尺寸继续参与坐标换算/裁剪，结果是巨大负数。窗口恢复后**不误报**（已实测）。
+- **④ DPI 检测（新增）**（`op/OpContext.cpp` 构造函数）：记录提升前后 DPI 状态 + 系统 DPI + 缩放比。**机制查清**：`::SetProcessDPIAware()` 是进程级一次性调用（属**有意设计**，与类大漠一致：统一物理像素），会把宿主进程坐标语义从"被系统虚拟化的缩放后坐标"改为"物理像素"；脚本混用提升前的坐标即整体偏移一个缩放比（150% → 偏 1.5 倍），现场表现"点了没中"。**子进程隔离 A/B 铁证**：同一 HWND 未加载 OP 时线程 `UNAWARE` / `GetClientRect=293×494`，加载后 `SYSTEM_AWARE` / `440×741`，逐项**精确 ×1.5**（`LOGPIXELS=144`）。因提升只发生在首个实例（那时日志通常尚未打开），后续实例继续记录当前状态，保证信息随时可取。
+- **验证（BlueStacks 5 真机，四条全部命中）**：`dpi: process is DPI-aware, system dpi=144 (scale 150%)...` / `capture write failed: ...\noext (160x120), check the file extension...` / `hook frame not ready: hwnd=... no present frame...` / `get_client_rect: hwnd=... is minimized, the rect is a -32000 sentinel...`
+- **回归**：`op_test` **197 用例 / 155 PASS / 7 FAILED**，与改动前**同名同数**（`MouseKeyTest.WaitKeyScanAllWithWaitFindsKey` + `WgcTest` 6 项，均为已知环境问题）→ **零回归**。
+
 ### 2026-09-16（DX 注入崩溃闭环 + 绑定层收口，4 提交）
 
 - **背景**：DX 输入通道（mouse/keypad 含 `dx`）绑定时注入宿主 `op_c_api_x64.dll`，其隐式依赖 `onnxruntime.dll`。上一轮 `/DELAYLOAD` 只把「加载期失败 `0xC0000135`」推迟成「运行期失败」—— 目标进程执行 `InputHook::setup` 触碰 ONNX 符号时，延迟加载在**目标进程**内搜不到 onnxruntime → **目标进程 `0xC0000005` 崩溃**。唯一变量对照：目标目录有/无 `onnxruntime.dll` → bind=1+存活 / bind=0+崩溃。
