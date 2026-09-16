@@ -267,6 +267,12 @@ class Op(object):
     def LockInput(self, lock):
         return _pyop.Op_LockInput(self, lock)
 
+    def SetDxAttr(self, attr, value):
+        return _pyop.Op_SetDxAttr(self, attr, value)
+
+    def GetDxAttr(self):
+        return _pyop.Op_GetDxAttr(self)
+
     def GetBindWindow(self):
         return _pyop.Op_GetBindWindow(self)
 
@@ -443,6 +449,9 @@ class Op(object):
 
     def FindColorBlockEx(self, x1, y1, x2, y2, color, sim, count, height, width):
         return _pyop.Op_FindColorBlockEx(self, x1, y1, x2, y2, color, sim, count, height, width)
+
+    def FindColorBlockExS(self, x1, y1, x2, y2, color, sim, count, height, width, mode):
+        return _pyop.Op_FindColorBlockExS(self, x1, y1, x2, y2, color, sim, count, height, width, mode)
 
     def GetColor(self, x, y):
         return _pyop.Op_GetColor(self, x, y)
@@ -678,6 +687,15 @@ class Op(object):
     def OcrEx(self, x1, y1, x2, y2, color, sim):
         return _pyop.Op_OcrEx(self, x1, y1, x2, y2, color, sim)
 
+    def AutoOcr(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_AutoOcr(self, x1, y1, x2, y2, color, sim)
+
+    def AutoOcrLine(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_AutoOcrLine(self, x1, y1, x2, y2, color, sim)
+
+    def AutoOcrEx(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_AutoOcrEx(self, x1, y1, x2, y2, color, sim)
+
     def FindStr(self, x1, y1, x2, y2, strs, color, sim):
         return _pyop.Op_FindStr(self, x1, y1, x2, y2, strs, color, sim)
 
@@ -690,11 +708,20 @@ class Op(object):
     def OcrFromFile(self, file_name, color_format, sim):
         return _pyop.Op_OcrFromFile(self, file_name, color_format, sim)
 
+    def AutoOcrFromFile(self, file_name, color_format, sim):
+        return _pyop.Op_AutoOcrFromFile(self, file_name, color_format, sim)
+
     def OcrAutoFromFile(self, file_name, sim):
         return _pyop.Op_OcrAutoFromFile(self, file_name, sim)
 
     def FindLine(self, x1, y1, x2, y2, color, sim):
         return _pyop.Op_FindLine(self, x1, y1, x2, y2, color, sim)
+
+    def FindLineEx(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_FindLineEx(self, x1, y1, x2, y2, color, sim)
+
+    def FindLineExS(self, x1, y1, x2, y2, color, sim, min_points):
+        return _pyop.Op_FindLineExS(self, x1, y1, x2, y2, color, sim, min_points)
 
     def WriteData(self, hwnd, address, data, size):
         return _pyop.Op_WriteData(self, hwnd, address, data, size)
@@ -725,6 +752,15 @@ class Op(object):
 
     def WriteString(self, hwnd, address, type, value):
         return _pyop.Op_WriteString(self, hwnd, address, type, value)
+
+    def FindData(self, hwnd, addr_range, string):
+        return _pyop.Op_FindData(self, hwnd, addr_range, string)
+
+    def FindDataEx(self, hwnd, addr_range, string, step, count):
+        return _pyop.Op_FindDataEx(self, hwnd, addr_range, string, step, count)
+
+    def GetModuleBaseAddr(self, hwnd, module):
+        return _pyop.Op_GetModuleBaseAddr(self, hwnd, module)
 
     def RunApp(self, *args):
         return _pyop.Op_RunApp(self, *args)

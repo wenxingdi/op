@@ -140,7 +140,7 @@
 # define SWIG_NOEXCEPT noexcept
 #else
 # define SWIG_NOEXCEPT throw()
-#endif
+#endif 
 
 /* -----------------------------------------------------------------------------
  * swigcompat.swg
@@ -923,7 +923,7 @@ SWIG_UnpackDataName(const char *c, void *ptr, size_t sz, const char *name) {
 #define PyString_FromString(x) PyUnicode_FromString(x)
 #define PyString_Format(fmt, args)  PyUnicode_Format(fmt, args)
 #define PyString_AsString(str) PyBytes_AsString(str)
-#define PyString_Size(str) PyBytes_Size(str)
+#define PyString_Size(str) PyBytes_Size(str)	
 #define PyString_InternFromString(key) PyUnicode_InternFromString(key)
 #define Py_TPFLAGS_HAVE_CLASS Py_TPFLAGS_BASETYPE
 #define _PyLong_FromSsize_t(x) PyLong_FromSsize_t(x)
@@ -977,7 +977,7 @@ SWIGINTERN PyObject *
 SWIG_Python_str_FromChar(const char *c)
 {
 #if PY_VERSION_HEX >= 0x03000000
-  return PyUnicode_FromString(c);
+  return PyUnicode_FromString(c); 
 #else
   return PyString_FromString(c);
 #endif
@@ -1356,7 +1356,7 @@ typedef struct swig_const_info {
 
 #define SWIG_InternalNewPointerObj(ptr, type, flags)	SWIG_Python_NewPointerObj(NULL, ptr, type, flags)
 
-#define SWIG_CheckImplicit(ty)                          SWIG_Python_CheckImplicit(ty)
+#define SWIG_CheckImplicit(ty)                          SWIG_Python_CheckImplicit(ty) 
 #define SWIG_AcquirePtr(ptr, src)                       SWIG_Python_AcquirePtr(ptr, src)
 #define swig_owntype                                    int
 
@@ -1383,25 +1383,25 @@ typedef struct swig_const_info {
 #define SWIG_SetModule(clientdata, pointer)             SWIG_Python_SetModule(pointer)
 #define SWIG_NewClientData(obj)                         SwigPyClientData_New(obj)
 
-#define SWIG_SetErrorObj                                SWIG_Python_SetErrorObj
-#define SWIG_SetErrorMsg                        	SWIG_Python_SetErrorMsg
-#define SWIG_ErrorType(code)                    	SWIG_Python_ErrorType(code)
-#define SWIG_Error(code, msg)            		SWIG_Python_SetErrorMsg(SWIG_ErrorType(code), msg)
-#define SWIG_fail                        		goto fail
+#define SWIG_SetErrorObj                                SWIG_Python_SetErrorObj                            
+#define SWIG_SetErrorMsg                        	SWIG_Python_SetErrorMsg				   
+#define SWIG_ErrorType(code)                    	SWIG_Python_ErrorType(code)                        
+#define SWIG_Error(code, msg)            		SWIG_Python_SetErrorMsg(SWIG_ErrorType(code), msg) 
+#define SWIG_fail                        		goto fail					   
 
 /* Runtime API implementation */
 
 /* Error manipulation */
 
-SWIGINTERN void
+SWIGINTERN void 
 SWIG_Python_SetErrorObj(PyObject *errtype, PyObject *obj) {
-  SWIG_PYTHON_THREAD_BEGIN_BLOCK;
+  SWIG_PYTHON_THREAD_BEGIN_BLOCK; 
   PyErr_SetObject(errtype, obj);
   SWIG_Py_DECREF(obj);
   SWIG_PYTHON_THREAD_END_BLOCK;
 }
 
-SWIGINTERN void
+SWIGINTERN void 
 SWIG_Python_SetErrorMsg(PyObject *errtype, const char *msg) {
   SWIG_PYTHON_THREAD_BEGIN_BLOCK;
   PyErr_SetString(errtype, msg);
@@ -1422,7 +1422,7 @@ SwigPyBuiltin_AddPublicSymbol(PyObject *seq, const char *key) {
 }
 
 SWIGINTERN void
-SWIG_Python_SetConstant(PyObject *d, PyObject *public_interface, const char *name, PyObject *obj) {
+SWIG_Python_SetConstant(PyObject *d, PyObject *public_interface, const char *name, PyObject *obj) {   
   PyDict_SetItemString(d, name, obj);
   SWIG_Py_DECREF(obj);
   if (public_interface)
@@ -1432,7 +1432,7 @@ SWIG_Python_SetConstant(PyObject *d, PyObject *public_interface, const char *nam
 #else
 
 SWIGINTERN void
-SWIG_Python_SetConstant(PyObject *d, const char *name, PyObject *obj) {
+SWIG_Python_SetConstant(PyObject *d, const char *name, PyObject *obj) {   
   PyDict_SetItemString(d, name, obj);
   SWIG_Py_DECREF(obj);
 }
@@ -1497,11 +1497,11 @@ SWIG_Python_UnpackTuple(PyObject *args, const char *name, Py_ssize_t min, Py_ssi
     if (!min && !max) {
       return 1;
     } else {
-      PyErr_Format(PyExc_TypeError, "%s expected %s%d arguments, got none",
+      PyErr_Format(PyExc_TypeError, "%s expected %s%d arguments, got none", 
 		   name, (min == max ? "" : "at least "), (int)min);
       return 0;
     }
-  }
+  }  
   if (!PyTuple_Check(args)) {
     if (min <= 1 && max >= 1) {
       Py_ssize_t i;
@@ -1516,11 +1516,11 @@ SWIG_Python_UnpackTuple(PyObject *args, const char *name, Py_ssize_t min, Py_ssi
   } else {
     Py_ssize_t l = PyTuple_GET_SIZE(args);
     if (l < min) {
-      PyErr_Format(PyExc_TypeError, "%s expected %s%d arguments, got %d",
+      PyErr_Format(PyExc_TypeError, "%s expected %s%d arguments, got %d", 
 		   name, (min == max ? "" : "at least "), (int)min, (int)l);
       return 0;
     } else if (l > max) {
-      PyErr_Format(PyExc_TypeError, "%s expected %s%d arguments, got %d",
+      PyErr_Format(PyExc_TypeError, "%s expected %s%d arguments, got %d", 
 		   name, (min == max ? "" : "at most "), (int)max, (int)l);
       return 0;
     } else {
@@ -1532,7 +1532,7 @@ SWIG_Python_UnpackTuple(PyObject *args, const char *name, Py_ssize_t min, Py_ssi
 	objs[l] = 0;
       }
       return i + 1;
-    }
+    }    
   }
 }
 
@@ -1570,12 +1570,12 @@ extern "C" {
 #define SWIG_newvarlink()                             SWIG_Python_newvarlink()
 #define SWIG_addvarlink(p, name, get_attr, set_attr)  SWIG_Python_addvarlink(p, name, get_attr, set_attr)
 #define SWIG_InstallConstants(d, constants)           SWIG_Python_InstallConstants(d, constants)
-
+ 
 /* -----------------------------------------------------------------------------
  * global variable support code.
  * ----------------------------------------------------------------------------- */
-
-typedef struct swig_globalvar {
+ 
+typedef struct swig_globalvar {   
   char       *name;                  /* Name of global variable */
   PyObject *(*get_attr)(void);       /* Return the current value */
   int       (*set_attr)(PyObject *); /* Set the value */
@@ -1801,7 +1801,7 @@ SWIG_Python_newvarlink(void) {
   return ((PyObject*) result);
 }
 
-SWIGINTERN void
+SWIGINTERN void 
 SWIG_Python_addvarlink(PyObject *p, const char *name, PyObject *(*get_attr)(void), int (*set_attr)(PyObject *p)) {
   swig_varlinkobject *v = (swig_varlinkobject *) p;
   swig_globalvar *gv = (swig_globalvar *) malloc(sizeof(swig_globalvar));
@@ -1820,7 +1820,7 @@ SWIG_Python_addvarlink(PyObject *p, const char *name, PyObject *(*get_attr)(void
 
 
 static PyObject *Swig_Globals_global = NULL;
-
+  
 SWIGINTERN PyObject *
 SWIG_globals(void) {
   if (Swig_Globals_global == NULL) {
@@ -1852,7 +1852,7 @@ extern "C" {
 
 /* The python void return value */
 
-SWIGRUNTIMEINLINE PyObject *
+SWIGRUNTIMEINLINE PyObject * 
 SWIG_Py_Void(void)
 {
   PyObject *none = Py_None;
@@ -1872,7 +1872,7 @@ typedef struct {
   PyTypeObject *pytype;
 } SwigPyClientData;
 
-SWIGRUNTIMEINLINE int
+SWIGRUNTIMEINLINE int 
 SWIG_Python_CheckImplicit(swig_type_info *ty)
 {
   SwigPyClientData *data = (SwigPyClientData *)ty->clientdata;
@@ -1890,7 +1890,7 @@ SWIG_Python_ExceptionType(swig_type_info *desc) {
 }
 
 
-SWIGRUNTIME SwigPyClientData *
+SWIGRUNTIME SwigPyClientData * 
 SwigPyClientData_New(PyObject* obj)
 {
   if (!obj) {
@@ -1940,7 +1940,7 @@ SwigPyClientData_New(PyObject* obj)
   }
 }
 
-SWIGRUNTIME void
+SWIGRUNTIME void 
 SwigPyClientData_Del(SwigPyClientData *data)
 {
   SWIG_Py_XDECREF(data->klass);
@@ -2158,7 +2158,7 @@ SwigPyObject_dealloc(PyObject *v)
          StopIteration will be active right now, and this needs to
          remain true upon return from SwigPyObject_dealloc.  So save
          and restore. */
-
+      
       PyObject *type = NULL, *value = NULL, *traceback = NULL;
       PyErr_Fetch(&type, &value, &traceback);
 
@@ -2182,7 +2182,7 @@ SwigPyObject_dealloc(PyObject *v)
       PyErr_Restore(type, value, traceback);
 
       SWIG_Py_XDECREF(res);
-    }
+    } 
 #if !defined(SWIG_PYTHON_SILENT_MEMLEAK)
     else {
       const char *name = SWIG_TypePrettyName(ty);
@@ -2196,7 +2196,7 @@ SwigPyObject_dealloc(PyObject *v)
   PyObject_Free(v);
 }
 
-SWIGRUNTIME PyObject*
+SWIGRUNTIME PyObject* 
 SwigPyObject_append(PyObject* v, PyObject* next)
 {
   SwigPyObject *sobj = (SwigPyObject *) v;
@@ -2210,11 +2210,11 @@ SwigPyObject_append(PyObject* v, PyObject* next)
   return SWIG_Py_Void();
 }
 
-SWIGRUNTIME PyObject*
+SWIGRUNTIME PyObject* 
 SwigPyObject_next(PyObject* v, PyObject *SWIGUNUSEDPARM(args))
 {
   SwigPyObject *sobj = (SwigPyObject *) v;
-  if (sobj->next) {
+  if (sobj->next) {    
     SWIG_Py_INCREF(sobj->next);
     return sobj->next;
   } else {
@@ -2253,7 +2253,7 @@ SwigPyObject_own(PyObject *v, PyObject *args)
       } else {
         SWIG_Py_DECREF(SwigPyObject_disown(v,args));
       }
-    }
+    } 
     return obj;
   }
 }
@@ -2266,7 +2266,7 @@ SwigPyObject_methods[] = {
   {"append",  SwigPyObject_append,  METH_O,       "appends another 'this' object"},
   {"next",    SwigPyObject_next,    METH_NOARGS,  "returns the next 'this' object"},
   {"__repr__",SwigPyObject_repr2,   METH_NOARGS,  "returns object representation"},
-  {0, 0, 0, 0}
+  {0, 0, 0, 0}  
 };
 
 SWIGRUNTIME PyTypeObject*
@@ -2496,7 +2496,7 @@ SwigPyPacked_repr(SwigPyPacked *v)
     return SWIG_Python_str_FromFormat("<Swig Packed at %s%s>", result, v->ty->name);
   } else {
     return SWIG_Python_str_FromFormat("<Swig Packed %s>", v->ty->name);
-  }
+  }  
 }
 
 SWIGRUNTIME PyObject *
@@ -2507,7 +2507,7 @@ SwigPyPacked_str(SwigPyPacked *v)
     return SWIG_Python_str_FromFormat("%s%s", result, v->ty->name);
   } else {
     return SWIG_Python_str_FromChar(v->ty->name);
-  }
+  }  
 }
 
 SWIGRUNTIME int
@@ -2734,12 +2734,12 @@ SWIG_This(void)
 
 /* TODO: I don't know how to implement the fast getset in Python 3 right now */
 #if PY_VERSION_HEX >= 0x03000000
-#define SWIG_PYTHON_SLOW_GETSET_THIS
+#define SWIG_PYTHON_SLOW_GETSET_THIS 
 #endif
 
 /* Returns a borrowed reference to the 'this' object */
 SWIGRUNTIME SwigPyObject *
-SWIG_Python_GetSwigThis(PyObject *pyobj)
+SWIG_Python_GetSwigThis(PyObject *pyobj) 
 {
   PyObject *obj;
 
@@ -2767,7 +2767,7 @@ SWIG_Python_GetSwigThis(PyObject *pyobj)
 
 #if !defined(SWIG_PYTHON_SLOW_GETSET_THIS)
   if (PyInstance_Check(pyobj)) {
-    obj = _PyInstance_Lookup(pyobj, SWIG_This());
+    obj = _PyInstance_Lookup(pyobj, SWIG_This());      
   } else {
     PyObject **dictptr = _PyObject_GetDictPtr(pyobj);
     if (dictptr != NULL) {
@@ -2798,7 +2798,7 @@ SWIG_Python_GetSwigThis(PyObject *pyobj)
 #endif
   if (obj && !SwigPyObject_Check(obj)) {
     /* a PyObject is called 'this', try to get the 'real this'
-       SwigPyObject from it */
+       SwigPyObject from it */ 
     return SWIG_Python_GetSwigThis(obj);
   }
   return (SwigPyObject *)obj;
@@ -2912,7 +2912,7 @@ SWIG_Python_ConvertPtrAndOwn(PyObject *obj, void **ptr, swig_type_info *ty, int 
                   res = SWIG_AddCast(res);
                   res = SWIG_AddNewMask(res);
                 } else {
-                  res = SWIG_AddCast(res);
+                  res = SWIG_AddCast(res);		    
                 }
               }
             }
@@ -2985,7 +2985,7 @@ SWIG_Python_ConvertPacked(PyObject *obj, void *ptr, size_t sz, swig_type_info *t
     }
   }
   return SWIG_OK;
-}
+}  
 
 /* -----------------------------------------------------------------------------
  * Create a new pointer object
@@ -2996,7 +2996,7 @@ SWIG_Python_ConvertPacked(PyObject *obj, void *ptr, size_t sz, swig_type_info *t
   'this' attribute.
 */
 
-SWIGRUNTIME PyObject*
+SWIGRUNTIME PyObject* 
 SWIG_Python_NewShadowInstance(SwigPyClientData *data, PyObject *swig_this)
 {
   PyObject *inst = 0;
@@ -3081,7 +3081,7 @@ SWIG_Python_SetSwigThis(PyObject *inst, PyObject *swig_this)
   }
 #endif
   return PyObject_SetAttr(inst, SWIG_This(), swig_this);
-}
+} 
 
 
 SWIGINTERN PyObject *
@@ -3168,7 +3168,7 @@ SWIG_Python_NewPackedObj(void *ptr, size_t sz, swig_type_info *type) {
 }
 
 /* -----------------------------------------------------------------------------*
- *  Get type list
+ *  Get type list 
  * -----------------------------------------------------------------------------*/
 
 #ifdef SWIG_LINK_RUNTIME
@@ -3286,7 +3286,7 @@ SWIG_Python_TypeQuery(const char *type)
   return descriptor;
 }
 
-/*
+/* 
    For backward compatibility only
 */
 #define SWIG_POINTER_EXCEPTION  0
@@ -3295,7 +3295,7 @@ SWIG_Python_TypeQuery(const char *type)
 
 SWIGRUNTIME int
 SWIG_Python_AddErrMesg(const char* mesg, int infront)
-{
+{  
   if (PyErr_Occurred()) {
     PyObject *type = 0;
     PyObject *value = 0;
@@ -3321,7 +3321,7 @@ SWIG_Python_AddErrMesg(const char* mesg, int infront)
     return 0;
   }
 }
-
+  
 SWIGRUNTIME int
 SWIG_Python_ArgFail(int argnum)
 {
@@ -3415,7 +3415,7 @@ SWIG_Python_NonDynamicSetAttr(PyObject *obj, PyObject *name, PyObject *value) {
   } else {
     res = f(descr, obj, value);
   }
-
+  
   done:
   SWIG_Py_DECREF(name);
   return res;
@@ -3429,9 +3429,9 @@ SWIG_Python_NonDynamicSetAttr(PyObject *obj, PyObject *name, PyObject *value) {
 
 
 
-#define SWIG_exception_fail(code, msg) do { SWIG_Error(code, msg); SWIG_fail; } while(0)
+#define SWIG_exception_fail(code, msg) do { SWIG_Error(code, msg); SWIG_fail; } while(0) 
 
-#define SWIG_contract_assert(expr, msg) do { if (!(expr)) { SWIG_Error(SWIG_RuntimeError, msg); SWIG_fail; } } while (0)
+#define SWIG_contract_assert(expr, msg) do { if (!(expr)) { SWIG_Error(SWIG_RuntimeError, msg); SWIG_fail; } } while (0) 
 
 
 
@@ -3508,11 +3508,11 @@ public:
 
 /*
  * SwigValueInit() is a generic initialisation solution as the following approach:
- *
+ * 
  *       T c_result = T();
- *
+ * 
  * doesn't compile for all types for example:
- *
+ * 
  *       unsigned int c_result = unsigned int();
  */
 template <typename T> T SwigValueInit() {
@@ -3535,8 +3535,8 @@ template <typename T> T SwigValueInit() {
 
 
 
-#define SWIG_as_voidptr(a) const_cast< void * >(static_cast< const void * >(a))
-#define SWIG_as_voidptrptr(a) ((void)SWIG_as_voidptr(*a),reinterpret_cast< void** >(a))
+#define SWIG_as_voidptr(a) const_cast< void * >(static_cast< const void * >(a)) 
+#define SWIG_as_voidptrptr(a) ((void)SWIG_as_voidptr(*a),reinterpret_cast< void** >(a)) 
 
 
 #include <stdexcept>
@@ -3558,7 +3558,7 @@ namespace swig {
       SWIG_Py_XINCREF(_obj);
       SWIG_PYTHON_THREAD_END_BLOCK;
     }
-
+    
     SwigPtr_PyObject(PyObject *obj, bool initial_ref = true) :_obj(obj)
     {
       if (initial_ref) {
@@ -3567,24 +3567,24 @@ namespace swig {
         SWIG_PYTHON_THREAD_END_BLOCK;
       }
     }
-
-    SwigPtr_PyObject & operator=(const SwigPtr_PyObject& item)
+    
+    SwigPtr_PyObject & operator=(const SwigPtr_PyObject& item) 
     {
       SWIG_PYTHON_THREAD_BEGIN_BLOCK;
       SWIG_Py_XINCREF(item._obj);
       SWIG_Py_XDECREF(_obj);
       _obj = item._obj;
       SWIG_PYTHON_THREAD_END_BLOCK;
-      return *this;
+      return *this;      
     }
-
-    ~SwigPtr_PyObject()
+    
+    ~SwigPtr_PyObject() 
     {
       SWIG_PYTHON_THREAD_BEGIN_BLOCK;
       SWIG_Py_XDECREF(_obj);
       SWIG_PYTHON_THREAD_END_BLOCK;
     }
-
+    
     operator PyObject *() const
     {
       return _obj;
@@ -3601,18 +3601,19 @@ namespace swig {
 namespace swig {
   struct SwigVar_PyObject : SwigPtr_PyObject {
     SwigVar_PyObject(PyObject* obj = 0) : SwigPtr_PyObject(obj, false) { }
-
+    
     SwigVar_PyObject & operator = (PyObject* obj)
     {
       SWIG_Py_XDECREF(_obj);
       _obj = obj;
-      return *this;
+      return *this;      
     }
   };
 }
 
 
     #define OP_API
+#include <exception>
 #include "../include/libop.h"
 
 
@@ -3656,7 +3657,7 @@ SWIG_FromWCharPtrAndSize(const wchar_t * carray, size_t size)
   if (carray) {
     if (size > (size_t)PY_SSIZE_T_MAX) {
       swig_type_info* pwchar_descriptor = SWIG_pwchar_descriptor();
-      return pwchar_descriptor ?
+      return pwchar_descriptor ? 
 	SWIG_InternalNewPointerObj(const_cast< wchar_t * >(carray), pwchar_descriptor, 0) : SWIG_Py_Void();
     } else {
       return PyUnicode_FromWideChar(carray, static_cast< Py_ssize_t >(size));
@@ -3734,7 +3735,7 @@ SWIG_AsWCharPtrAndSize(PyObject *obj, wchar_t **cptr, size_t *psize, int *alloc)
 
 
 
-  #define SWIG_From_long   PyInt_FromLong
+  #define SWIG_From_long   PyInt_FromLong 
 
 
 SWIGINTERN int
@@ -3930,7 +3931,7 @@ SWIG_AsVal_long_SS_long (PyObject *obj, long long *val)
 
 
 #ifdef SWIG_LONG_LONG_AVAILABLE
-SWIGINTERNINLINE PyObject*
+SWIGINTERNINLINE PyObject* 
 SWIG_From_long_SS_long  (long long value)
 {
   return ((value < LONG_MIN) || (value > LONG_MAX)) ?
@@ -3939,7 +3940,7 @@ SWIG_From_long_SS_long  (long long value)
 #endif
 
 
-SWIGINTERNINLINE PyObject*
+SWIGINTERNINLINE PyObject* 
 SWIG_From_unsigned_SS_long  (unsigned long value)
 {
   return (value > LONG_MAX) ?
@@ -3948,7 +3949,7 @@ SWIG_From_unsigned_SS_long  (unsigned long value)
 
 
 #ifdef SWIG_LONG_LONG_AVAILABLE
-SWIGINTERNINLINE PyObject*
+SWIGINTERNINLINE PyObject* 
 SWIG_From_unsigned_SS_long_SS_long  (unsigned long long value)
 {
   return (value > LONG_MAX) ?
@@ -3959,7 +3960,7 @@ SWIG_From_unsigned_SS_long_SS_long  (unsigned long long value)
 
 SWIGINTERNINLINE PyObject *
 SWIG_From_size_t  (size_t value)
-{
+{    
 #ifdef SWIG_LONG_LONG_AVAILABLE
   if (sizeof(size_t) <= sizeof(unsigned long)) {
 #endif
@@ -4024,7 +4025,7 @@ SWIG_AsVal_float (PyObject * obj, float *val)
     } else {
       if (val) *val = static_cast< float >(v);
     }
-  }
+  }  
   return res;
 }
 
@@ -4038,10 +4039,20 @@ extern "C" {
 SWIGINTERN PyObject *_wrap_new_Op(PyObject *self, PyObject *args) {
   PyObject *resultobj = 0;
   op::Op *result = 0 ;
-
+  
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "new_Op", 0, 0, 0)) SWIG_fail;
-  result = (op::Op *)new op::Op();
+  {
+    try {
+      result = (op::Op *)new op::Op();
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_op__Op, SWIG_POINTER_NEW |  0 );
   return resultobj;
 fail:
@@ -4055,16 +4066,26 @@ SWIGINTERN PyObject *_wrap_delete_Op(PyObject *self, PyObject *args) {
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
-
+  
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, SWIG_POINTER_DISOWN |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "delete_Op" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "delete_Op" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  delete arg1;
+  {
+    try {
+      delete arg1;
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   return resultobj;
 fail:
@@ -4079,16 +4100,26 @@ SWIGINTERN PyObject *_wrap_Op_runtime(PyObject *self, PyObject *args) {
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
   op::Op::RuntimeService *result = 0 ;
-
+  
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_runtime" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_runtime" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  result = (op::Op::RuntimeService *) &(arg1)->runtime();
+  {
+    try {
+      result = (op::Op::RuntimeService *) &(arg1)->runtime();
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_op__Op, 0 |  0 );
   return resultobj;
 fail:
@@ -4103,16 +4134,26 @@ SWIGINTERN PyObject *_wrap_Op_window(PyObject *self, PyObject *args) {
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
   op::Op::WindowService *result = 0 ;
-
+  
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_window" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_window" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  result = (op::Op::WindowService *) &(arg1)->window();
+  {
+    try {
+      result = (op::Op::WindowService *) &(arg1)->window();
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_op__Op, 0 |  0 );
   return resultobj;
 fail:
@@ -4127,16 +4168,26 @@ SWIGINTERN PyObject *_wrap_Op_binding(PyObject *self, PyObject *args) {
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
   op::Op::BindingService *result = 0 ;
-
+  
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_binding" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_binding" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  result = (op::Op::BindingService *) &(arg1)->binding();
+  {
+    try {
+      result = (op::Op::BindingService *) &(arg1)->binding();
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_op__Op, 0 |  0 );
   return resultobj;
 fail:
@@ -4151,16 +4202,26 @@ SWIGINTERN PyObject *_wrap_Op_input(PyObject *self, PyObject *args) {
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
   op::Op::InputService *result = 0 ;
-
+  
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_input" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_input" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  result = (op::Op::InputService *) &(arg1)->input();
+  {
+    try {
+      result = (op::Op::InputService *) &(arg1)->input();
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_op__Op, 0 |  0 );
   return resultobj;
 fail:
@@ -4175,16 +4236,26 @@ SWIGINTERN PyObject *_wrap_Op_image(PyObject *self, PyObject *args) {
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
   op::Op::ImageService *result = 0 ;
-
+  
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_image" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_image" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  result = (op::Op::ImageService *) &(arg1)->image();
+  {
+    try {
+      result = (op::Op::ImageService *) &(arg1)->image();
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_op__Op, 0 |  0 );
   return resultobj;
 fail:
@@ -4199,16 +4270,26 @@ SWIGINTERN PyObject *_wrap_Op_ocr(PyObject *self, PyObject *args) {
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
   op::Op::OcrService *result = 0 ;
-
+  
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ocr" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ocr" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  result = (op::Op::OcrService *) &(arg1)->ocr();
+  {
+    try {
+      result = (op::Op::OcrService *) &(arg1)->ocr();
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_op__Op, 0 |  0 );
   return resultobj;
 fail:
@@ -4223,16 +4304,26 @@ SWIGINTERN PyObject *_wrap_Op_opencv(PyObject *self, PyObject *args) {
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
   op::Op::OpenCvService *result = 0 ;
-
+  
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_opencv" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_opencv" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  result = (op::Op::OpenCvService *) &(arg1)->opencv();
+  {
+    try {
+      result = (op::Op::OpenCvService *) &(arg1)->opencv();
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_op__Op, 0 |  0 );
   return resultobj;
 fail:
@@ -4247,16 +4338,26 @@ SWIGINTERN PyObject *_wrap_Op_yolo(PyObject *self, PyObject *args) {
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
   op::Op::YoloService *result = 0 ;
-
+  
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_yolo" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_yolo" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  result = (op::Op::YoloService *) &(arg1)->yolo();
+  {
+    try {
+      result = (op::Op::YoloService *) &(arg1)->yolo();
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_op__Op, 0 |  0 );
   return resultobj;
 fail:
@@ -4271,16 +4372,26 @@ SWIGINTERN PyObject *_wrap_Op_memory(PyObject *self, PyObject *args) {
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
   op::Op::MemoryService *result = 0 ;
-
+  
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_memory" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_memory" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  result = (op::Op::MemoryService *) &(arg1)->memory();
+  {
+    try {
+      result = (op::Op::MemoryService *) &(arg1)->memory();
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_op__Op, 0 |  0 );
   return resultobj;
 fail:
@@ -4295,16 +4406,26 @@ SWIGINTERN PyObject *_wrap_Op_Ver(PyObject *self, PyObject *args) {
   int res1 = 0 ;
   PyObject *swig_obj[1] ;
   std::wstring result;
-
+  
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Ver" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Ver" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  result = (arg1)->Ver();
+  {
+    try {
+      result = (arg1)->Ver();
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_From_std_wstring(static_cast< std::wstring >(result));
   return resultobj;
 fail:
@@ -4325,13 +4446,13 @@ SWIGINTERN PyObject *_wrap_Op_SetPath(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetPath", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetPath" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetPath" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -4339,7 +4460,17 @@ SWIGINTERN PyObject *_wrap_Op_SetPath(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_SetPath" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->SetPath((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->SetPath((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -4364,17 +4495,27 @@ SWIGINTERN PyObject *_wrap_Op_GetPath(PyObject *self, PyObject *args) {
   std::wstring temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetPath" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetPath" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetPath(*arg2);
+  {
+    try {
+      (arg1)->GetPath(*arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg2)), 1);
@@ -4397,17 +4538,27 @@ SWIGINTERN PyObject *_wrap_Op_GetBasePath(PyObject *self, PyObject *args) {
   std::wstring temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetBasePath" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetBasePath" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetBasePath(*arg2);
+  {
+    try {
+      (arg1)->GetBasePath(*arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg2)), 1);
@@ -4430,17 +4581,27 @@ SWIGINTERN PyObject *_wrap_Op_GetID(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetID" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetID" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetID(arg2);
+  {
+    try {
+      (arg1)->GetID(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -4463,17 +4624,27 @@ SWIGINTERN PyObject *_wrap_Op_GetLastError(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetLastError" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetLastError" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetLastError(arg2);
+  {
+    try {
+      (arg1)->GetLastError(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -4499,21 +4670,31 @@ SWIGINTERN PyObject *_wrap_Op_SetShowErrorMsg(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetShowErrorMsg", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetShowErrorMsg" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetShowErrorMsg" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetShowErrorMsg" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->SetShowErrorMsg(arg2,arg3);
+  {
+    try {
+      (arg1)->SetShowErrorMsg(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -4539,21 +4720,31 @@ SWIGINTERN PyObject *_wrap_Op_Sleep(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_Sleep", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Sleep" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Sleep" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_Sleep" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->Sleep(arg2,arg3);
+  {
+    try {
+      (arg1)->Sleep(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -4584,13 +4775,13 @@ SWIGINTERN PyObject *_wrap_Op_InjectDll(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_InjectDll", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_InjectDll" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_InjectDll" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -4603,7 +4794,17 @@ SWIGINTERN PyObject *_wrap_Op_InjectDll(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_InjectDll" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->InjectDll((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->InjectDll((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -4633,21 +4834,31 @@ SWIGINTERN PyObject *_wrap_Op_EnablePicCache(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_EnablePicCache", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_EnablePicCache" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_EnablePicCache" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_EnablePicCache" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->EnablePicCache(arg2,arg3);
+  {
+    try {
+      (arg1)->EnablePicCache(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -4674,13 +4885,13 @@ SWIGINTERN PyObject *_wrap_Op_CapturePre(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CapturePre", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CapturePre" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CapturePre" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -4688,7 +4899,17 @@ SWIGINTERN PyObject *_wrap_Op_CapturePre(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_CapturePre" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->CapturePre((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->CapturePre((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -4716,21 +4937,31 @@ SWIGINTERN PyObject *_wrap_Op_SetScreenDataMode(PyObject *self, PyObject *args) 
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetScreenDataMode", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetScreenDataMode" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetScreenDataMode" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetScreenDataMode" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->SetScreenDataMode(arg2,arg3);
+  {
+    try {
+      (arg1)->SetScreenDataMode(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -4775,24 +5006,24 @@ SWIGINTERN PyObject *_wrap_Op_AStarFindPath(PyObject *self, PyObject *args) {
   std::wstring temp9 ;
   int res9 = SWIG_TMPOBJ ;
   PyObject *swig_obj[8] ;
-
+  
   arg9 = &temp9;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_AStarFindPath", 8, 8, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_AStarFindPath" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_AStarFindPath" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_AStarFindPath" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_AStarFindPath" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   res4 = SWIG_AsWCharPtrAndSize(swig_obj[3], &buf4, NULL, &alloc4);
   if (!SWIG_IsOK(res4)) {
@@ -4802,24 +5033,34 @@ SWIGINTERN PyObject *_wrap_Op_AStarFindPath(PyObject *self, PyObject *args) {
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_AStarFindPath" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   ecode6 = SWIG_AsVal_long(swig_obj[5], &val6);
   if (!SWIG_IsOK(ecode6)) {
     SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "Op_AStarFindPath" "', argument " "6"" of type '" "long""'");
-  }
+  } 
   arg6 = static_cast< long >(val6);
   ecode7 = SWIG_AsVal_long(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_AStarFindPath" "', argument " "7"" of type '" "long""'");
-  }
+  } 
   arg7 = static_cast< long >(val7);
   ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_AStarFindPath" "', argument " "8"" of type '" "long""'");
-  }
+  } 
   arg8 = static_cast< long >(val8);
-  (arg1)->AStarFindPath(arg2,arg3,(wchar_t const *)arg4,arg5,arg6,arg7,arg8,*arg9);
+  {
+    try {
+      (arg1)->AStarFindPath(arg2,arg3,(wchar_t const *)arg4,arg5,arg6,arg7,arg8,*arg9);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res9)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg9)), 1);
@@ -4857,13 +5098,13 @@ SWIGINTERN PyObject *_wrap_Op_FindNearestPos(PyObject *self, PyObject *args) {
   std::wstring temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FindNearestPos", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindNearestPos" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindNearestPos" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -4874,19 +5115,29 @@ SWIGINTERN PyObject *_wrap_Op_FindNearestPos(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindNearestPos" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindNearestPos" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindNearestPos" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
-  (arg1)->FindNearestPos((wchar_t const *)arg2,arg3,arg4,arg5,*arg6);
+  {
+    try {
+      (arg1)->FindNearestPos((wchar_t const *)arg2,arg3,arg4,arg5,*arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg6)), 1);
@@ -4925,19 +5176,19 @@ SWIGINTERN PyObject *_wrap_Op_EnumWindow(PyObject *self, PyObject *args) {
   std::wstring temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_EnumWindow", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_EnumWindow" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_EnumWindow" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_EnumWindow" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -4952,9 +5203,19 @@ SWIGINTERN PyObject *_wrap_Op_EnumWindow(PyObject *self, PyObject *args) {
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_EnumWindow" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
-  (arg1)->EnumWindow(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,(wchar_t const *)arg4,arg5,*arg6);
+  {
+    try {
+      (arg1)->EnumWindow(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,(wchar_t const *)arg4,arg5,*arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg6)), 1);
@@ -4996,13 +5257,13 @@ SWIGINTERN PyObject *_wrap_Op_EnumWindowByProcess(PyObject *self, PyObject *args
   std::wstring temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_EnumWindowByProcess", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_EnumWindowByProcess" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_EnumWindowByProcess" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -5023,9 +5284,19 @@ SWIGINTERN PyObject *_wrap_Op_EnumWindowByProcess(PyObject *self, PyObject *args
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_EnumWindowByProcess" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
-  (arg1)->EnumWindowByProcess((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5,*arg6);
+  {
+    try {
+      (arg1)->EnumWindowByProcess((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5,*arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg6)), 1);
@@ -5058,13 +5329,13 @@ SWIGINTERN PyObject *_wrap_Op_EnumProcess(PyObject *self, PyObject *args) {
   std::wstring temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_EnumProcess", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_EnumProcess" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_EnumProcess" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -5072,7 +5343,17 @@ SWIGINTERN PyObject *_wrap_Op_EnumProcess(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_EnumProcess" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->EnumProcess((wchar_t const *)arg2,*arg3);
+  {
+    try {
+      (arg1)->EnumProcess((wchar_t const *)arg2,*arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg3)), 1);
@@ -5106,7 +5387,7 @@ SWIGINTERN PyObject *_wrap_Op_ClientToScreen(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   arg4 = &temp4;
   arg5 = &temp5;
@@ -5114,15 +5395,25 @@ SWIGINTERN PyObject *_wrap_Op_ClientToScreen(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_ClientToScreen", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ClientToScreen" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ClientToScreen" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_ClientToScreen" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
-  (arg1)->ClientToScreen(SWIG_STD_MOVE(arg2),arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->ClientToScreen(SWIG_STD_MOVE(arg2),arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -5165,13 +5456,13 @@ SWIGINTERN PyObject *_wrap_Op_FindWindow(PyObject *self, PyObject *args) {
   LONG_PTR temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FindWindow", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindWindow" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindWindow" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -5184,7 +5475,17 @@ SWIGINTERN PyObject *_wrap_Op_FindWindow(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_FindWindow" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->FindWindow((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->FindWindow((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long_SS_long((*arg4)), 1);
@@ -5223,13 +5524,13 @@ SWIGINTERN PyObject *_wrap_Op_FindWindowByProcess(PyObject *self, PyObject *args
   LONG_PTR temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FindWindowByProcess", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindWindowByProcess" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindWindowByProcess" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -5247,7 +5548,17 @@ SWIGINTERN PyObject *_wrap_Op_FindWindowByProcess(PyObject *self, PyObject *args
     SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_FindWindowByProcess" "', argument " "4"" of type '" "wchar_t const *""'");
   }
   arg4 = reinterpret_cast< wchar_t * >(buf4);
-  (arg1)->FindWindowByProcess((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5);
+  {
+    try {
+      (arg1)->FindWindowByProcess((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long_SS_long((*arg5)), 1);
@@ -5287,19 +5598,19 @@ SWIGINTERN PyObject *_wrap_Op_FindWindowByProcessId(PyObject *self, PyObject *ar
   LONG_PTR temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FindWindowByProcessId", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindWindowByProcessId" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindWindowByProcessId" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindWindowByProcessId" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -5311,7 +5622,17 @@ SWIGINTERN PyObject *_wrap_Op_FindWindowByProcessId(PyObject *self, PyObject *ar
     SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_FindWindowByProcessId" "', argument " "4"" of type '" "wchar_t const *""'");
   }
   arg4 = reinterpret_cast< wchar_t * >(buf4);
-  (arg1)->FindWindowByProcessId(arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5);
+  {
+    try {
+      (arg1)->FindWindowByProcessId(arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long_SS_long((*arg5)), 1);
@@ -5349,19 +5670,19 @@ SWIGINTERN PyObject *_wrap_Op_FindWindowEx(PyObject *self, PyObject *args) {
   LONG_PTR temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FindWindowEx", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindWindowEx" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindWindowEx" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindWindowEx" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -5373,7 +5694,17 @@ SWIGINTERN PyObject *_wrap_Op_FindWindowEx(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_FindWindowEx" "', argument " "4"" of type '" "wchar_t const *""'");
   }
   arg4 = reinterpret_cast< wchar_t * >(buf4);
-  (arg1)->FindWindowEx(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,(wchar_t const *)arg4,arg5);
+  {
+    try {
+      (arg1)->FindWindowEx(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,(wchar_t const *)arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long_SS_long((*arg5)), 1);
@@ -5415,7 +5746,7 @@ SWIGINTERN PyObject *_wrap_Op_GetClientRect(PyObject *self, PyObject *args) {
   long temp7 ;
   int res7 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   arg4 = &temp4;
   arg5 = &temp5;
@@ -5425,15 +5756,25 @@ SWIGINTERN PyObject *_wrap_Op_GetClientRect(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_GetClientRect", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetClientRect" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetClientRect" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetClientRect" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
-  (arg1)->GetClientRect(SWIG_STD_MOVE(arg2),arg3,arg4,arg5,arg6,arg7);
+  {
+    try {
+      (arg1)->GetClientRect(SWIG_STD_MOVE(arg2),arg3,arg4,arg5,arg6,arg7);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -5489,7 +5830,7 @@ SWIGINTERN PyObject *_wrap_Op_GetClientSize(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   arg4 = &temp4;
   arg5 = &temp5;
@@ -5497,15 +5838,25 @@ SWIGINTERN PyObject *_wrap_Op_GetClientSize(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_GetClientSize", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetClientSize" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetClientSize" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetClientSize" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
-  (arg1)->GetClientSize(SWIG_STD_MOVE(arg2),arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->GetClientSize(SWIG_STD_MOVE(arg2),arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -5540,17 +5891,27 @@ SWIGINTERN PyObject *_wrap_Op_GetForegroundFocus(PyObject *self, PyObject *args)
   LONG_PTR temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetForegroundFocus" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetForegroundFocus" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetForegroundFocus(arg2);
+  {
+    try {
+      (arg1)->GetForegroundFocus(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long_SS_long((*arg2)), 1);
@@ -5573,17 +5934,27 @@ SWIGINTERN PyObject *_wrap_Op_GetForegroundWindow(PyObject *self, PyObject *args
   LONG_PTR temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetForegroundWindow" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetForegroundWindow" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetForegroundWindow(arg2);
+  {
+    try {
+      (arg1)->GetForegroundWindow(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long_SS_long((*arg2)), 1);
@@ -5606,17 +5977,27 @@ SWIGINTERN PyObject *_wrap_Op_GetMousePointWindow(PyObject *self, PyObject *args
   LONG_PTR temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetMousePointWindow" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetMousePointWindow" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetMousePointWindow(arg2);
+  {
+    try {
+      (arg1)->GetMousePointWindow(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long_SS_long((*arg2)), 1);
@@ -5645,26 +6026,36 @@ SWIGINTERN PyObject *_wrap_Op_GetPointWindow(PyObject *self, PyObject *args) {
   LONG_PTR temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetPointWindow", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetPointWindow" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetPointWindow" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetPointWindow" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetPointWindow" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->GetPointWindow(arg2,arg3,arg4);
+  {
+    try {
+      (arg1)->GetPointWindow(arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long_SS_long((*arg4)), 1);
@@ -5690,21 +6081,31 @@ SWIGINTERN PyObject *_wrap_Op_GetProcessInfo(PyObject *self, PyObject *args) {
   std::wstring temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetProcessInfo", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetProcessInfo" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetProcessInfo" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetProcessInfo" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->GetProcessInfo(arg2,*arg3);
+  {
+    try {
+      (arg1)->GetProcessInfo(arg2,*arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg3)), 1);
@@ -5730,21 +6131,31 @@ SWIGINTERN PyObject *_wrap_Op_GetSpecialWindow(PyObject *self, PyObject *args) {
   LONG_PTR temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetSpecialWindow", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetSpecialWindow" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetSpecialWindow" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetSpecialWindow" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->GetSpecialWindow(arg2,arg3);
+  {
+    try {
+      (arg1)->GetSpecialWindow(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long_SS_long((*arg3)), 1);
@@ -5773,26 +6184,36 @@ SWIGINTERN PyObject *_wrap_Op_GetWindow(PyObject *self, PyObject *args) {
   LONG_PTR temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetWindow", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindow" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindow" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetWindow" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetWindow" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->GetWindow(SWIG_STD_MOVE(arg2),arg3,arg4);
+  {
+    try {
+      (arg1)->GetWindow(SWIG_STD_MOVE(arg2),arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long_SS_long((*arg4)), 1);
@@ -5818,21 +6239,31 @@ SWIGINTERN PyObject *_wrap_Op_GetWindowClass(PyObject *self, PyObject *args) {
   std::wstring temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetWindowClass", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindowClass" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindowClass" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetWindowClass" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
-  (arg1)->GetWindowClass(SWIG_STD_MOVE(arg2),*arg3);
+  {
+    try {
+      (arg1)->GetWindowClass(SWIG_STD_MOVE(arg2),*arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg3)), 1);
@@ -5858,21 +6289,31 @@ SWIGINTERN PyObject *_wrap_Op_GetWindowProcessId(PyObject *self, PyObject *args)
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetWindowProcessId", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindowProcessId" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindowProcessId" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetWindowProcessId" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
-  (arg1)->GetWindowProcessId(SWIG_STD_MOVE(arg2),arg3);
+  {
+    try {
+      (arg1)->GetWindowProcessId(SWIG_STD_MOVE(arg2),arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -5898,21 +6339,31 @@ SWIGINTERN PyObject *_wrap_Op_GetWindowProcessPath(PyObject *self, PyObject *arg
   std::wstring temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetWindowProcessPath", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindowProcessPath" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindowProcessPath" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetWindowProcessPath" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
-  (arg1)->GetWindowProcessPath(SWIG_STD_MOVE(arg2),*arg3);
+  {
+    try {
+      (arg1)->GetWindowProcessPath(SWIG_STD_MOVE(arg2),*arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg3)), 1);
@@ -5950,7 +6401,7 @@ SWIGINTERN PyObject *_wrap_Op_GetWindowRect(PyObject *self, PyObject *args) {
   long temp7 ;
   int res7 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   arg4 = &temp4;
   arg5 = &temp5;
@@ -5960,15 +6411,25 @@ SWIGINTERN PyObject *_wrap_Op_GetWindowRect(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_GetWindowRect", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindowRect" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindowRect" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetWindowRect" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
-  (arg1)->GetWindowRect(SWIG_STD_MOVE(arg2),arg3,arg4,arg5,arg6,arg7);
+  {
+    try {
+      (arg1)->GetWindowRect(SWIG_STD_MOVE(arg2),arg3,arg4,arg5,arg6,arg7);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -6021,26 +6482,36 @@ SWIGINTERN PyObject *_wrap_Op_GetWindowState(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetWindowState", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindowState" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindowState" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetWindowState" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetWindowState" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->GetWindowState(SWIG_STD_MOVE(arg2),arg3,arg4);
+  {
+    try {
+      (arg1)->GetWindowState(SWIG_STD_MOVE(arg2),arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -6066,21 +6537,31 @@ SWIGINTERN PyObject *_wrap_Op_GetWindowTitle(PyObject *self, PyObject *args) {
   std::wstring temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetWindowTitle", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindowTitle" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWindowTitle" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetWindowTitle" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
-  (arg1)->GetWindowTitle(SWIG_STD_MOVE(arg2),*arg3);
+  {
+    try {
+      (arg1)->GetWindowTitle(SWIG_STD_MOVE(arg2),*arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg3)), 1);
@@ -6112,31 +6593,41 @@ SWIGINTERN PyObject *_wrap_Op_MoveWindow(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_MoveWindow", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MoveWindow" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MoveWindow" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_MoveWindow" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_MoveWindow" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_MoveWindow" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
-  (arg1)->MoveWindow(SWIG_STD_MOVE(arg2),arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->MoveWindow(SWIG_STD_MOVE(arg2),arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -6168,7 +6659,7 @@ SWIGINTERN PyObject *_wrap_Op_ScreenToClient(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   arg4 = &temp4;
   arg5 = &temp5;
@@ -6176,15 +6667,25 @@ SWIGINTERN PyObject *_wrap_Op_ScreenToClient(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_ScreenToClient", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ScreenToClient" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ScreenToClient" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_ScreenToClient" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
-  (arg1)->ScreenToClient(SWIG_STD_MOVE(arg2),arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->ScreenToClient(SWIG_STD_MOVE(arg2),arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -6222,21 +6723,31 @@ SWIGINTERN PyObject *_wrap_Op_SendPaste(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SendPaste", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SendPaste" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SendPaste" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SendPaste" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
-  (arg1)->SendPaste(SWIG_STD_MOVE(arg2),arg3);
+  {
+    try {
+      (arg1)->SendPaste(SWIG_STD_MOVE(arg2),arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -6268,31 +6779,41 @@ SWIGINTERN PyObject *_wrap_Op_SetClientSize(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetClientSize", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetClientSize" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetClientSize" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetClientSize" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_SetClientSize" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_SetClientSize" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
-  (arg1)->SetClientSize(SWIG_STD_MOVE(arg2),arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->SetClientSize(SWIG_STD_MOVE(arg2),arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -6321,26 +6842,36 @@ SWIGINTERN PyObject *_wrap_Op_SetWindowState(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetWindowState", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetWindowState" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetWindowState" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetWindowState" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_SetWindowState" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->SetWindowState(SWIG_STD_MOVE(arg2),arg3,arg4);
+  {
+    try {
+      (arg1)->SetWindowState(SWIG_STD_MOVE(arg2),arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -6372,31 +6903,41 @@ SWIGINTERN PyObject *_wrap_Op_SetWindowSize(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetWindowSize", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetWindowSize" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetWindowSize" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetWindowSize" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_SetWindowSize" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_SetWindowSize" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
-  (arg1)->SetWindowSize(SWIG_STD_MOVE(arg2),arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->SetWindowSize(SWIG_STD_MOVE(arg2),arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -6453,13 +6994,13 @@ SWIGINTERN PyObject *_wrap_Op_LayoutWindows(PyObject *self, PyObject *args) {
   long temp13 ;
   int res13 = SWIG_TMPOBJ ;
   PyObject *swig_obj[12] ;
-
+  
   arg13 = &temp13;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_LayoutWindows", 12, 12, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LayoutWindows" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LayoutWindows" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -6470,54 +7011,64 @@ SWIGINTERN PyObject *_wrap_Op_LayoutWindows(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_LayoutWindows" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_LayoutWindows" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_LayoutWindows" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   ecode6 = SWIG_AsVal_long(swig_obj[5], &val6);
   if (!SWIG_IsOK(ecode6)) {
     SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "Op_LayoutWindows" "', argument " "6"" of type '" "long""'");
-  }
+  } 
   arg6 = static_cast< long >(val6);
   ecode7 = SWIG_AsVal_long(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_LayoutWindows" "', argument " "7"" of type '" "long""'");
-  }
+  } 
   arg7 = static_cast< long >(val7);
   ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_LayoutWindows" "', argument " "8"" of type '" "long""'");
-  }
+  } 
   arg8 = static_cast< long >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_LayoutWindows" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
   ecode10 = SWIG_AsVal_long(swig_obj[9], &val10);
   if (!SWIG_IsOK(ecode10)) {
     SWIG_exception_fail(SWIG_ArgError(ecode10), "in method '" "Op_LayoutWindows" "', argument " "10"" of type '" "long""'");
-  }
+  } 
   arg10 = static_cast< long >(val10);
   ecode11 = SWIG_AsVal_long(swig_obj[10], &val11);
   if (!SWIG_IsOK(ecode11)) {
     SWIG_exception_fail(SWIG_ArgError(ecode11), "in method '" "Op_LayoutWindows" "', argument " "11"" of type '" "long""'");
-  }
+  } 
   arg11 = static_cast< long >(val11);
   ecode12 = SWIG_AsVal_long(swig_obj[11], &val12);
   if (!SWIG_IsOK(ecode12)) {
     SWIG_exception_fail(SWIG_ArgError(ecode12), "in method '" "Op_LayoutWindows" "', argument " "12"" of type '" "long""'");
-  }
+  } 
   arg12 = static_cast< long >(val12);
-  (arg1)->LayoutWindows((wchar_t const *)arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13);
+  {
+    try {
+      (arg1)->LayoutWindows((wchar_t const *)arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res13)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg13)), 1);
@@ -6549,26 +7100,36 @@ SWIGINTERN PyObject *_wrap_Op_SetWindowText(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetWindowText", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetWindowText" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetWindowText" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetWindowText" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_SetWindowText" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->SetWindowText(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->SetWindowText(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -6599,26 +7160,36 @@ SWIGINTERN PyObject *_wrap_Op_SetWindowTransparent(PyObject *self, PyObject *arg
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetWindowTransparent", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetWindowTransparent" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetWindowTransparent" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetWindowTransparent" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_SetWindowTransparent" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->SetWindowTransparent(SWIG_STD_MOVE(arg2),arg3,arg4);
+  {
+    try {
+      (arg1)->SetWindowTransparent(SWIG_STD_MOVE(arg2),arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -6648,26 +7219,36 @@ SWIGINTERN PyObject *_wrap_Op_SendString(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SendString", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SendString" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SendString" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SendString" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_SendString" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->SendString(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->SendString(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -6699,26 +7280,36 @@ SWIGINTERN PyObject *_wrap_Op_SendStringIme(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SendStringIme", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SendStringIme" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SendStringIme" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SendStringIme" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_SendStringIme" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->SendStringIme(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->SendStringIme(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -6752,13 +7343,13 @@ SWIGINTERN PyObject *_wrap_Op_RunApp__SWIG_0(PyObject *self, Py_ssize_t nobjs, P
   int res4 = 0 ;
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
-
+  
   arg5 = &temp5;
   (void)self;
   if ((nobjs < 4) || (nobjs > 4)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RunApp" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RunApp" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -6769,14 +7360,24 @@ SWIGINTERN PyObject *_wrap_Op_RunApp__SWIG_0(PyObject *self, Py_ssize_t nobjs, P
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_RunApp" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   res4 = SWIG_ConvertPtr(swig_obj[3], &argp4,SWIGTYPE_p_unsigned_long, 0 |  0 );
   if (!SWIG_IsOK(res4)) {
-    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_RunApp" "', argument " "4"" of type '" "unsigned long *""'");
+    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_RunApp" "', argument " "4"" of type '" "unsigned long *""'"); 
   }
   arg4 = reinterpret_cast< unsigned long * >(argp4);
-  (arg1)->RunApp((wchar_t const *)arg2,arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->RunApp((wchar_t const *)arg2,arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -6808,13 +7409,13 @@ SWIGINTERN PyObject *_wrap_Op_WinExec(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_WinExec", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WinExec" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WinExec" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -6825,9 +7426,19 @@ SWIGINTERN PyObject *_wrap_Op_WinExec(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_WinExec" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->WinExec((wchar_t const *)arg2,arg3,arg4);
+  {
+    try {
+      (arg1)->WinExec((wchar_t const *)arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -6859,13 +7470,13 @@ SWIGINTERN PyObject *_wrap_Op_GetCmdStr(PyObject *self, PyObject *args) {
   std::wstring temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetCmdStr", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetCmdStr" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetCmdStr" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -6876,9 +7487,19 @@ SWIGINTERN PyObject *_wrap_Op_GetCmdStr(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetCmdStr" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->GetCmdStr((wchar_t const *)arg2,arg3,*arg4);
+  {
+    try {
+      (arg1)->GetCmdStr((wchar_t const *)arg2,arg3,*arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg4)), 1);
@@ -6907,13 +7528,13 @@ SWIGINTERN PyObject *_wrap_Op_SetClipboard(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetClipboard", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetClipboard" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetClipboard" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -6921,7 +7542,17 @@ SWIGINTERN PyObject *_wrap_Op_SetClipboard(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_SetClipboard" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->SetClipboard((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->SetClipboard((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -6946,17 +7577,27 @@ SWIGINTERN PyObject *_wrap_Op_GetClipboard(PyObject *self, PyObject *args) {
   std::wstring temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetClipboard" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetClipboard" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetClipboard(*arg2);
+  {
+    try {
+      (arg1)->GetClipboard(*arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg2)), 1);
@@ -6982,21 +7623,31 @@ SWIGINTERN PyObject *_wrap_Op_Delay(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_Delay", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Delay" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Delay" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_Delay" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->Delay(arg2,arg3);
+  {
+    try {
+      (arg1)->Delay(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -7025,26 +7676,36 @@ SWIGINTERN PyObject *_wrap_Op_Delays(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_Delays", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Delays" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Delays" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_Delays" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_Delays" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->Delays(arg2,arg3,arg4);
+  {
+    try {
+      (arg1)->Delays(arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -7085,19 +7746,19 @@ SWIGINTERN PyObject *_wrap_Op_BindWindow(PyObject *self, PyObject *args) {
   long temp7 ;
   int res7 = SWIG_TMPOBJ ;
   PyObject *swig_obj[6] ;
-
+  
   arg7 = &temp7;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_BindWindow", 6, 6, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_BindWindow" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_BindWindow" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_BindWindow" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -7117,9 +7778,19 @@ SWIGINTERN PyObject *_wrap_Op_BindWindow(PyObject *self, PyObject *args) {
   ecode6 = SWIG_AsVal_long(swig_obj[5], &val6);
   if (!SWIG_IsOK(ecode6)) {
     SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "Op_BindWindow" "', argument " "6"" of type '" "long""'");
-  }
+  } 
   arg6 = static_cast< long >(val6);
-  (arg1)->BindWindow(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,(wchar_t const *)arg4,(wchar_t const *)arg5,arg6,arg7);
+  {
+    try {
+      (arg1)->BindWindow(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,(wchar_t const *)arg4,(wchar_t const *)arg5,arg6,arg7);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res7)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg7)), 1);
@@ -7169,24 +7840,24 @@ SWIGINTERN PyObject *_wrap_Op_BindWindowEx(PyObject *self, PyObject *args) {
   long temp8 ;
   int res8 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_BindWindowEx", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_BindWindowEx" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_BindWindowEx" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_BindWindowEx" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   ecode3 = SWIG_AsVal_long_SS_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_BindWindowEx" "', argument " "3"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg3 = static_cast< LONG_PTR >(val3);
   res4 = SWIG_AsWCharPtrAndSize(swig_obj[3], &buf4, NULL, &alloc4);
   if (!SWIG_IsOK(res4)) {
@@ -7206,9 +7877,19 @@ SWIGINTERN PyObject *_wrap_Op_BindWindowEx(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_long(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_BindWindowEx" "', argument " "7"" of type '" "long""'");
-  }
+  } 
   arg7 = static_cast< long >(val7);
-  (arg1)->BindWindowEx(SWIG_STD_MOVE(arg2),SWIG_STD_MOVE(arg3),(wchar_t const *)arg4,(wchar_t const *)arg5,(wchar_t const *)arg6,arg7,arg8);
+  {
+    try {
+      (arg1)->BindWindowEx(SWIG_STD_MOVE(arg2),SWIG_STD_MOVE(arg3),(wchar_t const *)arg4,(wchar_t const *)arg5,(wchar_t const *)arg6,arg7,arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg8)), 1);
@@ -7237,17 +7918,27 @@ SWIGINTERN PyObject *_wrap_Op_UnBindWindow(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_UnBindWindow" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_UnBindWindow" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->UnBindWindow(arg2);
+  {
+    try {
+      (arg1)->UnBindWindow(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -7273,27 +7964,138 @@ SWIGINTERN PyObject *_wrap_Op_LockInput(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_LockInput", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LockInput" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LockInput" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_LockInput" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->LockInput(arg2,arg3);
+  {
+    try {
+      (arg1)->LockInput(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
   } else {
     int new_flags = SWIG_IsNewObj(res3) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg3), SWIGTYPE_p_long, new_flags), 1);
+  }
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_SetDxAttr(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long arg2 ;
+  long arg3 ;
+  long *arg4 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long val2 ;
+  int ecode2 = 0 ;
+  long val3 ;
+  int ecode3 = 0 ;
+  long temp4 ;
+  int res4 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[3] ;
+  
+  arg4 = &temp4;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_SetDxAttr", 3, 3, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetDxAttr" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetDxAttr" "', argument " "2"" of type '" "long""'");
+  } 
+  arg2 = static_cast< long >(val2);
+  ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_SetDxAttr" "', argument " "3"" of type '" "long""'");
+  } 
+  arg3 = static_cast< long >(val3);
+  {
+    try {
+      (arg1)->SetDxAttr(arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res4)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res4) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg4), SWIGTYPE_p_long, new_flags), 1);
+  }
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_GetDxAttr(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long temp2 ;
+  int res2 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[1] ;
+  
+  arg2 = &temp2;
+  (void)self;
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetDxAttr" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  {
+    try {
+      (arg1)->GetDxAttr(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res2)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res2) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg2), SWIGTYPE_p_long, new_flags), 1);
   }
   return resultobj;
 fail:
@@ -7310,17 +8112,27 @@ SWIGINTERN PyObject *_wrap_Op_GetBindWindow(PyObject *self, PyObject *args) {
   LONG_PTR temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetBindWindow" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetBindWindow" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetBindWindow(arg2);
+  {
+    try {
+      (arg1)->GetBindWindow(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long_SS_long((*arg2)), 1);
@@ -7343,17 +8155,27 @@ SWIGINTERN PyObject *_wrap_Op_IsBind(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_IsBind" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_IsBind" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->IsBind(arg2);
+  {
+    try {
+      (arg1)->IsBind(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -7382,7 +8204,7 @@ SWIGINTERN PyObject *_wrap_Op_GetCursorPos(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   arg3 = &temp3;
   arg4 = &temp4;
@@ -7391,10 +8213,20 @@ SWIGINTERN PyObject *_wrap_Op_GetCursorPos(PyObject *self, PyObject *args) {
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetCursorPos" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetCursorPos" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetCursorPos(arg2,arg3,arg4);
+  {
+    try {
+      (arg1)->GetCursorPos(arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -7429,17 +8261,27 @@ SWIGINTERN PyObject *_wrap_Op_GetCursorShape(PyObject *self, PyObject *args) {
   std::wstring temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetCursorShape" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetCursorShape" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetCursorShape(*arg2);
+  {
+    try {
+      (arg1)->GetCursorShape(*arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg2)), 1);
@@ -7468,26 +8310,36 @@ SWIGINTERN PyObject *_wrap_Op_MoveR(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_MoveR", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MoveR" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MoveR" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_MoveR" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_MoveR" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->MoveR(arg2,arg3,arg4);
+  {
+    try {
+      (arg1)->MoveR(arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -7516,26 +8368,36 @@ SWIGINTERN PyObject *_wrap_Op_MoveTo(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_MoveTo", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MoveTo" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MoveTo" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_MoveTo" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_MoveTo" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->MoveTo(arg2,arg3,arg4);
+  {
+    try {
+      (arg1)->MoveTo(arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -7570,36 +8432,46 @@ SWIGINTERN PyObject *_wrap_Op_MoveToEx(PyObject *self, PyObject *args) {
   std::wstring temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_MoveToEx", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MoveToEx" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MoveToEx" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_MoveToEx" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_MoveToEx" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_MoveToEx" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_MoveToEx" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
-  (arg1)->MoveToEx(arg2,arg3,arg4,arg5,*arg6);
+  {
+    try {
+      (arg1)->MoveToEx(arg2,arg3,arg4,arg5,*arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg6)), 1);
@@ -7631,31 +8503,41 @@ SWIGINTERN PyObject *_wrap_Op_MoveToSmooth(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_MoveToSmooth", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MoveToSmooth" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MoveToSmooth" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_MoveToSmooth" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_MoveToSmooth" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_MoveToSmooth" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
-  (arg1)->MoveToSmooth(arg2,arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->MoveToSmooth(arg2,arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -7693,41 +8575,51 @@ SWIGINTERN PyObject *_wrap_Op_MoveToExSmooth(PyObject *self, PyObject *args) {
   std::wstring temp7 ;
   int res7 = SWIG_TMPOBJ ;
   PyObject *swig_obj[6] ;
-
+  
   arg7 = &temp7;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_MoveToExSmooth", 6, 6, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MoveToExSmooth" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MoveToExSmooth" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_MoveToExSmooth" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_MoveToExSmooth" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_MoveToExSmooth" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_MoveToExSmooth" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   ecode6 = SWIG_AsVal_long(swig_obj[5], &val6);
   if (!SWIG_IsOK(ecode6)) {
     SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "Op_MoveToExSmooth" "', argument " "6"" of type '" "long""'");
-  }
+  } 
   arg6 = static_cast< long >(val6);
-  (arg1)->MoveToExSmooth(arg2,arg3,arg4,arg5,arg6,*arg7);
+  {
+    try {
+      (arg1)->MoveToExSmooth(arg2,arg3,arg4,arg5,arg6,*arg7);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res7)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg7)), 1);
@@ -7757,13 +8649,13 @@ SWIGINTERN PyObject *_wrap_Op_MovePath(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_MovePath", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MovePath" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MovePath" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -7774,9 +8666,19 @@ SWIGINTERN PyObject *_wrap_Op_MovePath(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_MovePath" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->MovePath((wchar_t const *)arg2,arg3,arg4);
+  {
+    try {
+      (arg1)->MovePath((wchar_t const *)arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -7808,13 +8710,13 @@ SWIGINTERN PyObject *_wrap_Op_DragPath(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_DragPath", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_DragPath" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_DragPath" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -7825,9 +8727,19 @@ SWIGINTERN PyObject *_wrap_Op_DragPath(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_DragPath" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->DragPath((wchar_t const *)arg2,arg3,arg4);
+  {
+    try {
+      (arg1)->DragPath((wchar_t const *)arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -7870,46 +8782,56 @@ SWIGINTERN PyObject *_wrap_Op_SetMouseTrajectory(PyObject *self, PyObject *args)
   long temp8 ;
   int res8 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetMouseTrajectory", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetMouseTrajectory" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetMouseTrajectory" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetMouseTrajectory" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_SetMouseTrajectory" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_SetMouseTrajectory" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_SetMouseTrajectory" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   ecode6 = SWIG_AsVal_long(swig_obj[5], &val6);
   if (!SWIG_IsOK(ecode6)) {
     SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "Op_SetMouseTrajectory" "', argument " "6"" of type '" "long""'");
-  }
+  } 
   arg6 = static_cast< long >(val6);
   ecode7 = SWIG_AsVal_long(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_SetMouseTrajectory" "', argument " "7"" of type '" "long""'");
-  }
+  } 
   arg7 = static_cast< long >(val7);
-  (arg1)->SetMouseTrajectory(arg2,arg3,arg4,arg5,arg6,arg7,arg8);
+  {
+    try {
+      (arg1)->SetMouseTrajectory(arg2,arg3,arg4,arg5,arg6,arg7,arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg8)), 1);
@@ -7932,17 +8854,27 @@ SWIGINTERN PyObject *_wrap_Op_LeftClick(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LeftClick" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LeftClick" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->LeftClick(arg2);
+  {
+    try {
+      (arg1)->LeftClick(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -7965,17 +8897,27 @@ SWIGINTERN PyObject *_wrap_Op_LeftDoubleClick(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LeftDoubleClick" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LeftDoubleClick" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->LeftDoubleClick(arg2);
+  {
+    try {
+      (arg1)->LeftDoubleClick(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -7998,17 +8940,27 @@ SWIGINTERN PyObject *_wrap_Op_LeftDown(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LeftDown" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LeftDown" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->LeftDown(arg2);
+  {
+    try {
+      (arg1)->LeftDown(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8031,17 +8983,27 @@ SWIGINTERN PyObject *_wrap_Op_LeftUp(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LeftUp" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LeftUp" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->LeftUp(arg2);
+  {
+    try {
+      (arg1)->LeftUp(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8064,17 +9026,27 @@ SWIGINTERN PyObject *_wrap_Op_MiddleClick(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MiddleClick" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MiddleClick" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->MiddleClick(arg2);
+  {
+    try {
+      (arg1)->MiddleClick(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8097,17 +9069,27 @@ SWIGINTERN PyObject *_wrap_Op_MiddleDoubleClick(PyObject *self, PyObject *args) 
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MiddleDoubleClick" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MiddleDoubleClick" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->MiddleDoubleClick(arg2);
+  {
+    try {
+      (arg1)->MiddleDoubleClick(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8130,17 +9112,27 @@ SWIGINTERN PyObject *_wrap_Op_MiddleDown(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MiddleDown" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MiddleDown" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->MiddleDown(arg2);
+  {
+    try {
+      (arg1)->MiddleDown(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8163,17 +9155,27 @@ SWIGINTERN PyObject *_wrap_Op_MiddleUp(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MiddleUp" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MiddleUp" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->MiddleUp(arg2);
+  {
+    try {
+      (arg1)->MiddleUp(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8196,17 +9198,27 @@ SWIGINTERN PyObject *_wrap_Op_RightClick(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RightClick" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RightClick" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->RightClick(arg2);
+  {
+    try {
+      (arg1)->RightClick(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8229,17 +9241,27 @@ SWIGINTERN PyObject *_wrap_Op_RightDoubleClick(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RightDoubleClick" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RightDoubleClick" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->RightDoubleClick(arg2);
+  {
+    try {
+      (arg1)->RightDoubleClick(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8262,17 +9284,27 @@ SWIGINTERN PyObject *_wrap_Op_RightDown(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RightDown" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RightDown" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->RightDown(arg2);
+  {
+    try {
+      (arg1)->RightDown(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8295,17 +9327,27 @@ SWIGINTERN PyObject *_wrap_Op_RightUp(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RightUp" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RightUp" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->RightUp(arg2);
+  {
+    try {
+      (arg1)->RightUp(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8328,17 +9370,27 @@ SWIGINTERN PyObject *_wrap_Op_XButton1Click(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton1Click" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton1Click" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->XButton1Click(arg2);
+  {
+    try {
+      (arg1)->XButton1Click(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8361,17 +9413,27 @@ SWIGINTERN PyObject *_wrap_Op_XButton1DoubleClick(PyObject *self, PyObject *args
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton1DoubleClick" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton1DoubleClick" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->XButton1DoubleClick(arg2);
+  {
+    try {
+      (arg1)->XButton1DoubleClick(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8394,17 +9456,27 @@ SWIGINTERN PyObject *_wrap_Op_XButton1Down(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton1Down" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton1Down" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->XButton1Down(arg2);
+  {
+    try {
+      (arg1)->XButton1Down(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8427,17 +9499,27 @@ SWIGINTERN PyObject *_wrap_Op_XButton1Up(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton1Up" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton1Up" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->XButton1Up(arg2);
+  {
+    try {
+      (arg1)->XButton1Up(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8460,17 +9542,27 @@ SWIGINTERN PyObject *_wrap_Op_XButton2Click(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton2Click" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton2Click" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->XButton2Click(arg2);
+  {
+    try {
+      (arg1)->XButton2Click(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8493,17 +9585,27 @@ SWIGINTERN PyObject *_wrap_Op_XButton2DoubleClick(PyObject *self, PyObject *args
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton2DoubleClick" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton2DoubleClick" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->XButton2DoubleClick(arg2);
+  {
+    try {
+      (arg1)->XButton2DoubleClick(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8526,17 +9628,27 @@ SWIGINTERN PyObject *_wrap_Op_XButton2Down(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton2Down" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton2Down" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->XButton2Down(arg2);
+  {
+    try {
+      (arg1)->XButton2Down(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8559,17 +9671,27 @@ SWIGINTERN PyObject *_wrap_Op_XButton2Up(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton2Up" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_XButton2Up" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->XButton2Up(arg2);
+  {
+    try {
+      (arg1)->XButton2Up(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8595,21 +9717,31 @@ SWIGINTERN PyObject *_wrap_Op_Wheel(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_Wheel", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Wheel" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Wheel" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_Wheel" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->Wheel(arg2,arg3);
+  {
+    try {
+      (arg1)->Wheel(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -8635,21 +9767,31 @@ SWIGINTERN PyObject *_wrap_Op_HWheel(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_HWheel", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_HWheel" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_HWheel" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_HWheel" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->HWheel(arg2,arg3);
+  {
+    try {
+      (arg1)->HWheel(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -8672,17 +9814,27 @@ SWIGINTERN PyObject *_wrap_Op_WheelDown(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WheelDown" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WheelDown" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->WheelDown(arg2);
+  {
+    try {
+      (arg1)->WheelDown(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8705,17 +9857,27 @@ SWIGINTERN PyObject *_wrap_Op_WheelUp(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WheelUp" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WheelUp" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->WheelUp(arg2);
+  {
+    try {
+      (arg1)->WheelUp(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -8745,13 +9907,13 @@ SWIGINTERN PyObject *_wrap_Op_SetMouseDelay(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetMouseDelay", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetMouseDelay" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetMouseDelay" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -8762,9 +9924,19 @@ SWIGINTERN PyObject *_wrap_Op_SetMouseDelay(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_SetMouseDelay" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->SetMouseDelay((wchar_t const *)arg2,arg3,arg4);
+  {
+    try {
+      (arg1)->SetMouseDelay((wchar_t const *)arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -8792,21 +9964,31 @@ SWIGINTERN PyObject *_wrap_Op_GetKeyState(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetKeyState", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetKeyState" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetKeyState" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetKeyState" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->GetKeyState(arg2,arg3);
+  {
+    try {
+      (arg1)->GetKeyState(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -8832,21 +10014,31 @@ SWIGINTERN PyObject *_wrap_Op_KeyDown(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_KeyDown", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyDown" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyDown" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_KeyDown" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->KeyDown(arg2,arg3);
+  {
+    try {
+      (arg1)->KeyDown(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -8873,13 +10065,13 @@ SWIGINTERN PyObject *_wrap_Op_KeyDownChar(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_KeyDownChar", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyDownChar" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyDownChar" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -8887,7 +10079,17 @@ SWIGINTERN PyObject *_wrap_Op_KeyDownChar(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_KeyDownChar" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->KeyDownChar((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->KeyDownChar((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -8915,21 +10117,31 @@ SWIGINTERN PyObject *_wrap_Op_KeyUp(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_KeyUp", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyUp" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyUp" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_KeyUp" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->KeyUp(arg2,arg3);
+  {
+    try {
+      (arg1)->KeyUp(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -8956,13 +10168,13 @@ SWIGINTERN PyObject *_wrap_Op_KeyUpChar(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_KeyUpChar", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyUpChar" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyUpChar" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -8970,7 +10182,17 @@ SWIGINTERN PyObject *_wrap_Op_KeyUpChar(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_KeyUpChar" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->KeyUpChar((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->KeyUpChar((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -9001,26 +10223,36 @@ SWIGINTERN PyObject *_wrap_Op_WaitKey(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_WaitKey", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WaitKey" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WaitKey" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_WaitKey" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_WaitKey" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->WaitKey(arg2,arg3,arg4);
+  {
+    try {
+      (arg1)->WaitKey(arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -9046,21 +10278,31 @@ SWIGINTERN PyObject *_wrap_Op_KeyPress(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_KeyPress", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyPress" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyPress" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_KeyPress" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->KeyPress(arg2,arg3);
+  {
+    try {
+      (arg1)->KeyPress(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -9087,13 +10329,13 @@ SWIGINTERN PyObject *_wrap_Op_KeyPressChar(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_KeyPressChar", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyPressChar" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyPressChar" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -9101,7 +10343,17 @@ SWIGINTERN PyObject *_wrap_Op_KeyPressChar(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_KeyPressChar" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->KeyPressChar((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->KeyPressChar((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -9133,13 +10385,13 @@ SWIGINTERN PyObject *_wrap_Op_SetKeypadDelay(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetKeypadDelay", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetKeypadDelay" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetKeypadDelay" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -9150,9 +10402,19 @@ SWIGINTERN PyObject *_wrap_Op_SetKeypadDelay(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_SetKeypadDelay" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->SetKeypadDelay((wchar_t const *)arg2,arg3,arg4);
+  {
+    try {
+      (arg1)->SetKeypadDelay((wchar_t const *)arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -9184,13 +10446,13 @@ SWIGINTERN PyObject *_wrap_Op_KeyPressStr(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_KeyPressStr", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyPressStr" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_KeyPressStr" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -9201,9 +10463,19 @@ SWIGINTERN PyObject *_wrap_Op_KeyPressStr(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_KeyPressStr" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->KeyPressStr((wchar_t const *)arg2,arg3,arg4);
+  {
+    try {
+      (arg1)->KeyPressStr((wchar_t const *)arg2,arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -9244,41 +10516,51 @@ SWIGINTERN PyObject *_wrap_Op_Capture(PyObject *self, PyObject *args) {
   long temp7 ;
   int res7 = SWIG_TMPOBJ ;
   PyObject *swig_obj[6] ;
-
+  
   arg7 = &temp7;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_Capture", 6, 6, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Capture" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Capture" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_Capture" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_Capture" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_Capture" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_Capture" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
     SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "Op_Capture" "', argument " "6"" of type '" "wchar_t const *""'");
   }
   arg6 = reinterpret_cast< wchar_t * >(buf6);
-  (arg1)->Capture(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7);
+  {
+    try {
+      (arg1)->Capture(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res7)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg7)), 1);
@@ -9316,24 +10598,24 @@ SWIGINTERN PyObject *_wrap_Op_CmpColor(PyObject *self, PyObject *args) {
   long temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CmpColor", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CmpColor" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CmpColor" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_CmpColor" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_CmpColor" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   res4 = SWIG_AsWCharPtrAndSize(swig_obj[3], &buf4, NULL, &alloc4);
   if (!SWIG_IsOK(res4)) {
@@ -9343,9 +10625,19 @@ SWIGINTERN PyObject *_wrap_Op_CmpColor(PyObject *self, PyObject *args) {
   ecode5 = SWIG_AsVal_double(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CmpColor" "', argument " "5"" of type '" "double""'");
-  }
+  } 
   arg5 = static_cast< double >(val5);
-  (arg1)->CmpColor(arg2,arg3,(wchar_t const *)arg4,arg5,arg6);
+  {
+    try {
+      (arg1)->CmpColor(arg2,arg3,(wchar_t const *)arg4,arg5,arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg6)), 1);
@@ -9398,7 +10690,7 @@ SWIGINTERN PyObject *_wrap_Op_FindColor(PyObject *self, PyObject *args) {
   long temp11 ;
   int res11 = SWIG_TMPOBJ ;
   PyObject *swig_obj[8] ;
-
+  
   arg9 = &temp9;
   arg10 = &temp10;
   arg11 = &temp11;
@@ -9406,28 +10698,28 @@ SWIGINTERN PyObject *_wrap_Op_FindColor(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_FindColor", 8, 8, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindColor" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindColor" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindColor" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindColor" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindColor" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindColor" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -9437,14 +10729,24 @@ SWIGINTERN PyObject *_wrap_Op_FindColor(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_FindColor" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindColor" "', argument " "8"" of type '" "long""'");
-  }
+  } 
   arg8 = static_cast< long >(val8);
-  (arg1)->FindColor(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,arg11);
+  {
+    try {
+      (arg1)->FindColor(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,arg11);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res9)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg9)), 1);
@@ -9503,34 +10805,34 @@ SWIGINTERN PyObject *_wrap_Op_FindColorEx(PyObject *self, PyObject *args) {
   std::wstring temp9 ;
   int res9 = SWIG_TMPOBJ ;
   PyObject *swig_obj[8] ;
-
+  
   arg9 = &temp9;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FindColorEx", 8, 8, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindColorEx" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindColorEx" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindColorEx" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindColorEx" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindColorEx" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindColorEx" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -9540,14 +10842,24 @@ SWIGINTERN PyObject *_wrap_Op_FindColorEx(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_FindColorEx" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindColorEx" "', argument " "8"" of type '" "long""'");
-  }
+  } 
   arg8 = static_cast< long >(val8);
-  (arg1)->FindColorEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,*arg9);
+  {
+    try {
+      (arg1)->FindColorEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,*arg9);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res9)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg9)), 1);
@@ -9591,34 +10903,34 @@ SWIGINTERN PyObject *_wrap_Op_GetColorNum(PyObject *self, PyObject *args) {
   long temp8 ;
   int res8 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetColorNum", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetColorNum" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetColorNum" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetColorNum" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetColorNum" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_GetColorNum" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_GetColorNum" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -9628,9 +10940,19 @@ SWIGINTERN PyObject *_wrap_Op_GetColorNum(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_GetColorNum" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
-  (arg1)->GetColorNum(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8);
+  {
+    try {
+      (arg1)->GetColorNum(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg8)), 1);
@@ -9687,7 +11009,7 @@ SWIGINTERN PyObject *_wrap_Op_FindMultiColor(PyObject *self, PyObject *args) {
   long temp12 ;
   int res12 = SWIG_TMPOBJ ;
   PyObject *swig_obj[9] ;
-
+  
   arg10 = &temp10;
   arg11 = &temp11;
   arg12 = &temp12;
@@ -9695,28 +11017,28 @@ SWIGINTERN PyObject *_wrap_Op_FindMultiColor(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_FindMultiColor", 9, 9, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindMultiColor" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindMultiColor" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindMultiColor" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindMultiColor" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindMultiColor" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindMultiColor" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -9731,14 +11053,24 @@ SWIGINTERN PyObject *_wrap_Op_FindMultiColor(PyObject *self, PyObject *args) {
   ecode8 = SWIG_AsVal_double(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindMultiColor" "', argument " "8"" of type '" "double""'");
-  }
+  } 
   arg8 = static_cast< double >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_FindMultiColor" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
-  (arg1)->FindMultiColor(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,arg10,arg11,arg12);
+  {
+    try {
+      (arg1)->FindMultiColor(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,arg10,arg11,arg12);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res10)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg10)), 1);
@@ -9803,34 +11135,34 @@ SWIGINTERN PyObject *_wrap_Op_FindMultiColorEx(PyObject *self, PyObject *args) {
   std::wstring temp10 ;
   int res10 = SWIG_TMPOBJ ;
   PyObject *swig_obj[9] ;
-
+  
   arg10 = &temp10;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FindMultiColorEx", 9, 9, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindMultiColorEx" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindMultiColorEx" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindMultiColorEx" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindMultiColorEx" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindMultiColorEx" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindMultiColorEx" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -9845,14 +11177,24 @@ SWIGINTERN PyObject *_wrap_Op_FindMultiColorEx(PyObject *self, PyObject *args) {
   ecode8 = SWIG_AsVal_double(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindMultiColorEx" "', argument " "8"" of type '" "double""'");
-  }
+  } 
   arg8 = static_cast< double >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_FindMultiColorEx" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
-  (arg1)->FindMultiColorEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,*arg10);
+  {
+    try {
+      (arg1)->FindMultiColorEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,*arg10);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res10)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg10)), 1);
@@ -9911,7 +11253,7 @@ SWIGINTERN PyObject *_wrap_Op_FindPic(PyObject *self, PyObject *args) {
   long temp12 ;
   int res12 = SWIG_TMPOBJ ;
   PyObject *swig_obj[9] ;
-
+  
   arg10 = &temp10;
   arg11 = &temp11;
   arg12 = &temp12;
@@ -9919,28 +11261,28 @@ SWIGINTERN PyObject *_wrap_Op_FindPic(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_FindPic", 9, 9, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindPic" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindPic" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindPic" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindPic" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindPic" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindPic" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -9955,14 +11297,24 @@ SWIGINTERN PyObject *_wrap_Op_FindPic(PyObject *self, PyObject *args) {
   ecode8 = SWIG_AsVal_double(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindPic" "', argument " "8"" of type '" "double""'");
-  }
+  } 
   arg8 = static_cast< double >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_FindPic" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
-  (arg1)->FindPic(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,arg10,arg11,arg12);
+  {
+    try {
+      (arg1)->FindPic(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,arg10,arg11,arg12);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res10)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg10)), 1);
@@ -10027,34 +11379,34 @@ SWIGINTERN PyObject *_wrap_Op_FindPicEx(PyObject *self, PyObject *args) {
   std::wstring temp10 ;
   int res10 = SWIG_TMPOBJ ;
   PyObject *swig_obj[9] ;
-
+  
   arg10 = &temp10;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FindPicEx", 9, 9, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindPicEx" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindPicEx" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindPicEx" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindPicEx" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindPicEx" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindPicEx" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -10069,14 +11421,24 @@ SWIGINTERN PyObject *_wrap_Op_FindPicEx(PyObject *self, PyObject *args) {
   ecode8 = SWIG_AsVal_double(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindPicEx" "', argument " "8"" of type '" "double""'");
-  }
+  } 
   arg8 = static_cast< double >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_FindPicEx" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
-  (arg1)->FindPicEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,*arg10);
+  {
+    try {
+      (arg1)->FindPicEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,*arg10);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res10)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg10)), 1);
@@ -10129,34 +11491,34 @@ SWIGINTERN PyObject *_wrap_Op_FindPicExS(PyObject *self, PyObject *args) {
   std::wstring temp10 ;
   int res10 = SWIG_TMPOBJ ;
   PyObject *swig_obj[9] ;
-
+  
   arg10 = &temp10;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FindPicExS", 9, 9, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindPicExS" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindPicExS" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindPicExS" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindPicExS" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindPicExS" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindPicExS" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -10171,14 +11533,24 @@ SWIGINTERN PyObject *_wrap_Op_FindPicExS(PyObject *self, PyObject *args) {
   ecode8 = SWIG_AsVal_double(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindPicExS" "', argument " "8"" of type '" "double""'");
-  }
+  } 
   arg8 = static_cast< double >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_FindPicExS" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
-  (arg1)->FindPicExS(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,*arg10);
+  {
+    try {
+      (arg1)->FindPicExS(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,*arg10);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res10)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg10)), 1);
@@ -10239,7 +11611,7 @@ SWIGINTERN PyObject *_wrap_Op_FindColorBlock(PyObject *self, PyObject *args) {
   long temp13 ;
   int res13 = SWIG_TMPOBJ ;
   PyObject *swig_obj[10] ;
-
+  
   arg11 = &temp11;
   arg12 = &temp12;
   arg13 = &temp13;
@@ -10247,28 +11619,28 @@ SWIGINTERN PyObject *_wrap_Op_FindColorBlock(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_FindColorBlock", 10, 10, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindColorBlock" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindColorBlock" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindColorBlock" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindColorBlock" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindColorBlock" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindColorBlock" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -10278,24 +11650,34 @@ SWIGINTERN PyObject *_wrap_Op_FindColorBlock(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_FindColorBlock" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindColorBlock" "', argument " "8"" of type '" "long""'");
-  }
+  } 
   arg8 = static_cast< long >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_FindColorBlock" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
   ecode10 = SWIG_AsVal_long(swig_obj[9], &val10);
   if (!SWIG_IsOK(ecode10)) {
     SWIG_exception_fail(SWIG_ArgError(ecode10), "in method '" "Op_FindColorBlock" "', argument " "10"" of type '" "long""'");
-  }
+  } 
   arg10 = static_cast< long >(val10);
-  (arg1)->FindColorBlock(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13);
+  {
+    try {
+      (arg1)->FindColorBlock(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,arg11,arg12,arg13);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res11)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg11)), 1);
@@ -10360,34 +11742,34 @@ SWIGINTERN PyObject *_wrap_Op_FindColorBlockEx(PyObject *self, PyObject *args) {
   std::wstring temp11 ;
   int res11 = SWIG_TMPOBJ ;
   PyObject *swig_obj[10] ;
-
+  
   arg11 = &temp11;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FindColorBlockEx", 10, 10, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindColorBlockEx" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindColorBlockEx" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindColorBlockEx" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindColorBlockEx" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindColorBlockEx" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindColorBlockEx" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -10397,30 +11779,165 @@ SWIGINTERN PyObject *_wrap_Op_FindColorBlockEx(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_FindColorBlockEx" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindColorBlockEx" "', argument " "8"" of type '" "long""'");
-  }
+  } 
   arg8 = static_cast< long >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_FindColorBlockEx" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
   ecode10 = SWIG_AsVal_long(swig_obj[9], &val10);
   if (!SWIG_IsOK(ecode10)) {
     SWIG_exception_fail(SWIG_ArgError(ecode10), "in method '" "Op_FindColorBlockEx" "', argument " "10"" of type '" "long""'");
-  }
+  } 
   arg10 = static_cast< long >(val10);
-  (arg1)->FindColorBlockEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,*arg11);
+  {
+    try {
+      (arg1)->FindColorBlockEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,*arg11);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res11)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg11)), 1);
   } else {
     int new_flags = SWIG_IsNewObj(res11) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg11), SWIGTYPE_p_std__wstring, new_flags), 1);
+  }
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return resultobj;
+fail:
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_FindColorBlockExS(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long arg2 ;
+  long arg3 ;
+  long arg4 ;
+  long arg5 ;
+  wchar_t *arg6 = 0 ;
+  double arg7 ;
+  long arg8 ;
+  long arg9 ;
+  long arg10 ;
+  long arg11 ;
+  std::wstring *arg12 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long val2 ;
+  int ecode2 = 0 ;
+  long val3 ;
+  int ecode3 = 0 ;
+  long val4 ;
+  int ecode4 = 0 ;
+  long val5 ;
+  int ecode5 = 0 ;
+  int res6 ;
+  wchar_t *buf6 = 0 ;
+  int alloc6 = 0 ;
+  double val7 ;
+  int ecode7 = 0 ;
+  long val8 ;
+  int ecode8 = 0 ;
+  long val9 ;
+  int ecode9 = 0 ;
+  long val10 ;
+  int ecode10 = 0 ;
+  long val11 ;
+  int ecode11 = 0 ;
+  std::wstring temp12 ;
+  int res12 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[11] ;
+  
+  arg12 = &temp12;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_FindColorBlockExS", 11, 11, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindColorBlockExS" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindColorBlockExS" "', argument " "2"" of type '" "long""'");
+  } 
+  arg2 = static_cast< long >(val2);
+  ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindColorBlockExS" "', argument " "3"" of type '" "long""'");
+  } 
+  arg3 = static_cast< long >(val3);
+  ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindColorBlockExS" "', argument " "4"" of type '" "long""'");
+  } 
+  arg4 = static_cast< long >(val4);
+  ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
+  if (!SWIG_IsOK(ecode5)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindColorBlockExS" "', argument " "5"" of type '" "long""'");
+  } 
+  arg5 = static_cast< long >(val5);
+  res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
+  if (!SWIG_IsOK(res6)) {
+    SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "Op_FindColorBlockExS" "', argument " "6"" of type '" "wchar_t const *""'");
+  }
+  arg6 = reinterpret_cast< wchar_t * >(buf6);
+  ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
+  if (!SWIG_IsOK(ecode7)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_FindColorBlockExS" "', argument " "7"" of type '" "double""'");
+  } 
+  arg7 = static_cast< double >(val7);
+  ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
+  if (!SWIG_IsOK(ecode8)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindColorBlockExS" "', argument " "8"" of type '" "long""'");
+  } 
+  arg8 = static_cast< long >(val8);
+  ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
+  if (!SWIG_IsOK(ecode9)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_FindColorBlockExS" "', argument " "9"" of type '" "long""'");
+  } 
+  arg9 = static_cast< long >(val9);
+  ecode10 = SWIG_AsVal_long(swig_obj[9], &val10);
+  if (!SWIG_IsOK(ecode10)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode10), "in method '" "Op_FindColorBlockExS" "', argument " "10"" of type '" "long""'");
+  } 
+  arg10 = static_cast< long >(val10);
+  ecode11 = SWIG_AsVal_long(swig_obj[10], &val11);
+  if (!SWIG_IsOK(ecode11)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode11), "in method '" "Op_FindColorBlockExS" "', argument " "11"" of type '" "long""'");
+  } 
+  arg11 = static_cast< long >(val11);
+  {
+    try {
+      (arg1)->FindColorBlockExS(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,arg11,*arg12);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res12)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg12)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res12) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg12), SWIGTYPE_p_std__wstring, new_flags), 1);
   }
   if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
   return resultobj;
@@ -10445,26 +11962,36 @@ SWIGINTERN PyObject *_wrap_Op_GetColor(PyObject *self, PyObject *args) {
   std::wstring temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetColor", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetColor" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetColor" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetColor" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetColor" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->GetColor(arg2,arg3,*arg4);
+  {
+    try {
+      (arg1)->GetColor(arg2,arg3,*arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg4)), 1);
@@ -10491,13 +12018,13 @@ SWIGINTERN PyObject *_wrap_Op_SetDisplayInput(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetDisplayInput", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetDisplayInput" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetDisplayInput" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -10505,7 +12032,17 @@ SWIGINTERN PyObject *_wrap_Op_SetDisplayInput(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_SetDisplayInput" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->SetDisplayInput((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->SetDisplayInput((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -10534,13 +12071,13 @@ SWIGINTERN PyObject *_wrap_Op_LoadPic(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_LoadPic", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LoadPic" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LoadPic" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -10548,7 +12085,17 @@ SWIGINTERN PyObject *_wrap_Op_LoadPic(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_LoadPic" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->LoadPic((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->LoadPic((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -10577,13 +12124,13 @@ SWIGINTERN PyObject *_wrap_Op_FreePic(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FreePic", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FreePic" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FreePic" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -10591,7 +12138,17 @@ SWIGINTERN PyObject *_wrap_Op_FreePic(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_FreePic" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->FreePic((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->FreePic((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -10625,13 +12182,13 @@ SWIGINTERN PyObject *_wrap_Op_LoadMemPic(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_LoadMemPic", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LoadMemPic" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_LoadMemPic" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -10641,14 +12198,24 @@ SWIGINTERN PyObject *_wrap_Op_LoadMemPic(PyObject *self, PyObject *args) {
   arg2 = reinterpret_cast< wchar_t * >(buf2);
   res3 = SWIG_ConvertPtr(swig_obj[2],SWIG_as_voidptrptr(&arg3), 0, 0);
   if (!SWIG_IsOK(res3)) {
-    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_LoadMemPic" "', argument " "3"" of type '" "void *""'");
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_LoadMemPic" "', argument " "3"" of type '" "void *""'"); 
   }
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_LoadMemPic" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
-  (arg1)->LoadMemPic((wchar_t const *)arg2,arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->LoadMemPic((wchar_t const *)arg2,arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -10683,7 +12250,7 @@ SWIGINTERN PyObject *_wrap_Op_GetPicSize(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   arg4 = &temp4;
   arg5 = &temp5;
@@ -10691,7 +12258,7 @@ SWIGINTERN PyObject *_wrap_Op_GetPicSize(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_GetPicSize", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetPicSize" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetPicSize" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -10699,7 +12266,17 @@ SWIGINTERN PyObject *_wrap_Op_GetPicSize(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_GetPicSize" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->GetPicSize((wchar_t const *)arg2,arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->GetPicSize((wchar_t const *)arg2,arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -10751,37 +12328,47 @@ SWIGINTERN PyObject *_wrap_Op_GetScreenData(PyObject *self, PyObject *args) {
   long temp7 ;
   int res7 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   arg7 = &temp7;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetScreenData", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetScreenData" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetScreenData" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetScreenData" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetScreenData" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_GetScreenData" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_GetScreenData" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
-  (arg1)->GetScreenData(arg2,arg3,arg4,arg5,arg6,arg7);
+  {
+    try {
+      (arg1)->GetScreenData(arg2,arg3,arg4,arg5,arg6,arg7);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_size_t((*arg6)), 1);
@@ -10828,7 +12415,7 @@ SWIGINTERN PyObject *_wrap_Op_GetScreenDataBmp(PyObject *self, PyObject *args) {
   long temp8 ;
   int res8 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   arg7 = &temp7;
   arg8 = &temp8;
@@ -10836,30 +12423,40 @@ SWIGINTERN PyObject *_wrap_Op_GetScreenDataBmp(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_GetScreenDataBmp", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetScreenDataBmp" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetScreenDataBmp" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetScreenDataBmp" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetScreenDataBmp" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_GetScreenDataBmp" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_GetScreenDataBmp" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
-  (arg1)->GetScreenDataBmp(arg2,arg3,arg4,arg5,arg6,arg7,arg8);
+  {
+    try {
+      (arg1)->GetScreenDataBmp(arg2,arg3,arg4,arg5,arg6,arg7,arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_size_t((*arg6)), 1);
@@ -10897,7 +12494,7 @@ SWIGINTERN PyObject *_wrap_Op_GetScreenFrameInfo(PyObject *self, PyObject *args)
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   arg3 = &temp3;
   (void)self;
@@ -10905,10 +12502,20 @@ SWIGINTERN PyObject *_wrap_Op_GetScreenFrameInfo(PyObject *self, PyObject *args)
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetScreenFrameInfo" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetScreenFrameInfo" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetScreenFrameInfo(arg2,arg3);
+  {
+    try {
+      (arg1)->GetScreenFrameInfo(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -10941,13 +12548,13 @@ SWIGINTERN PyObject *_wrap_Op_MatchPicName(PyObject *self, PyObject *args) {
   std::wstring temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_MatchPicName", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MatchPicName" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_MatchPicName" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -10955,7 +12562,17 @@ SWIGINTERN PyObject *_wrap_Op_MatchPicName(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_MatchPicName" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->MatchPicName((wchar_t const *)arg2,*arg3);
+  {
+    try {
+      (arg1)->MatchPicName((wchar_t const *)arg2,*arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg3)), 1);
@@ -10988,13 +12605,13 @@ SWIGINTERN PyObject *_wrap_Op_CvLoadTemplate(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvLoadTemplate", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvLoadTemplate" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvLoadTemplate" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11007,7 +12624,17 @@ SWIGINTERN PyObject *_wrap_Op_CvLoadTemplate(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_CvLoadTemplate" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->CvLoadTemplate((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->CvLoadTemplate((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -11046,13 +12673,13 @@ SWIGINTERN PyObject *_wrap_Op_CvLoadMaskedTemplate(PyObject *self, PyObject *arg
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvLoadMaskedTemplate", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvLoadMaskedTemplate" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvLoadMaskedTemplate" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11070,7 +12697,17 @@ SWIGINTERN PyObject *_wrap_Op_CvLoadMaskedTemplate(PyObject *self, PyObject *arg
     SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_CvLoadMaskedTemplate" "', argument " "4"" of type '" "wchar_t const *""'");
   }
   arg4 = reinterpret_cast< wchar_t * >(buf4);
-  (arg1)->CvLoadMaskedTemplate((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5);
+  {
+    try {
+      (arg1)->CvLoadMaskedTemplate((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -11103,13 +12740,13 @@ SWIGINTERN PyObject *_wrap_Op_CvRemoveTemplate(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvRemoveTemplate", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvRemoveTemplate" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvRemoveTemplate" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11117,7 +12754,17 @@ SWIGINTERN PyObject *_wrap_Op_CvRemoveTemplate(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_CvRemoveTemplate" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->CvRemoveTemplate((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->CvRemoveTemplate((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -11142,17 +12789,27 @@ SWIGINTERN PyObject *_wrap_Op_CvRemoveAllTemplates(PyObject *self, PyObject *arg
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvRemoveAllTemplates" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvRemoveAllTemplates" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->CvRemoveAllTemplates(arg2);
+  {
+    try {
+      (arg1)->CvRemoveAllTemplates(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -11179,13 +12836,13 @@ SWIGINTERN PyObject *_wrap_Op_CvHasTemplate(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvHasTemplate", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvHasTemplate" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvHasTemplate" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11193,7 +12850,17 @@ SWIGINTERN PyObject *_wrap_Op_CvHasTemplate(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_CvHasTemplate" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->CvHasTemplate((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->CvHasTemplate((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -11218,17 +12885,27 @@ SWIGINTERN PyObject *_wrap_Op_CvGetTemplateCount(PyObject *self, PyObject *args)
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvGetTemplateCount" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvGetTemplateCount" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->CvGetTemplateCount(arg2);
+  {
+    try {
+      (arg1)->CvGetTemplateCount(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -11251,17 +12928,27 @@ SWIGINTERN PyObject *_wrap_Op_CvGetAllTemplateNames(PyObject *self, PyObject *ar
   std::wstring temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvGetAllTemplateNames" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvGetAllTemplateNames" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->CvGetAllTemplateNames(*arg2);
+  {
+    try {
+      (arg1)->CvGetAllTemplateNames(*arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg2)), 1);
@@ -11284,17 +12971,27 @@ SWIGINTERN PyObject *_wrap_Op_CvGetOpenCvVersion(PyObject *self, PyObject *args)
   std::wstring temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvGetOpenCvVersion" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvGetOpenCvVersion" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->CvGetOpenCvVersion(*arg2);
+  {
+    try {
+      (arg1)->CvGetOpenCvVersion(*arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg2)), 1);
@@ -11321,13 +13018,13 @@ SWIGINTERN PyObject *_wrap_Op_CvLoadTemplateList(PyObject *self, PyObject *args)
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvLoadTemplateList", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvLoadTemplateList" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvLoadTemplateList" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11335,7 +13032,17 @@ SWIGINTERN PyObject *_wrap_Op_CvLoadTemplateList(PyObject *self, PyObject *args)
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_CvLoadTemplateList" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->CvLoadTemplateList((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->CvLoadTemplateList((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -11368,13 +13075,13 @@ SWIGINTERN PyObject *_wrap_Op_CvToGray(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvToGray", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvToGray" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvToGray" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11387,7 +13094,17 @@ SWIGINTERN PyObject *_wrap_Op_CvToGray(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_CvToGray" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->CvToGray((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->CvToGray((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -11422,13 +13139,13 @@ SWIGINTERN PyObject *_wrap_Op_CvToBinary(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvToBinary", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvToBinary" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvToBinary" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11441,7 +13158,17 @@ SWIGINTERN PyObject *_wrap_Op_CvToBinary(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_CvToBinary" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->CvToBinary((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->CvToBinary((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -11476,13 +13203,13 @@ SWIGINTERN PyObject *_wrap_Op_CvToEdge(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvToEdge", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvToEdge" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvToEdge" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11495,7 +13222,17 @@ SWIGINTERN PyObject *_wrap_Op_CvToEdge(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_CvToEdge" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->CvToEdge((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->CvToEdge((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -11530,13 +13267,13 @@ SWIGINTERN PyObject *_wrap_Op_CvToOutline(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvToOutline", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvToOutline" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvToOutline" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11549,7 +13286,17 @@ SWIGINTERN PyObject *_wrap_Op_CvToOutline(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_CvToOutline" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->CvToOutline((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->CvToOutline((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -11584,13 +13331,13 @@ SWIGINTERN PyObject *_wrap_Op_CvDenoise(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvDenoise", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvDenoise" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvDenoise" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11603,7 +13350,17 @@ SWIGINTERN PyObject *_wrap_Op_CvDenoise(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_CvDenoise" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->CvDenoise((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->CvDenoise((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -11638,13 +13395,13 @@ SWIGINTERN PyObject *_wrap_Op_CvEqualize(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvEqualize", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvEqualize" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvEqualize" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11657,7 +13414,17 @@ SWIGINTERN PyObject *_wrap_Op_CvEqualize(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_CvEqualize" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->CvEqualize((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->CvEqualize((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -11698,13 +13465,13 @@ SWIGINTERN PyObject *_wrap_Op_CvCLAHE(PyObject *self, PyObject *args) {
   long temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvCLAHE", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvCLAHE" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvCLAHE" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11720,14 +13487,24 @@ SWIGINTERN PyObject *_wrap_Op_CvCLAHE(PyObject *self, PyObject *args) {
   ecode4 = SWIG_AsVal_double(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_CvCLAHE" "', argument " "4"" of type '" "double""'");
-  }
+  } 
   arg4 = static_cast< double >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CvCLAHE" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
-  (arg1)->CvCLAHE((wchar_t const *)arg2,(wchar_t const *)arg3,arg4,arg5,arg6);
+  {
+    try {
+      (arg1)->CvCLAHE((wchar_t const *)arg2,(wchar_t const *)arg3,arg4,arg5,arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg6)), 1);
@@ -11769,13 +13546,13 @@ SWIGINTERN PyObject *_wrap_Op_CvBlur(PyObject *self, PyObject *args) {
   long temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvBlur", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvBlur" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvBlur" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11796,9 +13573,19 @@ SWIGINTERN PyObject *_wrap_Op_CvBlur(PyObject *self, PyObject *args) {
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CvBlur" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
-  (arg1)->CvBlur((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5,arg6);
+  {
+    try {
+      (arg1)->CvBlur((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5,arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg6)), 1);
@@ -11838,13 +13625,13 @@ SWIGINTERN PyObject *_wrap_Op_CvSharpen(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvSharpen", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvSharpen" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvSharpen" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11860,9 +13647,19 @@ SWIGINTERN PyObject *_wrap_Op_CvSharpen(PyObject *self, PyObject *args) {
   ecode4 = SWIG_AsVal_double(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_CvSharpen" "', argument " "4"" of type '" "double""'");
-  }
+  } 
   arg4 = static_cast< double >(val4);
-  (arg1)->CvSharpen((wchar_t const *)arg2,(wchar_t const *)arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->CvSharpen((wchar_t const *)arg2,(wchar_t const *)arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -11897,13 +13694,13 @@ SWIGINTERN PyObject *_wrap_Op_CvCropValid(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvCropValid", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvCropValid" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvCropValid" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11916,7 +13713,17 @@ SWIGINTERN PyObject *_wrap_Op_CvCropValid(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_CvCropValid" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->CvCropValid((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->CvCropValid((wchar_t const *)arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -11953,14 +13760,14 @@ SWIGINTERN PyObject *_wrap_Op_CvConnectedComponents(PyObject *self, PyObject *ar
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvConnectedComponents", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvConnectedComponents" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvConnectedComponents" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -11971,9 +13778,19 @@ SWIGINTERN PyObject *_wrap_Op_CvConnectedComponents(PyObject *self, PyObject *ar
   ecode3 = SWIG_AsVal_double(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_CvConnectedComponents" "', argument " "3"" of type '" "double""'");
-  }
+  } 
   arg3 = static_cast< double >(val3);
-  (arg1)->CvConnectedComponents((wchar_t const *)arg2,arg3,*arg4,arg5);
+  {
+    try {
+      (arg1)->CvConnectedComponents((wchar_t const *)arg2,arg3,*arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg4)), 1);
@@ -12014,14 +13831,14 @@ SWIGINTERN PyObject *_wrap_Op_CvFindContours(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvFindContours", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvFindContours" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvFindContours" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -12032,9 +13849,19 @@ SWIGINTERN PyObject *_wrap_Op_CvFindContours(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_double(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_CvFindContours" "', argument " "3"" of type '" "double""'");
-  }
+  } 
   arg3 = static_cast< double >(val3);
-  (arg1)->CvFindContours((wchar_t const *)arg2,arg3,*arg4,arg5);
+  {
+    try {
+      (arg1)->CvFindContours((wchar_t const *)arg2,arg3,*arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg4)), 1);
@@ -12077,13 +13904,13 @@ SWIGINTERN PyObject *_wrap_Op_CvPreprocessPipeline(PyObject *self, PyObject *arg
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvPreprocessPipeline", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvPreprocessPipeline" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvPreprocessPipeline" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -12101,7 +13928,17 @@ SWIGINTERN PyObject *_wrap_Op_CvPreprocessPipeline(PyObject *self, PyObject *arg
     SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_CvPreprocessPipeline" "', argument " "4"" of type '" "wchar_t const *""'");
   }
   arg4 = reinterpret_cast< wchar_t * >(buf4);
-  (arg1)->CvPreprocessPipeline((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5);
+  {
+    try {
+      (arg1)->CvPreprocessPipeline((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -12150,13 +13987,13 @@ SWIGINTERN PyObject *_wrap_Op_CvCrop(PyObject *self, PyObject *args) {
   long temp8 ;
   int res8 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvCrop", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvCrop" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvCrop" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -12167,29 +14004,39 @@ SWIGINTERN PyObject *_wrap_Op_CvCrop(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_CvCrop" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_CvCrop" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CvCrop" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   ecode6 = SWIG_AsVal_long(swig_obj[5], &val6);
   if (!SWIG_IsOK(ecode6)) {
     SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "Op_CvCrop" "', argument " "6"" of type '" "long""'");
-  }
+  } 
   arg6 = static_cast< long >(val6);
   res7 = SWIG_AsWCharPtrAndSize(swig_obj[6], &buf7, NULL, &alloc7);
   if (!SWIG_IsOK(res7)) {
     SWIG_exception_fail(SWIG_ArgError(res7), "in method '" "Op_CvCrop" "', argument " "7"" of type '" "wchar_t const *""'");
   }
   arg7 = reinterpret_cast< wchar_t * >(buf7);
-  (arg1)->CvCrop((wchar_t const *)arg2,arg3,arg4,arg5,arg6,(wchar_t const *)arg7,arg8);
+  {
+    try {
+      (arg1)->CvCrop((wchar_t const *)arg2,arg3,arg4,arg5,arg6,(wchar_t const *)arg7,arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg8)), 1);
@@ -12230,13 +14077,13 @@ SWIGINTERN PyObject *_wrap_Op_CvResize(PyObject *self, PyObject *args) {
   long temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvResize", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvResize" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvResize" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -12247,19 +14094,29 @@ SWIGINTERN PyObject *_wrap_Op_CvResize(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_CvResize" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_CvResize" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   res5 = SWIG_AsWCharPtrAndSize(swig_obj[4], &buf5, NULL, &alloc5);
   if (!SWIG_IsOK(res5)) {
     SWIG_exception_fail(SWIG_ArgError(res5), "in method '" "Op_CvResize" "', argument " "5"" of type '" "wchar_t const *""'");
   }
   arg5 = reinterpret_cast< wchar_t * >(buf5);
-  (arg1)->CvResize((wchar_t const *)arg2,arg3,arg4,(wchar_t const *)arg5,arg6);
+  {
+    try {
+      (arg1)->CvResize((wchar_t const *)arg2,arg3,arg4,(wchar_t const *)arg5,arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg6)), 1);
@@ -12304,13 +14161,13 @@ SWIGINTERN PyObject *_wrap_Op_CvThreshold(PyObject *self, PyObject *args) {
   long temp7 ;
   int res7 = SWIG_TMPOBJ ;
   PyObject *swig_obj[6] ;
-
+  
   arg7 = &temp7;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvThreshold", 6, 6, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvThreshold" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvThreshold" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -12326,19 +14183,29 @@ SWIGINTERN PyObject *_wrap_Op_CvThreshold(PyObject *self, PyObject *args) {
   ecode4 = SWIG_AsVal_double(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_CvThreshold" "', argument " "4"" of type '" "double""'");
-  }
+  } 
   arg4 = static_cast< double >(val4);
   ecode5 = SWIG_AsVal_double(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CvThreshold" "', argument " "5"" of type '" "double""'");
-  }
+  } 
   arg5 = static_cast< double >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
     SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "Op_CvThreshold" "', argument " "6"" of type '" "wchar_t const *""'");
   }
   arg6 = reinterpret_cast< wchar_t * >(buf6);
-  (arg1)->CvThreshold((wchar_t const *)arg2,(wchar_t const *)arg3,arg4,arg5,(wchar_t const *)arg6,arg7);
+  {
+    try {
+      (arg1)->CvThreshold((wchar_t const *)arg2,(wchar_t const *)arg3,arg4,arg5,(wchar_t const *)arg6,arg7);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res7)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg7)), 1);
@@ -12387,13 +14254,13 @@ SWIGINTERN PyObject *_wrap_Op_CvInRange(PyObject *self, PyObject *args) {
   long temp7 ;
   int res7 = SWIG_TMPOBJ ;
   PyObject *swig_obj[6] ;
-
+  
   arg7 = &temp7;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvInRange", 6, 6, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvInRange" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvInRange" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -12421,7 +14288,17 @@ SWIGINTERN PyObject *_wrap_Op_CvInRange(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "Op_CvInRange" "', argument " "6"" of type '" "wchar_t const *""'");
   }
   arg6 = reinterpret_cast< wchar_t * >(buf6);
-  (arg1)->CvInRange((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,(wchar_t const *)arg5,(wchar_t const *)arg6,arg7);
+  {
+    try {
+      (arg1)->CvInRange((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,(wchar_t const *)arg5,(wchar_t const *)arg6,arg7);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res7)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg7)), 1);
@@ -12472,13 +14349,13 @@ SWIGINTERN PyObject *_wrap_Op_CvMorphology(PyObject *self, PyObject *args) {
   long temp7 ;
   int res7 = SWIG_TMPOBJ ;
   PyObject *swig_obj[6] ;
-
+  
   arg7 = &temp7;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvMorphology", 6, 6, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvMorphology" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvMorphology" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -12499,14 +14376,24 @@ SWIGINTERN PyObject *_wrap_Op_CvMorphology(PyObject *self, PyObject *args) {
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CvMorphology" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   ecode6 = SWIG_AsVal_long(swig_obj[5], &val6);
   if (!SWIG_IsOK(ecode6)) {
     SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "Op_CvMorphology" "', argument " "6"" of type '" "long""'");
-  }
+  } 
   arg6 = static_cast< long >(val6);
-  (arg1)->CvMorphology((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5,arg6,arg7);
+  {
+    try {
+      (arg1)->CvMorphology((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5,arg6,arg7);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res7)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg7)), 1);
@@ -12547,13 +14434,13 @@ SWIGINTERN PyObject *_wrap_Op_CvThin(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvThin", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvThin" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvThin" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -12571,7 +14458,17 @@ SWIGINTERN PyObject *_wrap_Op_CvThin(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_CvThin" "', argument " "4"" of type '" "wchar_t const *""'");
   }
   arg4 = reinterpret_cast< wchar_t * >(buf4);
-  (arg1)->CvThin((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5);
+  {
+    try {
+      (arg1)->CvThin((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -12634,35 +14531,35 @@ SWIGINTERN PyObject *_wrap_Op_CvMatchTemplate(PyObject *self, PyObject *args) {
   long temp13 ;
   int res13 = SWIG_TMPOBJ ;
   PyObject *swig_obj[11] ;
-
+  
   arg12 = &temp12;
   arg13 = &temp13;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvMatchTemplate", 11, 11, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvMatchTemplate" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvMatchTemplate" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_CvMatchTemplate" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_CvMatchTemplate" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_CvMatchTemplate" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CvMatchTemplate" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -12672,29 +14569,39 @@ SWIGINTERN PyObject *_wrap_Op_CvMatchTemplate(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_CvMatchTemplate" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_CvMatchTemplate" "', argument " "8"" of type '" "long""'");
-  }
+  } 
   arg8 = static_cast< long >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_CvMatchTemplate" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
   ecode10 = SWIG_AsVal_long(swig_obj[9], &val10);
   if (!SWIG_IsOK(ecode10)) {
     SWIG_exception_fail(SWIG_ArgError(ecode10), "in method '" "Op_CvMatchTemplate" "', argument " "10"" of type '" "long""'");
-  }
+  } 
   arg10 = static_cast< long >(val10);
   ecode11 = SWIG_AsVal_long(swig_obj[10], &val11);
   if (!SWIG_IsOK(ecode11)) {
     SWIG_exception_fail(SWIG_ArgError(ecode11), "in method '" "Op_CvMatchTemplate" "', argument " "11"" of type '" "long""'");
-  }
+  } 
   arg11 = static_cast< long >(val11);
-  (arg1)->CvMatchTemplate(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,arg11,*arg12,arg13);
+  {
+    try {
+      (arg1)->CvMatchTemplate(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,arg11,*arg12,arg13);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res12)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg12)), 1);
@@ -12757,35 +14664,35 @@ SWIGINTERN PyObject *_wrap_Op_CvMatchTemplateScale(PyObject *self, PyObject *arg
   long temp12 ;
   int res12 = SWIG_TMPOBJ ;
   PyObject *swig_obj[10] ;
-
+  
   arg11 = &temp11;
   arg12 = &temp12;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvMatchTemplateScale", 10, 10, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvMatchTemplateScale" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvMatchTemplateScale" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_CvMatchTemplateScale" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_CvMatchTemplateScale" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_CvMatchTemplateScale" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CvMatchTemplateScale" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -12800,19 +14707,29 @@ SWIGINTERN PyObject *_wrap_Op_CvMatchTemplateScale(PyObject *self, PyObject *arg
   ecode8 = SWIG_AsVal_double(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_CvMatchTemplateScale" "', argument " "8"" of type '" "double""'");
-  }
+  } 
   arg8 = static_cast< double >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_CvMatchTemplateScale" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
   ecode10 = SWIG_AsVal_long(swig_obj[9], &val10);
   if (!SWIG_IsOK(ecode10)) {
     SWIG_exception_fail(SWIG_ArgError(ecode10), "in method '" "Op_CvMatchTemplateScale" "', argument " "10"" of type '" "long""'");
-  }
+  } 
   arg10 = static_cast< long >(val10);
-  (arg1)->CvMatchTemplateScale(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,arg10,*arg11,arg12);
+  {
+    try {
+      (arg1)->CvMatchTemplateScale(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,arg10,*arg11,arg12);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res11)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg11)), 1);
@@ -12879,35 +14796,35 @@ SWIGINTERN PyObject *_wrap_Op_CvMatchAnyTemplate(PyObject *self, PyObject *args)
   long temp13 ;
   int res13 = SWIG_TMPOBJ ;
   PyObject *swig_obj[11] ;
-
+  
   arg12 = &temp12;
   arg13 = &temp13;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvMatchAnyTemplate", 11, 11, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvMatchAnyTemplate" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvMatchAnyTemplate" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_CvMatchAnyTemplate" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_CvMatchAnyTemplate" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_CvMatchAnyTemplate" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CvMatchAnyTemplate" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -12917,29 +14834,39 @@ SWIGINTERN PyObject *_wrap_Op_CvMatchAnyTemplate(PyObject *self, PyObject *args)
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_CvMatchAnyTemplate" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_CvMatchAnyTemplate" "', argument " "8"" of type '" "long""'");
-  }
+  } 
   arg8 = static_cast< long >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_CvMatchAnyTemplate" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
   ecode10 = SWIG_AsVal_long(swig_obj[9], &val10);
   if (!SWIG_IsOK(ecode10)) {
     SWIG_exception_fail(SWIG_ArgError(ecode10), "in method '" "Op_CvMatchAnyTemplate" "', argument " "10"" of type '" "long""'");
-  }
+  } 
   arg10 = static_cast< long >(val10);
   ecode11 = SWIG_AsVal_long(swig_obj[10], &val11);
   if (!SWIG_IsOK(ecode11)) {
     SWIG_exception_fail(SWIG_ArgError(ecode11), "in method '" "Op_CvMatchAnyTemplate" "', argument " "11"" of type '" "long""'");
-  }
+  } 
   arg11 = static_cast< long >(val11);
-  (arg1)->CvMatchAnyTemplate(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,arg11,*arg12,arg13);
+  {
+    try {
+      (arg1)->CvMatchAnyTemplate(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,arg11,*arg12,arg13);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res12)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg12)), 1);
@@ -13004,35 +14931,35 @@ SWIGINTERN PyObject *_wrap_Op_CvMatchAllTemplates(PyObject *self, PyObject *args
   long temp13 ;
   int res13 = SWIG_TMPOBJ ;
   PyObject *swig_obj[11] ;
-
+  
   arg12 = &temp12;
   arg13 = &temp13;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvMatchAllTemplates", 11, 11, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvMatchAllTemplates" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvMatchAllTemplates" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_CvMatchAllTemplates" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_CvMatchAllTemplates" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_CvMatchAllTemplates" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CvMatchAllTemplates" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -13042,29 +14969,39 @@ SWIGINTERN PyObject *_wrap_Op_CvMatchAllTemplates(PyObject *self, PyObject *args
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_CvMatchAllTemplates" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_CvMatchAllTemplates" "', argument " "8"" of type '" "long""'");
-  }
+  } 
   arg8 = static_cast< long >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_CvMatchAllTemplates" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
   ecode10 = SWIG_AsVal_long(swig_obj[9], &val10);
   if (!SWIG_IsOK(ecode10)) {
     SWIG_exception_fail(SWIG_ArgError(ecode10), "in method '" "Op_CvMatchAllTemplates" "', argument " "10"" of type '" "long""'");
-  }
+  } 
   arg10 = static_cast< long >(val10);
   ecode11 = SWIG_AsVal_long(swig_obj[10], &val11);
   if (!SWIG_IsOK(ecode11)) {
     SWIG_exception_fail(SWIG_ArgError(ecode11), "in method '" "Op_CvMatchAllTemplates" "', argument " "11"" of type '" "long""'");
-  }
+  } 
   arg11 = static_cast< long >(val11);
-  (arg1)->CvMatchAllTemplates(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,arg11,*arg12,arg13);
+  {
+    try {
+      (arg1)->CvMatchAllTemplates(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,arg11,*arg12,arg13);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res12)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg12)), 1);
@@ -13117,35 +15054,35 @@ SWIGINTERN PyObject *_wrap_Op_CvFeatureMatchTemplate(PyObject *self, PyObject *a
   long temp9 ;
   int res9 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   arg9 = &temp9;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvFeatureMatchTemplate", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvFeatureMatchTemplate" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvFeatureMatchTemplate" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_CvFeatureMatchTemplate" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_CvFeatureMatchTemplate" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_CvFeatureMatchTemplate" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CvFeatureMatchTemplate" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -13155,9 +15092,19 @@ SWIGINTERN PyObject *_wrap_Op_CvFeatureMatchTemplate(PyObject *self, PyObject *a
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_CvFeatureMatchTemplate" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
-  (arg1)->CvFeatureMatchTemplate(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8,arg9);
+  {
+    try {
+      (arg1)->CvFeatureMatchTemplate(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8,arg9);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
@@ -13210,35 +15157,35 @@ SWIGINTERN PyObject *_wrap_Op_CvEdgeMatchTemplate(PyObject *self, PyObject *args
   long temp9 ;
   int res9 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   arg9 = &temp9;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvEdgeMatchTemplate", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvEdgeMatchTemplate" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvEdgeMatchTemplate" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_CvEdgeMatchTemplate" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_CvEdgeMatchTemplate" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_CvEdgeMatchTemplate" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CvEdgeMatchTemplate" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -13248,9 +15195,19 @@ SWIGINTERN PyObject *_wrap_Op_CvEdgeMatchTemplate(PyObject *self, PyObject *args
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_CvEdgeMatchTemplate" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
-  (arg1)->CvEdgeMatchTemplate(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8,arg9);
+  {
+    try {
+      (arg1)->CvEdgeMatchTemplate(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8,arg9);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
@@ -13303,35 +15260,35 @@ SWIGINTERN PyObject *_wrap_Op_CvShapeMatchTemplate(PyObject *self, PyObject *arg
   long temp9 ;
   int res9 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   arg9 = &temp9;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CvShapeMatchTemplate", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvShapeMatchTemplate" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CvShapeMatchTemplate" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_CvShapeMatchTemplate" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_CvShapeMatchTemplate" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_CvShapeMatchTemplate" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_CvShapeMatchTemplate" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -13341,9 +15298,19 @@ SWIGINTERN PyObject *_wrap_Op_CvShapeMatchTemplate(PyObject *self, PyObject *arg
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_CvShapeMatchTemplate" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
-  (arg1)->CvShapeMatchTemplate(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8,arg9);
+  {
+    try {
+      (arg1)->CvShapeMatchTemplate(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8,arg9);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
@@ -13384,12 +15351,12 @@ SWIGINTERN PyObject *_wrap_Op_SetOcrEngine(PyObject *self, PyObject *args) {
   int alloc4 = 0 ;
   PyObject *swig_obj[4] ;
   long result;
-
+  
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetOcrEngine", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetOcrEngine" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetOcrEngine" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -13407,7 +15374,17 @@ SWIGINTERN PyObject *_wrap_Op_SetOcrEngine(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_SetOcrEngine" "', argument " "4"" of type '" "wchar_t const *""'");
   }
   arg4 = reinterpret_cast< wchar_t * >(buf4);
-  result = (long)(arg1)->SetOcrEngine((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4);
+  {
+    try {
+      result = (long)(arg1)->SetOcrEngine((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_From_long(static_cast< long >(result));
   if (alloc2 == SWIG_NEWOBJ) delete[] buf2;
   if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
@@ -13440,12 +15417,12 @@ SWIGINTERN PyObject *_wrap_Op_SetYoloEngine(PyObject *self, PyObject *args) {
   int alloc4 = 0 ;
   PyObject *swig_obj[4] ;
   long result;
-
+  
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetYoloEngine", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetYoloEngine" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetYoloEngine" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -13463,7 +15440,17 @@ SWIGINTERN PyObject *_wrap_Op_SetYoloEngine(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_SetYoloEngine" "', argument " "4"" of type '" "wchar_t const *""'");
   }
   arg4 = reinterpret_cast< wchar_t * >(buf4);
-  result = (long)(arg1)->SetYoloEngine((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4);
+  {
+    try {
+      result = (long)(arg1)->SetYoloEngine((wchar_t const *)arg2,(wchar_t const *)arg3,(wchar_t const *)arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_From_long(static_cast< long >(result));
   if (alloc2 == SWIG_NEWOBJ) delete[] buf2;
   if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
@@ -13507,47 +15494,57 @@ SWIGINTERN PyObject *_wrap_Op_YoloDetect(PyObject *self, PyObject *args) {
   long temp9 ;
   int res9 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   arg9 = &temp9;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_YoloDetect", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_YoloDetect" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_YoloDetect" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_YoloDetect" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_YoloDetect" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_YoloDetect" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_YoloDetect" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   ecode6 = SWIG_AsVal_double(swig_obj[5], &val6);
   if (!SWIG_IsOK(ecode6)) {
     SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "Op_YoloDetect" "', argument " "6"" of type '" "double""'");
-  }
+  } 
   arg6 = static_cast< double >(val6);
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_YoloDetect" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
-  (arg1)->YoloDetect(arg2,arg3,arg4,arg5,arg6,arg7,*arg8,arg9);
+  {
+    try {
+      (arg1)->YoloDetect(arg2,arg3,arg4,arg5,arg6,arg7,*arg8,arg9);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
@@ -13589,14 +15586,14 @@ SWIGINTERN PyObject *_wrap_Op_YoloDetectFromFile(PyObject *self, PyObject *args)
   long temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_YoloDetectFromFile", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_YoloDetectFromFile" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_YoloDetectFromFile" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -13607,14 +15604,24 @@ SWIGINTERN PyObject *_wrap_Op_YoloDetectFromFile(PyObject *self, PyObject *args)
   ecode3 = SWIG_AsVal_double(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_YoloDetectFromFile" "', argument " "3"" of type '" "double""'");
-  }
+  } 
   arg3 = static_cast< double >(val3);
   ecode4 = SWIG_AsVal_double(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_YoloDetectFromFile" "', argument " "4"" of type '" "double""'");
-  }
+  } 
   arg4 = static_cast< double >(val4);
-  (arg1)->YoloDetectFromFile((wchar_t const *)arg2,arg3,arg4,*arg5,arg6);
+  {
+    try {
+      (arg1)->YoloDetectFromFile((wchar_t const *)arg2,arg3,arg4,*arg5,arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg5)), 1);
@@ -13652,26 +15659,36 @@ SWIGINTERN PyObject *_wrap_Op_SetDict(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetDict", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetDict" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetDict" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetDict" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_SetDict" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->SetDict(arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->SetDict(arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -13702,26 +15719,36 @@ SWIGINTERN PyObject *_wrap_Op_GetDict(PyObject *self, PyObject *args) {
   std::wstring temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetDict", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetDict" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetDict" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetDict" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetDict" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->GetDict(arg2,arg3,*arg4);
+  {
+    try {
+      (arg1)->GetDict(arg2,arg3,*arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg4)), 1);
@@ -13752,19 +15779,19 @@ SWIGINTERN PyObject *_wrap_Op_SetMemDict(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetMemDict", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetMemDict" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetMemDict" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetMemDict" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   {
     if (PyObject_GetBuffer(swig_obj[2], &view3, PyBUF_SIMPLE) != 0) {
@@ -13775,9 +15802,19 @@ SWIGINTERN PyObject *_wrap_Op_SetMemDict(PyObject *self, PyObject *args) {
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_SetMemDict" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
-  (arg1)->SetMemDict(arg2,(void const *)arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->SetMemDict(arg2,(void const *)arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -13809,21 +15846,31 @@ SWIGINTERN PyObject *_wrap_Op_UseDict(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_UseDict", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_UseDict" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_UseDict" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_UseDict" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->UseDict(arg2,arg3);
+  {
+    try {
+      (arg1)->UseDict(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -13853,26 +15900,36 @@ SWIGINTERN PyObject *_wrap_Op_AddDict(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_AddDict", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_AddDict" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_AddDict" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_AddDict" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_AddDict" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->AddDict(arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->AddDict(arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -13904,26 +15961,36 @@ SWIGINTERN PyObject *_wrap_Op_SaveDict(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SaveDict", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SaveDict" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SaveDict" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SaveDict" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_SaveDict" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->SaveDict(arg2,(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->SaveDict(arg2,(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -13951,21 +16018,31 @@ SWIGINTERN PyObject *_wrap_Op_ClearDict(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_ClearDict", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ClearDict" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ClearDict" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_ClearDict" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->ClearDict(arg2,arg3);
+  {
+    try {
+      (arg1)->ClearDict(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -13991,21 +16068,31 @@ SWIGINTERN PyObject *_wrap_Op_GetDictCount(PyObject *self, PyObject *args) {
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetDictCount", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetDictCount" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetDictCount" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetDictCount" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
-  (arg1)->GetDictCount(arg2,arg3);
+  {
+    try {
+      (arg1)->GetDictCount(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -14028,17 +16115,27 @@ SWIGINTERN PyObject *_wrap_Op_GetNowDict(PyObject *self, PyObject *args) {
   long temp2 ;
   int res2 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   (void)self;
   if (!args) SWIG_fail;
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetNowDict" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetNowDict" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetNowDict(arg2);
+  {
+    try {
+      (arg1)->GetNowDict(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -14073,36 +16170,46 @@ SWIGINTERN PyObject *_wrap_Op_SetBinaryPreprocess(PyObject *self, PyObject *args
   long temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_SetBinaryPreprocess", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetBinaryPreprocess" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetBinaryPreprocess" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetBinaryPreprocess" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_SetBinaryPreprocess" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_SetBinaryPreprocess" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_SetBinaryPreprocess" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
-  (arg1)->SetBinaryPreprocess(arg2,arg3,arg4,arg5,arg6);
+  {
+    try {
+      (arg1)->SetBinaryPreprocess(arg2,arg3,arg4,arg5,arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg6)), 1);
@@ -14137,7 +16244,7 @@ SWIGINTERN PyObject *_wrap_Op_GetBinaryPreprocess(PyObject *self, PyObject *args
   long temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[1] ;
-
+  
   arg2 = &temp2;
   arg3 = &temp3;
   arg4 = &temp4;
@@ -14148,10 +16255,20 @@ SWIGINTERN PyObject *_wrap_Op_GetBinaryPreprocess(PyObject *self, PyObject *args
   swig_obj[0] = args;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetBinaryPreprocess" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetBinaryPreprocess" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
-  (arg1)->GetBinaryPreprocess(arg2,arg3,arg4,arg5,arg6);
+  {
+    try {
+      (arg1)->GetBinaryPreprocess(arg2,arg3,arg4,arg5,arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res2)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
@@ -14218,34 +16335,34 @@ SWIGINTERN PyObject *_wrap_Op_FetchWord(PyObject *self, PyObject *args) {
   std::wstring temp8 ;
   int res8 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FetchWord", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FetchWord" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FetchWord" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FetchWord" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FetchWord" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FetchWord" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FetchWord" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -14257,7 +16374,17 @@ SWIGINTERN PyObject *_wrap_Op_FetchWord(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res7), "in method '" "Op_FetchWord" "', argument " "7"" of type '" "wchar_t const *""'");
   }
   arg7 = reinterpret_cast< wchar_t * >(buf7);
-  (arg1)->FetchWord(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,*arg8);
+  {
+    try {
+      (arg1)->FetchWord(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,*arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
@@ -14307,34 +16434,34 @@ SWIGINTERN PyObject *_wrap_Op_FetchWordEx(PyObject *self, PyObject *args) {
   std::wstring temp9 ;
   int res9 = SWIG_TMPOBJ ;
   PyObject *swig_obj[8] ;
-
+  
   arg9 = &temp9;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FetchWordEx", 8, 8, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FetchWordEx" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FetchWordEx" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FetchWordEx" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FetchWordEx" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FetchWordEx" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FetchWordEx" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -14344,14 +16471,24 @@ SWIGINTERN PyObject *_wrap_Op_FetchWordEx(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_FetchWordEx" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   res8 = SWIG_AsWCharPtrAndSize(swig_obj[7], &buf8, NULL, &alloc8);
   if (!SWIG_IsOK(res8)) {
     SWIG_exception_fail(SWIG_ArgError(res8), "in method '" "Op_FetchWordEx" "', argument " "8"" of type '" "wchar_t const *""'");
   }
   arg8 = reinterpret_cast< wchar_t * >(buf8);
-  (arg1)->FetchWordEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,(wchar_t const *)arg8,*arg9);
+  {
+    try {
+      (arg1)->FetchWordEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,(wchar_t const *)arg8,*arg9);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res9)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg9)), 1);
@@ -14400,34 +16537,34 @@ SWIGINTERN PyObject *_wrap_Op_ExtractWordRects(PyObject *self, PyObject *args) {
   std::wstring temp9 ;
   int res9 = SWIG_TMPOBJ ;
   PyObject *swig_obj[8] ;
-
+  
   arg9 = &temp9;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_ExtractWordRects", 8, 8, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ExtractWordRects" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ExtractWordRects" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_ExtractWordRects" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_ExtractWordRects" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_ExtractWordRects" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_ExtractWordRects" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -14437,14 +16574,24 @@ SWIGINTERN PyObject *_wrap_Op_ExtractWordRects(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_ExtractWordRects" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_ExtractWordRects" "', argument " "8"" of type '" "long""'");
-  }
+  } 
   arg8 = static_cast< long >(val8);
-  (arg1)->ExtractWordRects(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,*arg9);
+  {
+    try {
+      (arg1)->ExtractWordRects(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,*arg9);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res9)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg9)), 1);
@@ -14497,34 +16644,34 @@ SWIGINTERN PyObject *_wrap_Op_ExtractWordRectsEx(PyObject *self, PyObject *args)
   std::wstring temp11 ;
   int res11 = SWIG_TMPOBJ ;
   PyObject *swig_obj[10] ;
-
+  
   arg11 = &temp11;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_ExtractWordRectsEx", 10, 10, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ExtractWordRectsEx" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ExtractWordRectsEx" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_ExtractWordRectsEx" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_ExtractWordRectsEx" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_ExtractWordRectsEx" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_ExtractWordRectsEx" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -14534,24 +16681,34 @@ SWIGINTERN PyObject *_wrap_Op_ExtractWordRectsEx(PyObject *self, PyObject *args)
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_ExtractWordRectsEx" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_ExtractWordRectsEx" "', argument " "8"" of type '" "long""'");
-  }
+  } 
   arg8 = static_cast< long >(val8);
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_ExtractWordRectsEx" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
   ecode10 = SWIG_AsVal_long(swig_obj[9], &val10);
   if (!SWIG_IsOK(ecode10)) {
     SWIG_exception_fail(SWIG_ArgError(ecode10), "in method '" "Op_ExtractWordRectsEx" "', argument " "10"" of type '" "long""'");
-  }
+  } 
   arg10 = static_cast< long >(val10);
-  (arg1)->ExtractWordRectsEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,*arg11);
+  {
+    try {
+      (arg1)->ExtractWordRectsEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,arg9,arg10,*arg11);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res11)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg11)), 1);
@@ -14602,34 +16759,34 @@ SWIGINTERN PyObject *_wrap_Op_FetchWords(PyObject *self, PyObject *args) {
   std::wstring temp10 ;
   int res10 = SWIG_TMPOBJ ;
   PyObject *swig_obj[9] ;
-
+  
   arg10 = &temp10;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FetchWords", 9, 9, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FetchWords" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FetchWords" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FetchWords" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FetchWords" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FetchWords" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FetchWords" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -14639,7 +16796,7 @@ SWIGINTERN PyObject *_wrap_Op_FetchWords(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_FetchWords" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   res8 = SWIG_AsWCharPtrAndSize(swig_obj[7], &buf8, NULL, &alloc8);
   if (!SWIG_IsOK(res8)) {
@@ -14649,9 +16806,19 @@ SWIGINTERN PyObject *_wrap_Op_FetchWords(PyObject *self, PyObject *args) {
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_FetchWords" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
-  (arg1)->FetchWords(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,(wchar_t const *)arg8,arg9,*arg10);
+  {
+    try {
+      (arg1)->FetchWords(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,(wchar_t const *)arg8,arg9,*arg10);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res10)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg10)), 1);
@@ -14710,34 +16877,34 @@ SWIGINTERN PyObject *_wrap_Op_FetchWordsEx(PyObject *self, PyObject *args) {
   std::wstring temp12 ;
   int res12 = SWIG_TMPOBJ ;
   PyObject *swig_obj[11] ;
-
+  
   arg12 = &temp12;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FetchWordsEx", 11, 11, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FetchWordsEx" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FetchWordsEx" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FetchWordsEx" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FetchWordsEx" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FetchWordsEx" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FetchWordsEx" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -14747,7 +16914,7 @@ SWIGINTERN PyObject *_wrap_Op_FetchWordsEx(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_FetchWordsEx" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   res8 = SWIG_AsWCharPtrAndSize(swig_obj[7], &buf8, NULL, &alloc8);
   if (!SWIG_IsOK(res8)) {
@@ -14757,19 +16924,29 @@ SWIGINTERN PyObject *_wrap_Op_FetchWordsEx(PyObject *self, PyObject *args) {
   ecode9 = SWIG_AsVal_long(swig_obj[8], &val9);
   if (!SWIG_IsOK(ecode9)) {
     SWIG_exception_fail(SWIG_ArgError(ecode9), "in method '" "Op_FetchWordsEx" "', argument " "9"" of type '" "long""'");
-  }
+  } 
   arg9 = static_cast< long >(val9);
   ecode10 = SWIG_AsVal_long(swig_obj[9], &val10);
   if (!SWIG_IsOK(ecode10)) {
     SWIG_exception_fail(SWIG_ArgError(ecode10), "in method '" "Op_FetchWordsEx" "', argument " "10"" of type '" "long""'");
-  }
+  } 
   arg10 = static_cast< long >(val10);
   ecode11 = SWIG_AsVal_long(swig_obj[10], &val11);
   if (!SWIG_IsOK(ecode11)) {
     SWIG_exception_fail(SWIG_ArgError(ecode11), "in method '" "Op_FetchWordsEx" "', argument " "11"" of type '" "long""'");
-  }
+  } 
   arg11 = static_cast< long >(val11);
-  (arg1)->FetchWordsEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,(wchar_t const *)arg8,arg9,arg10,arg11,*arg12);
+  {
+    try {
+      (arg1)->FetchWordsEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,(wchar_t const *)arg8,arg9,arg10,arg11,*arg12);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res12)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg12)), 1);
@@ -14823,34 +17000,34 @@ SWIGINTERN PyObject *_wrap_Op_FetchWordsByRects(PyObject *self, PyObject *args) 
   std::wstring temp10 ;
   int res10 = SWIG_TMPOBJ ;
   PyObject *swig_obj[9] ;
-
+  
   arg10 = &temp10;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FetchWordsByRects", 9, 9, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FetchWordsByRects" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FetchWordsByRects" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FetchWordsByRects" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FetchWordsByRects" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FetchWordsByRects" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FetchWordsByRects" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -14860,7 +17037,7 @@ SWIGINTERN PyObject *_wrap_Op_FetchWordsByRects(PyObject *self, PyObject *args) 
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_FetchWordsByRects" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
   res8 = SWIG_AsWCharPtrAndSize(swig_obj[7], &buf8, NULL, &alloc8);
   if (!SWIG_IsOK(res8)) {
@@ -14872,7 +17049,17 @@ SWIGINTERN PyObject *_wrap_Op_FetchWordsByRects(PyObject *self, PyObject *args) 
     SWIG_exception_fail(SWIG_ArgError(res9), "in method '" "Op_FetchWordsByRects" "', argument " "9"" of type '" "wchar_t const *""'");
   }
   arg9 = reinterpret_cast< wchar_t * >(buf9);
-  (arg1)->FetchWordsByRects(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,(wchar_t const *)arg8,(wchar_t const *)arg9,*arg10);
+  {
+    try {
+      (arg1)->FetchWordsByRects(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,(wchar_t const *)arg8,(wchar_t const *)arg9,*arg10);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res10)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg10)), 1);
@@ -14923,35 +17110,35 @@ SWIGINTERN PyObject *_wrap_Op_GetBinaryPreview(PyObject *self, PyObject *args) {
   long temp9 ;
   int res9 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   arg9 = &temp9;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetBinaryPreview", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetBinaryPreview" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetBinaryPreview" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetBinaryPreview" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetBinaryPreview" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_GetBinaryPreview" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_GetBinaryPreview" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -14961,9 +17148,19 @@ SWIGINTERN PyObject *_wrap_Op_GetBinaryPreview(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_GetBinaryPreview" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
-  (arg1)->GetBinaryPreview(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8,arg9);
+  {
+    try {
+      (arg1)->GetBinaryPreview(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8,arg9);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
@@ -15001,14 +17198,14 @@ SWIGINTERN PyObject *_wrap_Op_GetWordPreview(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetWordPreview", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWordPreview" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWordPreview" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -15016,7 +17213,17 @@ SWIGINTERN PyObject *_wrap_Op_GetWordPreview(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_GetWordPreview" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->GetWordPreview((wchar_t const *)arg2,*arg3,arg4);
+  {
+    try {
+      (arg1)->GetWordPreview((wchar_t const *)arg2,*arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg3)), 1);
@@ -15054,14 +17261,14 @@ SWIGINTERN PyObject *_wrap_Op_CheckWordDict(PyObject *self, PyObject *args) {
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_CheckWordDict", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CheckWordDict" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_CheckWordDict" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -15069,7 +17276,17 @@ SWIGINTERN PyObject *_wrap_Op_CheckWordDict(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_CheckWordDict" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->CheckWordDict((wchar_t const *)arg2,*arg3,arg4);
+  {
+    try {
+      (arg1)->CheckWordDict((wchar_t const *)arg2,*arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg3)), 1);
@@ -15107,14 +17324,14 @@ SWIGINTERN PyObject *_wrap_Op_NormalizeWordDict(PyObject *self, PyObject *args) 
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_NormalizeWordDict", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_NormalizeWordDict" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_NormalizeWordDict" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -15122,7 +17339,17 @@ SWIGINTERN PyObject *_wrap_Op_NormalizeWordDict(PyObject *self, PyObject *args) 
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_NormalizeWordDict" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->NormalizeWordDict((wchar_t const *)arg2,*arg3,arg4);
+  {
+    try {
+      (arg1)->NormalizeWordDict((wchar_t const *)arg2,*arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg3)), 1);
@@ -15164,14 +17391,14 @@ SWIGINTERN PyObject *_wrap_Op_RenameWordDict(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_RenameWordDict", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RenameWordDict" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RenameWordDict" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -15184,7 +17411,17 @@ SWIGINTERN PyObject *_wrap_Op_RenameWordDict(PyObject *self, PyObject *args) {
     SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_RenameWordDict" "', argument " "3"" of type '" "wchar_t const *""'");
   }
   arg3 = reinterpret_cast< wchar_t * >(buf3);
-  (arg1)->RenameWordDict((wchar_t const *)arg2,(wchar_t const *)arg3,*arg4,arg5);
+  {
+    try {
+      (arg1)->RenameWordDict((wchar_t const *)arg2,(wchar_t const *)arg3,*arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg4)), 1);
@@ -15233,41 +17470,51 @@ SWIGINTERN PyObject *_wrap_Op_GetWordsNoDict(PyObject *self, PyObject *args) {
   std::wstring temp7 ;
   int res7 = SWIG_TMPOBJ ;
   PyObject *swig_obj[6] ;
-
+  
   arg7 = &temp7;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetWordsNoDict", 6, 6, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWordsNoDict" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWordsNoDict" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetWordsNoDict" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetWordsNoDict" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_GetWordsNoDict" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_GetWordsNoDict" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
     SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "Op_GetWordsNoDict" "', argument " "6"" of type '" "wchar_t const *""'");
   }
   arg6 = reinterpret_cast< wchar_t * >(buf6);
-  (arg1)->GetWordsNoDict(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,*arg7);
+  {
+    try {
+      (arg1)->GetWordsNoDict(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,*arg7);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res7)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg7)), 1);
@@ -15296,13 +17543,13 @@ SWIGINTERN PyObject *_wrap_Op_GetWordResultCount(PyObject *self, PyObject *args)
   long temp3 ;
   int res3 = SWIG_TMPOBJ ;
   PyObject *swig_obj[2] ;
-
+  
   arg3 = &temp3;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetWordResultCount", 2, 2, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWordResultCount" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWordResultCount" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -15310,7 +17557,17 @@ SWIGINTERN PyObject *_wrap_Op_GetWordResultCount(PyObject *self, PyObject *args)
     SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_GetWordResultCount" "', argument " "2"" of type '" "wchar_t const *""'");
   }
   arg2 = reinterpret_cast< wchar_t * >(buf2);
-  (arg1)->GetWordResultCount((wchar_t const *)arg2,arg3);
+  {
+    try {
+      (arg1)->GetWordResultCount((wchar_t const *)arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res3)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
@@ -15348,7 +17605,7 @@ SWIGINTERN PyObject *_wrap_Op_GetWordResultPos(PyObject *self, PyObject *args) {
   long temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   arg5 = &temp5;
   arg6 = &temp6;
@@ -15356,7 +17613,7 @@ SWIGINTERN PyObject *_wrap_Op_GetWordResultPos(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_GetWordResultPos", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWordResultPos" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWordResultPos" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -15367,9 +17624,19 @@ SWIGINTERN PyObject *_wrap_Op_GetWordResultPos(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetWordResultPos" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->GetWordResultPos((wchar_t const *)arg2,arg3,arg4,arg5,arg6);
+  {
+    try {
+      (arg1)->GetWordResultPos((wchar_t const *)arg2,arg3,arg4,arg5,arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg4)), 1);
@@ -15413,13 +17680,13 @@ SWIGINTERN PyObject *_wrap_Op_GetWordResultStr(PyObject *self, PyObject *args) {
   std::wstring temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_GetWordResultStr", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWordResultStr" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetWordResultStr" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -15430,9 +17697,19 @@ SWIGINTERN PyObject *_wrap_Op_GetWordResultStr(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_GetWordResultStr" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
-  (arg1)->GetWordResultStr((wchar_t const *)arg2,arg3,*arg4);
+  {
+    try {
+      (arg1)->GetWordResultStr((wchar_t const *)arg2,arg3,*arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg4)), 1);
@@ -15476,34 +17753,34 @@ SWIGINTERN PyObject *_wrap_Op_Ocr(PyObject *self, PyObject *args) {
   std::wstring temp8 ;
   int res8 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_Ocr", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Ocr" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_Ocr" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_Ocr" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_Ocr" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_Ocr" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_Ocr" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -15513,9 +17790,19 @@ SWIGINTERN PyObject *_wrap_Op_Ocr(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_Ocr" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
-  (arg1)->Ocr(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8);
+  {
+    try {
+      (arg1)->Ocr(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
@@ -15559,34 +17846,34 @@ SWIGINTERN PyObject *_wrap_Op_OcrEx(PyObject *self, PyObject *args) {
   std::wstring temp8 ;
   int res8 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_OcrEx", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_OcrEx" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_OcrEx" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_OcrEx" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_OcrEx" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_OcrEx" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_OcrEx" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -15596,15 +17883,305 @@ SWIGINTERN PyObject *_wrap_Op_OcrEx(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_OcrEx" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
-  (arg1)->OcrEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8);
+  {
+    try {
+      (arg1)->OcrEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
   } else {
     int new_flags = SWIG_IsNewObj(res8) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg8), SWIGTYPE_p_std__wstring, new_flags), 1);
+  }
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return resultobj;
+fail:
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_AutoOcr(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long arg2 ;
+  long arg3 ;
+  long arg4 ;
+  long arg5 ;
+  wchar_t *arg6 = 0 ;
+  double arg7 ;
+  std::wstring *arg8 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long val2 ;
+  int ecode2 = 0 ;
+  long val3 ;
+  int ecode3 = 0 ;
+  long val4 ;
+  int ecode4 = 0 ;
+  long val5 ;
+  int ecode5 = 0 ;
+  int res6 ;
+  wchar_t *buf6 = 0 ;
+  int alloc6 = 0 ;
+  double val7 ;
+  int ecode7 = 0 ;
+  std::wstring temp8 ;
+  int res8 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[7] ;
+  
+  arg8 = &temp8;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_AutoOcr", 7, 7, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_AutoOcr" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_AutoOcr" "', argument " "2"" of type '" "long""'");
+  } 
+  arg2 = static_cast< long >(val2);
+  ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_AutoOcr" "', argument " "3"" of type '" "long""'");
+  } 
+  arg3 = static_cast< long >(val3);
+  ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_AutoOcr" "', argument " "4"" of type '" "long""'");
+  } 
+  arg4 = static_cast< long >(val4);
+  ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
+  if (!SWIG_IsOK(ecode5)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_AutoOcr" "', argument " "5"" of type '" "long""'");
+  } 
+  arg5 = static_cast< long >(val5);
+  res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
+  if (!SWIG_IsOK(res6)) {
+    SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "Op_AutoOcr" "', argument " "6"" of type '" "wchar_t const *""'");
+  }
+  arg6 = reinterpret_cast< wchar_t * >(buf6);
+  ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
+  if (!SWIG_IsOK(ecode7)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_AutoOcr" "', argument " "7"" of type '" "double""'");
+  } 
+  arg7 = static_cast< double >(val7);
+  {
+    try {
+      (arg1)->AutoOcr(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res8)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res8) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg8), SWIGTYPE_p_std__wstring, new_flags), 1);
+  }
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return resultobj;
+fail:
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_AutoOcrLine(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long arg2 ;
+  long arg3 ;
+  long arg4 ;
+  long arg5 ;
+  wchar_t *arg6 = 0 ;
+  double arg7 ;
+  std::wstring *arg8 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long val2 ;
+  int ecode2 = 0 ;
+  long val3 ;
+  int ecode3 = 0 ;
+  long val4 ;
+  int ecode4 = 0 ;
+  long val5 ;
+  int ecode5 = 0 ;
+  int res6 ;
+  wchar_t *buf6 = 0 ;
+  int alloc6 = 0 ;
+  double val7 ;
+  int ecode7 = 0 ;
+  std::wstring temp8 ;
+  int res8 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[7] ;
+  
+  arg8 = &temp8;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_AutoOcrLine", 7, 7, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_AutoOcrLine" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_AutoOcrLine" "', argument " "2"" of type '" "long""'");
+  } 
+  arg2 = static_cast< long >(val2);
+  ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_AutoOcrLine" "', argument " "3"" of type '" "long""'");
+  } 
+  arg3 = static_cast< long >(val3);
+  ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_AutoOcrLine" "', argument " "4"" of type '" "long""'");
+  } 
+  arg4 = static_cast< long >(val4);
+  ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
+  if (!SWIG_IsOK(ecode5)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_AutoOcrLine" "', argument " "5"" of type '" "long""'");
+  } 
+  arg5 = static_cast< long >(val5);
+  res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
+  if (!SWIG_IsOK(res6)) {
+    SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "Op_AutoOcrLine" "', argument " "6"" of type '" "wchar_t const *""'");
+  }
+  arg6 = reinterpret_cast< wchar_t * >(buf6);
+  ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
+  if (!SWIG_IsOK(ecode7)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_AutoOcrLine" "', argument " "7"" of type '" "double""'");
+  } 
+  arg7 = static_cast< double >(val7);
+  {
+    try {
+      (arg1)->AutoOcrLine(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res8)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res8) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg8), SWIGTYPE_p_std__wstring, new_flags), 1);
+  }
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return resultobj;
+fail:
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_AutoOcrEx(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long arg2 ;
+  long arg3 ;
+  long arg4 ;
+  long arg5 ;
+  wchar_t *arg6 = 0 ;
+  double arg7 ;
+  std::wstring *arg8 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long val2 ;
+  int ecode2 = 0 ;
+  long val3 ;
+  int ecode3 = 0 ;
+  long val4 ;
+  int ecode4 = 0 ;
+  long val5 ;
+  int ecode5 = 0 ;
+  int res6 ;
+  wchar_t *buf6 = 0 ;
+  int alloc6 = 0 ;
+  double val7 ;
+  int ecode7 = 0 ;
+  std::wstring temp8 ;
+  int res8 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[7] ;
+  long result;
+  
+  arg8 = &temp8;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_AutoOcrEx", 7, 7, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_AutoOcrEx" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_AutoOcrEx" "', argument " "2"" of type '" "long""'");
+  } 
+  arg2 = static_cast< long >(val2);
+  ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_AutoOcrEx" "', argument " "3"" of type '" "long""'");
+  } 
+  arg3 = static_cast< long >(val3);
+  ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_AutoOcrEx" "', argument " "4"" of type '" "long""'");
+  } 
+  arg4 = static_cast< long >(val4);
+  ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
+  if (!SWIG_IsOK(ecode5)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_AutoOcrEx" "', argument " "5"" of type '" "long""'");
+  } 
+  arg5 = static_cast< long >(val5);
+  res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
+  if (!SWIG_IsOK(res6)) {
+    SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "Op_AutoOcrEx" "', argument " "6"" of type '" "wchar_t const *""'");
+  }
+  arg6 = reinterpret_cast< wchar_t * >(buf6);
+  ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
+  if (!SWIG_IsOK(ecode7)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_AutoOcrEx" "', argument " "7"" of type '" "double""'");
+  } 
+  arg7 = static_cast< double >(val7);
+  {
+    try {
+      result = (long)(arg1)->AutoOcrEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_From_long(static_cast< long >(result));
+  if (SWIG_IsTmpObj(res8)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 0);
+  } else {
+    int new_flags = SWIG_IsNewObj(res8) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg8), SWIGTYPE_p_std__wstring, new_flags), 0);
   }
   if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
   return resultobj;
@@ -15652,7 +18229,7 @@ SWIGINTERN PyObject *_wrap_Op_FindStr(PyObject *self, PyObject *args) {
   long temp11 ;
   int res11 = SWIG_TMPOBJ ;
   PyObject *swig_obj[8] ;
-
+  
   arg9 = &temp9;
   arg10 = &temp10;
   arg11 = &temp11;
@@ -15660,28 +18237,28 @@ SWIGINTERN PyObject *_wrap_Op_FindStr(PyObject *self, PyObject *args) {
   if (!SWIG_Python_UnpackTuple(args, "Op_FindStr", 8, 8, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindStr" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindStr" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindStr" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindStr" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindStr" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindStr" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -15696,9 +18273,19 @@ SWIGINTERN PyObject *_wrap_Op_FindStr(PyObject *self, PyObject *args) {
   ecode8 = SWIG_AsVal_double(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindStr" "', argument " "8"" of type '" "double""'");
-  }
+  } 
   arg8 = static_cast< double >(val8);
-  (arg1)->FindStr(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,arg10,arg11);
+  {
+    try {
+      (arg1)->FindStr(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,arg9,arg10,arg11);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res9)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg9)), 1);
@@ -15760,34 +18347,34 @@ SWIGINTERN PyObject *_wrap_Op_FindStrEx(PyObject *self, PyObject *args) {
   std::wstring temp9 ;
   int res9 = SWIG_TMPOBJ ;
   PyObject *swig_obj[8] ;
-
+  
   arg9 = &temp9;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FindStrEx", 8, 8, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindStrEx" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindStrEx" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindStrEx" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindStrEx" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindStrEx" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindStrEx" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -15802,9 +18389,19 @@ SWIGINTERN PyObject *_wrap_Op_FindStrEx(PyObject *self, PyObject *args) {
   ecode8 = SWIG_AsVal_double(swig_obj[7], &val8);
   if (!SWIG_IsOK(ecode8)) {
     SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindStrEx" "', argument " "8"" of type '" "double""'");
-  }
+  } 
   arg8 = static_cast< double >(val8);
-  (arg1)->FindStrEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,*arg9);
+  {
+    try {
+      (arg1)->FindStrEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,(wchar_t const *)arg7,arg8,*arg9);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res9)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg9)), 1);
@@ -15846,41 +18443,51 @@ SWIGINTERN PyObject *_wrap_Op_OcrAuto(PyObject *self, PyObject *args) {
   std::wstring temp7 ;
   int res7 = SWIG_TMPOBJ ;
   PyObject *swig_obj[6] ;
-
+  
   arg7 = &temp7;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_OcrAuto", 6, 6, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_OcrAuto" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_OcrAuto" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_OcrAuto" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_OcrAuto" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_OcrAuto" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_OcrAuto" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   ecode6 = SWIG_AsVal_double(swig_obj[5], &val6);
   if (!SWIG_IsOK(ecode6)) {
     SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "Op_OcrAuto" "', argument " "6"" of type '" "double""'");
-  }
+  } 
   arg6 = static_cast< double >(val6);
-  (arg1)->OcrAuto(arg2,arg3,arg4,arg5,arg6,*arg7);
+  {
+    try {
+      (arg1)->OcrAuto(arg2,arg3,arg4,arg5,arg6,*arg7);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res7)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg7)), 1);
@@ -15914,13 +18521,13 @@ SWIGINTERN PyObject *_wrap_Op_OcrFromFile(PyObject *self, PyObject *args) {
   std::wstring temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_OcrFromFile", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_OcrFromFile" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_OcrFromFile" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -15936,9 +18543,91 @@ SWIGINTERN PyObject *_wrap_Op_OcrFromFile(PyObject *self, PyObject *args) {
   ecode4 = SWIG_AsVal_double(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_OcrFromFile" "', argument " "4"" of type '" "double""'");
-  }
+  } 
   arg4 = static_cast< double >(val4);
-  (arg1)->OcrFromFile((wchar_t const *)arg2,(wchar_t const *)arg3,arg4,*arg5);
+  {
+    try {
+      (arg1)->OcrFromFile((wchar_t const *)arg2,(wchar_t const *)arg3,arg4,*arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res5)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg5)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res5) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg5), SWIGTYPE_p_std__wstring, new_flags), 1);
+  }
+  if (alloc2 == SWIG_NEWOBJ) delete[] buf2;
+  if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
+  return resultobj;
+fail:
+  if (alloc2 == SWIG_NEWOBJ) delete[] buf2;
+  if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_AutoOcrFromFile(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  wchar_t *arg2 = 0 ;
+  wchar_t *arg3 = 0 ;
+  double arg4 ;
+  std::wstring *arg5 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  int res2 ;
+  wchar_t *buf2 = 0 ;
+  int alloc2 = 0 ;
+  int res3 ;
+  wchar_t *buf3 = 0 ;
+  int alloc3 = 0 ;
+  double val4 ;
+  int ecode4 = 0 ;
+  std::wstring temp5 ;
+  int res5 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[4] ;
+  
+  arg5 = &temp5;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_AutoOcrFromFile", 4, 4, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_AutoOcrFromFile" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "Op_AutoOcrFromFile" "', argument " "2"" of type '" "wchar_t const *""'");
+  }
+  arg2 = reinterpret_cast< wchar_t * >(buf2);
+  res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_AutoOcrFromFile" "', argument " "3"" of type '" "wchar_t const *""'");
+  }
+  arg3 = reinterpret_cast< wchar_t * >(buf3);
+  ecode4 = SWIG_AsVal_double(swig_obj[3], &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_AutoOcrFromFile" "', argument " "4"" of type '" "double""'");
+  } 
+  arg4 = static_cast< double >(val4);
+  {
+    try {
+      (arg1)->AutoOcrFromFile((wchar_t const *)arg2,(wchar_t const *)arg3,arg4,*arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg5)), 1);
@@ -15972,13 +18661,13 @@ SWIGINTERN PyObject *_wrap_Op_OcrAutoFromFile(PyObject *self, PyObject *args) {
   std::wstring temp4 ;
   int res4 = SWIG_TMPOBJ ;
   PyObject *swig_obj[3] ;
-
+  
   arg4 = &temp4;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_OcrAutoFromFile", 3, 3, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_OcrAutoFromFile" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_OcrAutoFromFile" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -15989,9 +18678,19 @@ SWIGINTERN PyObject *_wrap_Op_OcrAutoFromFile(PyObject *self, PyObject *args) {
   ecode3 = SWIG_AsVal_double(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_OcrAutoFromFile" "', argument " "3"" of type '" "double""'");
-  }
+  } 
   arg3 = static_cast< double >(val3);
-  (arg1)->OcrAutoFromFile((wchar_t const *)arg2,arg3,*arg4);
+  {
+    try {
+      (arg1)->OcrAutoFromFile((wchar_t const *)arg2,arg3,*arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res4)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg4)), 1);
@@ -16035,34 +18734,34 @@ SWIGINTERN PyObject *_wrap_Op_FindLine(PyObject *self, PyObject *args) {
   std::wstring temp8 ;
   int res8 = SWIG_TMPOBJ ;
   PyObject *swig_obj[7] ;
-
+  
   arg8 = &temp8;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_FindLine", 7, 7, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindLine" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindLine" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindLine" "', argument " "2"" of type '" "long""'");
-  }
+  } 
   arg2 = static_cast< long >(val2);
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindLine" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindLine" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindLine" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
   res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
   if (!SWIG_IsOK(res6)) {
@@ -16072,15 +18771,239 @@ SWIGINTERN PyObject *_wrap_Op_FindLine(PyObject *self, PyObject *args) {
   ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
   if (!SWIG_IsOK(ecode7)) {
     SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_FindLine" "', argument " "7"" of type '" "double""'");
-  }
+  } 
   arg7 = static_cast< double >(val7);
-  (arg1)->FindLine(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8);
+  {
+    try {
+      (arg1)->FindLine(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res8)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
   } else {
     int new_flags = SWIG_IsNewObj(res8) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg8), SWIGTYPE_p_std__wstring, new_flags), 1);
+  }
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return resultobj;
+fail:
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_FindLineEx(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long arg2 ;
+  long arg3 ;
+  long arg4 ;
+  long arg5 ;
+  wchar_t *arg6 = 0 ;
+  double arg7 ;
+  std::wstring *arg8 = 0 ;
+  long *arg9 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long val2 ;
+  int ecode2 = 0 ;
+  long val3 ;
+  int ecode3 = 0 ;
+  long val4 ;
+  int ecode4 = 0 ;
+  long val5 ;
+  int ecode5 = 0 ;
+  int res6 ;
+  wchar_t *buf6 = 0 ;
+  int alloc6 = 0 ;
+  double val7 ;
+  int ecode7 = 0 ;
+  std::wstring temp8 ;
+  int res8 = SWIG_TMPOBJ ;
+  long temp9 ;
+  int res9 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[7] ;
+  
+  arg8 = &temp8;
+  arg9 = &temp9;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_FindLineEx", 7, 7, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindLineEx" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindLineEx" "', argument " "2"" of type '" "long""'");
+  } 
+  arg2 = static_cast< long >(val2);
+  ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindLineEx" "', argument " "3"" of type '" "long""'");
+  } 
+  arg3 = static_cast< long >(val3);
+  ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindLineEx" "', argument " "4"" of type '" "long""'");
+  } 
+  arg4 = static_cast< long >(val4);
+  ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
+  if (!SWIG_IsOK(ecode5)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindLineEx" "', argument " "5"" of type '" "long""'");
+  } 
+  arg5 = static_cast< long >(val5);
+  res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
+  if (!SWIG_IsOK(res6)) {
+    SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "Op_FindLineEx" "', argument " "6"" of type '" "wchar_t const *""'");
+  }
+  arg6 = reinterpret_cast< wchar_t * >(buf6);
+  ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
+  if (!SWIG_IsOK(ecode7)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_FindLineEx" "', argument " "7"" of type '" "double""'");
+  } 
+  arg7 = static_cast< double >(val7);
+  {
+    try {
+      (arg1)->FindLineEx(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8,arg9);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res8)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res8) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg8), SWIGTYPE_p_std__wstring, new_flags), 1);
+  }
+  if (SWIG_IsTmpObj(res9)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg9)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res9) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg9), SWIGTYPE_p_long, new_flags), 1);
+  }
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return resultobj;
+fail:
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_FindLineExS(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long arg2 ;
+  long arg3 ;
+  long arg4 ;
+  long arg5 ;
+  wchar_t *arg6 = 0 ;
+  double arg7 ;
+  long arg8 ;
+  std::wstring *arg9 = 0 ;
+  long *arg10 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long val2 ;
+  int ecode2 = 0 ;
+  long val3 ;
+  int ecode3 = 0 ;
+  long val4 ;
+  int ecode4 = 0 ;
+  long val5 ;
+  int ecode5 = 0 ;
+  int res6 ;
+  wchar_t *buf6 = 0 ;
+  int alloc6 = 0 ;
+  double val7 ;
+  int ecode7 = 0 ;
+  long val8 ;
+  int ecode8 = 0 ;
+  std::wstring temp9 ;
+  int res9 = SWIG_TMPOBJ ;
+  long temp10 ;
+  int res10 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[8] ;
+  
+  arg9 = &temp9;
+  arg10 = &temp10;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_FindLineExS", 8, 8, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindLineExS" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindLineExS" "', argument " "2"" of type '" "long""'");
+  } 
+  arg2 = static_cast< long >(val2);
+  ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_FindLineExS" "', argument " "3"" of type '" "long""'");
+  } 
+  arg3 = static_cast< long >(val3);
+  ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_FindLineExS" "', argument " "4"" of type '" "long""'");
+  } 
+  arg4 = static_cast< long >(val4);
+  ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
+  if (!SWIG_IsOK(ecode5)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindLineExS" "', argument " "5"" of type '" "long""'");
+  } 
+  arg5 = static_cast< long >(val5);
+  res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
+  if (!SWIG_IsOK(res6)) {
+    SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "Op_FindLineExS" "', argument " "6"" of type '" "wchar_t const *""'");
+  }
+  arg6 = reinterpret_cast< wchar_t * >(buf6);
+  ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
+  if (!SWIG_IsOK(ecode7)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_FindLineExS" "', argument " "7"" of type '" "double""'");
+  } 
+  arg7 = static_cast< double >(val7);
+  ecode8 = SWIG_AsVal_long(swig_obj[7], &val8);
+  if (!SWIG_IsOK(ecode8)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode8), "in method '" "Op_FindLineExS" "', argument " "8"" of type '" "long""'");
+  } 
+  arg8 = static_cast< long >(val8);
+  {
+    try {
+      (arg1)->FindLineExS(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,arg8,*arg9,arg10);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res9)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg9)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res9) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg9), SWIGTYPE_p_std__wstring, new_flags), 1);
+  }
+  if (SWIG_IsTmpObj(res10)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg10)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res10) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg10), SWIGTYPE_p_long, new_flags), 1);
   }
   if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
   return resultobj;
@@ -16113,19 +19036,19 @@ SWIGINTERN PyObject *_wrap_Op_WriteData(PyObject *self, PyObject *args) {
   long temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_WriteData", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WriteData" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WriteData" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_WriteData" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -16140,9 +19063,19 @@ SWIGINTERN PyObject *_wrap_Op_WriteData(PyObject *self, PyObject *args) {
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_WriteData" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
-  (arg1)->WriteData(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,(wchar_t const *)arg4,arg5,arg6);
+  {
+    try {
+      (arg1)->WriteData(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,(wchar_t const *)arg4,arg5,arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg6)), 1);
@@ -16179,19 +19112,19 @@ SWIGINTERN PyObject *_wrap_Op_ReadData(PyObject *self, PyObject *args) {
   std::wstring temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_ReadData", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ReadData" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ReadData" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_ReadData" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -16201,9 +19134,19 @@ SWIGINTERN PyObject *_wrap_Op_ReadData(PyObject *self, PyObject *args) {
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_ReadData" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
-  (arg1)->ReadData(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,*arg5);
+  {
+    try {
+      (arg1)->ReadData(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,*arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg5)), 1);
@@ -16238,18 +19181,18 @@ SWIGINTERN PyObject *_wrap_Op_ReadInt(PyObject *self, PyObject *args) {
   void *argp5 = 0 ;
   int res5 = 0 ;
   PyObject *swig_obj[5] ;
-
+  
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_ReadInt", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ReadInt" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ReadInt" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_ReadInt" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -16259,14 +19202,24 @@ SWIGINTERN PyObject *_wrap_Op_ReadInt(PyObject *self, PyObject *args) {
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_ReadInt" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   res5 = SWIG_ConvertPtr(swig_obj[4], &argp5,SWIGTYPE_p_int64_t, 0 |  0 );
   if (!SWIG_IsOK(res5)) {
-    SWIG_exception_fail(SWIG_ArgError(res5), "in method '" "Op_ReadInt" "', argument " "5"" of type '" "int64_t *""'");
+    SWIG_exception_fail(SWIG_ArgError(res5), "in method '" "Op_ReadInt" "', argument " "5"" of type '" "int64_t *""'"); 
   }
   arg5 = reinterpret_cast< int64_t * >(argp5);
-  (arg1)->ReadInt(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->ReadInt(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
   return resultobj;
@@ -16298,19 +19251,19 @@ SWIGINTERN PyObject *_wrap_Op_WriteInt(PyObject *self, PyObject *args) {
   long temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_WriteInt", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WriteInt" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WriteInt" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_WriteInt" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -16320,13 +19273,13 @@ SWIGINTERN PyObject *_wrap_Op_WriteInt(PyObject *self, PyObject *args) {
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_WriteInt" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   {
     res5 = SWIG_ConvertPtr(swig_obj[4], &argp5, SWIGTYPE_p_int64_t,  0  | 0);
     if (!SWIG_IsOK(res5)) {
-      SWIG_exception_fail(SWIG_ArgError(res5), "in method '" "Op_WriteInt" "', argument " "5"" of type '" "int64_t""'");
-    }
+      SWIG_exception_fail(SWIG_ArgError(res5), "in method '" "Op_WriteInt" "', argument " "5"" of type '" "int64_t""'"); 
+    }  
     if (!argp5) {
       SWIG_exception_fail(SWIG_NullReferenceError, "invalid null reference " "in method '" "Op_WriteInt" "', argument " "5"" of type '" "int64_t""'");
     } else {
@@ -16335,7 +19288,17 @@ SWIGINTERN PyObject *_wrap_Op_WriteInt(PyObject *self, PyObject *args) {
       if (SWIG_IsNewObj(res5)) delete temp;
     }
   }
-  (arg1)->WriteInt(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,SWIG_STD_MOVE(arg5),arg6);
+  {
+    try {
+      (arg1)->WriteInt(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,SWIG_STD_MOVE(arg5),arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg6)), 1);
@@ -16367,18 +19330,18 @@ SWIGINTERN PyObject *_wrap_Op_ReadFloat(PyObject *self, PyObject *args) {
   void *argp4 = 0 ;
   int res4 = 0 ;
   PyObject *swig_obj[4] ;
-
+  
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_ReadFloat", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ReadFloat" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ReadFloat" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_ReadFloat" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -16387,10 +19350,20 @@ SWIGINTERN PyObject *_wrap_Op_ReadFloat(PyObject *self, PyObject *args) {
   arg3 = reinterpret_cast< wchar_t * >(buf3);
   res4 = SWIG_ConvertPtr(swig_obj[3], &argp4,SWIGTYPE_p_float, 0 |  0 );
   if (!SWIG_IsOK(res4)) {
-    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_ReadFloat" "', argument " "4"" of type '" "float *""'");
+    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_ReadFloat" "', argument " "4"" of type '" "float *""'"); 
   }
   arg4 = reinterpret_cast< float * >(argp4);
-  (arg1)->ReadFloat(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->ReadFloat(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
   return resultobj;
@@ -16419,19 +19392,19 @@ SWIGINTERN PyObject *_wrap_Op_WriteFloat(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_WriteFloat", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WriteFloat" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WriteFloat" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_WriteFloat" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -16441,9 +19414,19 @@ SWIGINTERN PyObject *_wrap_Op_WriteFloat(PyObject *self, PyObject *args) {
   ecode4 = SWIG_AsVal_float(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_WriteFloat" "', argument " "4"" of type '" "float""'");
-  }
+  } 
   arg4 = static_cast< float >(val4);
-  (arg1)->WriteFloat(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->WriteFloat(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -16475,18 +19458,18 @@ SWIGINTERN PyObject *_wrap_Op_ReadDouble(PyObject *self, PyObject *args) {
   void *argp4 = 0 ;
   int res4 = 0 ;
   PyObject *swig_obj[4] ;
-
+  
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_ReadDouble", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ReadDouble" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ReadDouble" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_ReadDouble" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -16495,10 +19478,20 @@ SWIGINTERN PyObject *_wrap_Op_ReadDouble(PyObject *self, PyObject *args) {
   arg3 = reinterpret_cast< wchar_t * >(buf3);
   res4 = SWIG_ConvertPtr(swig_obj[3], &argp4,SWIGTYPE_p_double, 0 |  0 );
   if (!SWIG_IsOK(res4)) {
-    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_ReadDouble" "', argument " "4"" of type '" "double *""'");
+    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_ReadDouble" "', argument " "4"" of type '" "double *""'"); 
   }
   arg4 = reinterpret_cast< double * >(argp4);
-  (arg1)->ReadDouble(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4);
+  {
+    try {
+      (arg1)->ReadDouble(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
   return resultobj;
@@ -16527,19 +19520,19 @@ SWIGINTERN PyObject *_wrap_Op_WriteDouble(PyObject *self, PyObject *args) {
   long temp5 ;
   int res5 = SWIG_TMPOBJ ;
   PyObject *swig_obj[4] ;
-
+  
   arg5 = &temp5;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_WriteDouble", 4, 4, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WriteDouble" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WriteDouble" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_WriteDouble" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -16549,9 +19542,19 @@ SWIGINTERN PyObject *_wrap_Op_WriteDouble(PyObject *self, PyObject *args) {
   ecode4 = SWIG_AsVal_double(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_WriteDouble" "', argument " "4"" of type '" "double""'");
-  }
+  } 
   arg4 = static_cast< double >(val4);
-  (arg1)->WriteDouble(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,arg5);
+  {
+    try {
+      (arg1)->WriteDouble(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res5)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg5)), 1);
@@ -16589,19 +19592,19 @@ SWIGINTERN PyObject *_wrap_Op_ReadString(PyObject *self, PyObject *args) {
   std::wstring temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_ReadString", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ReadString" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_ReadString" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_ReadString" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -16611,14 +19614,24 @@ SWIGINTERN PyObject *_wrap_Op_ReadString(PyObject *self, PyObject *args) {
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_ReadString" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
   if (!SWIG_IsOK(ecode5)) {
     SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_ReadString" "', argument " "5"" of type '" "long""'");
-  }
+  } 
   arg5 = static_cast< long >(val5);
-  (arg1)->ReadString(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,arg5,*arg6);
+  {
+    try {
+      (arg1)->ReadString(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,arg5,*arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg6)), 1);
@@ -16657,19 +19670,19 @@ SWIGINTERN PyObject *_wrap_Op_WriteString(PyObject *self, PyObject *args) {
   long temp6 ;
   int res6 = SWIG_TMPOBJ ;
   PyObject *swig_obj[5] ;
-
+  
   arg6 = &temp6;
   (void)self;
   if (!SWIG_Python_UnpackTuple(args, "Op_WriteString", 5, 5, swig_obj)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WriteString" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_WriteString" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
   if (!SWIG_IsOK(ecode2)) {
     SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_WriteString" "', argument " "2"" of type '" "LONG_PTR""'");
-  }
+  } 
   arg2 = static_cast< LONG_PTR >(val2);
   res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
   if (!SWIG_IsOK(res3)) {
@@ -16679,14 +19692,24 @@ SWIGINTERN PyObject *_wrap_Op_WriteString(PyObject *self, PyObject *args) {
   ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_WriteString" "', argument " "4"" of type '" "long""'");
-  }
+  } 
   arg4 = static_cast< long >(val4);
   res5 = SWIG_AsWCharPtrAndSize(swig_obj[4], &buf5, NULL, &alloc5);
   if (!SWIG_IsOK(res5)) {
     SWIG_exception_fail(SWIG_ArgError(res5), "in method '" "Op_WriteString" "', argument " "5"" of type '" "wchar_t const *""'");
   }
   arg5 = reinterpret_cast< wchar_t * >(buf5);
-  (arg1)->WriteString(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,(wchar_t const *)arg5,arg6);
+  {
+    try {
+      (arg1)->WriteString(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,arg4,(wchar_t const *)arg5,arg6);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
   resultobj = SWIG_Py_Void();
   if (SWIG_IsTmpObj(res6)) {
     resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg6)), 1);
@@ -16700,6 +19723,227 @@ SWIGINTERN PyObject *_wrap_Op_WriteString(PyObject *self, PyObject *args) {
 fail:
   if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
   if (alloc5 == SWIG_NEWOBJ) delete[] buf5;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_FindData(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  LONG_PTR arg2 ;
+  wchar_t *arg3 = 0 ;
+  wchar_t *arg4 = 0 ;
+  std::wstring *arg5 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long long val2 ;
+  int ecode2 = 0 ;
+  int res3 ;
+  wchar_t *buf3 = 0 ;
+  int alloc3 = 0 ;
+  int res4 ;
+  wchar_t *buf4 = 0 ;
+  int alloc4 = 0 ;
+  std::wstring temp5 ;
+  int res5 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[4] ;
+  
+  arg5 = &temp5;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_FindData", 4, 4, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindData" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindData" "', argument " "2"" of type '" "LONG_PTR""'");
+  } 
+  arg2 = static_cast< LONG_PTR >(val2);
+  res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_FindData" "', argument " "3"" of type '" "wchar_t const *""'");
+  }
+  arg3 = reinterpret_cast< wchar_t * >(buf3);
+  res4 = SWIG_AsWCharPtrAndSize(swig_obj[3], &buf4, NULL, &alloc4);
+  if (!SWIG_IsOK(res4)) {
+    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_FindData" "', argument " "4"" of type '" "wchar_t const *""'");
+  }
+  arg4 = reinterpret_cast< wchar_t * >(buf4);
+  {
+    try {
+      (arg1)->FindData(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,(wchar_t const *)arg4,*arg5);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res5)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg5)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res5) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg5), SWIGTYPE_p_std__wstring, new_flags), 1);
+  }
+  if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
+  if (alloc4 == SWIG_NEWOBJ) delete[] buf4;
+  return resultobj;
+fail:
+  if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
+  if (alloc4 == SWIG_NEWOBJ) delete[] buf4;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_FindDataEx(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  LONG_PTR arg2 ;
+  wchar_t *arg3 = 0 ;
+  wchar_t *arg4 = 0 ;
+  long arg5 ;
+  long arg6 ;
+  std::wstring *arg7 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long long val2 ;
+  int ecode2 = 0 ;
+  int res3 ;
+  wchar_t *buf3 = 0 ;
+  int alloc3 = 0 ;
+  int res4 ;
+  wchar_t *buf4 = 0 ;
+  int alloc4 = 0 ;
+  long val5 ;
+  int ecode5 = 0 ;
+  long val6 ;
+  int ecode6 = 0 ;
+  std::wstring temp7 ;
+  int res7 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[6] ;
+  
+  arg7 = &temp7;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_FindDataEx", 6, 6, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_FindDataEx" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_FindDataEx" "', argument " "2"" of type '" "LONG_PTR""'");
+  } 
+  arg2 = static_cast< LONG_PTR >(val2);
+  res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_FindDataEx" "', argument " "3"" of type '" "wchar_t const *""'");
+  }
+  arg3 = reinterpret_cast< wchar_t * >(buf3);
+  res4 = SWIG_AsWCharPtrAndSize(swig_obj[3], &buf4, NULL, &alloc4);
+  if (!SWIG_IsOK(res4)) {
+    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "Op_FindDataEx" "', argument " "4"" of type '" "wchar_t const *""'");
+  }
+  arg4 = reinterpret_cast< wchar_t * >(buf4);
+  ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
+  if (!SWIG_IsOK(ecode5)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_FindDataEx" "', argument " "5"" of type '" "long""'");
+  } 
+  arg5 = static_cast< long >(val5);
+  ecode6 = SWIG_AsVal_long(swig_obj[5], &val6);
+  if (!SWIG_IsOK(ecode6)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode6), "in method '" "Op_FindDataEx" "', argument " "6"" of type '" "long""'");
+  } 
+  arg6 = static_cast< long >(val6);
+  {
+    try {
+      (arg1)->FindDataEx(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,(wchar_t const *)arg4,arg5,arg6,*arg7);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res7)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg7)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res7) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg7), SWIGTYPE_p_std__wstring, new_flags), 1);
+  }
+  if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
+  if (alloc4 == SWIG_NEWOBJ) delete[] buf4;
+  return resultobj;
+fail:
+  if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
+  if (alloc4 == SWIG_NEWOBJ) delete[] buf4;
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_GetModuleBaseAddr(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  LONG_PTR arg2 ;
+  wchar_t *arg3 = 0 ;
+  std::wstring *arg4 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long long val2 ;
+  int ecode2 = 0 ;
+  int res3 ;
+  wchar_t *buf3 = 0 ;
+  int alloc3 = 0 ;
+  std::wstring temp4 ;
+  int res4 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[3] ;
+  
+  arg4 = &temp4;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_GetModuleBaseAddr", 3, 3, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetModuleBaseAddr" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long_SS_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_GetModuleBaseAddr" "', argument " "2"" of type '" "LONG_PTR""'");
+  } 
+  arg2 = static_cast< LONG_PTR >(val2);
+  res3 = SWIG_AsWCharPtrAndSize(swig_obj[2], &buf3, NULL, &alloc3);
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "Op_GetModuleBaseAddr" "', argument " "3"" of type '" "wchar_t const *""'");
+  }
+  arg3 = reinterpret_cast< wchar_t * >(buf3);
+  {
+    try {
+      (arg1)->GetModuleBaseAddr(SWIG_STD_MOVE(arg2),(wchar_t const *)arg3,*arg4);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res4)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg4)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res4) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg4), SWIGTYPE_p_std__wstring, new_flags), 1);
+  }
+  if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
+  return resultobj;
+fail:
+  if (alloc3 == SWIG_NEWOBJ) delete[] buf3;
   return NULL;
 }
 
@@ -16719,13 +19963,13 @@ SWIGINTERN PyObject *_wrap_Op_RunApp__SWIG_1(PyObject *self, Py_ssize_t nobjs, P
   int ecode3 = 0 ;
   long temp4 ;
   int res4 = SWIG_TMPOBJ ;
-
+  
   arg4 = &temp4;
   (void)self;
   if ((nobjs < 3) || (nobjs > 3)) SWIG_fail;
   res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RunApp" "', argument " "1"" of type '" "op::Op *""'");
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_RunApp" "', argument " "1"" of type '" "op::Op *""'"); 
   }
   arg1 = reinterpret_cast< op::Op * >(argp1);
   res2 = SWIG_AsWCharPtrAndSize(swig_obj[1], &buf2, NULL, &alloc2);
@@ -16736,7 +19980,7 @@ SWIGINTERN PyObject *_wrap_Op_RunApp__SWIG_1(PyObject *self, Py_ssize_t nobjs, P
   ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
   if (!SWIG_IsOK(ecode3)) {
     SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_RunApp" "', argument " "3"" of type '" "long""'");
-  }
+  } 
   arg3 = static_cast< long >(val3);
   op_Op_RunApp__SWIG_1(arg1,(wchar_t const *)arg2,arg3,arg4);
   resultobj = SWIG_Py_Void();
@@ -16759,7 +20003,7 @@ SWIGINTERN PyObject *_wrap_Op_RunApp(PyObject *self, PyObject *args) {
   PyObject *argv[5] = {
     0
   };
-
+  
   if (!(argc = SWIG_Python_UnpackTuple(args, "Op_RunApp", 0, 4, argv))) SWIG_fail;
   --argc;
   if (argc == 3) {
@@ -16805,7 +20049,7 @@ SWIGINTERN PyObject *_wrap_Op_RunApp(PyObject *self, PyObject *args) {
       }
     }
   }
-
+  
 fail:
   SWIG_Python_RaiseOrModifyTypeError("Wrong number or type of arguments for overloaded function 'Op_RunApp'.\n"
     "  Possible C/C++ prototypes are:\n"
@@ -16896,6 +20140,8 @@ static PyMethodDef SwigMethods[] = {
 	 { "Op_BindWindowEx", _wrap_Op_BindWindowEx, METH_VARARGS, NULL},
 	 { "Op_UnBindWindow", _wrap_Op_UnBindWindow, METH_O, NULL},
 	 { "Op_LockInput", _wrap_Op_LockInput, METH_VARARGS, NULL},
+	 { "Op_SetDxAttr", _wrap_Op_SetDxAttr, METH_VARARGS, NULL},
+	 { "Op_GetDxAttr", _wrap_Op_GetDxAttr, METH_O, NULL},
 	 { "Op_GetBindWindow", _wrap_Op_GetBindWindow, METH_O, NULL},
 	 { "Op_IsBind", _wrap_Op_IsBind, METH_O, NULL},
 	 { "Op_GetCursorPos", _wrap_Op_GetCursorPos, METH_O, NULL},
@@ -16955,6 +20201,7 @@ static PyMethodDef SwigMethods[] = {
 	 { "Op_FindPicExS", _wrap_Op_FindPicExS, METH_VARARGS, NULL},
 	 { "Op_FindColorBlock", _wrap_Op_FindColorBlock, METH_VARARGS, NULL},
 	 { "Op_FindColorBlockEx", _wrap_Op_FindColorBlockEx, METH_VARARGS, NULL},
+	 { "Op_FindColorBlockExS", _wrap_Op_FindColorBlockExS, METH_VARARGS, NULL},
 	 { "Op_GetColor", _wrap_Op_GetColor, METH_VARARGS, NULL},
 	 { "Op_SetDisplayInput", _wrap_Op_SetDisplayInput, METH_VARARGS, NULL},
 	 { "Op_LoadPic", _wrap_Op_LoadPic, METH_VARARGS, NULL},
@@ -17033,12 +20280,18 @@ static PyMethodDef SwigMethods[] = {
 	 { "Op_GetWordResultStr", _wrap_Op_GetWordResultStr, METH_VARARGS, NULL},
 	 { "Op_Ocr", _wrap_Op_Ocr, METH_VARARGS, NULL},
 	 { "Op_OcrEx", _wrap_Op_OcrEx, METH_VARARGS, NULL},
+	 { "Op_AutoOcr", _wrap_Op_AutoOcr, METH_VARARGS, NULL},
+	 { "Op_AutoOcrLine", _wrap_Op_AutoOcrLine, METH_VARARGS, NULL},
+	 { "Op_AutoOcrEx", _wrap_Op_AutoOcrEx, METH_VARARGS, NULL},
 	 { "Op_FindStr", _wrap_Op_FindStr, METH_VARARGS, NULL},
 	 { "Op_FindStrEx", _wrap_Op_FindStrEx, METH_VARARGS, NULL},
 	 { "Op_OcrAuto", _wrap_Op_OcrAuto, METH_VARARGS, NULL},
 	 { "Op_OcrFromFile", _wrap_Op_OcrFromFile, METH_VARARGS, NULL},
+	 { "Op_AutoOcrFromFile", _wrap_Op_AutoOcrFromFile, METH_VARARGS, NULL},
 	 { "Op_OcrAutoFromFile", _wrap_Op_OcrAutoFromFile, METH_VARARGS, NULL},
 	 { "Op_FindLine", _wrap_Op_FindLine, METH_VARARGS, NULL},
+	 { "Op_FindLineEx", _wrap_Op_FindLineEx, METH_VARARGS, NULL},
+	 { "Op_FindLineExS", _wrap_Op_FindLineExS, METH_VARARGS, NULL},
 	 { "Op_WriteData", _wrap_Op_WriteData, METH_VARARGS, NULL},
 	 { "Op_ReadData", _wrap_Op_ReadData, METH_VARARGS, NULL},
 	 { "Op_ReadInt", _wrap_Op_ReadInt, METH_VARARGS, NULL},
@@ -17049,6 +20302,9 @@ static PyMethodDef SwigMethods[] = {
 	 { "Op_WriteDouble", _wrap_Op_WriteDouble, METH_VARARGS, NULL},
 	 { "Op_ReadString", _wrap_Op_ReadString, METH_VARARGS, NULL},
 	 { "Op_WriteString", _wrap_Op_WriteString, METH_VARARGS, NULL},
+	 { "Op_FindData", _wrap_Op_FindData, METH_VARARGS, NULL},
+	 { "Op_FindDataEx", _wrap_Op_FindDataEx, METH_VARARGS, NULL},
+	 { "Op_GetModuleBaseAddr", _wrap_Op_GetModuleBaseAddr, METH_VARARGS, NULL},
 	 { "Op_RunApp", _wrap_Op_RunApp, METH_VARARGS, NULL},
 	 { "Op_swigregister", Op_swigregister, METH_O, NULL},
 	 { "Op_swiginit", Op_swiginit, METH_VARARGS, NULL},
@@ -17324,7 +20580,7 @@ SWIG_InitializeModule(SWIG_INIT_CLIENT_DATA_TYPE clientdata) {
   size_t i;
   swig_module_info *module_head, *iter;
   int init;
-
+  
   /* check to see if the circular list has been setup, if not, set it up */
   if (swig_module.next==0) {
     /* Initialize the swig_module */
@@ -17335,7 +20591,7 @@ SWIG_InitializeModule(SWIG_INIT_CLIENT_DATA_TYPE clientdata) {
   } else {
     init = 0;
   }
-
+  
   /* Try and load any already created modules */
   module_head = SWIG_GetModule(clientdata);
   if (!module_head) {
@@ -17352,18 +20608,18 @@ SWIG_InitializeModule(SWIG_INIT_CLIENT_DATA_TYPE clientdata) {
       }
       iter=iter->next;
     } while (iter!= module_head);
-
+    
     /* otherwise we must add our module into the list */
     swig_module.next = module_head->next;
     module_head->next = &swig_module;
   }
-
+  
   /* When multiple interpreters are used, a module could have already been initialized in
        a different interpreter, but not yet have a pointer in this interpreter.
        In this case, we do not want to continue adding types... everything should be
        set up already */
   if (init == 0) return;
-
+  
   /* Now work on filling in swig_module.types */
 #ifdef SWIGRUNTIME_DEBUG
   printf("SWIG_InitializeModule: size %lu\n", (unsigned long)swig_module.size);
@@ -17373,11 +20629,11 @@ SWIG_InitializeModule(SWIG_INIT_CLIENT_DATA_TYPE clientdata) {
     swig_type_info *target_type;
     swig_cast_info *cast, *first;
     int num_mapped = 0;
-
+    
 #ifdef SWIGRUNTIME_DEBUG
     printf("SWIG_InitializeModule: type %lu %s\n", (unsigned long)i, swig_module.type_initial[i]->name);
 #endif
-
+    
     /* if there is another module already loaded */
     if (swig_module.next != &swig_module) {
       type = SWIG_MangledTypeQueryModule(swig_module.next, &swig_module, swig_module.type_initial[i]->name);
@@ -17396,7 +20652,7 @@ SWIG_InitializeModule(SWIG_INIT_CLIENT_DATA_TYPE clientdata) {
     } else {
       type = swig_module.type_initial[i];
     }
-
+    
     /* Insert casting types */
     cast = first = swig_module.cast_initial[i];
     while (cast->type) {
@@ -17428,7 +20684,7 @@ SWIG_InitializeModule(SWIG_INIT_CLIENT_DATA_TYPE clientdata) {
           }
         }
       }
-
+      
       if (!target_type) {
 #ifdef SWIGRUNTIME_DEBUG
         printf("SWIG_InitializeModule: adding cast %s\n", cast->type->name);
@@ -17436,52 +20692,52 @@ SWIG_InitializeModule(SWIG_INIT_CLIENT_DATA_TYPE clientdata) {
         /* Set inclusion mark for sorting */
         cast->next = cast;
         num_mapped++;
-
+        
         if (type == cast->type) {
 #ifdef SWIGRUNTIME_DEBUG
           printf("%s : self cast at pos [%li]\n", type->name, cast - first);
 #endif
           if (cast - first) {
             /* Move cast to itself to the first entry in the array */
-
+            
             swig_cast_info tmp = *cast;
             *cast = *first;
             *first = tmp;
           }
           first++;
-
+          
         } else {
           cast->value = SWIG_Hash(cast->type->name, (unsigned int)strlen(cast->type->name));
         }
       }
       cast++;
     }
-
+    
     if (num_mapped) {
       if (cast - first) {
         swig_cast_info *tmp;
-
+        
         /* Sort casts by type address for binary search in SWIG_TypeCheckStruct */
         qsort(first, cast - first, sizeof(swig_cast_info), SWIG_CastCmpStruct);
-
+        
         /* Remap back links for added entries */
         cast = swig_module.cast_initial[i] + num_mapped;
         for (tmp = first; tmp < cast; tmp++) {
           tmp->next = tmp;
         }
       }
-
+      
       /* Set the value field of the first entry to the index of the last added entry */
       cast = swig_module.cast_initial[i];
       cast->value = num_mapped - 1;
-
+      
       num_mapped -= (int)(first - cast);
       if (num_mapped > 1) {
         /* Sort <'next','value'> pairs by 'value' for binary search in SWIG_TypeCheck */
-
+        
         SWIG_CastHashSort(first, num_mapped);
       }
-
+      
       first = type->cast;
       if (first) {
         /* Link the current set into the list of cast arrays */
@@ -17492,12 +20748,12 @@ SWIG_InitializeModule(SWIG_INIT_CLIENT_DATA_TYPE clientdata) {
         type->cast = cast;
       }
     }
-
+    
     /* Set entry in modules->types array equal to the type */
     swig_module.types[i] = type;
   }
   swig_module.types[i] = 0;
-
+  
 #ifdef SWIGRUNTIME_DEBUG
   printf("**** SWIG_InitializeModule: Cast List ******\n");
   for (i = 0; i < swig_module.size; ++i) {
@@ -17524,10 +20780,10 @@ SWIGRUNTIME void
 SWIG_PropagateClientData(void) {
   size_t i;
   static int init_run = 0;
-
+  
   if (init_run) return;
   init_run = 1;
-
+  
   for (i = 0; i < swig_module.size; i++) {
     if (swig_module.types[i]->clientdata) {
       swig_cast_info *head, *cast;
@@ -17558,11 +20814,11 @@ SWIG_PropagateClientData(void) {
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+  
   /* -----------------------------------------------------------------------------
    * constants/methods manipulation
    * ----------------------------------------------------------------------------- */
-
+  
   /* Install Constants */
   SWIGINTERN void
   SWIG_Python_InstallConstants(PyObject *d, swig_const_info constants[]) {
@@ -17586,11 +20842,11 @@ extern "C" {
       }
     }
   }
-
+  
   /* -----------------------------------------------------------------------------
    * Patch %callback methods' docstrings to hold the callback ptrs
    * -----------------------------------------------------------------------------*/
-
+  
   SWIGINTERN void
   SWIG_Python_FixMethods(PyMethodDef *methods, const swig_const_info *const_table, swig_type_info **types, swig_type_info **types_initial) {
     size_t i;
@@ -17603,7 +20859,7 @@ extern "C" {
         const swig_const_info *ci = 0;
         const char *name = c + 10;
         for (j = 0; const_table[j].type; ++j) {
-          if (strncmp(const_table[j].name, name,
+          if (strncmp(const_table[j].name, name, 
               strlen(const_table[j].name)) == 0) {
             ci = &(const_table[j]);
             break;
@@ -17630,8 +20886,8 @@ extern "C" {
         }
       }
     }
-  }
-
+  } 
+  
 #ifdef __cplusplus
 }
 #endif
@@ -17649,7 +20905,7 @@ SWIGINTERN int SWIG_mod_exec(PyObject *module);
 extern "C"
 #endif
 
-SWIGEXPORT
+SWIGEXPORT 
 #if PY_VERSION_HEX >= 0x03000000
 PyObject*
 #else
@@ -17659,20 +20915,20 @@ SWIG_init(void) {
 #if PY_VERSION_HEX >= 0x03000000
   static PyModuleDef_Slot SwigSlots[] = {
     {
-      Py_mod_exec, (void *)SWIG_mod_exec
+      Py_mod_exec, (void *)SWIG_mod_exec 
     },
 #ifdef SWIGPYTHON_NOGIL
 #ifdef Py_GIL_DISABLED
     {
-      Py_mod_gil, Py_MOD_GIL_NOT_USED
+      Py_mod_gil, Py_MOD_GIL_NOT_USED 
     },
 #endif
 #endif
     {
-      0, NULL
+      0, NULL 
     }
   };
-
+  
   static struct PyModuleDef SWIG_module = {
     PyModuleDef_HEAD_INIT,
     SWIG_name,
@@ -17684,7 +20940,7 @@ SWIG_init(void) {
     NULL,
     NULL
   };
-
+  
   return PyModuleDef_Init(&SWIG_module);
 #else
   PyObject *m = Py_InitModule(SWIG_name, SwigMethods);
@@ -17696,7 +20952,7 @@ SWIG_init(void) {
 
 SWIGINTERN int SWIG_mod_exec(PyObject *m) {
   PyObject *d, *md, *globals;
-
+  
 #if defined(SWIGPYTHON_BUILTIN)
   static SwigPyClientData SwigPyObject_clientdata = {
     0, 0, 0, 0, 0, 0, 0
@@ -17724,23 +20980,23 @@ SWIGINTERN int SWIG_mod_exec(PyObject *m) {
   PyObject *thisown_descr;
   PyObject *self = 0;
   int i;
-
+  
   (void)builtin_pytype;
   (void)builtin_base_count;
   (void)builtin_basetype;
   (void)tuple;
   (void)static_getset;
   (void)self;
-
+  
   /* Metaclass is used to implement static member variables */
   metatype = SwigPyObjectType_Type();
   assert(metatype);
-
+  
   SwigPyStaticVar_Type();
 #endif
-
+  
   (void)globals;
-
+  
   /* Create singletons now to avoid potential deadlocks with multi-threaded usage after module initialization */
   SWIG_runtime_data_module();
   SWIG_This();
@@ -17750,24 +21006,24 @@ SWIGINTERN int SWIG_mod_exec(PyObject *m) {
 #ifndef SWIGPYTHON_BUILTIN
   SwigPyObject_Type();
 #endif
-
+  
   /* Fix SwigMethods to carry the callback ptrs when needed */
   SWIG_Python_FixMethods(SwigMethods, swig_const_table, swig_types, swig_type_initial);
-
+  
 #ifdef SWIGPYTHON_NOGIL
 #ifdef Py_GIL_DISABLED
   PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
 #endif
 #endif
-
+  
   md = d = PyModule_GetDict(m);
   (void)md;
-
+  
   SWIG_InitializeModule(0);
-
+  
 #ifdef SWIGPYTHON_BUILTIN
   swigpyobject = SwigPyObject_TypeOnce();
-
+  
   SwigPyObject_stype = SWIG_MangledTypeQuery("_p_SwigPyObject");
   assert(SwigPyObject_stype);
   cd = (SwigPyClientData*) SwigPyObject_stype->clientdata;
@@ -17778,19 +21034,19 @@ SWIGINTERN int SWIG_mod_exec(PyObject *m) {
     PyErr_SetString(PyExc_RuntimeError, "Import error: attempted to load two incompatible swig-generated modules.");
     return -1;
   }
-
+  
   /* All objects have a 'this' attribute */
   this_descr = PyDescr_NewGetSet(SwigPyObject_Type(), &this_getset_def);
   (void)this_descr;
-
+  
   /* All objects have a 'thisown' attribute */
   thisown_descr = PyDescr_NewGetSet(SwigPyObject_Type(), &thisown_getset_def);
   (void)thisown_descr;
-
+  
   public_interface = PyList_New(0);
   public_symbol = 0;
   (void)public_symbol;
-
+  
   PyDict_SetItemString(md, "__all__", public_interface);
   SWIG_Py_DECREF(public_interface);
   for (i = 0; SwigMethods[i].ml_name != NULL; ++i)
@@ -17798,9 +21054,9 @@ SWIGINTERN int SWIG_mod_exec(PyObject *m) {
   for (i = 0; swig_const_table[i].name != 0; ++i)
   SwigPyBuiltin_AddPublicSymbol(public_interface, swig_const_table[i].name);
 #endif
-
+  
   SWIG_InstallConstants(d,swig_const_table);
-
+  
   return 0;
 }
 
