@@ -302,6 +302,8 @@ set(OP_COM_SOURCES
   "com/stdafx.cpp"
   "com/compreg.cpp"
   "com/dllmain.cpp"
+  # 延迟加载失败兜底（方案 A1），与 op_c_api 同名同源，各自编入本 DLL。
+  "hook/DliFailureHook.cpp"
   "${OP_COM_I_C}"
   "${CMAKE_CURRENT_SOURCE_DIR}/com/op.def"
   "${CMAKE_CURRENT_SOURCE_DIR}/com/op.rc"
@@ -316,6 +318,10 @@ endif()
 set(OP_C_API_SOURCES
   "c_api/op_c_api.cpp"
   "hook/HookExport.cpp"
+  # 延迟加载失败兜底（方案 A1）：注入目标进程后 onnxruntime.dll 解析失败时，
+  # 改用 op 安装目录绝对路径加载，避免目标进程 0xC0000005 崩溃。
+  # 必须与 /DELAYLOAD 的模块在同一目标内，故显式列入（见下方 ONNX 链接段）。
+  "hook/DliFailureHook.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/c_api/op_c_api.rc"
   # 内置 OCR 模型资源（与 op_com 共用同一份 .rc，各自独立编入 DLL）
   "${_op_ocr_models_rc}"
@@ -475,6 +481,21 @@ if(DEFINED ONNXRUNTIME_DIR AND ONNXRUNTIME_DIR)
         target_link_libraries(${_t} PRIVATE "${_op_onnxrt_prov}")
       endif()
     endforeach()
+    # ── 延迟加载 onnxruntime.dll（2026-09-16，修复注入依赖污染）──────────
+    # 背景：op_x64.dll / op_c_api_x64.dll 会被注入目标进程（DX 输入通道 hook）。
+    # 静态导入 onnxruntime.dll 使「目标进程能否解析该依赖」成为注入成功的前置条件。
+    # 实测 BlueStacks 5（已加载 dinput8.dll）返回 0xC0000135 STATUS_DLL_NOT_FOUND，
+    # DX 三通道 10/10 绑定失败；A/B 对照实验证明 onnxruntime.dll 可解析与否是唯一变量。
+    # 改为延迟加载后 onnxruntime.dll 从导入表消失：不调用 OCR 的进程（注入后的游戏）
+    # 永不需要它；宿主进程调用 OCR 时仍按原搜索路径解析，较静态导入不劣化
+    # （静态导入同样要求该 DLL 可解析，否则宿主侧连插件都无法加载）。
+    # 注：onnxruntime_providers_shared.dll 不出现在导入表（由 ORT 运行时自行加载），
+    #     对其加 /DELAYLOAD 会触发 LNK4199，故只延迟 onnxruntime.dll。
+    foreach(_t ${op_com} ${op_c_api})
+      set_property(TARGET ${_t} APPEND_STRING PROPERTY LINK_FLAGS " /DELAYLOAD:onnxruntime.dll")
+      target_link_libraries(${_t} PRIVATE delayimp.lib)
+    endforeach()
+    message(STATUS "ONNX Runtime: delay-loading onnxruntime.dll (safe for injection)")
     # 构建期把运行时 DLL 拷到插件输出目录旁，保证 OcrEx 运行期可加载
     foreach(_t ${op_com} ${op_c_api})
       add_custom_command(TARGET ${_t} POST_BUILD
