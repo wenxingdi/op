@@ -3,6 +3,17 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-17（API 参考手册参数注解层补齐：全函数 100% 覆盖）
+
+- **背景**：上一版（`1a86b71`）注解只覆盖 37 个函数的 63 个参数格，用户要求全部函数加上。
+- **生成器改动**（`scripts/gen_api_reference.py`，仅文档生成层，零 API/代码变化）：
+  - 新增 `GLOBAL_PARAM_DOCS`（28 个通用参数名兜底：ret/坐标/sim/dir/color/hwnd/file_name/address/conf/iou 等），渲染时"函数级 → 参数名兜底"两级查找。
+  - `PARAM_DOCS` 从 37 个函数扩到 187 个（223 接口中无参或全兜底函数不重复列），覆盖全部 10 服务组；注解数据以源码为准逐项核对（EnumWindow filter/WindowState flag/DX_ATTR 位掩码/OpenCV 字符串模式 erode|dilate|zhang_suen|gaussian|binary|otsu|bgr|hsv 等/Memory type 0-6/FindPicEx 序号 vs FindPicExS 文件名/SetBinaryPreprocess 四参数/Wheel ±120）。
+  - 修正旧版错误参数名：SetDict/UseDict 的 `index`→`idx`；SetMouseDelay/SetKeypadDelay 的 `t`→`type`+`delay`；WaitKey 的 `key_code`→`vk_code`+`time_out`。
+  - main 输出注解覆盖率统计（本次 899/899=100%）。
+- **验证**：生成 `docs/api_reference.html`（223 接口/292KB），AST 查重零重复键，参数覆盖脚本断言 missing=[]。
+- 注意：个别描述性条目（如 CvLoadTemplateList 整体失败行为、GetScreenFrameInfo）以源码实现为准；接口面变更后重跑本脚本即可。
+
 ### 2026-09-17（ipc 模块排查闭环：IP1-IP4，纯卫生零行为变化）
 
 - **排查结论**：无 P0/P1。重点设计项核查均健康——多开按 `op_*_<hwnd>` 命名隔离不串数据；宿主崩溃残锁靠 `FrameInfo` 校验和 + hwnd/宽高三重校验兜底（撕裂帧过不了校验和即判"无帧"）；Pipe reader 阻塞 ReadFile + `CancelSynchronousIo` 防孙进程继承句柄致 join 挂死；CommandRunner 超时 `terminate_process_tree` 杀整棵进程树不留孤儿。
