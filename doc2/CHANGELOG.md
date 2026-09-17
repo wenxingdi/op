@@ -3,6 +3,16 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-17（image 模块排查闭环：I1-I3）
+
+- **I1（P1）异常穿出 COM 边界**：`Image::create` 尺寸非法/溢出/realloc 失败时 `throw(const char*)`、`ImageBin::create` 抛 `bad_alloc`，全库仅 OpImage 一处局部 catch，截图链与直调入口均无兜底 → 异常穿出 COM 方法 = 宿主进程 terminate。修法：①`OpCaptureHelpers.h` 新增 `guard_exceptions`（catch std::exception/const char*/...，setlog 后吞掉，出参保持调用方已初始化值）；②`capture_region` 整体包裹（覆盖全部截图链入口）；③直调图像入口逐个包裹——OpImage 的 LoadPic/LoadMemPic/GetPicSize/MatchPicName、OpOcr 的 OcrFromFile/AutoOcrFromFile/OcrAutoFromFile（经核查字典解析无 throw，SetDict 系不用包）。
+- **I2（P1）FindPic 系模板缺失静默**：`files2mats` 路径解析失败/解码失败/建模板失败三处 continue，调用方无法区分 ret=-1 是"没找到"还是"模板根本没加载"。三处补 setlog（含解析后全路径）。注意 .mem 前缀（LoadMemPic 名）路径解析失败也走第一条日志，属正常语义。
+- **I3（P1）parse_multi_color_args 偏移未初始化**：`pt_cr_df_t tp;` 的 x/y 未初始化，sscanf 失败时垃圾偏移入 vector → 同一串输入不同调用间行为不确定。修法：tp 清零 + 校验 sscanf==2 + 畸形段跳过（旧实现对"有偏移无颜色"段是 break，会吞掉后续合法段，一并改 skip）。
+- **文档化不改**（I4）：sim 越界语义各家族不一致——找色系 sim<0 钳 1.0（变精确匹配）、OCR 系回退 0.7、找图系内部 `0.5+sim/2`。已写入 libop.h image 区注释。
+- **文档化不改**（I5）：`get_rois(1参)` 用 `width >= min_word_h` 比宽度对高度阈值（窄字跳过 cut 带留白），3 参重载正确分 w/h。够用原则，修则 OCR 切字行为变化需重做判别力验证。
+- **记录不排期**（I6）：`record_sum/region_sum` int 累加，5K+ 屏幕灰度和溢出 21.4 亿 → FindPic quick-check 误判。当前 4K 内安全。
+- **测试**：image_color_test.cpp +3——FindMultiColorSkipsMalformedOffsetSegments（畸形段跳过且结果确定，setlog 实测可见）、FindPicWithMissingTemplateDoesNotMatch、DirectImageEntriesFailSoft。零 API 变化。
+
 ### 2026-09-17（LayoutWindows 加固 + 层叠布局）
 
 - **层叠布局（layout_type=2，Cascade）**：第 i 个窗口左上角 = 起点 + i×(gap_x, gap_y)，尺寸取各自值；gap 语义转为层叠步距（经典值 32，标题栏逐层露出便于点击切换）。`Type` 枚举 + `Calculate` 分支 + parse case，**接口签名零变化**（layout_type 本就 long 透传，COM/idl/C-API/Python 全不动）。
