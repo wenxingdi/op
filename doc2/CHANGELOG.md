@@ -3,6 +3,14 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-17（RunApp 支持 .lnk 快捷方式）
+
+- **背景**：RunApp 底层直调 `CreateProcessW`，不解析 .lnk（非 PE 文件），实测传快捷方式 mode=0/1 均 ret=0。用户拍板走 ShellExecuteEx 方案。
+- **实现**（`WindowProcess.cpp` `RunApp` 开头分支）：检测后缀 `.lnk`（不区分大小写、容忍尾部引号/空格）→ `ShellExecuteExW`（`SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI`，verb=open）由 Shell 解析目标/参数/工作目录。非 .lnk 路径原逻辑一行不动。
+- **语义边界**（已在 libop.h 注释写明）：mode 对 .lnk 不生效（工作目录由快捷方式自带）；Shell 能拿到进程句柄时（exe 目标）pid 为真实 pid，否则 **pid=0 但 ret=1**（如 .bat/协议类目标）；失败 ret=0 + setlog（原始 err）。
+- **测试**：`WindowServiceTest.RunAppLaunchesShortcut`——IShellLinkW 现场建 .lnk 指向 notepad → RunApp → ret=1 + pid 进程存活验证 + 清理。定向 RunApp* 2/2 PASS。
+- **验证**：修复前 .lnk ret=0/0 → 修复后 ret=1/1，真机 Super Browser.lnk 实际拉起 ziniaobrowser.exe（pid=0 属预期语义）。
+
 ### 2026-09-17（window 模块排查闭环，`74f8e70`）
 
 - **排查结论**：2 个真缺陷（W1/W2，均继承自上游大漠）+ 6 项建议。WindowService 为 OpContext 成员（每实例独立）；DllInjector/RunApp/Clipboard 全 RAII 无泄漏面。
