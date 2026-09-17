@@ -5,6 +5,15 @@
 
 ## [Unreleased] — 2026-09
 
+### 2026-09-17（键鼠域 · dx Hook 生命周期修复，`bb98e92`）
+
+- **背景**：键鼠域排查（阶段①报告 `键鼠域_阶段1发现_20260916.md`）发现 9 条 `MouseKeyTest.DxMode*` 用例长期 SKIP，旧结论「环境不支持」被推翻——**单跑即 PASS（1278ms）、全量必 SKIP（34ms）**，是测试间的顺序状态污染。
+- **根因**：`InputHookClient.cpp` 的引用计数表只存 `HWND`，解绑时用 `GetWindowThreadProcessId(hwnd)` 现取 pid；当收尾顺序是「目标窗口销毁 → 再解绑」（对象析构 / 脚本退出）时 pid 取到 0 → 远端 `ReleaseInputHook` 不执行 → 目标进程内 `is_hooked` 永久为 true、MinHook 未卸；目标进程仍存活时后续重新绑定被 `HookExport.cpp` 的 `is_hooked && input_hwnd != 新hwnd` 直接挡掉（`return 0`）。
+- **真机影响**：脚本绑 dx 后若**目标程序先退出 / 窗口先关闭**才解绑 → 该进程内 dx 永久失效，且**重启脚本无效**（Hook 在目标进程内）。此前的真机验证都是「干净绑定 → 验证 → 退出」，从未覆盖「解绑后重绑」，故该洞一直未暴露。
+- **改动**（2 文件 +45/-12）：① 引用计数表值 `long` → `struct HookBindRef { long refs; DWORD pid; }`，绑定成功时即固定 pid；`call_release_input_hook` 改收 pid，解绑不再依赖 hwnd 是否仍然有效。② 测试 `BindWindowDxSuffix{DefaultsToAll,NarrowsToDinput,CombinesMouseKeypad}` 三条补显式 `UnBindWindow`。
+- **验证（阶段④）**：nmake rc=0（仅既存 D9025）；`MouseKeyTest.*` **39 RUN / 29 PASS / 9 SKIP → 39 RUN / 38 PASS / 0 SKIP**——9 条 `DxMode*` 首次全部真跑 PASS，解锁 dx 三通道开关 / `LockInput` / `CursorShape` / buffered DirectInput / `KeyPressStr` Unicode 回退的回归覆盖；全量 **197 用例 / 164 PASS / 26 SKIP / 7 FAILED**，FAILED 与基线**同名同数** → 零回归。
+- **文档**：`scripts/DX_INPUT_CHANNEL_REPORT.md` 新增 §8（9 条已知限制与设计取舍，含「dx 非 windowmsg 通道下字符输入不可达」等）、§9（本次修复）；并更正 §7 旧说法「本机 DX 注入在测试后期可能偶发不可用」——实为 hook 残留污染，非环境问题。
+
 ### 2026-09-16（晚 · 四处静默失败补日志 + DPI 检测，`896f3af`）
 
 - **背景**：真机复盘中确认四类失败**全程无声**（返回 False 或哨兵值，无日志、无异常、无错误码），使用者只能反复试错。本次统一策略：**只加日志，不改任何返回值与控制流** → 零兼容风险。共 4 文件 +64/-4 行。
@@ -129,7 +138,8 @@
 
 ## 测试基线
 
-- **op_test 全量（2026-09-16 A1 后实测，无 filter）：197 用例 / 155 PASS / 35 SKIP / 7 FAILED**。7 FAILED = WGC 6（首个用例 `WgcCapture::Init` SEH 0xC0000005 → 熔断连带，**已用 A/B 判别确认为既有环境问题**）+ `MouseKeyTest.WaitKey`（已知环境项）。
+- **op_test 全量（2026-09-17 `bb98e92` 后实测，无 filter）：197 用例 / 164 PASS / 26 SKIP / 7 FAILED**。7 FAILED = WGC 6（首个用例 `WgcCapture::Init` SEH 0xC0000005 → 熔断连带，**已用 A/B 判别确认为既有环境问题**）+ `MouseKeyTest.WaitKey`（已知环境项）。SKIP 26 = `OcrFixture` 25（本环境无 OCR 服务）+ `IntegrationTest` 1。`MouseKeyTest.*` 单跑为 **39 RUN / 38 PASS / 0 SKIP**（仅已知 `WaitKey` 环境失败）。
+- 上一基线（2026-09-16 A1 后）：197 / 155 PASS / 35 SKIP / 7 FAILED。**差值 = 9 条 `DxMode*` 由假 SKIP 转为真跑 PASS**（见 2026-09-17 条目），非回归。
 - op_test 当前（2026-09-09 P1/P2 后实测，`--gtest_filter=-WgcTest.*`）：**182 用例，146 PASSED / 1 已知环境 FAIL（MouseKeyTest.WaitKey）/ 余为 SKIP，零回归**。WgcTest 需真机（沙箱无 WGC worker 会 segfault，非回归；真机隔离跑 `doc2/run_wgc_isolated.bat` 预期 10/10）。
 - 运行方式：`scripts/run_tests.ps1`，或 Git Bash：`PATH+="build/nmake-x64-Release/libop" ./tests/op_test.exe`。
 
