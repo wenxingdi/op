@@ -3,6 +3,49 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-17（window 模块排查闭环，`74f8e70`）
+
+- **排查结论**：2 个真缺陷（W1/W2，均继承自上游大漠）+ 6 项建议。WindowService 为 OpContext 成员（每实例独立）；DllInjector/RunApp/Clipboard 全 RAII 无泄漏面。
+- **W1（P1 修复）SetWindowTransparent 覆写扩展样式**：原 `SetWindowLong(hwnd, GWL_EXSTYLE, 0x80001)` 直接赋值，调一次透明窗口已有的 WS_EX_TOPMOST（置顶）/TOOLWINDOW 等全部丢失。改为「读旧值 `| WS_EX_LAYERED`」+ `SetWindowLongPtrW`（宽字符/指针安全）。
+- **W2（P1 修复）GetMousePointWindow 回退矩形判定**：原 `rc.right >= point.x - rc.left` 把屏幕绝对坐标与相对坐标混比，改为与 `point` 直接比较（回退路径，仅在 `WindowFromPoint` 失败时走）。
+- **W3 SendPaste 目标解析对齐**：与 SendString/SendStringIme 一致走 `ResolveInputTargetWindow`，焦点在子控件（编辑框）时不再静默无效。
+- **W4 GetProcessInfo CPU 失败值**：`get_cpu_usage` 失败返回 -1 强转 DWORD 得 4294967295，改为 <0 时输出 0。
+- **W6 错误日志**：RunApp CreateProcessW 失败 / EnumProcess 无匹配 / SetWindowTransparent 失败或非法 hwnd 三处 setlog。
+- **W5/W7 注释**：bZwindow 语义标记（GW_HWNDFIRST 枚举即 Z 序，无需排序）；EnumWindowByProcess filter=0 拒绝语义；EnumProcessbyName type=1 模糊匹配当前无内部调用方。
+- **W8 测试**：新建 `tests/window_state_test.cpp`（8 条）。SetWindowTransparent 保留 TOPMOST/TOOLWINDOW + alpha=200（W1 判别力）、非法 hwnd 拒绝、GetWindowState 五 flag、最大化/恢复、禁用/启用、剪贴板往返、SendPaste 投递焦点子控件（W3 判别力）。
+- **验证**：window 定向 19/19（7 新 + 12 旧）；全量 **238 / 205 / 26 / 7**，FAILED 与基线同名同数，零回归，1m31s 自行退完
+
+### 2026-09-17（algorithm 模块排查闭环，`97386a0`）
+
+- **排查结论**：无 P0/P1。AStar.h 实现正确（切比雪夫启发式与 8 方向等代价步进精确一致；f 相同按大 g 优先；禁对角穿墙；父指针回溯）。栈上实例纯计算无资源面，天然线程安全。
+- **A2/A5 地图尺寸上限**：`set_map` 新增 64M 格上限（约 576MB 临时数组），超出返回 false（`_walls` 置空 = 全图视为墙）→ Op 层 setlog 拒绝寻路。原实现 w×h 无上限，insane 尺寸直接 bad_alloc 崩溃；int 索引溢出边角一并覆盖。
+- **A4 错误日志**：非法尺寸、disable_points 非法项（break 截断语义留痕）、超上限 三处 setlog（经 `set_show_error_msg(2)` 落 `__op.log`）。
+- **A3 文档化**：libop.h 注释写明输出格式——路径 `"x,y|x,y"`（起点→终点）、不可达返回空串；FindNearestPos 返回 `"name,x,y"` 或 `"x,y"`，点名不含空格/逗号，等距取先出现。
+- **A1 测试补齐**：新建 `tests/algorithm_test.cpp`（新增 17 条；排查记录"无专测"不准，实有 3 条散落于 `op_algorithm_windows_test.cpp`）。新增用例按确定性行为推演（不依赖优先队列等价节点弹出序）：走廊逼迁/禁穿墙角/部分墙绕行/malformed 截断语义/越界墙忽略/非法与超限尺寸/不可达空串/最近点 type1·2·等距·裸点跳过。
+- **验证**：AlgorithmTest 定向 20/20（17 新 + 3 旧）；全量 231/198/26/7，FAILED 回到基线 7 条（上轮多挂的 1 条 WGC 时序敏感本轮自愈），零回归。
+
+### 2026-09-17（memory 模块排查闭环，`c4eac12`）
+
+- **背景**：memory 模块（`ProcessMemory` 844 行 + `OpMemory` 185 行，13 API）按五步闭环排查。结论：**无 P0/P1**——每次调用新建实例零全局状态（并发 ✅）、FindData 的 OpenProcess 全路径无泄漏（资源 ✅）。必修 0 项，落地 4 项建议加固 + 1 份新测试 + 1 处文档化。
+- **M1 测试补齐**：新建 `tests/memory_readwrite_test.cpp`（10 条）。此前 FindData/GetModuleBaseAddr 有 6 条专测，但 Read/Write × Int/Float/Double/String/Data 十函数**零覆盖**。全部本进程自测（免注入沙箱可跑）：Int 全 7 类型往返、Float/Double 往返、String 三编码往返、Data 十六进制往返（输出恒大写）、地址表达式（`<kernel32.dll>` 读 PE MZ 魔数、`[[p2]]` 二级指针）。String 类用例用 VirtualAlloc 双页布局把缓冲区放第二页页首——auto-len 整页 4KB 读确定性不越界（静态变量缓冲区读后 4KB 是否已提交不可控，会引入随机失败）。
+- **M2 WriteData 静默零填充留痕**（`ProcessMemory.cpp` `WriteData`）：size 超出 data 实际字节时按大漠兼容行为补零写入，但静默补零会掩盖 size 手滑（多写一位就往目标进程写一串 0）→ 补零发生时 `setlog` 留痕。行为不变。
+- **M3 ReadString 显式 len 上限**（`ReadString`）：len≤0 本有 4096 自动上限，但显式 len 无上限（len=10 亿 ≈ 1GB 一次分配）→ 截断到 16MB + `setlog` 留痕。
+- **M4 FindData lazy 分配**（`FindData`）：原每次无条件预分配 16MB chunk，搜小范围也是 16MB → 按 range 实际大小（`min(16MB, span)`）分配。
+- **M5 错误分支日志**（对照 capture 批次标准）：Attach 失败、模块 `<mod>` 未找到、非法特征码/范围、无效句柄、OpenProcess 失败，全部 `setlog`（经 `set_show_error_msg(2)` 落 `__op.log`）。
+- **M6 文档化**：libop.h 内存段 + `OpMemory.cpp` 注释明确——**Op 层 hwnd=0 优先作用于已绑定窗口**（未绑定才读本进程），与 ProcessMemory 底层"空=当前进程"的视角差异。
+- **验证**：memory 定向 **17/17**；全量 **214 / 180 PASS / 26 SKIP / 8 FAILED**（FAILED 全为已知环境项：6+1 WGC 首例 SEH 熔断连带 + WaitKey，无 memory 相关），90.7s 自行退完，零回归。首编因 `HexOf` 未接受 volatile 指针 C2664 返工一次；`StringRoundTrip` 曾误断言 UTF-8 写入可按 UTF-16 读回（实际返回 `\x6261` 乱码是正确行为），已修正断言。
+
+### 2026-09-17（键鼠拟人化批次，`f389b6a`）
+
+- **背景**：键鼠已有贝塞尔轨迹 + smoothstep 加减速 + jitter 弯曲打底，但存在 1 个真缺陷 + 4 个机器统计特征。全部零 API 变更（`SetMouseDelay`/`SetKeypadDelay` 语义从"精确值"变"基准值"）。
+- **真缺陷 · 随机数从未播种**（`libop/op/OpContext.cpp` + `libop/base/Utils.*`）：全库无 `srand()`，`rand()` 默认种子固定 → 每次进程启动"随机"轨迹/落点序列完全相同，多开同脚本等于明文自动化。修法：新增 `SeedProcessRandom()`（原子 CAS 保证进程级一次，种子 = tick^pid^地址），`OpContext` 构造时调用。
+- **点击/按键时长抖动**（`WinMouse.cpp` `send_input_click`/`button_click`、`DxMouse.cpp` 5 处 `MOUSE_DX_DELAY`、`WinKeyboard.cpp` 3 处 `KEYPAD_*`、`DxKeyboard.cpp` `KEYPAD_DX_DELAY`）：固定 30/10/50ms → 每次 ±40%。新增 `jittered_delay_ms(base, percent)`（下限 1ms 防按下/弹起被合并，base<=0 保持无延时）+ `DelayJitter()` 包装。
+- **轨迹时间轴抖动**（`WinMouse.cpp` `run_mouse_path`）：原每步等步长（duration/(n-1)）是机器移动最强统计特征 → 每步 ±30% 抖动 + 5% 概率微停 20~60ms。
+- **双击间隔抖动**（`normal_double_click`/`button_double_click`/`xbutton_double_click` + DxMouse 对应路径）：固定间隔 → ±40%。
+- **测试**：`utils_test.cpp` +3 用例——`JitteredDelayStaysWithinBoundsAndVaries`（200 样本全落在 [60,140] 且样本数>1）、`JitteredDelayFloorAndZeroBase`（下限 1ms / base<=0 返回 0）、`SeedProcessRandomSeedsAtMostOnce`（至多一次播种；时序类行为断言易受 15.6ms 系统计时量化影响，故只测纯函数 + 幂等语义，不测行为时序）。
+- **验证**：`UtilsTest` 10/10（3 条新用例全 PASS）；`MouseKeyTest.*` 42 RUN / 41 PASS / 1 FAILED（FAILED = 既有 `WaitKeyScanAllWithWaitFindsKey` 环境项）；全量 **203 用例 / 170 PASS / 26 SKIP / 7 FAILED**，FAILED 与基线**同名同数**（6 WGC + WaitKey），且 203-200=3 差值恰为 3 条新用例 → 零回归。全量 1m30s 自行退完（上一轮 1h6m 为环境偶发，未复现）。首编曾因 `DelayJitter` 声明缺默认参数 C2660 返工一次。
+- **备注**：首轮回全量后 `git status` 发现键盘两文件漏改（`WinKeyboard.cpp`/`DxKeyboard.cpp` 共 4 处 `KEYPAD_*` 仍是 `::Delay`），已补改并重编重跑，最终数字为补改后结果。
+
 ### 2026-09-17（测试进程退出挂起修复）
 
 - **现象（系统性，非偶发）**：op_test 全量/部分套件跑完后 gtest 总结已打印、结果已落盘，但进程不退出（此前多轮全量均为手动杀进程）。逐套件二分定位：**HandleCompatTest / MouseKeyTest / ImageColorTest / WgcTest** 四个建"可见+焦点窗口"的套件挂起（HandleCompatTest 最稳，5 挂 4），纯逻辑套件全正常。
