@@ -11,7 +11,22 @@
 namespace {
 
 std::mutex g_mutex;
-std::unordered_map<HWND, long> g_bind_refs;
+
+// 引用计数 + 绑定时的目标进程 id。
+// 必须缓存 pid：宿主常见「目标窗口先销毁、随后才解绑」的收尾顺序（对象析构、脚本退出），
+// 此时 HWND 已失效、GetWindowThreadProcessId 取不到 pid，导致远端 Hook 永远留在目标进程里，
+// 而目标进程仍存活时后续重新绑定会被 HookExport 的 "is_hooked && input_hwnd != 新hwnd" 挡掉。
+struct HookBindRef {
+    long refs = 0;
+    DWORD pid = 0;
+};
+std::unordered_map<HWND, HookBindRef> g_bind_refs;
+
+DWORD pid_of_window(HWND hwnd) {
+    DWORD pid = 0;
+    ::GetWindowThreadProcessId(hwnd, &pid);
+    return pid;
+}
 
 std::wstring resolve_hook_dll(blackbone::Process &proc) {
     const BOOL target_is64 = proc.modules().GetMainModule()->type == blackbone::eModType::mt_mod64;
@@ -63,16 +78,14 @@ long call_set_input_hook(HWND hwnd, int mode) {
     return ret;
 }
 
-long call_release_input_hook(HWND hwnd) {
-    DWORD pid = 0;
-    ::GetWindowThreadProcessId(hwnd, &pid);
+long call_release_input_hook(DWORD pid) {
     if (pid == 0)
         return 0;
 
     blackbone::Process proc;
     const NTSTATUS status = proc.Attach(pid);
     if (!NT_SUCCESS(status)) {
-        setlog(L"input hook release attach failed. pid=%d hwnd=%p status=0x%X", pid, hwnd, status);
+        setlog(L"input hook release attach failed. pid=%d status=0x%X", pid, status);
         return 0;
     }
 
@@ -188,16 +201,18 @@ long Bind(HWND hwnd, int mode) {
         return 0;
 
     std::lock_guard<std::mutex> lock(g_mutex);
-    auto &refs = g_bind_refs[hwnd];
+    auto &entry = g_bind_refs[hwnd];
     // 鼠标和键盘 dx 会共用同一个目标进程 Hook，宿主侧只做一次注入。
-    if (refs > 0) {
-        ++refs;
+    if (entry.refs > 0) {
+        ++entry.refs;
         return 1;
     }
 
     const long ret = call_set_input_hook(hwnd, mode);
     if (ret == 1) {
-        refs = 1;
+        entry.refs = 1;
+        // 解绑时窗口可能已销毁（GetWindowThreadProcessId 取不到 pid），这里先把 pid 固定下来。
+        entry.pid = pid_of_window(hwnd);
     } else {
         g_bind_refs.erase(hwnd);
     }
@@ -213,17 +228,19 @@ long UnBind(HWND hwnd) {
     if (it == g_bind_refs.end())
         return 1;
 
-    if (--it->second > 0)
+    if (--it->second.refs > 0)
         return 1;
 
     // 先请求远端释放再清本地引用：RPC 成功（ret==1）或 attach 失败（ret==0，进程多半
     // 已退出、注入物随进程消亡）都可安全清理；仅 RPC 抛异常（进程可能存活但远端调用
     // 失败、注入 DLL 可能残留）时保留条目供宿主重试 UnBind，避免状态不可恢复。
+    // 一律用绑定阶段缓存的 pid 定位目标进程，不依赖 hwnd 是否仍然有效。
+    const DWORD pid = it->second.pid;
     long ret = 0;
     try {
-        ret = call_release_input_hook(hwnd);
+        ret = call_release_input_hook(pid);
     } catch (...) {
-        setlog(L"input hook release RPC exception, keep bind ref for retry. hwnd=%p", hwnd);
+        setlog(L"input hook release RPC exception, keep bind ref for retry. hwnd=%p pid=%d", hwnd, pid);
         return 0;
     }
     g_bind_refs.erase(it);

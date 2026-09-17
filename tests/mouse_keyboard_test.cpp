@@ -934,6 +934,12 @@ TEST(MouseKeyTest, BindWindowDxSuffixDefaultsToAllWhenNoSuffix) {
         GTEST_SKIP() << "DX mouse bind unavailable on current environment";
     op.GetDxAttr(&ret);
     EXPECT_EQ(ret, DX_ATTR_ALL);
+
+    // 显式解绑：dx 绑定会在目标进程内留下 Hook，靠对象析构收尾时窗口已先销毁，
+    // 远端 Hook 无法释放，会污染同一进程内后续的 dx 用例（假 SKIP）。
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
 }
 
 TEST(MouseKeyTest, BindWindowDxSuffixNarrowsToDinput) {
@@ -945,6 +951,11 @@ TEST(MouseKeyTest, BindWindowDxSuffixNarrowsToDinput) {
     op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"dx.dinput", L"windows", 0, &ret);
     op.GetDxAttr(&ret);
     EXPECT_EQ(ret, DX_ATTR_DINPUT);
+
+    // 这条同样会真注入 Hook，必须显式解绑（理由见上）。
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
 }
 
 TEST(MouseKeyTest, BindWindowDxSuffixCombinesMouseKeypad) {
@@ -956,6 +967,11 @@ TEST(MouseKeyTest, BindWindowDxSuffixCombinesMouseKeypad) {
     op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"dx.dinput", L"dx.raw", 0, &ret);
     op.GetDxAttr(&ret);
     EXPECT_EQ(ret, DX_ATTR_DINPUT | DX_ATTR_RAWINPUT);
+
+    // 这条同样会真注入 Hook，必须显式解绑（理由见上）。
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
 }
 
 TEST(MouseKeyTest, DxModeDeliversAdvancedMouseButtonsAndWheel) {
