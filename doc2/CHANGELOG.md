@@ -5,6 +5,14 @@
 
 ## [Unreleased] — 2026-09
 
+### 2026-09-17（键鼠域 · MoveR 跨模式一致性核查收口，测试待提交）
+
+- **背景**：阶段①报告 🔴 待查项「`WinMouse::MoveR` 的 `_x/_y` 与 `_button_state` 跨模式一致性」。
+- **核查结论：无生产缺陷，不改代码**。① 跨模式污染不存在——每次 `BindWindowEx` 都新建鼠标/键盘对象（`BindingSession.cpp:310-311` + `createMouse/createKeypad:689-702`），`_x/_y/_button_state` 零跨绑残留；② 三条记账路径（`WinMouse::MoveR:254-255` 手动累加 / `WinMouse::MoveTo:299` / `DxMouse::MoveTo:78` 无条件回填）统一为「记最后请求位置」的意图语义，失败也记账是**一致设计**，按够用总原则不动；③ IN_NORMAL 无自动测试是**结构性限制**（驱动真实系统光标，会抢用户鼠标），非疏漏。
+- **改动（仅测试 +40 行）**：新增 `MouseKeyTest.RebindResetsMousePositionState`——钉住「重绑后账本清零、首个 MoveR 落在 (rx,ry)」的重置语义，防回归。
+- **验证**：`MouseKeyTest.*` 40 RUN / 39 PASS / 0 SKIP / 1 FAILED（FAILED = 已知 `WaitKeyScanAllWithWaitFindsKey` 环境项）。
+- **教训**：后台全量测试进程常驻会持有 `op_test.exe` 文件锁 → 增量链接 LNK1104；跑测试期间勿构建，构建前 `tasklist` 确认无残留。
+
 ### 2026-09-17（键鼠域 · dx Hook 生命周期修复，`bb98e92`）
 
 - **背景**：键鼠域排查（阶段①报告 `键鼠域_阶段1发现_20260916.md`）发现 9 条 `MouseKeyTest.DxMode*` 用例长期 SKIP，旧结论「环境不支持」被推翻——**单跑即 PASS（1278ms）、全量必 SKIP（34ms）**，是测试间的顺序状态污染。

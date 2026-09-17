@@ -680,6 +680,37 @@ TEST(MouseKeyTest, WindowsModeMoveToKeepsClientCoordinatesAfterResize) {
     EXPECT_EQ(unbind_ret, 1);
 }
 
+TEST(MouseKeyTest, RebindResetsMousePositionState) {
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"windows", L"windows", 0, &ret);
+    ASSERT_EQ(ret, 1);
+
+    op.MoveTo(48, 64, &ret);
+    ASSERT_EQ(ret, 1);
+
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
+
+    // 重新绑定会新建鼠标对象、内部账本 _x/_y 清零：MoveR 必须基于 (0,0)，
+    // 不得沿用上次绑定的位置。此用例钉住该重置语义，防回归。
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"windows", L"windows", 0, &ret);
+    ASSERT_EQ(ret, 1);
+    window.ResetCounts();
+
+    op.MoveR(3, 4, &ret);
+    EXPECT_EQ(ret, 1);
+    EXPECT_EQ(window.last_x, 3);
+    EXPECT_EQ(window.last_y, 4);
+
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
+}
+
 TEST(MouseKeyTest, BindWindowExSeparatesDisplayAndInputTargets) {
     op::Op op;
     MouseEventWindow input_window;
