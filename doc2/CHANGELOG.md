@@ -3,6 +3,15 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-17（LayoutWindows 加固 + 层叠布局）
+
+- **层叠布局（layout_type=2，Cascade）**：第 i 个窗口左上角 = 起点 + i×(gap_x, gap_y)，尺寸取各自值；gap 语义转为层叠步距（经典值 32，标题栏逐层露出便于点击切换）。`Type` 枚举 + `Calculate` 分支 + parse case，**接口签名零变化**（layout_type 本就 long 透传，COM/idl/C-API/Python 全不动）。
+- **#1 全路径 setlog**：非法 layout_type/size_mode/anchor_mode、句柄串空/含非法项/含 0 或负值、Uniform 尺寸 <50×50、Apply 每窗 IsWindow/SetWindowPos/尺寸/位置校验失败——原先全部静默 ret=0，现在原因落 `__op.log`（失败时注明"前 k 个可能已移动"）。
+- **#2 拒绝 HWND 0**：`_wcstoi64("0")` 解析成 HWND 0 原先能过 parse 关，摆到它才 `IsWindow` 失败造成半应用；现 parse 阶段拦截。
+- **#3 两阶段 Apply**：先全量 SetWindowPos（记录移动前 insets）→ `Delay(100)` 一次 → 统一逐窗校验。校验语义与逐窗交错版严格一致，N 窗口等待从 N×100ms 降到 100ms，且裸 Sleep 换消息泵 Delay。
+- **测试**：`window_state_test.cpp` +3——Cascade 步距判别力（3 窗实测左上角 = 起点+i×32）、句柄串含 0 拒绝、非法 layout_type 拒绝。WindowStateTest 10/10。
+- libop.h LayoutWindows 注释补格式/失败语义/半应用说明。
+
 ### 2026-09-17（RunApp 支持 .lnk 快捷方式）
 
 - **背景**：RunApp 底层直调 `CreateProcessW`，不解析 .lnk（非 PE 文件），实测传快捷方式 mode=0/1 均 ret=0。用户拍板走 ShellExecuteEx 方案。
