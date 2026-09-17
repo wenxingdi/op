@@ -9,7 +9,7 @@
 | 文档 | 说明 |
 |---|---|
 | [CHANGELOG.md](CHANGELOG.md) | 本仓库自有迭代日志（基线：上游 0.4.8.3） |
-| [api_reference.html](api_reference.html) | **API 参考手册**：223 个接口按 10 服务组分类，含参数表/方向/中文说明/搜索（`scripts/gen_api_reference.py` 从 libop.h 自动生成，勿手改） |
+| [api_reference.html](api_reference.html) | **API 参考手册**：223 个接口按 10 服务组分类，含参数表/**取值语义注解**（绑定模式/flag 枚举/sim 口径等 63 项）/搜索（`scripts/gen_api_reference.py` 从 libop.h + PARAM_DOCS 注解层生成，勿手改） |
 
 ## docs/2026-07 —— 环境搭建期
 
