@@ -3,6 +3,14 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-17（YOLO 统一入口：SetYoloEngine 直接吃 .onnx 模型路径，零接口变化）
+
+- **统一入口**：`SetYoloEngine("D:/xx/best.onnx", "", "--labels=...")` 一步到位——第一参数以 `.onnx` 结尾（大小写不敏感、兼容正反斜杠）且 `dll_name` 为空时，自动切进程内 ONNX 引擎并以该路径为模型文件，等价于旧写法 `SetYoloEngine("onnx", 模型路径, ...)`。旧写法/HTTP 模式（URL、yolo/yolo_http 别名）完全不受影响；`dll_name` 非空时保持旧语义（优先作模型路径）。
+- 实现：`OpYolo.cpp` SetYoloEngine 入口做扩展名识别与参数改写（+`has_onnx_model_extension` 助手），YoloDetector/引擎层不动。
+- 同步：`libop.h` 函数注释、`doc/yolo.md`（改为"统一入口推荐 + HTTP 模式"两节）、API 手册 SetYoloEngine 注解（`scripts/gen_api_reference.py`）。
+- 测试：新增 `YoloOnnxTest.UnifiedEntryAcceptsOnnxModelPathDirectly`——缺失路径/大写扩展名/乱码模型均优雅失败 ret=0，且 dll_name 非空时旧语义不被改写。YoloTest 9/9 PASS。
+- 接口面：COM 223 / C-API 227 / Python 225 三层零变化（api_surface_diff 校验通过）。
+
 ### 2026-09-17（opencv 模块排查闭环：CV1-CV4 + OpenCV 测试链修复）
 
 - **排查结论**：无 P0。线程安全设计扎实（模板缓存 shared_mutex 读写分离 / ORB thread_local / 线程池 magic static），六条匹配路径（直搜/金字塔/条带/缩放/特征/边缘/形状）架构清晰，测试素材覆盖真实照片。发现 4 项落地：

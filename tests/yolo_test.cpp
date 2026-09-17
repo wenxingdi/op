@@ -64,6 +64,28 @@ TEST(YoloOnnxTest, InitCorruptModelFailsGracefully) {
     DeleteFileW(path.c_str());
 }
 
+// 统一入口：path_of_engine 直接给 .onnx 路径（dll_name 空）自动切 ONNX 引擎；
+// 文件不存在/内容非法时 init 失败但不崩溃（与 ("onnx", 路径, ...) 旧写法等价）
+TEST(YoloOnnxTest, UnifiedEntryAcceptsOnnxModelPathDirectly) {
+    op::Op op;
+    EXPECT_EQ(0, op.SetYoloEngine(L"__missing_yolo_model__.onnx", L"", L""));
+    EXPECT_EQ(0, op.SetYoloEngine(L"__MISSING_YOLO_MODEL__.ONNX", L"", L""));
+
+    const std::wstring corrupt = GetTempBmpPath(L"__corrupt_unified_yolo_model__.onnx");
+    {
+        FILE *f = nullptr;
+        _wfopen_s(&f, corrupt.c_str(), L"wb");
+        ASSERT_NE(f, nullptr);
+        fputs("not an onnx model", f);
+        fclose(f);
+    }
+    EXPECT_EQ(0, op.SetYoloEngine(corrupt.c_str(), L"", L"--conf=0.3"));
+    DeleteFileW(corrupt.c_str());
+
+    // dll_name 非空时保持旧语义（优先作模型路径），不会被统一入口改写
+    EXPECT_EQ(0, op.SetYoloEngine(L"onnx", L"__missing_yolo_model__.onnx", L""));
+}
+
 // onnx 切换后再切回 http：引擎选择器正常工作，detect 走 HTTP（无服务端 -> 失败 JSON 但不崩溃）
 TEST(YoloOnnxTest, SwitchBackToHttpEngineNoCrash) {
     op::Op op;

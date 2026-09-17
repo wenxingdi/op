@@ -614,9 +614,9 @@ PARAM_DOCS = {
     "FindLineEx": {"etstr": "返回 <code>\"角度,距离\"</code>；ret=线上点数（0=不可信）"},
     # ---------- YOLO ----------
     "SetYoloEngine": {
-        "path_of_engine": "YOLO 引擎目录",
-        "dll_name": "引擎 DLL 名",
-        "argv": "初始化参数字符串（如模型路径/线程数，按引擎约定）",
+        "path_of_engine": "统一入口：<b>.onnx 模型文件路径</b>（dll_name 留空，自动切进程内 ONNX 引擎）；旧写法 = 引擎名（<code>onnx</code> 开头=进程内 ONNX）或 http(s) URL / 别名 <code>yolo</code> <code>yolo_http</code>",
+        "dll_name": "模型路径（ONNX 引擎；空=内置资源段模型）",
+        "argv": "空格分隔参数；ONNX 支持 <code>--conf=0.25</code> <code>--iou=0.45</code> <code>--labels=a,b,c</code>（UTF-8）或 <code>--labels=@classes.txt</code>（每行一类）；HTTP 支持 <code>--timeout=毫秒</code>",
     },
     "YoloDetect": {
         "etjson": "检测结果 JSON 数组：每个元素含类别/置信度/包围盒 {class,score,x,y,w,h}",

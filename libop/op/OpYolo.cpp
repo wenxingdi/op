@@ -9,6 +9,7 @@
 
 #include <libop.h>
 
+#include <cwctype>
 #include <string>
 #include <vector>
 
@@ -39,7 +40,20 @@ static void build_yolo_json(const op::vyolo_rec_t &items, std::wstring &retjson)
         retjson += op::internal::json::FormatDouble(it.confidence);
         retjson += L"}";
     }
-    retjson += L"]}";
+        retjson += L"]}";
+}
+
+// 统一入口判定：path_of_engine 直接给 .onnx 模型文件路径（dll_name 为空）时，
+// 自动切进程内 ONNX 引擎并以该路径为模型文件——用户无需了解引擎选择细节。
+bool has_onnx_model_extension(const std::wstring &path) {
+    const size_t sep = path.find_last_of(L"\\/");
+    const size_t dot = path.find_last_of(L'.');
+    if (dot == std::wstring::npos || (sep != std::wstring::npos && dot < sep))
+        return false;
+    std::wstring ext = path.substr(dot + 1);
+    for (auto &c : ext)
+        c = static_cast<wchar_t>(towlower(c));
+    return ext == L"onnx";
 }
 
 } // namespace
@@ -48,8 +62,14 @@ long op::Op::SetYoloEngine(const wchar_t *path_of_engine, const wchar_t *dll_nam
     string argvs = argv ? _ws2string(argv) : "";
     vector<string> vstr;
     split(argvs, vstr, " ");
-    const std::wstring engine = path_of_engine ? path_of_engine : L"";
-    const std::wstring dll = dll_name ? dll_name : L"";
+    std::wstring engine = path_of_engine ? path_of_engine : L"";
+    std::wstring dll = dll_name ? dll_name : L"";
+    // 统一入口：SetYoloEngine("D:/xx/best.onnx", "", "--labels=...") 等价于
+    // SetYoloEngine("onnx", "D:/xx/best.onnx", ...)。dll_name 非空时保持旧语义（优先作模型路径）。
+    if (dll.empty() && has_onnx_model_extension(engine)) {
+        dll = engine;
+        engine = L"onnx";
+    }
     return op::yolo::YoloDetector::getInstance()->init(engine, dll, vstr) == 0 ? 1 : 0;
 }
 void op::Op::YoloDetect(long x1, long y1, long x2, long y2, double conf, double iou, std::wstring &retjson, long *ret) {

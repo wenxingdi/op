@@ -1,8 +1,25 @@
-# YOLO HTTP 检测
+# YOLO 检测
 
-OP 的 YOLO 集成采用与通用 OCR 相同的外部 HTTP 服务模式：`op_x64.dll` / `op_x86.dll` 负责截图、读图和 HTTP 调用，YOLO11/YOLOv11 的模型加载与推理由独立服务完成。
+OP 提供两种 YOLO 推理模式：进程内 ONNX（默认推荐，直接加载现成 `.onnx` 模型）与外部 HTTP 服务（旧模式）。
 
-## 接口
+## 统一入口：直接加载现成 ONNX 模型（推荐）
+
+```python
+# 一步加载：path_of_engine 直接给 .onnx 路径，dll_name 留空
+op.SetYoloEngine(r"D:\models\best.onnx", "", "--labels=person,car --conf=0.3")
+# 等价旧写法：op.SetYoloEngine("onnx", r"D:\models\best.onnx", "--labels=...")
+
+ret, json = op.YoloDetect(0, 0, 1919, 1079, 0.25, 0.45)
+ret, json = op.YoloDetectFromFile(r"D:\test.png", 0.25, 0.45)
+```
+
+- 按输出张量形状自动识别 YOLO 版本：v5 系（objectness）/ v8/v11 通道在前 / v8/v11 转置，标准 ultralytics `export format=onnx` 检测模型均可。
+- `argv` 支持：`--conf=0.25`（默认置信度）、`--iou=0.45`（默认 NMS IoU）、`--labels=a,b,c`（UTF-8 逗号分隔类别名）或 `--labels=@classes.txt`（每行一个类别，ultralytics 格式）。
+- 换模型只需再调一次 `SetYoloEngine(新路径, "", ...)`，旧会话自动释放。
+
+## HTTP 模式（外部服务）
+
+OP 的 HTTP 集成采用与通用 OCR 相同的外部服务模式：`op_x64.dll` / `op_x86.dll` 负责截图、读图和 HTTP 调用，YOLO11/YOLOv11 的模型加载与推理由独立服务完成。
 
 ```text
 SetYoloEngine(path_of_engine, dll_name, argv) -> 1/0
