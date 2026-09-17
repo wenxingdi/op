@@ -7,7 +7,7 @@
 
 用法：
     python scripts/five_layer_matrix.py [--json path] [--md path]
-默认在脚本所在目录输出 five_layer_matrix.md / .json
+默认输出到 docs/2026-09/five_layer_matrix.md / .json（2026-09-17 整理后）
 """
 import os, re, sys, json, argparse
 
@@ -158,8 +158,9 @@ def report(rows):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=ROOT)
-    ap.add_argument("--md", default=os.path.join(HERE, "five_layer_matrix.md"))
-    ap.add_argument("--json", default=os.path.join(HERE, "five_layer_matrix.json"))
+    # 2026-09-17 全项目整理：报告输出归 docs/2026-09/，脚本留在 scripts/
+    ap.add_argument("--md", default=os.path.join(ROOT, "docs", "2026-09", "five_layer_matrix.md"))
+    ap.add_argument("--json", default=os.path.join(ROOT, "docs", "2026-09", "five_layer_matrix.json"))
     a = ap.parse_args()
 
     rows = build(a.root)

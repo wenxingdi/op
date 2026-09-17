@@ -292,6 +292,8 @@ __pycache__/
 # doc2 = 验收/核查工作区（bmp/exe/py 等产物不入库），但 markdown 验收记录纳入版本历史
 /doc2/*
 !/doc2/*.md
+# workbench = 优化过程中间产物隔离区（日志/探针/截图 dump），一律不入库
+/workbench/
 
 /Ref
 

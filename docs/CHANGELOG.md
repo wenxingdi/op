@@ -3,6 +3,15 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-17（ipc 模块排查闭环：IP1-IP4，纯卫生零行为变化）
+
+- **排查结论**：无 P0/P1。重点设计项核查均健康——多开按 `op_*_<hwnd>` 命名隔离不串数据；宿主崩溃残锁靠 `FrameInfo` 校验和 + hwnd/宽高三重校验兜底（撕裂帧过不了校验和即判"无帧"）；Pipe reader 阻塞 ReadFile + `CancelSynchronousIo` 防孙进程继承句柄致 join 挂死；CommandRunner 超时 `terminate_process_tree` 杀整棵进程树不留孤儿。
+- **IP1**：`Pipe.cpp` 删除重复 SAFE_DELETE（死代码）。
+- **IP2**：`Pipe.h` 删除拷贝构造/赋值（持有裸句柄+线程指针，防双重 close/join）。
+- **IP3**：`ProcessMutex::unlock()` assert 挪到空值守卫之后——op_test 构建（无 NDEBUG，assert 生效）下"unlock 未 open 的锁"从测试中止变安全返回；`was_abandoned()` 补注释说明读取侧靠校验和兜底故不逐个查询。
+- **IP4**：删除 `SharedMemory::at<T>` 死代码（全库零调用，实现按字节索引强转怪异；`data<T>` 保留）。
+- **遗留记录**：Pipe 基类本身全库零调用（仅 CommandRunner 派生用），上游大漠遗留"连接外部识别程序"设计，本仓库已内置 OCR/YOLO——保留不动，未来可考虑整体移除。
+
 ### 2026-09-17（image 模块排查闭环：I1-I3）
 
 - **I1（P1）异常穿出 COM 边界**：`Image::create` 尺寸非法/溢出/realloc 失败时 `throw(const char*)`、`ImageBin::create` 抛 `bad_alloc`，全库仅 OpImage 一处局部 catch，截图链与直调入口均无兜底 → 异常穿出 COM 方法 = 宿主进程 terminate。修法：①`OpCaptureHelpers.h` 新增 `guard_exceptions`（catch std::exception/const char*/...，setlog 后吞掉，出参保持调用方已初始化值）；②`capture_region` 整体包裹（覆盖全部截图链入口）；③直调图像入口逐个包裹——OpImage 的 LoadPic/LoadMemPic/GetPicSize/MatchPicName、OpOcr 的 OcrFromFile/AutoOcrFromFile/OcrAutoFromFile（经核查字典解析无 throw，SetDict 系不用包）。

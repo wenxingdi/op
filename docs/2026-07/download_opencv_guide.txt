@@ -1,0 +1,26 @@
+# OpenCV 5.0.0 下载指南
+
+## 📥 官方下载源
+https://github.com/opencv/opencv/releases/download/5.0.0/opencv-5.0.0.zip
+文件大小: ~500MB
+
+## 🌏 国内镜像源
+1. 清华镜像: https://mirrors.tuna.tsinghua.edu.cn/github-release/opencv/opencv/
+2. 阿里云镜像: https://npm.taobao.org/mirrors/opencv/
+
+## 📦 手动下载步骤
+1. 访问任一链接下载 opencv-5.0.0.zip
+2. 解压到: D:\AutoPro\op-master\op\build\_deps\opencv\opencv-5.0.0
+3. 确保目录结构:
+   build\_deps\opencv\opencv-5.0.0\CMakeLists.txt
+   build\_deps\opencv\opencv-5.0.0\modules\core\include\opencv2\core.hpp
+
+## ⏰ 预计下载时间
+- 清华镜像: 5-10分钟 (10-50MB/s)
+- 官方直链: 15-30分钟 (受限于国际带宽)
+
+## 🔍 下载后验证
+确保以下文件存在:
+- opencv-5.0.0/CMakeLists.txt
+- opencv-5.0.0/modules/core/include/opencv2/core.hpp
+- opencv-5.0.0/modules/imgproc/include/opencv2/imgproc.hpp

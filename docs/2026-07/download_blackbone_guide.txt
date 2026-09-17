@@ -1,0 +1,42 @@
+# BlackBone 下载指南 (无Gitee账号方案)
+
+## 📥 官方GitHub直链下载
+方法1: 直接克隆
+```bash
+git clone https://hub.fastgit.xyz/DarthTon/Blackbone.git build\_deps\BlackBone
+```
+
+方法2: ZIP直链下载
+https://github.com/DarthTon/Blackbone/archive/master.zip
+或使用国内加速:
+https://hub.fastgit.xyz/DarthTon/Blackbone/archive/master.zip
+
+## 🚀 FastGit镜像 (推荐)
+FastGit是国内访问GitHub的加速服务:
+```bash
+git clone https://hub.fastgit.xyz/DarthTon/Blackbone.git build\_deps\BlackBone
+```
+
+## 📦 手动下载步骤
+1. 下载ZIP: https://hub.fastgit.xyz/DarthTon/Blackbone/archive/master.zip
+2. 解压重命名:
+   - 解压master.zip
+   - 重命名 Blackbone-master 为 BlackBone
+   - 移动到 build\_deps\BlackBone
+
+## 📁 目标目录结构
+确保创建:
+D:\AutoPro\op-master\op\build\_deps\BlackBone\
+├── src\
+│   ├── BlackBone\
+│   │   ├── CMakeLists.txt
+│   │   └── Process\
+│   └── 3rd_party\
+└── build\
+
+## ⏰ 预计时间
+- FastGit: 2-5分钟
+- 官方下载: 可能较慢或不稳定
+
+## 💡 如果全部失败
+我将提供百度网盘或天翼云盘的备份下载链接
