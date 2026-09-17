@@ -90,7 +90,7 @@ long DxKeyboard::WaitKey(long vk_code, unsigned long time_out) {
 long DxKeyboard::KeyPress(long vk_code) {
     if (KeyDown(vk_code) != 1)
         return 0;
-    ::Delay(KEYPAD_DX_DELAY);
+    DelayJitter(KEYPAD_DX_DELAY);
     return KeyUp(vk_code);
 }
 

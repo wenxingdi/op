@@ -210,11 +210,11 @@ long WinKeyboard::KeyPress(long vk_code) {
     KeyDown(vk_code);
     switch (_mode) {
     case INPUT_TYPE::IN_NORMAL: {
-        ::Delay(KEYPAD_NORMAL_DELAY);
+        DelayJitter(KEYPAD_NORMAL_DELAY);
         break;
     }
     case INPUT_TYPE::IN_NORMAL2: {
-        ::Delay(KEYPAD_NORMAL2_DELAY);
+        DelayJitter(KEYPAD_NORMAL2_DELAY);
         break;
     }
     case INPUT_TYPE::IN_WINDOWS: {
@@ -225,7 +225,7 @@ long WinKeyboard::KeyPress(long vk_code) {
             for (wchar_t ch : text)
                 message::SendTimeout(_hwnd, char_message, ch, 1);
         }
-        ::Delay(KEYPAD_WINDOWS_DELAY);
+        DelayJitter(KEYPAD_WINDOWS_DELAY);
         break;
     }
     }

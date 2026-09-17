@@ -185,8 +185,14 @@ long run_mouse_path(const std::vector<POINT> &path, int duration,
     for (size_t i = 0; i < path.size(); ++i) {
         if (!move_to_point(path[i]))
             return 0;
-        if (delay > 0 && i + 1 < path.size())
-            ::Delay(delay);
+        if (delay > 0 && i + 1 < path.size()) {
+            // 时间轴拟真：每步 ±30% 抖动 + 5% 概率微停 20~60ms。
+            // 等步长是机器移动的最强统计特征，真人速度曲线必有波动与偶发停顿。
+            int step_delay = jittered_delay_ms(delay, 30);
+            if (rand() % 100 < 5)
+                step_delay += 20 + rand() % 41;
+            ::Delay(step_delay);
+        }
     }
     return 1;
 }
@@ -339,7 +345,7 @@ long WinMouse::send_input_click(DWORD down_flags, DWORD up_flags, DWORD mouse_da
         return 0;
 
     const long r1 = send_input_mouse(down_flags, mouse_data, false);
-    ::Delay(delay);
+    DelayJitter(delay);
     const long r2 = send_input_mouse(up_flags, mouse_data, false);
     return r1 && r2 ? 1 : 0;
 }
@@ -365,14 +371,14 @@ long WinMouse::send_windows_xbutton(UINT message, WORD xbutton, WPARAM button, b
 
 long WinMouse::button_click(long (WinMouse::*down)(), long (WinMouse::*up)(), long delay) {
     const long r1 = (this->*down)();
-    ::Delay(delay);
+    DelayJitter(delay);
     const long r2 = (this->*up)();
     return r1 && r2 ? 1 : 0;
 }
 
 long WinMouse::normal_double_click(long (WinMouse::*click)(), long delay) {
     const long r1 = (this->*click)();
-    ::Delay(delay);
+    DelayJitter(delay);
     const long r2 = (this->*click)();
     return r1 && r2 ? 1 : 0;
 }
@@ -380,13 +386,13 @@ long WinMouse::normal_double_click(long (WinMouse::*click)(), long delay) {
 long WinMouse::button_double_click(long (WinMouse::*click)(), UINT message, UINT up_message, WPARAM button,
                                    long delay) {
     const long r1 = (this->*click)();
-    ::Delay(delay);
+    DelayJitter(delay);
     const POINT pt = current_client_point();
     const WPARAM state = button_state_with(button, true);
     const long r2 = message::SendTimeout(_hwnd, message, state, MAKELPARAM(pt.x, pt.y));
     if (r2)
         set_button_state(button, true);
-    ::Delay(delay);
+    DelayJitter(delay);
     const long r3 = send_windows_button(up_message, button, false);
     return r1 && r2 && r3 ? 1 : 0;
 }
@@ -403,9 +409,9 @@ long WinMouse::xbutton(WORD xbutton_id, WPARAM button, bool down) {
 
 long WinMouse::xbutton_double_click(long (WinMouse::*click)(), WORD xbutton_id, WPARAM button, long delay) {
     const long r1 = (this->*click)();
-    ::Delay(delay);
+    DelayJitter(delay);
     const long r2 = send_windows_xbutton(WM_XBUTTONDBLCLK, xbutton_id, button, true);
-    ::Delay(delay);
+    DelayJitter(delay);
     const long r3 = send_windows_xbutton(WM_XBUTTONUP, xbutton_id, button, false);
     return r1 && r2 && r3 ? 1 : 0;
 }

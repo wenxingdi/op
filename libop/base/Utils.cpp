@@ -3,7 +3,9 @@
 #include "AutomationModes.h"
 #include "Environment.h"
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <shlwapi.h>
@@ -319,4 +321,32 @@ bool Delays(long mis_min, long mis_max) {
     const long span = mis_max - mis_min + 1;
     const long mis = mis_min + (span > 0 ? rand() % span : 0);
     return Delay(mis);
+}
+
+long jittered_delay_ms(long base_ms, long percent) {
+    if (base_ms <= 0)
+        return 0;
+    if (percent < 0)
+        percent = 0;
+    const long span = base_ms * percent / 100;
+    const long lo = (std::max)(1L, base_ms - span);
+    const long hi = base_ms + span;
+    return lo + (hi > lo ? rand() % (hi - lo + 1) : 0);
+}
+
+bool DelayJitter(long base_ms, long percent) {
+    return Delay(jittered_delay_ms(base_ms, percent));
+}
+
+bool SeedProcessRandom() {
+    static std::atomic<bool> seeded{false};
+    bool expected = false;
+    if (!seeded.compare_exchange_strong(expected, true))
+        return false;
+    const unsigned long long tick = static_cast<unsigned long long>(::GetTickCount64());
+    const unsigned long long pid = static_cast<unsigned long long>(::GetCurrentProcessId());
+    // 混一个地址位，同一毫秒启动的同 pid 短生命周期进程（不太可能但成本为零）也能分开。
+    const unsigned long long addr = reinterpret_cast<unsigned long long>(&seeded) >> 4;
+    std::srand(static_cast<unsigned>(tick ^ (pid << 16) ^ addr));
+    return true;
 }

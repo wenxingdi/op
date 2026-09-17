@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <fstream>
 #include <iterator>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -77,6 +78,35 @@ TEST(UtilsTest, Hex2BinAcceptsLowercase) {
     EXPECT_EQ(hex2bin('F'), 15);
     EXPECT_EQ(hex2bin('a'), 10);
     EXPECT_EQ(hex2bin('f'), 15);
+}
+
+// 拟人抖动回归：样本必须全部落在 [基准*(1-p), 基准*(1+p)] 内，且不能退化为恒定值
+// （旧实现无此函数，"恒定延时"回归的判别点就是样本集大小必须 >1）。
+TEST(UtilsTest, JitteredDelayStaysWithinBoundsAndVaries) {
+    std::set<long> samples;
+    for (int i = 0; i < 200; ++i) {
+        const long v = jittered_delay_ms(100, 40);
+        EXPECT_GE(v, 60);
+        EXPECT_LE(v, 140);
+        samples.insert(v);
+    }
+    EXPECT_GT(samples.size(), 1u);
+}
+
+// 下限 1ms：按下/弹起间隔过短可能被系统合并为一次点击；base<=0 保持无延时语义。
+TEST(UtilsTest, JitteredDelayFloorAndZeroBase) {
+    EXPECT_EQ(jittered_delay_ms(0, 40), 0);
+    EXPECT_EQ(jittered_delay_ms(-5, 40), 0);
+    for (int i = 0; i < 100; ++i)
+        EXPECT_GE(jittered_delay_ms(1, 40), 1);
+}
+
+// 进程级播种至多一次。注意 OpEnvironment/前面的用例可能已创建过 Op 抢先播种，
+// 故只断言"不存在两次都成功"，不假设本用例一定拿到首次。
+TEST(UtilsTest, SeedProcessRandomSeedsAtMostOnce) {
+    const bool first = SeedProcessRandom();
+    const bool second = SeedProcessRandom();
+    EXPECT_FALSE(first && second);
 }
 
 // B1 回归：setlog(宽字符版) 旧实现把「已格式化完成的文本」再当 format 回调窄字符版，

@@ -99,4 +99,13 @@ std::wostream &operator<<(std::wostream &o, point_t const &rhs);
 bool Delay(long mis);
 bool Delays(long mis_min, long mis_max);
 
+// 拟人延时抖动：以 base_ms 为基准做 ±percent% 均匀随机，下限 1ms（防按下/弹起被合并）；
+// base_ms<=0 返回 0（保持旧的无延时语义）。
+long jittered_delay_ms(long base_ms, long percent);
+// 实际执行抖动延时，等价 Delay(jittered_delay_ms(base_ms, percent))。percent 缺省 40（±40%）。
+bool DelayJitter(long base_ms, long percent = 40);
+// 进程级一次性播种 rand()：本次调用完成播种返回 true，已被（本进程任一线程）播种返回 false。
+// rand() 默认种子固定会让"随机"轨迹/落点跨进程跑出完全相同的序列，多开同脚本等于明文自动化。
+bool SeedProcessRandom();
+
 #endif // OP_BASE_UTILS_H_

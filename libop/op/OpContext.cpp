@@ -70,6 +70,10 @@ op::internal::OpContext::OpContext(int client_id) : id(client_id) {
                system_dpi_text().c_str());
     }
 
+    // rand() 无播种时默认种子固定，"随机"轨迹/落点会跨进程跑出完全相同的序列，
+    // 多开同脚本在行为检测视角等于明文宣告自动化。进程级播种一次，多实例仅首个生效。
+    SeedProcessRandom();
+
     // 初始化目录
     curr_path = current_directory();
     image_proc._curr_path = curr_path;

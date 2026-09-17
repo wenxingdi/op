@@ -100,7 +100,7 @@ long DxMouse::send_xbutton(UINT message, WORD xbutton, WPARAM button, bool down)
 
 long DxMouse::click(long (DxMouse::*down)(), long (DxMouse::*up)()) {
     const long r1 = (this->*down)();
-    ::Delay(MOUSE_DX_DELAY);
+    DelayJitter(MOUSE_DX_DELAY);
     const long r2 = (this->*up)();
     return r1 && r2 ? 1 : 0;
 }
@@ -111,14 +111,14 @@ long DxMouse::send_double_click(UINT message, UINT up_message, WPARAM button) {
     const long r1 = message::SendTimeout(_hwnd, message, state, MAKELPARAM(pt.x, pt.y));
     if (r1)
         set_button_state(button, true);
-    ::Delay(MOUSE_DX_DELAY);
+    DelayJitter(MOUSE_DX_DELAY);
     const long r2 = send_button(up_message, button, false);
     return r1 && r2 ? 1 : 0;
 }
 
 long DxMouse::double_click(long (DxMouse::*click_func)(), UINT message, UINT up_message, WPARAM button) {
     const long r1 = (this->*click_func)();
-    ::Delay(MOUSE_DX_DELAY);
+    DelayJitter(MOUSE_DX_DELAY);
     const long r2 = send_double_click(message, up_message, button);
     return r1 && r2 ? 1 : 0;
 }
@@ -129,9 +129,9 @@ long DxMouse::xbutton(WORD xbutton_id, WPARAM button, bool down) {
 
 long DxMouse::xbutton_double_click(long (DxMouse::*click_func)(), WORD xbutton_id, WPARAM button) {
     const long r1 = (this->*click_func)();
-    ::Delay(MOUSE_DX_DELAY);
+    DelayJitter(MOUSE_DX_DELAY);
     const long r2 = send_xbutton(OP_WM_XBUTTONDBLCLK, xbutton_id, button, true);
-    ::Delay(MOUSE_DX_DELAY);
+    DelayJitter(MOUSE_DX_DELAY);
     const long r3 = send_xbutton(OP_WM_XBUTTONUP, xbutton_id, button, false);
     return r1 && r2 && r3 ? 1 : 0;
 }
