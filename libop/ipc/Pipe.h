@@ -19,6 +19,10 @@ class Pipe {
     bool wait_for_exit(DWORD timeout_ms);
 
   private:
+    // 持有裸句柄与线程指针，禁止拷贝/赋值，避免双重关句柄与双重 join。
+    Pipe(const Pipe &) = delete;
+    Pipe &operator=(const Pipe &) = delete;
+
     handle_t _hread, _hwrite;
     handle_t _hread2, _hwrite2;
     handle_t _hprocess;

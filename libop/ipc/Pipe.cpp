@@ -131,7 +131,6 @@ int Pipe::close(DWORD process_wait_ms) {
         }
         SAFE_DELETE(_pthread);
     }
-    SAFE_DELETE(_pthread);
     SAFE_CLOSE(_hread);
     SAFE_CLOSE(_hwrite);
     SAFE_CLOSE(_hwrite2);

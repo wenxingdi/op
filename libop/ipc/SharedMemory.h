@@ -64,10 +64,6 @@ class SharedMemory {
         _size = 0;
         _hmap.reset();
     }
-    template <typename T> T &at(int idx_) {
-        // assert(_hmap&&_paddress);
-        return (T)_paddress[idx_];
-    }
     template <typename T> T *data() {
         return (T *)_paddress;
     }
