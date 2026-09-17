@@ -244,15 +244,21 @@ void ImageSearchService::parse_multi_color_args(const wstring &first_color, cons
         size_t id1, id2;
         id1 = it.find(L'|');
         id2 = (id1 == wstring::npos ? wstring::npos : it.find(L'|', id1 + 1));
-        if (id2 != wstring::npos) {
-            pt_cr_df_t tp;
-            swscanf(it.c_str(), L"%d|%d", &tp.x, &tp.y);
-            if (id2 + 1 != it.length())
-                str2colordfs(it.substr(id2 + 1), tp.crdfs);
-            else
-                break;
-            voffset_cr.push_back(tp);
+        if (id2 == wstring::npos)
+            continue;
+        // 偏移必须先清零再解析：sscanf 失败时未初始化的 x/y 会以垃圾值入 vector，
+        // 导致同一串输入在不同调用间匹配行为不确定。
+        pt_cr_df_t tp = {};
+        if (swscanf(it.c_str(), L"%d|%d", &tp.x, &tp.y) != 2) {
+            setlog(L"parse_multi_color_args: malformed offset segment skipped: %s", it.c_str());
+            continue;
         }
+        if (id2 + 1 == it.length()) {
+            setlog(L"parse_multi_color_args: offset segment without color skipped: %s", it.c_str());
+            continue;
+        }
+        str2colordfs(it.substr(id2 + 1), tp.crdfs);
+        voffset_cr.push_back(tp);
     }
 }
 
@@ -1201,16 +1207,24 @@ void ImageSearchService::files2mats(const wstring &files, std::vector<PicMatchTe
         std::shared_ptr<PicMatchTemplate> match;
         find_cached_pic(it, image, match);
         if (!image) {
-            if (!Path2GlobalPath(it, _curr_path, tp))
+            if (!Path2GlobalPath(it, _curr_path, tp)) {
+                // 路径解析失败（含 LoadMemPic 名称与磁盘文件都不存在），
+                // 静默 continue 会让调用方把 ret=-1 误读为"图上没找到"。
+                setlog(L"files2mats: cannot resolve pic path: %s", it.c_str());
                 continue;
+            }
             find_cached_pic(tp, image, match);
             if (!image) {
                 image = read_pic_file(tp);
-                if (!image)
+                if (!image) {
+                    setlog(L"files2mats: pic missing or unsupported format: %s", tp.c_str());
                     continue;
+                }
                 match = make_pic_match(image);
-                if (!match)
+                if (!match) {
+                    setlog(L"files2mats: cannot build match template: %s", tp.c_str());
                     continue;
+                }
                 // 自动读取本地文件时，只有开启缓存才写入全局缓存。
                 if (_enable_cache)
                     store_cached_pic(tp, image, match);

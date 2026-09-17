@@ -489,21 +489,30 @@ void op::Op::OcrAuto(long x1, long y1, long x2, long y2, double sim, std::wstrin
 
 // 从文件中识别图片
 void op::Op::OcrFromFile(const wchar_t *file_name, const wchar_t *color_format, double sim, std::wstring &retstr) {
-    wstring str;
-    m_context->image_proc.OcrFromFile(file_name, color_format, sim, str);
-    retstr = str;
+    retstr.clear();
+    internal::guard_exceptions("OcrFromFile", [&]() {
+        wstring str;
+        m_context->image_proc.OcrFromFile(file_name, color_format, sim, str);
+        retstr = str;
+    });
 }
 
 void op::Op::AutoOcrFromFile(const wchar_t *file_name, const wchar_t *color_format, double sim, std::wstring &retstr) {
-    wstring str;
-    m_context->image_proc.autoocrFromFile(file_name ? file_name : L"", color_format ? color_format : L"", sim, str);
-    retstr = str;
+    retstr.clear();
+    internal::guard_exceptions("AutoOcrFromFile", [&]() {
+        wstring str;
+        m_context->image_proc.autoocrFromFile(file_name ? file_name : L"", color_format ? color_format : L"", sim, str);
+        retstr = str;
+    });
 }
 // 从文件中识别图片,无需指定颜色
 void op::Op::OcrAutoFromFile(const wchar_t *file_name, double sim, std::wstring &retstr) {
-    wstring str;
-    m_context->image_proc.OcrAutoFromFile(file_name, sim, str);
-    retstr = str;
+    retstr.clear();
+    internal::guard_exceptions("OcrAutoFromFile", [&]() {
+        wstring str;
+        m_context->image_proc.OcrAutoFromFile(file_name, sim, str);
+        retstr = str;
+    });
 }
 
 void op::Op::FindLine(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, wstring &retstr) {

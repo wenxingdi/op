@@ -338,6 +338,10 @@ class OP_API Op {
     //--------------------image and color-----------------------
     // 抓取指定区域(x1, y1, x2, y2)的图像, 保存为file
     void Capture(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *file_name, _Out_ long *ret);
+    // sim 语义注意（继承大漠，各家族不一致，传参前请确认）：
+    //   找色/多点找色家族：sim<0 被钳制为 1.0（变为精确匹配）；
+    //   OCR 家族（Ocr/OcrEx/FindStr 等）：sim<0 或 >1 回退 0.7；
+    //   找图家族（FindPic/FindPicEx/FindPicExS）：实际相似度 = 0.5 + sim/2，sim=0.8 对应内部 0.9。
     // 比较指定坐标点(x,y)的颜色
     void CmpColor(_In_ long x, _In_ long y, _In_ const wchar_t *color, _In_ double sim, _Out_ long *ret);
     // 查找指定区域内的颜色

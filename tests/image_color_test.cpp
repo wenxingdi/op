@@ -393,6 +393,97 @@ TEST(ImageColorTest, FindMultiColorHonorsAllDirections) {
     }
 }
 
+// I3：畸形偏移段（坐标不可解析 / 缺颜色）必须被跳过而不是中断或注入垃圾偏移，
+// 且多次调用结果确定一致。
+TEST(ImageColorTest, FindMultiColorSkipsMalformedOffsetSegments) {
+    op::Op op;
+    long ret = 0;
+    const int width = 8;
+    const int height = 8;
+    vector<uchar> pixels(static_cast<size_t>(width) * height * 4, 0xff);
+
+    auto paint = [&](int x, int y, uchar b, uchar g, uchar r) {
+        const auto idx = static_cast<size_t>(y * width + x) * 4;
+        pixels[idx + 0] = b;
+        pixels[idx + 1] = g;
+        pixels[idx + 2] = r;
+        pixels[idx + 3] = 0xff;
+    };
+    // 与 FindMultiColorHonorsAllDirections 相同的标记：主色(1,1)，偏移色在(0,1)。
+    paint(1, 1, 0x11, 0x22, 0x33);
+    paint(0, 1, 0x44, 0x55, 0x66);
+
+    SetMemBmp(op, width, height, pixels, ret);
+    ASSERT_EQ(ret, 1);
+
+    // 基线：单个合法偏移段。
+    auto run = [&](const wchar_t *offsets, long &x, long &y) {
+        op.FindMultiColor(0, 0, width, height, L"332211", offsets, 1.0, 0, &x, &y, &ret);
+        return ret;
+    };
+
+    long bx = -1, by = -1;
+    ASSERT_EQ(run(L"-1|0|665544", bx, by), 1);
+    EXPECT_EQ(bx, 1);
+    EXPECT_EQ(by, 1);
+
+    // 坐标不可解析的段被跳过，合法段仍生效；结果与基线一致。
+    for (int i = 0; i < 3; ++i) {
+        long x = -1, y = -1;
+        ASSERT_EQ(run(L"a|b|665544,-1|0|665544", x, y), 1) << "iter=" << i;
+        EXPECT_EQ(x, bx) << "iter=" << i;
+        EXPECT_EQ(y, by) << "iter=" << i;
+    }
+
+    // 缺颜色描述的段（旧实现会 break，吞掉后面的合法段）被跳过，合法段仍生效。
+    for (int i = 0; i < 3; ++i) {
+        long x = -1, y = -1;
+        ASSERT_EQ(run(L"1|1|,-1|0|665544", x, y), 1) << "iter=" << i;
+        EXPECT_EQ(x, bx) << "iter=" << i;
+        EXPECT_EQ(y, by) << "iter=" << i;
+    }
+}
+
+// I2：模板文件缺失/不可解析时 FindPic 不得崩溃，且返回"未找到"而非"找到"。
+// （缺失原因经 setlog 落 __op.log，由调用方开 op.set_show_error_msg(2) 查看。）
+TEST(ImageColorTest, FindPicWithMissingTemplateDoesNotMatch) {
+    op::Op op;
+    long ret = 0;
+    const int width = 16;
+    const int height = 16;
+    vector<uchar> pixels(static_cast<size_t>(width) * height * 4, 0xff);
+    SetMemBmp(op, width, height, pixels, ret);
+    ASSERT_EQ(ret, 1);
+
+    long x = 0, y = 0;
+    op.FindPic(0, 0, width, height, L"definitely_missing_template_xyz.bmp", L"000000", 0.8, 0, &x, &y, &ret);
+    EXPECT_NE(ret, 1) << "missing template must not report a match";
+
+    wstring results = L"sentinel";
+    op.FindPicEx(0, 0, width, height, L"definitely_missing_template_xyz.bmp", L"000000", 0.8, 0, results);
+    EXPECT_TRUE(results.empty());
+}
+
+// I1：直调图像入口对异常/非法输入兜底——进程不终止，出参保持失败值。
+TEST(ImageColorTest, DirectImageEntriesFailSoft) {
+    op::Op op;
+    long ret = 1; // 故意预置非零，验证失败路径会重置
+    op.LoadPic(L"definitely_missing_pic_xyz.bmp", &ret);
+    EXPECT_EQ(ret, 0);
+
+    ret = 1;
+    long w = 7, h = 7;
+    op.GetPicSize(L"definitely_missing_pic_xyz.bmp", &w, &h, &ret);
+    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(w, 0L);
+    EXPECT_EQ(h, 0L);
+
+    // 从磁盘缺失文件做 OCR：返回空串而不是抛异常终止进程。
+    wstring text = L"sentinel";
+    op.OcrFromFile(L"definitely_missing_pic_xyz.bmp", L"ffffff", 0.9, text);
+    EXPECT_TRUE(text.empty());
+}
+
 TEST(ImageColorTest, FindPicHonorsDirection) {
     op::Op op;
     long ret = 0;

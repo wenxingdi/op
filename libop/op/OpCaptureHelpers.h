@@ -8,19 +8,36 @@
 
 namespace op::internal {
 
+// C++ 异常不允许穿出 COM 方法边界（宿主进程会直接 terminate）。
+// 统一在此兜底：记录日志后吞掉异常，出参保持调用方已初始化的值。
+template <typename Fn>
+void guard_exceptions(const char *what, Fn &&fn) noexcept {
+    try {
+        std::forward<Fn>(fn)();
+    } catch (const std::exception &e) {
+        setlog("%s: std::exception: %s", what, e.what());
+    } catch (const char *msg) {
+        setlog("%s: %s", what, msg);
+    } catch (...) {
+        setlog("%s: unknown exception", what);
+    }
+}
+
 template <typename Fn>
 void capture_region(OpContext *context, long x, long y, long width, long height, Fn &&fn) {
     if (!context)
         return;
 
-    if (!context->bkproc.requestCapture(x, y, width, height, context->image_proc._src)) {
-        setlog("error requestCapture");
-        return;
-    }
+    guard_exceptions("capture_region", [&]() {
+        if (!context->bkproc.requestCapture(x, y, width, height, context->image_proc._src)) {
+            setlog("error requestCapture");
+            return;
+        }
 
-    // 截图偏移必须和成功捕获后的坐标保持一致，后续找图、找色会用它还原窗口坐标。
-    context->image_proc.set_offset(x, y);
-    std::forward<Fn>(fn)();
+        // 截图偏移必须和成功捕获后的坐标保持一致，后续找图、找色会用它还原窗口坐标。
+        context->image_proc.set_offset(x, y);
+        std::forward<Fn>(fn)();
+    });
 }
 
 template <typename Fn>

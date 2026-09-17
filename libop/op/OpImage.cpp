@@ -208,7 +208,8 @@ void op::Op::SetDisplayInput(const wchar_t *mode, long *ret) {
 }
 
 void op::Op::LoadPic(const wchar_t *file_name, long *ret) {
-    internal::set_result(ret, m_context->image_proc.LoadPic(file_name));
+    internal::set_result(ret, 0L);
+    internal::guard_exceptions("LoadPic", [&]() { internal::set_result(ret, m_context->image_proc.LoadPic(file_name)); });
 }
 
 void op::Op::FreePic(const wchar_t *file_name, long *ret) {
@@ -216,13 +217,17 @@ void op::Op::FreePic(const wchar_t *file_name, long *ret) {
 }
 
 void op::Op::LoadMemPic(const wchar_t *file_name, void *data, long size, long *ret) {
-    internal::set_result(ret, m_context->image_proc.LoadMemPic(file_name, data, size));
+    internal::set_result(ret, 0L);
+    internal::guard_exceptions("LoadMemPic",
+                               [&]() { internal::set_result(ret, m_context->image_proc.LoadMemPic(file_name, data, size)); });
 }
 
 void op::Op::GetPicSize(const wchar_t *pic_name, long *width, long *height, long *ret) {
     internal::set_result(width, 0L);
     internal::set_result(height, 0L);
-    internal::set_result(ret, m_context->image_proc.GetPicSize(pic_name, width, height));
+    internal::set_result(ret, 0L);
+    internal::guard_exceptions("GetPicSize",
+                               [&]() { internal::set_result(ret, m_context->image_proc.GetPicSize(pic_name, width, height)); });
 }
 
 void op::Op::GetScreenData(long x1, long y1, long x2, long y2, size_t *data, long *ret) {
@@ -310,6 +315,7 @@ void op::Op::GetScreenFrameInfo(long *frame_id, long *time) {
 
 void op::Op::MatchPicName(const wchar_t *pic_name, std::wstring &retstr) {
     retstr.clear();
+    internal::guard_exceptions("MatchPicName", [&]() {
     std::wstring s(pic_name);
     if (s.find(L'/') != s.npos || s.find(L'\\') != s.npos) {
         setlog("invalid pic_name");
@@ -346,4 +352,5 @@ void op::Op::MatchPicName(const wchar_t *pic_name, std::wstring &retstr) {
         if (!retstr.empty() && retstr.back() == L'|')
             retstr.pop_back();
     }
+    });
 }
