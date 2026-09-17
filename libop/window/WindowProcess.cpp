@@ -1,5 +1,6 @@
 #include "WindowService.h"
 
+#include "../base/Utils.h"
 #include "base/WindowsHandle.h"
 
 #include <Tlhelp32.h>
@@ -74,6 +75,8 @@ BOOL WindowService::EnumProcessbyName(DWORD dwPID, LPCWSTR ExeName, LONG type) {
         if (::Process32First(process_snapshot.get(), &pe32)) {
             do {
                 if (type == 1) {
+                    // 模糊匹配子串。当前全库调用方均用默认 type=0（精确匹配），
+                    // 此分支暂无内部调用方，保留以兼容潜在的外部/历史用法。
                     if (wcsstr(pe32.szExeFile, ExeName) != NULL) // 模糊匹配
                     {
                         npid.push_back(pe32.th32ProcessID);
@@ -107,8 +110,10 @@ bool WindowService::EnumProcess(const wchar_t *name, std::wstring &retstring) {
 
     enum_process_success_count = 0;
     npid.clear();
-    if (!EnumProcessbyName(0, name))
+    if (!EnumProcessbyName(0, name)) {
+        setlog(L"EnumProcess: no process matched name=%s", name);
         return false;
+    }
 
     for (const DWORD pid : npid)
         append_process_id(retstring, pid);
@@ -240,7 +245,9 @@ bool WindowService::GetProcessInfo(LONG pid, std::wstring &retstring) {
 
     std::wstring process_path;
     GetProcesspath(static_cast<DWORD>(pid), process_path);
-    const auto cpu = static_cast<DWORD>(get_cpu_usage(static_cast<DWORD>(pid)));
+    // get_cpu_usage 失败返回 -1，原实现强转 DWORD 会得到 4294967295 出现在结果串里。
+    const double cpu_value = get_cpu_usage(static_cast<DWORD>(pid));
+    const auto cpu = cpu_value >= 0.0 ? static_cast<DWORD>(cpu_value) : 0;
     const auto meminfo = GetMemoryInfo(static_cast<DWORD>(pid));
 
     retstring = process_name + L"|" + process_path + L"|" + std::to_wstring(cpu) + L"|" + std::to_wstring(meminfo);
@@ -304,6 +311,8 @@ long WindowService::RunApp(const std::wstring &cmd, long mode, DWORD *pid) {
         set_out(pid, pi.dwProcessId);
         op::win32::unique_handle process(pi.hProcess);
         op::win32::unique_handle thread(pi.hThread);
+    } else {
+        setlog(L"RunApp: CreateProcessW failed, cmd=%s, err=%lu", cmd.c_str(), ::GetLastError());
     }
 
     return bret;

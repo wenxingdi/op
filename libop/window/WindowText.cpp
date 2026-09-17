@@ -166,11 +166,17 @@ bool WindowService::SendPaste(HWND hwnd) {
     if (!read_clipboard_ansi(clipboard_text))
         return false;
 
+    // 与 SendString/SendStringIme 一致：字符投递到焦点子控件，
+    // 而不是顶层 hwnd——焦点在子控件（如编辑框）时对顶层发 WM_CHAR 会静默无效。
+    HWND target = ResolveInputTargetWindow(hwnd);
+    if (!::IsWindow(target))
+        return false;
+
     const std::wstring wword = ansi_to_wide(clipboard_text);
     int len = static_cast<int>(wword.length());
     // MessageBoxA(NULL,tts,tts,NULL);
     for (int i = 0; i < len; i++) {
-        ::SendMessage(hwnd, WM_CHAR, (WPARAM)wword[i], (LPARAM)1);
+        ::SendMessage(target, WM_CHAR, (WPARAM)wword[i], (LPARAM)1);
         Sleep(10);
     }
 

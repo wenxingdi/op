@@ -136,6 +136,7 @@ set(OP_TEST_SOURCES
   "utils_test.cpp"
   "memory_search_test.cpp"
   "memory_readwrite_test.cpp"
+  "window_state_test.cpp"
   "algorithm_test.cpp"
   "../libop/base/Utils.cpp"
   "../libop/base/Environment.cpp"

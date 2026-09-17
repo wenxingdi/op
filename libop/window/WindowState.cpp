@@ -1,4 +1,5 @@
 #include "WindowService.h"
+#include "../base/Utils.h"
 #include "../base/WindowsHandle.h"
 
 namespace op {
@@ -71,8 +72,11 @@ bool WindowService::GetMousePointWindow(HWND &rethwnd, LONG x, LONG y) {
             if (::IsWindowVisible(p) && ::GetWindow(p, GW_OWNER) == 0) {
                 RECT rc;
                 ::GetWindowRect(p, &rc);
-                if ((rc.top <= point.y) && (rc.left <= point.x) && (rc.right >= (point.x - rc.left)) &&
-                    (rc.bottom >= (point.y - rc.top))) {
+                // 原实现把屏幕绝对坐标与相对坐标混比（rc.right >= point.x - rc.left），
+                // 回退路径命中判定错误。rc 来自 GetWindowRect，是屏幕绝对坐标，
+                // 应与 point 直接比较。
+                if ((rc.top <= point.y) && (rc.left <= point.x) && (rc.right >= point.x) &&
+                    (rc.bottom >= point.y)) {
                     std::wstring WindowClass = window_class_name(p);
                     // if((windowpoint.x==0||windowpoint.x<rc.left)&&wcscmp(WindowClass,L"CabinetWClass")!=0)
                     // //IE框窗体排除在外
@@ -279,8 +283,19 @@ bool WindowService::SetWindowTransparent(HWND hwnd, LONG trans) {
     (mySetLayeredWindowAttributes)GetProcAddress(hlibrary,
     "SetLayeredWindowAttributes");*/
 
-    SetWindowLong(hwnd, GWL_EXSTYLE, 0x80001);
-    bret = SetLayeredWindowAttributes(hwnd, crKey, static_cast<BYTE>(trans), 2);
+    // 原实现 SetWindowLong(hwnd, GWL_EXSTYLE, 0x80001) 直接覆写扩展样式，
+    // 会把窗口已有的 WS_EX_TOPMOST(置顶)/TOOLWINDOW/TRANSPARENT 等全部清掉
+    // （置顶窗口调一次透明就掉置顶）。改为「读旧值 | WS_EX_LAYERED」，
+    // 并改用宽字符 + 指针安全的 SetWindowLongPtrW。
+    if (!::IsWindow(hwnd)) {
+        setlog(L"SetWindowTransparent: invalid hwnd");
+        return false;
+    }
+    const auto exstyle = ::GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    ::SetWindowLongPtrW(hwnd, GWL_EXSTYLE, exstyle | WS_EX_LAYERED);
+    bret = SetLayeredWindowAttributes(hwnd, crKey, static_cast<BYTE>(trans), 2) != FALSE;
+    if (!bret)
+        setlog(L"SetWindowTransparent: SetLayeredWindowAttributes failed, hwnd=%p", hwnd);
 
     return bret;
 }

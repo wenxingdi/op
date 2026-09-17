@@ -228,6 +228,8 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
         bZwindow = true; // 说明要排序窗口句柄
         filter = filter - 32;
     }
+    // 注：bZwindow 仅作语义标记不再消费——GW_HWNDFIRST 枚举顺序本身就是 Z 序，
+    // 与「按打开顺序排列」恰好等价，因此无需额外排序，保留解析以兼容 filter=33+ 入参。
 
     int indexpid = 0;
     if (process_name) // EnumWindowByProcess
@@ -247,6 +249,8 @@ bool WindowService::EnumWindowInternal(HWND parent, const wchar_t *title, const 
     {
         if (process_name) // EnumWindowByProcess
         {
+            // filter=0 是「全枚举」语义，与「按进程过滤」互斥，上游大漠同样拒绝。
+            // 调用方应改用 filter 1/2/4/8/16（带进程名的按标题/类名匹配）。
             return false;
         }
 
