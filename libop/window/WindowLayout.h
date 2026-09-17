@@ -10,7 +10,8 @@ constexpr int kMinWindowHeight = 50;
 
 enum class Type {
     Grid,     // 宫格
-    Diagonal  // 对角线
+    Diagonal, // 对角线
+    Cascade   // 层叠：每个窗口相对起点偏移 i*(gap_x, gap_y)
 };
 
 enum class SizeMode {

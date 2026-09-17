@@ -1,5 +1,7 @@
 #include "WindowLayout.h"
 
+#include "../base/Utils.h"
+
 #include <dwmapi.h>
 
 namespace op::window_layout {
@@ -272,6 +274,18 @@ std::vector<Rect> Calculate(const std::vector<HWND> &windows, const Options &opt
         }
         break;
     }
+
+    case Type::Cascade: {
+        // 层叠：第 i 个窗口相对起点偏移 i*(gap_x, gap_y)，尺寸取 seed 各自值。
+        // gap 此时语义为"层叠步距"，经典值 32（标题栏逐层露出便于点击切换）。
+        for (size_t i = 0; i < seeds.size(); ++i) {
+            Rect rect = seeds[i].rect;
+            rect.x = options.start_x + static_cast<int>(i) * options.gap_x - seeds[i].anchor_offset_x;
+            rect.y = options.start_y + static_cast<int>(i) * options.gap_y - seeds[i].anchor_offset_y;
+            rects.push_back(rect);
+        }
+        break;
+    }
     }
 
     return rects;
@@ -282,29 +296,50 @@ long Apply(const std::vector<HWND> &windows, const std::vector<Rect> &rects, con
         return 0;
     }
 
+    // 阶段1：全量 SetWindowPos（不动 Z 序/不激活），并记录移动前的 insets 供阶段2校验。
+    // 阶段2：统一 Delay(100) 后逐窗校验——"某些窗口会吞掉尺寸修改"，校验防误报成功。
+    // 两阶段把等待从 N×100ms 降到 1×100ms，校验语义与逐窗交错版严格一致。
+    std::vector<Metrics> initial_metrics(windows.size());
+    std::vector<bool> has_initial_metrics(windows.size(), false);
     for (size_t i = 0; i < windows.size(); ++i) {
         if (!::IsWindow(windows[i])) {
+            setlog(L"LayoutWindows: hwnd[%zu]=%p 不是有效窗口，已取消（前 %zu 个可能已移动）", i,
+                   windows[i], i);
             return 0;
         }
 
+        has_initial_metrics[i] = GetWindowMetrics(windows[i], initial_metrics[i]);
         const auto &rect = rects[i];
-        Metrics initial_metrics = {};
-        const bool has_initial_metrics = GetWindowMetrics(windows[i], initial_metrics);
         if (!::SetWindowPos(windows[i], nullptr, rect.x, rect.y, rect.width, rect.height,
                             SWP_NOZORDER | SWP_NOACTIVATE)) {
+            setlog(L"LayoutWindows: SetWindowPos 失败 hwnd[%zu]=%p, err=%lu", i, windows[i],
+                   ::GetLastError());
             return 0;
         }
+    }
 
-        // 某些窗口会吞掉尺寸修改，这里做一次结果校验，避免误报成功。
-        ::Sleep(100);
+    ::Delay(100);
+
+    for (size_t i = 0; i < windows.size(); ++i) {
+        const auto &rect = rects[i];
         if (options.anchor_mode == AnchorMode::Client) {
             if (!MatchesTargetClientSize(windows[i], options)) {
+                setlog(L"LayoutWindows: hwnd[%zu]=%p 客户区尺寸校验失败，期望 %ldx%ld", i, windows[i],
+                       options.window_width, options.window_height);
                 return 0;
             }
-            if (has_initial_metrics && !MatchesTargetClientRect(windows[i], rect, initial_metrics)) {
+            if (has_initial_metrics[i] &&
+                !MatchesTargetClientRect(windows[i], rect, initial_metrics[i])) {
+                setlog(L"LayoutWindows: hwnd[%zu]=%p 客户区位置校验失败，期望偏移(%d,%d)", i, windows[i],
+                       rect.x, rect.y);
                 return 0;
             }
         } else if (!MatchesTargetSize(windows[i], rect)) {
+            int width = 0;
+            int height = 0;
+            GetWindowSize(windows[i], width, height);
+            setlog(L"LayoutWindows: hwnd[%zu]=%p 尺寸校验失败，期望 %dx%d 实际 %dx%d", i, windows[i],
+                   rect.width, rect.height, width, height);
             return 0;
         }
     }
@@ -319,6 +354,8 @@ long Layout(const std::vector<HWND> &windows, const Options &options) {
 
     // 统一大小模式下，窗口尺寸不能小于最小阈值。
     if (!IsValidUniformSize(options)) {
+        setlog(L"LayoutWindows: 统一大小模式客户区尺寸 %ldx%ld 小于最小阈值 %dx%d", options.window_width,
+               options.window_height, kMinWindowWidth, kMinWindowHeight);
         return 0;
     }
 

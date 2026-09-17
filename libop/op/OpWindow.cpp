@@ -24,7 +24,11 @@ bool parse_layout_type(long value, op::window_layout::Type &type) {
     case 1:
         type = op::window_layout::Type::Diagonal;
         return true;
+    case 2:
+        type = op::window_layout::Type::Cascade;
+        return true;
     default:
+        setlog(L"LayoutWindows: 非法 layout_type=%ld（0=宫格 1=对角线 2=层叠）", value);
         return false;
     }
 }
@@ -38,6 +42,7 @@ bool parse_size_mode(long value, op::window_layout::SizeMode &mode) {
         mode = op::window_layout::SizeMode::Uniform;
         return true;
     default:
+        setlog(L"LayoutWindows: 非法 size_mode=%ld（0=保持原大小 1=统一客户区大小）", value);
         return false;
     }
 }
@@ -51,13 +56,16 @@ bool parse_anchor_mode(long value, op::window_layout::AnchorMode &mode) {
         mode = op::window_layout::AnchorMode::Client;
         return true;
     default:
+        setlog(L"LayoutWindows: 非法 anchor_mode=%ld（0=窗口外框 1=客户区）", value);
         return false;
     }
 }
 
 bool parse_window_list(const wchar_t *hwnds, std::vector<HWND> &windows) {
-    if (hwnds == nullptr || hwnds[0] == L'\0')
+    if (hwnds == nullptr || hwnds[0] == L'\0') {
+        setlog(L"LayoutWindows: 窗口句柄串为空");
         return false;
+    }
 
     std::vector<std::wstring> items;
     split(hwnds, items, L"|");
@@ -69,8 +77,15 @@ bool parse_window_list(const wchar_t *hwnds, std::vector<HWND> &windows) {
     for (const auto &item : items) {
         wchar_t *end = nullptr;
         const auto value = _wcstoi64(item.c_str(), &end, 0);
-        if (end == item.c_str() || (end && *end != L'\0'))
+        if (end == item.c_str() || (end && *end != L'\0')) {
+            setlog(L"LayoutWindows: 句柄串含非法项 \"%s\"（应为十进制 hwnd 竖线分隔）", item.c_str());
             return false;
+        }
+        if (value <= 0) {
+            // HWND 0/负值必然过不了 IsWindow，拦在这里避免"前面窗口已摆好才失败"的半应用状态
+            setlog(L"LayoutWindows: 句柄串含非法 hwnd 值 %lld（必须为正整数）", value);
+            return false;
+        }
         windows.push_back(reinterpret_cast<HWND>(static_cast<LONG_PTR>(value)));
     }
 

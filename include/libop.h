@@ -191,7 +191,9 @@ class OP_API Op {
     void SetWindowState(_In_ LONG_PTR hwnd, _In_ long flag, _Out_ long *ret);
     // 设置窗口的大小
     void SetWindowSize(_In_ LONG_PTR hwnd, _In_ long width, _In_ long height, _Out_ long *ret);
-    // 按指定布局批量排列多个窗口。hwnds 格式例如 "123|456|789"。
+    // 按指定布局批量排列多个窗口。hwnds 格式例如 "123|456|789"（正整数 hwnd 竖线分隔，含 0/非法项整体拒绝）。
+    // layout_type: 0=宫格 1=对角线 2=层叠（层叠时 gap_x/gap_y 语义为层叠步距，经典值 32）。
+    // 失败返回 0，原因经 set_show_error_msg(2) 落 __op.log；任一窗口失败时前面已排列的窗口保持不动。
     void LayoutWindows(_In_ const wchar_t *hwnds, _In_ long layout_type, _In_ long columns, _In_ long start_x,
                        _In_ long start_y, _In_ long gap_x, _In_ long gap_y, _In_ long size_mode, _In_ long window_width,
                        _In_ long window_height, _In_ long anchor_mode, _Out_ long *ret);

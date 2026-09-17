@@ -150,6 +150,58 @@ TEST(WindowStateTest, ClipboardRoundTripAscii) {
     EXPECT_EQ(back, L"op_clip_42");
 }
 
+// 层叠布局判别力：第 i 个窗口左上角 = 起点 + i*(gap_x, gap_y)。
+TEST(WindowStateTest, LayoutWindowsCascadeStepsWindows) {
+    op::Op op;
+    TopmostWindow w0, w1, w2;
+    ASSERT_TRUE(w0.Create());
+    ASSERT_TRUE(w1.Create());
+    ASSERT_TRUE(w2.Create());
+
+    const int start_x = 200;
+    const int start_y = 200;
+    const int gap = 32;
+    wchar_t list[128] = {};
+    _snwprintf_s(list, _countof(list), _TRUNCATE, L"%lld|%lld|%lld",
+                 static_cast<long long>(reinterpret_cast<intptr_t>(w0.hwnd)),
+                 static_cast<long long>(reinterpret_cast<intptr_t>(w1.hwnd)),
+                 static_cast<long long>(reinterpret_cast<intptr_t>(w2.hwnd)));
+
+    long ret = 0;
+    // layout_type=2 层叠，size_mode=0 保持原大小，anchor_mode=0 窗口外框
+    op.LayoutWindows(list, 2, 1, start_x, start_y, gap, gap, 0, 0, 0, 0, &ret);
+    EXPECT_EQ(ret, 1);
+
+    const HWND hwnds[3] = {w0.hwnd, w1.hwnd, w2.hwnd};
+    for (int i = 0; i < 3; ++i) {
+        RECT rc = {};
+        ASSERT_TRUE(::GetWindowRect(hwnds[i], &rc) != FALSE);
+        EXPECT_NEAR(rc.left, start_x + i * gap, 2) << "window " << i << " x";
+        EXPECT_NEAR(rc.top, start_y + i * gap, 2) << "window " << i << " y";
+    }
+}
+
+// 句柄串含 0/负值必须整体拒绝（不能等排列到它才失败留下半应用状态）。
+TEST(WindowStateTest, LayoutWindowsRejectsZeroHwnd) {
+    op::Op op;
+    long ret = 1;
+    op.LayoutWindows(L"0|123456", 0, 2, 0, 0, 10, 10, 0, 0, 0, 0, &ret);
+    EXPECT_EQ(ret, 0);
+}
+
+TEST(WindowStateTest, LayoutWindowsRejectsInvalidLayoutType) {
+    op::Op op;
+    TopmostWindow wnd;
+    ASSERT_TRUE(wnd.Create());
+
+    wchar_t list[64] = {};
+    _snwprintf_s(list, _countof(list), _TRUNCATE, L"%lld",
+                 static_cast<long long>(reinterpret_cast<intptr_t>(wnd.hwnd)));
+    long ret = 1;
+    op.LayoutWindows(list, 9, 2, 0, 0, 10, 10, 0, 0, 0, 0, &ret);
+    EXPECT_EQ(ret, 0);
+}
+
 // W3：SendPaste 与 SendString 一致地把字符投递到焦点子控件（编辑框）。
 TEST(WindowStateTest, SendPasteDeliversToFocusedChildEdit) {
     op::Op op;
