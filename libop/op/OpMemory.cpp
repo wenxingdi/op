@@ -14,6 +14,8 @@ namespace {
 static LONG_PTR resolve_memory_hwnd(op::Op *self, LONG_PTR hwnd) {
     if (hwnd != 0)
         return hwnd;
+    // hwnd=0 的语义：已绑定时作用于绑定窗口（与图色/键鼠一致），未绑定才读本进程。
+    // 注意这与 ProcessMemory 头注释"空=当前进程"不同——那是底层视角，这里以 Op 层为准。
     LONG_PTR bind_hwnd = 0;
     self->GetBindWindow(&bind_hwnd);
     return bind_hwnd;

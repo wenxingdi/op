@@ -579,9 +579,11 @@ class OP_API Op {
     void FindLineExS(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                      _In_ double sim, _In_ long min_points, _Out_ std::wstring &retstr, _Out_ long *ret);
 
+    // 内存读写（大漠兼容）。hwnd=0 时优先作用于已绑定窗口；未绑定才是本进程，
+    // 想读本进程请先解绑（UnBindWindow）。address 支持十六进制/四则运算/模块基址 <mod>/多级指针 [addr+off]。
     // 向某进程写入数据
     void WriteData(_In_ LONG_PTR hwnd, _In_ const wchar_t *address, _In_ const wchar_t *data, _In_ long size, _Out_ long *ret);
-    // 读取数据
+    // 读取数据（大写十六进制串；失败返回空串。size 超 data 实际字节时补零，详见日志）
     void ReadData(_In_ LONG_PTR hwnd, _In_ const wchar_t *address, _In_ long size, _Out_ std::wstring &retstr);
     // 大漠兼容内存接口
     void ReadInt(_In_ LONG_PTR hwnd, _In_ const wchar_t *address, _In_ long type, _Out_ int64_t *ret);

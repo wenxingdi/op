@@ -208,6 +208,11 @@ ProcessMemory::~ProcessMemory() {
 long ProcessMemory::WriteData(HWND hwnd, const wstring &address, const wstring &data, LONG size) {
     if (size <= 0 || !checkaddress(address))
         return 0;
+    // size 超出 data 实际字节数时按大漠兼容行为补零写入，但静默补零容易掩盖
+    // 用户 size 手滑（多写一位就往目标进程写一串 0），这里必须留痕。
+    const size_t available = normalize_hex(data).size() / 2;
+    if (static_cast<size_t>(size) > available)
+        setlog(L"WriteData: size=%ld 超出数据实际字节 %zu，不足部分补零写入", size, available);
     vector<uchar> bin;
     hex2bins(bin, data, size);
     return WriteRaw(hwnd, address, bin.data(), bin.size()) ? 1 : 0;
@@ -398,7 +403,13 @@ long ProcessMemory::WriteDouble(HWND hwnd, const wstring &address, double value)
 
 wstring ProcessMemory::ReadString(HWND hwnd, const wstring &address, long type, long len) {
     const long maxAuto = 4096;
-    const long readLen = len > 0 ? len : maxAuto;
+    // 显式 len 原本无上限（len=10 亿会一次分配 ~1GB），截断到 16MB 并留痕。
+    const long kMaxExplicit = 16 * 1024 * 1024;
+    long readLen = len > 0 ? len : maxAuto;
+    if (len > kMaxExplicit) {
+        setlog(L"ReadString: len=%ld 超上限，截断为 %ld", len, kMaxExplicit);
+        readLen = kMaxExplicit;
+    }
     if (readLen <= 0)
         return L"";
     vector<uchar> bin(static_cast<size_t>(readLen));
@@ -458,7 +469,11 @@ bool ProcessMemory::prepare_process(HWND hwnd) {
     ::GetWindowThreadProcessId(hwnd, &pid);
     // BlackBone Process::Attach 内部先 Detach 旧进程再 Open 新进程，
     // 切换窗口句柄不会泄漏旧进程对象。
-    return _proc.Attach(pid) >= 0;
+    if (_proc.Attach(pid) < 0) {
+        setlog(L"prepare_process: BlackBone Attach pid=%lu 失败", pid);
+        return false;
+    }
+    return true;
 }
 
 bool ProcessMemory::mem_read(void *dst, size_t src, size_t size) {
@@ -516,8 +531,10 @@ size_t ProcessMemory::str2address(const wstring &caddress) {
             if (mptr)
                 hmod = (HMODULE)mptr->baseAddress;
         }
-        if (hmod == NULL)
+        if (hmod == NULL) {
+            setlog(L"str2address: 模块 <%s> 未找到", mod_name.c_str());
             return 0;
+        }
         address.replace(idx1, idx2 - idx1 + 1, toUpperHex(reinterpret_cast<uintptr_t>(hmod)));
     }
     for (size_t i = 0; i < address.size();) {
@@ -672,8 +689,10 @@ wstring ProcessMemory::FindData(HWND hwnd, const wstring &range, const wstring &
     const size_t kChunk = 16 * 1024 * 1024;
 
     vector<uchar> bytes, mask;
-    if (!parse_pattern(pattern, bytes, mask) || bytes.empty() || bytes.size() > kMaxPattern)
+    if (!parse_pattern(pattern, bytes, mask) || bytes.empty() || bytes.size() > kMaxPattern) {
+        setlog(L"FindData: 非法特征码（空/奇数长度/超 %zu 字节/含非十六进制字符）", kMaxPattern);
         return L"";
+    }
     size_t anchor = 0;
     while (anchor < mask.size() && !mask[anchor])
         ++anchor;
@@ -684,25 +703,35 @@ wstring ProcessMemory::FindData(HWND hwnd, const wstring &range, const wstring &
     const size_t max_hits = max_results > 0 ? static_cast<size_t>(max_results) : kDefaultMax;
 
     uintptr_t range_begin = 0, range_end = UINTPTR_MAX;
-    if (!parse_range(range, range_begin, range_end))
+    if (!parse_range(range, range_begin, range_end)) {
+        setlog(L"FindData: 非法范围 \"%s\"（应为 \"start-end\" 十六进制，且 end>=begin）", range.c_str());
         return L"";
+    }
 
     // 搜索独立走 OpenProcess/VirtualQueryEx，不经 BlackBone（枚举与分块读只需 VM_READ）。
     HANDLE proc = ::GetCurrentProcess();
     HANDLE opened = NULL;
     DWORD pid = 0;
     if (hwnd) {
-        if (!::IsWindow(hwnd))
+        if (!::IsWindow(hwnd)) {
+            setlog(L"FindData: 无效窗口句柄 %p", hwnd);
             return L"";
+        }
         ::GetWindowThreadProcessId(hwnd, &pid);
         opened = ::OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
-        if (!opened)
+        if (!opened) {
+            setlog(L"FindData: OpenProcess pid=%lu 失败，错误 %lu", pid, ::GetLastError());
             return L"";
+        }
         proc = opened;
     }
 
     vector<uintptr_t> hits;
-    vector<uchar> chunk(static_cast<size_t>(kChunk));
+    // 缓冲区按范围实际大小 lazy 分配（原实现无条件预分配 16MB，搜小范围也是 16MB）。
+    size_t chunk_cap = kChunk;
+    if (range_end - range_begin < kChunk)
+        chunk_cap = static_cast<size_t>(range_end - range_begin) + 1;
+    vector<uchar> chunk(chunk_cap);
     uintptr_t addr = range_begin;
     while (addr <= range_end && hits.size() < max_hits) {
         MEMORY_BASIC_INFORMATION mbi{};
@@ -727,7 +756,7 @@ wstring ProcessMemory::FindData(HWND hwnd, const wstring &range, const wstring &
             uintptr_t cur = scan_lo;
             while (cur <= scan_hi && hits.size() < max_hits) {
                 const uintptr_t remain = scan_hi - cur + 1;
-                const size_t want = remain > kChunk ? static_cast<size_t>(kChunk) : static_cast<size_t>(remain);
+                const size_t want = remain > chunk_cap ? chunk_cap : static_cast<size_t>(remain);
                 SIZE_T got = 0;
                 // 末尾多读 m-1 字节，避免跨块特征码漏检（读失败则按精确长度重试一次）
                 size_t want_ext = want + (bytes.size() - 1);
