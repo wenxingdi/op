@@ -258,9 +258,11 @@ bool MatchTemplateScale(const ImageHandle &source, const std::wstring &template_
                         const std::vector<double> &scales, double threshold, MatchResult &result, int method = 1,
                         MatchColorMode color_mode = MatchColorMode::Gray);
 
-// 在指定区域内并行寻找任意一个命中的模板。
+// 在指定区域内寻找任意一个命中的模板。
 // 说明：
-// - 模板之间并行搜索，谁先命中谁返回。
+// - 非条带模式：先对每个模板串行做金字塔预筛（首个确定命中即返回）；
+//   存在无法走金字塔的模板时，回退到模板间并行直搜，谁先命中谁返回。
+// - 条带模式：把“模板 × 条带”展开成同一层任务并行搜索，谁先命中谁返回。
 // - SearchDirection 用于指导单模板内部的扫描顺序，以及条带模式下的条带搜索顺序。
 bool MatchAnyTemplate(const ImageHandle &source, const std::vector<std::wstring> &template_names, const Region &region,
                       double threshold, NamedMatchResult &result, SearchDirection dir = SearchDirection::LeftToRight,

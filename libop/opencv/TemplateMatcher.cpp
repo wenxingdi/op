@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <future>
 #include <iomanip>
+#include <limits>
 #include <mutex>
 #include <shared_mutex>
 #include <sstream>
@@ -270,6 +271,9 @@ constexpr double kFeatureMinInlierRatio = 0.35;
 constexpr int kFeatureMinGeometryInliers = 6;
 constexpr double kFeatureMaxBoundsScale = 3.0;
 constexpr double kFeatureMinBoundsScale = 0.25;
+// 每个模板最多缓存的缩放档位数量。scaled_templates 每档保存 color+gray+mask
+// 三份像素，无界增长会让长时间运行的进程内存只增不减；超限时整体清空重填。
+constexpr size_t kMaxScaledTemplatesPerEntry = 16;
 
 struct TemplateSnapshot {
     opcv::ImageHandle templ;
@@ -601,7 +605,8 @@ bool collectPeakCandidates(
     const int suppress_half_width = std::max(1, templ.width / 2);
     const int suppress_half_height = std::max(1, templ.height / 2);
 
-    results.reserve(max_candidates);
+    // max_candidates 可能为“不限”（SIZE_MAX），预分配只取一个有界值，避免 vector too long。
+    results.reserve(std::min(max_candidates, static_cast<size_t>(4096)));
     while (cv::countNonZero(available) > 0) {
         double min_score = 0.0;
         double max_score = 0.0;
@@ -1212,64 +1217,19 @@ bool collectRegionThresholdMatches(
     std::vector<opcv::MatchResult> &results) {
     results.clear();
 
-    const cv::Mat source_mat = createMatView(source);
-    const cv::Mat templ_mat = createMatView(templ);
-    if (source_mat.empty() || templ_mat.empty()) {
-        return false;
-    }
-
-    const cv::Rect roi = clampRegion(region, source);
-    if (roi.width <= 0 || roi.height <= 0 || templ.width > roi.width || templ.height > roi.height) {
-        return false;
-    }
-
-    cv::Mat mask_mat;
-    cv::Mat norm_mask;
-    if (mask != nullptr) {
-        mask_mat = createMatView(*mask);
-        if (mask_mat.empty()) {
-            return false;
-        }
-    }
-
-    cv::Mat norm_source;
-    cv::Mat norm_templ;
-    if (!prepareMatchInputs(source_mat(roi), templ_mat, color_mode, norm_source, norm_templ)) {
-        return false;
-    }
-    if (!mask_mat.empty() && !prepareMaskInput(mask_mat, norm_templ, norm_mask)) {
-        return false;
-    }
-
-    cv::Mat match_result;
-    if (!norm_mask.empty()) {
-        cv::matchTemplate(norm_source, norm_templ, match_result, method, norm_mask);
-    } else {
-        cv::matchTemplate(norm_source, norm_templ, match_result, method);
-    }
-    if (match_result.empty()) {
-        return false;
-    }
-
-    const double clamped_threshold = std::clamp(threshold, 0.0, 1.0);
-    for (int y = 0; y < match_result.rows; ++y) {
-        for (int x = 0; x < match_result.cols; ++x) {
-            const double score = convertMatchScoreToSimilarity(method, match_result.at<float>(y, x));
-            if (score < clamped_threshold) {
-                continue;
-            }
-
-            opcv::MatchResult match;
-            match.x = roi.x + x;
-            match.y = roi.y + y;
-            match.width = templ.width;
-            match.height = templ.height;
-            match.score = score;
-            results.push_back(match);
-        }
-    }
-
-    return !results.empty();
+    // 峰值抑制收集替代逐像素全扫描：低阈值下全扫描会产生海量相邻命中点，
+    // 既慢又会在后续 suppressOverlappingMatchResults 里被合并掉；峰值法按模板
+    // 半径抑制邻域，只保留每个峰的局部最佳代表。调用方不限制命中数。
+    return collectPeakCandidates(
+        source,
+        templ,
+        mask,
+        region,
+        threshold,
+        method,
+        color_mode,
+        (std::numeric_limits<size_t>::max)(),
+        results);
 }
 
 bool findBestPreparedMatch(
@@ -1536,6 +1496,9 @@ bool getScaledTemplateSnapshot(
     const std::wstring scale_key = normalizeScaleKey(scale);
     auto scaled_it = entry.scaled_templates.find(scale_key);
     if (scaled_it == entry.scaled_templates.end()) {
+        if (entry.scaled_templates.size() >= kMaxScaledTemplatesPerEntry) {
+            entry.scaled_templates.clear();
+        }
         TemplateEntry::ScaledTemplateEntry scaled_entry;
         if (!buildScaledTemplateEntry(entry, scale, scaled_entry)) {
             return false;
@@ -2495,14 +2458,28 @@ bool MatchTemplate(
     const SearchDirection normalized_dir = normalizeSearchDirection(dir);
     const StripMode normalized_strip_mode = normalizeStripMode(strip_mode);
 
+    // gray 模式先裁 ROI 再转灰度：为小区域匹配时避免整图转换+复制的开销。
+    // 裁剪后坐标系原点即 ROI 左上角，结果出函数前须加回 origin 偏移。
     const opcv::ImageHandle *search_source = &source;
+    opcv::Region search_region = region;
     opcv::ImageHandle gray_source;
+    int origin_x = 0;
+    int origin_y = 0;
     if (color_mode == MatchColorMode::Gray) {
-        if (!toGray(source, gray_source)) {
+        const cv::Rect gray_roi = clampRegion(region, source);
+        if (gray_roi.width <= 0 || gray_roi.height <= 0) {
+            result = {};
+            return false;
+        }
+        opcv::ImageHandle roi_image;
+        if (!crop(source, rectToRegion(gray_roi), roi_image) || !toGray(roi_image, gray_source)) {
             result = {};
             return false;
         }
         search_source = &gray_source;
+        search_region = opcv::Region{0, 0, gray_roi.width, gray_roi.height};
+        origin_x = gray_roi.x;
+        origin_y = gray_roi.y;
     }
 
     if (normalized_strip_mode == StripMode::None) {
@@ -2512,7 +2489,7 @@ bool MatchTemplate(
             return false;
         }
 
-        const cv::Rect roi = clampRegion(region, *search_source);
+        const cv::Rect roi = clampRegion(search_region, *search_source);
         if (roi.width <= 0 || roi.height <= 0 || snapshot.templ.width > roi.width ||
             snapshot.templ.height > roi.height) {
             result = {};
@@ -2536,8 +2513,8 @@ bool MatchTemplate(
                         color_mode,
                         pyramid_match,
                         &pyramid_definitive_miss)) {
-                    pyramid_match.x += roi.x;
-                    pyramid_match.y += roi.y;
+                    pyramid_match.x += origin_x + roi.x;
+                    pyramid_match.y += origin_y + roi.y;
                     result = pyramid_match;
                     return true;
                 }
@@ -2548,8 +2525,13 @@ bool MatchTemplate(
             }
         }
 
-        return findFirstNamedMatch(*search_source, template_name, region, threshold, normalized_dir, method, color_mode,
-                                   result);
+        if (!findFirstNamedMatch(*search_source, template_name, search_region, threshold, normalized_dir, method,
+                                 color_mode, result)) {
+            return false;
+        }
+        result.x += origin_x;
+        result.y += origin_y;
+        return true;
     }
 
     if (!isDirectionCompatibleWithStrip(normalized_dir, normalized_strip_mode)) {
@@ -2564,13 +2546,19 @@ bool MatchTemplate(
         return false;
     }
 
-    const auto strips = buildStripRegions(region, templ_width, templ_height, normalized_strip_mode, normalized_dir);
+    const auto strips =
+        buildStripRegions(search_region, templ_width, templ_height, normalized_strip_mode, normalized_dir);
     if (strips.empty()) {
         result = {};
         return false;
     }
-    return findAnyStripMatch(*search_source, template_name, strips, threshold, normalized_dir, method, color_mode,
-                             result);
+    if (!findAnyStripMatch(*search_source, template_name, strips, threshold, normalized_dir, method, color_mode,
+                           result)) {
+        return false;
+    }
+    result.x += origin_x;
+    result.y += origin_y;
+    return true;
 }
 
 // 使用指定模板名在多个缩放比例下执行匹配，scales 为空时自动尝试内部候选。
@@ -2657,7 +2645,8 @@ bool MatchTemplateScale(
     return true;
 }
 
-// 在指定区域内并行搜索多个模板，并返回任意一个率先命中的结果。
+// 在指定区域内搜索多个模板，并返回任意一个率先命中的结果。
+// 非条带模式先串行做金字塔预筛，必要时回退到模板间并行直搜；条带模式按“模板 × 条带”并行。
 bool MatchAnyTemplate(
     const ImageHandle &source,
     const std::vector<std::wstring> &template_names,
@@ -2675,18 +2664,32 @@ bool MatchAnyTemplate(
         return false;
     }
 
+    // gray 模式先裁 ROI 再转灰度，避免整图转换开销；裁剪后坐标系原点为 ROI 左上角，
+    // 结果出函数前须加回 origin 偏移。
     const opcv::ImageHandle *search_source = &source;
+    opcv::Region search_region = region;
     opcv::ImageHandle gray_source;
+    int origin_x = 0;
+    int origin_y = 0;
     if (color_mode == MatchColorMode::Gray) {
-        if (!toGray(source, gray_source)) {
+        const cv::Rect gray_roi = clampRegion(region, source);
+        if (gray_roi.width <= 0 || gray_roi.height <= 0) {
+            result = {};
+            return false;
+        }
+        opcv::ImageHandle roi_image;
+        if (!crop(source, rectToRegion(gray_roi), roi_image) || !toGray(roi_image, gray_source)) {
             result = {};
             return false;
         }
         search_source = &gray_source;
+        search_region = opcv::Region{0, 0, gray_roi.width, gray_roi.height};
+        origin_x = gray_roi.x;
+        origin_y = gray_roi.y;
     }
 
     if (normalized_strip_mode == StripMode::None) {
-        const cv::Rect roi = clampRegion(region, *search_source);
+        const cv::Rect roi = clampRegion(search_region, *search_source);
         if (roi.width <= 0 || roi.height <= 0) {
             return false;
         }
@@ -2723,8 +2726,8 @@ bool MatchAnyTemplate(
                         color_mode,
                         pyramid_match,
                         &pyramid_definitive_miss)) {
-                    pyramid_match.x += roi.x;
-                    pyramid_match.y += roi.y;
+                    pyramid_match.x += origin_x + roi.x;
+                    pyramid_match.y += origin_y + roi.y;
                     result.name = template_name;
                     result.match = pyramid_match;
                     return true;
@@ -2739,16 +2742,27 @@ bool MatchAnyTemplate(
             }
         }
 
-        return findAnyNamedMatchParallel(
-            *search_source, template_names, region, threshold, normalized_dir, method, color_mode, result);
+        if (!findAnyNamedMatchParallel(
+                *search_source, template_names, search_region, threshold, normalized_dir, method, color_mode,
+                result)) {
+            return false;
+        }
+        result.match.x += origin_x;
+        result.match.y += origin_y;
+        return true;
     }
     if (!isDirectionCompatibleWithStrip(normalized_dir, normalized_strip_mode)) {
         return false;
     }
 
-    return findAnyNamedStripMatchParallel(
-        *search_source, template_names, region, threshold, normalized_dir, normalized_strip_mode, method, color_mode,
-        result);
+    if (!findAnyNamedStripMatchParallel(
+            *search_source, template_names, search_region, threshold, normalized_dir, normalized_strip_mode, method,
+            color_mode, result)) {
+        return false;
+    }
+    result.match.x += origin_x;
+    result.match.y += origin_y;
+    return true;
 }
 
 // 在指定区域内返回所有达到阈值的模板匹配结果。
@@ -2764,14 +2778,28 @@ bool MatchAllTemplates(
     MatchColorMode color_mode) {
     const SearchDirection normalized_dir = normalizeSearchDirection(dir);
     const StripMode normalized_strip_mode = normalizeStripMode(strip_mode);
+    // gray 模式先裁 ROI 再转灰度，避免整图转换开销；裁剪后坐标系原点为 ROI 左上角，
+    // 结果出函数前须加回 origin 偏移。
     const opcv::ImageHandle *search_source = &source;
+    opcv::Region search_region = region;
     opcv::ImageHandle gray_source;
+    int origin_x = 0;
+    int origin_y = 0;
     if (color_mode == MatchColorMode::Gray) {
-        if (!toGray(source, gray_source)) {
+        const cv::Rect gray_roi = clampRegion(region, source);
+        if (gray_roi.width <= 0 || gray_roi.height <= 0) {
+            results.clear();
+            return false;
+        }
+        opcv::ImageHandle roi_image;
+        if (!crop(source, rectToRegion(gray_roi), roi_image) || !toGray(roi_image, gray_source)) {
             results.clear();
             return false;
         }
         search_source = &gray_source;
+        search_region = opcv::Region{0, 0, gray_roi.width, gray_roi.height};
+        origin_x = gray_roi.x;
+        origin_y = gray_roi.y;
     }
     if (normalized_strip_mode == StripMode::None) {
         results.clear();
@@ -2779,7 +2807,7 @@ bool MatchAllTemplates(
         std::vector<std::wstring> direct_template_names;
         direct_template_names.reserve(template_names.size());
 
-        const cv::Rect roi = clampRegion(region, *search_source);
+        const cv::Rect roi = clampRegion(search_region, *search_source);
         const cv::Mat source_mat = createMatView(*search_source);
         opcv::ImageHandle roi_source;
         const bool can_prepare_pyramid_roi = roi.width > 0 && roi.height > 0 && !source_mat.empty();
@@ -2818,8 +2846,8 @@ bool MatchAllTemplates(
                             &pyramid_saturated) &&
                         !pyramid_saturated) {
                         for (auto &match : template_matches) {
-                            match.x += roi.x;
-                            match.y += roi.y;
+                            match.x += origin_x + roi.x;
+                            match.y += origin_y + roi.y;
                             NamedMatchResult named;
                             named.name = template_name;
                             named.match = match;
@@ -2839,8 +2867,12 @@ bool MatchAllTemplates(
 
         if (!direct_template_names.empty()) {
             std::vector<NamedMatchResult> direct_results;
-            collectAllThresholdNamedMatchesParallel(*search_source, direct_template_names, region, threshold, normalized_dir,
-                                                    method, color_mode, direct_results);
+            collectAllThresholdNamedMatchesParallel(*search_source, direct_template_names, search_region, threshold,
+                                                    normalized_dir, method, color_mode, direct_results);
+            for (auto &match : direct_results) {
+                match.match.x += origin_x;
+                match.match.y += origin_y;
+            }
             results.insert(results.end(), direct_results.begin(), direct_results.end());
         }
 
@@ -2859,7 +2891,8 @@ bool MatchAllTemplates(
             continue;
         }
 
-        const auto strips = buildStripRegions(region, templ_width, templ_height, normalized_strip_mode, normalized_dir);
+        const auto strips =
+            buildStripRegions(search_region, templ_width, templ_height, normalized_strip_mode, normalized_dir);
         if (strips.empty()) {
             continue;
         }
@@ -2882,6 +2915,10 @@ bool MatchAllTemplates(
             merged.insert(merged.end(), partial.begin(), partial.end());
         }
         dedupeMatchResults(merged);
+        for (auto &match : merged) {
+            match.x += origin_x;
+            match.y += origin_y;
+        }
 
         for (const auto &match : merged) {
             NamedMatchResult named;

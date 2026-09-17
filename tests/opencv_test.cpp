@@ -1124,6 +1124,85 @@ TEST(OpenCvTest, MatchTemplateScaleFindsScaledTemplate) {
     ::DeleteFileW(template_path.c_str());
 }
 
+// 单调用内显式传入超过缩放缓存上限（每模板 16 档）的 scale 列表：
+// 缓存逐出后应重建目标档位，最终命中必须仍然成立。
+TEST(OpenCvTest, MatchTemplateScaleEvictsStaleScaledCache) {
+    opcv::RemoveAllTemplates();
+
+    const int base_width = 4;
+    const int base_height = 4;
+    std::vector<uchar> templ_bgra(static_cast<size_t>(base_width * base_height * 4), 0);
+    for (int y = 0; y < base_height; ++y) {
+        for (int x = 0; x < base_width; ++x) {
+            const size_t index = static_cast<size_t>((y * base_width + x) * 4);
+            const uchar value = static_cast<uchar>((x * 37 + y * 53 + x * y * 19 + 41) % 255);
+            templ_bgra[index + 0] = value;
+            templ_bgra[index + 1] = static_cast<uchar>((value + 67) % 255);
+            templ_bgra[index + 2] = static_cast<uchar>((value + 131) % 255);
+            templ_bgra[index + 3] = 255;
+        }
+    }
+
+    const auto template_bmp = test_support::BuildBmp32TopDown(base_width, base_height, templ_bgra);
+    const std::wstring template_path = test_support::GetTempBmpPath(L"opencv_template_scale_evict.bmp");
+    ASSERT_TRUE(WriteBytesToFile(template_path, template_bmp));
+    ASSERT_TRUE(opcv::LoadTemplate(L"scale_evict_target", template_path));
+
+    cv::Mat templ_mat(base_height, base_width, CV_8UC4, templ_bgra.data());
+    cv::Mat scaled_mat;
+    cv::resize(templ_mat, scaled_mat, cv::Size(6, 6), 0.0, 0.0, cv::INTER_LINEAR);
+
+    const int source_width = 18;
+    const int source_height = 18;
+    std::vector<uchar> source_bgra(static_cast<size_t>(source_width * source_height * 4), 0);
+    for (int y = 0; y < source_height; ++y) {
+        for (int x = 0; x < source_width; ++x) {
+            const size_t index = static_cast<size_t>((y * source_width + x) * 4);
+            source_bgra[index + 0] = static_cast<uchar>((x * 11 + y * 7 + 17) % 255);
+            source_bgra[index + 1] = static_cast<uchar>((x * 5 + y * 13 + 29) % 255);
+            source_bgra[index + 2] = static_cast<uchar>((x * 3 + y * 19 + 43) % 255);
+            source_bgra[index + 3] = 255;
+        }
+    }
+
+    const int target_x = 7;
+    const int target_y = 5;
+    for (int y = 0; y < scaled_mat.rows; ++y) {
+        for (int x = 0; x < scaled_mat.cols; ++x) {
+            const cv::Vec4b pixel = scaled_mat.at<cv::Vec4b>(y, x);
+            const size_t index = static_cast<size_t>(((target_y + y) * source_width + (target_x + x)) * 4);
+            source_bgra[index + 0] = pixel[0];
+            source_bgra[index + 1] = pixel[1];
+            source_bgra[index + 2] = pixel[2];
+            source_bgra[index + 3] = pixel[3];
+        }
+    }
+
+    opcv::ImageHandle source_image;
+    source_image.bytes = source_bgra;
+    source_image.width = source_width;
+    source_image.height = source_height;
+    source_image.channels = 4;
+
+    // 21 个低档位的 scale + 目标档位 1.5，总数超过 16 档上限，中途必然触发逐出。
+    std::vector<double> scales;
+    for (double scale = 0.50; scale <= 0.90 + 1e-9; scale += 0.02) {
+        scales.push_back(scale);
+    }
+    scales.push_back(1.5);
+
+    opcv::MatchResult result;
+    ASSERT_TRUE(opcv::MatchTemplateScale(
+        source_image, L"scale_evict_target", {0, 0, source_width, source_height}, scales, 0.95, result));
+    EXPECT_EQ(result.x, target_x);
+    EXPECT_EQ(result.y, target_y);
+    EXPECT_EQ(result.width, 6);
+    EXPECT_EQ(result.height, 6);
+
+    opcv::RemoveAllTemplates();
+    ::DeleteFileW(template_path.c_str());
+}
+
 TEST(OpenCvTest, MatchTemplateAutomaticallyUsesPyramidOnLargeRegion) {
     opcv::RemoveAllTemplates();
 

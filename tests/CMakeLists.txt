@@ -78,11 +78,20 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libop/opencv/TemplateMatcher.h"
   if(NOT _op_opencv_root STREQUAL "")
     file(TO_CMAKE_PATH "${_op_opencv_root}" _op_opencv_root)
     set(OP_OPENCV_INCLUDE_DIR "${_op_opencv_root}/include")
-    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-      set(_op_opencv_lib_dir "${_op_opencv_root}/x64/vc18/staticlib")
-    else()
-      set(_op_opencv_lib_dir "${_op_opencv_root}/x86/vc18/staticlib")
-    endif()
+    # 静态库目录随工具集版本命名（vc17/vc18），存在哪个用哪个。
+    set(_op_opencv_toolset_subdirs "vc18" "vc17")
+    set(_op_opencv_lib_dir "")
+    foreach(_op_toolset IN LISTS _op_opencv_toolset_subdirs)
+      if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(_op_candidate_dir "${_op_opencv_root}/x64/${_op_toolset}/staticlib")
+      else()
+        set(_op_candidate_dir "${_op_opencv_root}/x86/${_op_toolset}/staticlib")
+      endif()
+      if(IS_DIRECTORY "${_op_candidate_dir}")
+        set(_op_opencv_lib_dir "${_op_candidate_dir}")
+        break()
+      endif()
+    endforeach()
 
     set(_op_required_lib_names
       "opencv_calib${OPENCV_LIB_SUFFIX}"

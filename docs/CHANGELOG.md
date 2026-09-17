@@ -3,6 +3,16 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-17（opencv 模块排查闭环：CV1-CV4 + OpenCV 测试链修复）
+
+- **排查结论**：无 P0。线程安全设计扎实（模板缓存 shared_mutex 读写分离 / ORB thread_local / 线程池 magic static），六条匹配路径（直搜/金字塔/条带/缩放/特征/边缘/形状）架构清晰，测试素材覆盖真实照片。发现 4 项落地：
+- **CV1（P1 性能）**：`collectRegionThresholdMatches` 逐像素全扫描 → 复用峰值抑制版 `collectPeakCandidates`，低阈值下不再产生海量相邻命中点（后续 suppressOverlapping 反正要合并）。**首版引入两个 bug 均已修**：①`reserve(SIZE_MAX)` 触发 vector too long——预分配改有界 `min(max, 4096)`；②见 CV3。
+- **CV2（P1 内存）**：`TemplateEntry::scaled_templates` 无界增长（自动缩放模式试 10 档、每档 color+gray+mask 三份像素常驻）→ 每模板上限 16 档，超限整体清空重填。
+- **CV3（P1 性能）**：gray 模式三入口（MatchTemplate/MatchAnyTemplate/MatchAllTemplates）原先整图 toGray 再搜 ROI → 先裁 ROI 再转灰度。**坐标系陷阱**：裁剪后结果坐标是 ROI 局部坐标，出函数前须加回 origin 偏移（8 个出口点逐一核对，金字塔/直搜/条带/并行/merge 全覆盖）；color 模式 origin=0 天然无影响。
+- **CV4（P2 注释）**：MatchAnyTemplate 头注释承诺"模板之间并行"与实现不符（非条带是串行金字塔预筛+必要时并行回退），已改写。
+- **测试链修复（本次关键发现）**：tests/CMakeLists.txt 硬编码 `x64/vc18/staticlib`，本机 OpenCV 安装是 vc17 → **OpenCvTest 26 用例自 a6fbe45 起从未编进 op_test**，此前基线 245 从未包含它们。修法：工具集目录 vc18→vc17 自动探测。重新编入后 22/22 PASS（含新增 MatchTemplateScaleEvictsStaleCache：单调用传 21+1 档 scale 触发逐出后仍命中）。
+- **基线**：全量（-WgcTest.*）**262 用例 · 230 PASS · 31 SKIP · 1 FAILED**（唯一 FAILED=MouseKeyTest.WaitKeyScanAllWithWaitFindsKey，已知 WaitKey 家族时序环境项；5 个 OpenCvTest 真实素材用例因素材缺失 SKIP 与 OCR 一致）。上一基线 245/218/26/1 → 差值 +17（OpenCvTest 新编入 22 − 素材 SKIP 5）。零 API 变化。
+
 ### 2026-09-17（API 参考手册参数注解层补齐：全函数 100% 覆盖）
 
 - **背景**：上一版（`1a86b71`）注解只覆盖 37 个函数的 63 个参数格，用户要求全部函数加上。
