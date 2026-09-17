@@ -203,7 +203,7 @@ class OP_API Op {
     void SendString(_In_ LONG_PTR hwnd, _In_ const wchar_t *str, _Out_ long *ret);
     // 向指定窗口发送文本数据-输入法
     void SendStringIme(_In_ LONG_PTR hwnd, _In_ const wchar_t *str, _Out_ long *ret);
-    // 运行可执行文件,可指定模式
+    // 运行可执行文件,可指定模式；也支持 .lnk 快捷方式（经 Shell 解析启动，mode 对其不生效）
     void RunApp(_In_ const wchar_t *cmdline, _In_ long mode, _Out_ unsigned long *pid, _Out_ long *ret);
     // 运行可执行文件，可指定显示模式
     void WinExec(_In_ const wchar_t *cmdline, _In_ long cmdshow, _Out_ long *ret);

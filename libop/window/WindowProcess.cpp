@@ -5,6 +5,7 @@
 
 #include <Tlhelp32.h>
 #include <cwchar>
+#include <shellapi.h>
 #include <cstring>
 #include <map>
 #include <memory>
@@ -266,6 +267,38 @@ bool WindowService::GetProcesspath(DWORD ProcessID, std::wstring &process_path) 
 }
 
 long WindowService::RunApp(const std::wstring &cmd, long mode, DWORD *pid) {
+    set_out(pid, 0);
+
+    // .lnk 快捷方式：CreateProcessW 不解析快捷方式（.lnk 非 PE 文件），
+    // 改走 ShellExecuteExW 由 Shell 解析目标/参数/工作目录。mode/cwd 逻辑仅对 exe 路径生效。
+    {
+        size_t end = cmd.size();
+        while (end > 0 && (cmd[end - 1] == L'"' || cmd[end - 1] == L' '))
+            --end; // 去掉尾部引号/空格
+        const size_t dot = cmd.find_last_of(L'.');
+        if (dot != std::wstring::npos && end > dot + 1 &&
+            _wcsicmp(cmd.substr(dot, end - dot).c_str(), L".lnk") == 0) {
+            SHELLEXECUTEINFOW sei;
+            ZeroMemory(&sei, sizeof(sei));
+            sei.cbSize = sizeof(sei);
+            sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+            sei.lpVerb = L"open";
+            sei.lpFile = cmd.c_str();
+            sei.nShow = SW_SHOWNORMAL;
+            if (::ShellExecuteExW(&sei)) {
+                if (sei.hProcess) {
+                    set_out(pid, ::GetProcessId(sei.hProcess));
+                    ::CloseHandle(sei.hProcess);
+                }
+                // Shell 对某些目标（如 .bat/协议）不提供进程句柄：pid=0 但视为成功
+                return 1;
+            }
+            setlog(L"RunApp: ShellExecuteExW failed for shortcut, cmd=%s, err=%lu", cmd.c_str(),
+                   ::GetLastError());
+            return 0;
+        }
+    }
+
     auto cmdptr = std::make_unique<wchar_t[]>(cmd.length() + 1);
     memcpy(cmdptr.get(), cmd.data(), cmd.length() * sizeof(wchar_t));
     cmdptr.get()[cmd.length()] = 0; // C字符串需要末尾有0
@@ -276,7 +309,6 @@ long WindowService::RunApp(const std::wstring &cmd, long mode, DWORD *pid) {
     PROCESS_INFORMATION pi;
     ZeroMemory(&si, sizeof(si));
     ZeroMemory(&pi, sizeof(pi));
-    set_out(pid, 0);
     int bret;
     std::wstring curr_dir;
     if (mode == 1) {

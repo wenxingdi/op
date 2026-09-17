@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <iostream>
+#include <shobjidl.h>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -263,6 +264,43 @@ TEST(WindowServiceTest, RunAppReturnsPid) {
     ASSERT_TRUE(process != nullptr);
     EXPECT_NE(::TerminateProcess(process, 0), 0);
     ::CloseHandle(process);
+}
+
+TEST(WindowServiceTest, RunAppLaunchesShortcut) {
+    // 现场创建指向 notepad.exe 的 .lnk，验证 RunApp 经 ShellExecuteEx 解析快捷方式
+    const HRESULT coinit = ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    ASSERT_TRUE(coinit == S_OK || coinit == S_FALSE) << "CoInitializeEx failed: " << coinit;
+
+    wchar_t temp_dir[MAX_PATH];
+    ASSERT_NE(::GetTempPathW(MAX_PATH, temp_dir), 0);
+    const wstring lnk_path = wstring(temp_dir) + L"op_runapp_test.lnk";
+
+    IShellLinkW *shell_link = nullptr;
+    ASSERT_EQ(::CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLinkW,
+                                 reinterpret_cast<void **>(&shell_link)),
+              S_OK);
+    ASSERT_EQ(shell_link->SetPath(L"C:\\Windows\\notepad.exe"), S_OK);
+    IPersistFile *persist_file = nullptr;
+    ASSERT_EQ(shell_link->QueryInterface(IID_IPersistFile, reinterpret_cast<void **>(&persist_file)), S_OK);
+    ASSERT_EQ(persist_file->Save(lnk_path.c_str(), TRUE), S_OK);
+    persist_file->Release();
+    shell_link->Release();
+
+    op::Op op;
+    unsigned long pid = 0;
+    long ret = 0;
+    op.RunApp(lnk_path.c_str(), 0, &pid, &ret);
+    ::DeleteFileW(lnk_path.c_str());
+
+    EXPECT_EQ(ret, 1) << "RunApp should launch .lnk via ShellExecuteEx";
+
+    if (pid != 0) {
+        // exe 目标 Shell 会返回进程句柄，验证进程真实存在后清理
+        HANDLE process = ::OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+        ASSERT_TRUE(process != nullptr) << "pid from ShellExecuteEx should be a live process";
+        EXPECT_NE(::TerminateProcess(process, 0), 0);
+        ::CloseHandle(process);
+    }
 }
 
 TEST(WindowServiceTest, GetCmdStrHandlesLargeOutputWithoutHanging) {
