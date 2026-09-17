@@ -3,6 +3,14 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-17（测试进程退出挂起修复）
+
+- **现象（系统性，非偶发）**：op_test 全量/部分套件跑完后 gtest 总结已打印、结果已落盘，但进程不退出（此前多轮全量均为手动杀进程）。逐套件二分定位：**HandleCompatTest / MouseKeyTest / ImageColorTest / WgcTest** 四个建"可见+焦点窗口"的套件挂起（HandleCompatTest 最稳，5 挂 4），纯逻辑套件全正常。
+- **根因（环境）**：窗口抢焦点后 Windows 把本机 IME（**搜狗 SogouPY.ime**）+ TextInputFramework 载入测试进程；挂起进程 tasklist /V 显示 `OleMainThreadWndName / Not Responding`——COM/OLE 在 ExitProcess 分离阶段被第三方 IME 卡死。op 代码本身无缺陷。
+- **修法（仅测试进程）**：`tests/main.cpp` 在 `RUN_ALL_TESTS` 返回、结果已落盘后 `fflush` + `TerminateProcess` 自决退出，绕开第三方 IME 的 detach 挂起。生产宿主无焦点窗口不受影响。
+- **验证**：修复前 `ForegroundWindowHandleFitsInLongOnlyWhenNoTruncation` 3/3 挂；修复后该用例 5/5 退出，四个挂起套件各 2/2 退出；全量回归见本节回填。
+- **遗留**：本次挂起遗留在系统中的僵尸 op_test.exe（PID 16552，内核态杀不掉）持有 `tests/op_test.exe` 文件锁 → **需重启系统释放**；重启前增量链接会 LNK1104，验证用的是临时改名目标 `op_test_new.exe`（已还原，CMakeLists 无残留）。
+
 ## [Unreleased] — 2026-09
 
 ### 2026-09-17（键鼠增强与加固批次）
