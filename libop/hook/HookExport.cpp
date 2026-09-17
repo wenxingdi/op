@@ -82,6 +82,20 @@ long __stdcall SetInputHook(HWND hwnd_, int) {
         // 鼠标和键盘 dx 共用一个远端 Hook，等双方都释放后再卸载。
         g_input_ref_count++;
         ret = 1;
+    } else {
+        // 自愈重绑：is_hooked 为真但 hwnd 不匹配——旧 Hook 是残留状态（宿主曾异常
+        // 退出、未经 UnBind；或目标窗口已重建而旧窗口句柄仍被记着）。直接拒绝会让
+        // 该进程内 dx 永久不可用，先释放旧 Hook 再按新窗口重装。
+        InputHook::release();
+        InputHook::is_hooked = false;
+        if (g_ref_count > 0)
+            g_ref_count--;
+        ret = InputHook::setup(hwnd_);
+        InputHook::is_hooked = ret == 1;
+        if (InputHook::is_hooked) {
+            g_ref_count++;
+            g_input_ref_count = 1;
+        }
     }
     return ret;
 }

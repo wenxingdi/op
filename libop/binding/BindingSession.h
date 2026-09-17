@@ -64,6 +64,9 @@ class BindingSession {
     int _keypad_mode;
     // dx 输入通道开关，默认三通道全开。由 SetDxAttr 维护，不随解绑重置。
     int _dx_attr;
+    // _dx_attr 是否来自 bind 后缀（"dx.dinput" 等）：是则下次无后缀绑定时回默认全开，
+    // 避免上次的后缀掩码残留污染后续绑定；SetDxAttr 显式设置会清掉该标记。
+    bool _dx_attr_from_suffix;
     std::pair<wstring, wstring> _display_method;
     Image _pic;
 

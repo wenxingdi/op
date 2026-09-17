@@ -5,7 +5,14 @@
 
 ## [Unreleased] — 2026-09
 
-### 2026-09-17（键鼠域 · MoveR 跨模式一致性核查收口，测试待提交）
+### 2026-09-17（键鼠增强与加固批次）
+
+- **dx 字符输入补齐**（`libop/hook/InputHook.cpp`）：`OP_WM_CHAR` 不再受 WINDOWMSG 通道开关约束——该开关只约束鼠标/键盘事件的窗口消息镜像，而 WM_CHAR 是向 GDI/Qt 类目标输入文本的唯一载体。修复前绑 `dx.dinput`/`dx.raw` 后 `KeyPressStr` 返回 1 但目标收不到字符（静默无效）。新用例 `DxModeKeyPressStrDeliversCharOutsideWindowMsgChannel`。
+- **bind 后缀防污染**（`libop/binding/BindingSession.*`）：新增 `_dx_attr_from_suffix` 来源标记，上次带后缀的绑定不再把掩码残留到下一次纯 `dx` 绑定（无后缀且有标 → 回默认全开；`SetDxAttr` 显式设置优先）。新用例 `BindWindowDxSuffixDoesNotPolluteSessionAttr`。
+- **远端 Hook 自愈重绑**（`libop/hook/HookExport.cpp` `SetInputHook`）：`is_hooked && input_hwnd != 新hwnd`（宿主异常退出残留）时先 `release()` 再 `setup()`，不再永久拒绝——正常路径（`bb98e92` pid 缓存解绑）不受影响。
+- **验证**：`MouseKeyTest.*` 42 RUN / **41 PASS** / 0 SKIP / 1 FAILED（FAILED = 已知 `WaitKey` 环境项）；全量 **200 用例 / 167 PASS / 26 SKIP / 7 FAILED**，FAILED 与既有基线同名同数（6 WGC 环境项 + WaitKey），3 条新用例全 PASS → 零回归。
+
+### 2026-09-17（键鼠域 · MoveR 跨模式一致性核查收口，`d285b83`）
 
 - **背景**：阶段①报告 🔴 待查项「`WinMouse::MoveR` 的 `_x/_y` 与 `_button_state` 跨模式一致性」。
 - **核查结论：无生产缺陷，不改代码**。① 跨模式污染不存在——每次 `BindWindowEx` 都新建鼠标/键盘对象（`BindingSession.cpp:310-311` + `createMouse/createKeypad:689-702`），`_x/_y/_button_state` 零跨绑残留；② 三条记账路径（`WinMouse::MoveR:254-255` 手动累加 / `WinMouse::MoveTo:299` / `DxMouse::MoveTo:78` 无条件回填）统一为「记最后请求位置」的意图语义，失败也记账是**一致设计**，按够用总原则不动；③ IN_NORMAL 无自动测试是**结构性限制**（驱动真实系统光标，会抢用户鼠标），非疏漏。

@@ -1437,3 +1437,51 @@ TEST(MouseKeyTest, DxModeKeyPressStrSupportsUnicodeFallback) {
     op.UnBindWindow(&unbind_ret);
     EXPECT_EQ(unbind_ret, 1);
 }
+
+TEST(MouseKeyTest, DxModeKeyPressStrDeliversCharOutsideWindowMsgChannel) {
+    // WINDOWMSG 通道关闭（dx.dinput）时 KeyPressStr 仍须把字符送达目标窗口：
+    // WM_CHAR 是向 GDI/Qt 类目标输入文本的唯一载体，不受通道开关约束。
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"windows", L"dx.dinput", 0, &ret);
+    if (ret != 1) {
+        GTEST_SKIP() << "DX keyboard bind unavailable on current environment";
+    }
+
+    op.KeyPressStr(L"AB", 1, &ret);
+    EXPECT_EQ(ret, 1);
+    EXPECT_EQ(window.char_count, 2);
+    EXPECT_EQ(window.last_char, static_cast<long>(L'B'));
+
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
+}
+
+TEST(MouseKeyTest, BindWindowDxSuffixDoesNotPolluteSessionAttr) {
+    // 带后缀的绑定不得把掩码残留到下一次纯 "dx" 绑定（旧行为：_dx_attr 被污染）。
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"dx.dinput", L"windows", 0, &ret);
+    ASSERT_EQ(ret, 1);
+    op.GetDxAttr(&ret);
+    EXPECT_EQ(ret, DX_ATTR_DINPUT);
+
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
+
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"dx", L"windows", 0, &ret);
+    ASSERT_EQ(ret, 1);
+    op.GetDxAttr(&ret);
+    EXPECT_EQ(ret, DX_ATTR_ALL);
+
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
+}

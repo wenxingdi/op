@@ -371,6 +371,10 @@ LRESULT CALLBACK MouseEventWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam, L
             if (wparam & MK_LBUTTON)
                 self->move_with_left_count++;
             return 0;
+        case WM_CHAR:
+            self->char_count++;
+            self->last_char = static_cast<long>(wparam);
+            return 0;
         case WM_LBUTTONDOWN:
             self->left_down++;
             self->last_x = GET_X_LPARAM(lparam);
@@ -635,6 +639,8 @@ void MouseEventWindow::ResetCounts() {
     raw_key_up = 0;
     raw_device_info_count = 0;
     raw_device_name_count = 0;
+    char_count = 0;
+    last_char = 0;
     op_left_down = 0;
     op_left_up = 0;
     op_left_double = 0;

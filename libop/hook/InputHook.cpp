@@ -1450,7 +1450,11 @@ LRESULT CALLBACK opWndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam
         dispatch_window_message(hwnd, WM_KEYUP, wparam, lparam ? lparam : make_key_lparam(wparam, true));
         return 1;
     case OP_WM_CHAR:
-        dispatch_window_message(hwnd, WM_CHAR, wparam, lparam ? lparam : 1);
+        // 文本投递不受 WINDOWMSG 通道开关约束：该开关只约束鼠标/键盘事件的窗口
+        // 消息镜像；WM_CHAR 是向 GDI/Qt 类目标输入文本的唯一载体，关掉窗口消息通道
+        // 不应让 KeyPressStr 静默失效（dinput 类游戏目标会忽略 WM_CHAR，无害）。
+        if (g_rawWindowProc)
+            ::CallWindowProc(g_rawWindowProc, hwnd, WM_CHAR, wparam, lparam ? lparam : 1);
         return 1;
     }
 

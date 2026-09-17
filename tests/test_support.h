@@ -97,6 +97,8 @@ struct MouseEventWindow {
     int raw_key_up = 0;
     int raw_device_info_count = 0;
     int raw_device_name_count = 0;
+    int char_count = 0;
+    long last_char = 0;
     HCURSOR test_cursor = nullptr;
 
     int op_left_down = 0;

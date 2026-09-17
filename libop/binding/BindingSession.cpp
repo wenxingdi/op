@@ -173,7 +173,7 @@ const wchar_t *display_mode_name(int display) {
 
 BindingSession::BindingSession()
     : _display_hwnd(0), _input_hwnd(0), _is_bind(0), _display(0), _mode(0), _mouse_mode(INPUT_TYPE::IN_NORMAL),
-      _keypad_mode(INPUT_TYPE::IN_NORMAL), _dx_attr(DX_ATTR_ALL), _capture(nullptr),
+      _keypad_mode(INPUT_TYPE::IN_NORMAL), _dx_attr(DX_ATTR_ALL), _dx_attr_from_suffix(false), _capture(nullptr),
       _mouse(std::make_unique<WinMouse>()), _keyboard(std::make_unique<WinKeyboard>()) {
     _display_method = std::make_pair<wstring, wstring>(L"screen", L"");
 }
@@ -292,10 +292,16 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
     }
 
     // dx 通道后缀（"dx.dinput" 等）：合并 mouse/keypad 的显式通道掩码，覆盖 _dx_attr。
-    // 仅在写了后缀时才覆盖；纯 "dx" 不动 _dx_attr，保留默认全开或此前 SetDxAttr 的设置。
+    // 仅在写了后缀时才覆盖；纯 "dx" 不动 SetDxAttr 的设置，但若 _dx_attr 来自上次的
+    // 后缀残留则回到默认全开——避免上一次带后缀的绑定污染下一次绑定。
     const int bind_dx_mask = mouse_dx_mask | keypad_dx_mask;
-    if (bind_dx_mask != 0)
+    if (bind_dx_mask != 0) {
         _dx_attr = bind_dx_mask;
+        _dx_attr_from_suffix = true;
+    } else if (_dx_attr_from_suffix) {
+        _dx_attr = DX_ATTR_ALL;
+        _dx_attr_from_suffix = false;
+    }
 
     auto prepare_backends = [&]() {
         _mode = mode;
@@ -403,6 +409,7 @@ long BindingSession::SetDxAttr(long attr, long value) {
     }
 
     _dx_attr = next;
+    _dx_attr_from_suffix = false; // 显式 SetDxAttr 优先于任何后缀残留语义
 
     // 当前没有生效中的 dx 输入绑定时只记录配置，等下次绑定成功后统一下发。
     if (!_is_bind || !_input_hwnd ||
