@@ -119,10 +119,11 @@ class OP_API Op {
     // 设置屏幕数据模式，0:从上到下(默认),1:从下到上
     void SetScreenDataMode(_In_ long mode, _Out_ long *ret);
     //---------------------algorithm-------------------------------
-    // A星算法
+    // A星算法。disable_points: "x,y|x,y" 障碍点列表（越界点忽略）；返回路径 "x,y|x,y"（起点→终点），不可达返回空串。
     void AStarFindPath(_In_ long mapWidth, _In_ long mapHeight, _In_ const wchar_t *disable_points, _In_ long beginX,
                        _In_ long beginY, _In_ long endX, _In_ long endY, _Out_ std::wstring &ret);
-    // 从坐标列表中查找距离指定坐标最近的点
+    // 从坐标列表中查找距离指定坐标最近的点。all_pos: type=1 时 "x,y|x,y"；否则 "name,x,y|..."（name 不含空格/逗号）。
+    // 返回 "x,y"（type=1）或 "name,x,y"；列表无有效项返回空串；等距时取先出现的。
     void FindNearestPos(_In_ const wchar_t *all_pos, _In_ long type, _In_ long x, _In_ long y, _Out_ std::wstring &ret);
     //--------------------windows api------------------------------
     // 根据指定条件,枚举系统中符合条件的窗口

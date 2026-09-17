@@ -23,16 +23,26 @@ class AStar {
         }
     };
 
+    // 单张地图的格子数上限（64M 格，约 576MB 临时数组）。超出后 set_map 拒绝，findpath 返回空路径。
+    static constexpr size_t kMaxCells = 64ull * 1024 * 1024;
+
     // 有效地图范围是 [0, w) x [0, h)，越界障碍点会被忽略。
-    void set_map(int w, int h, const std::vector<Vec2i> &wall) {
+    // 返回 false 表示尺寸非法或超出 kMaxCells（此时 _walls 置空 = 全图视为墙，findpath 一律返回空路径）。
+    bool set_map(int w, int h, const std::vector<Vec2i> &wall) {
         _mapSize = {w, h};
-        _walls.assign(cell_count(), false);
+        const size_t cells = static_cast<size_t>(w) * static_cast<size_t>(h);
+        if (w <= 0 || h <= 0 || cells == 0 || cells > kMaxCells) {
+            _walls.clear();
+            return false;
+        }
+        _walls.assign(cells, false);
 
         for (const auto &pos : wall) {
             if (!outside(pos)) {
                 _walls[index(pos)] = true;
             }
         }
+        return true;
     }
 
     // 保持现有输出顺序：终点 -> 起点。
