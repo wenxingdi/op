@@ -57,8 +57,12 @@ private:
   HttpOcrService();
   HttpOcrService(const HttpOcrService &) = delete;
   HttpOcrService &operator=(const HttpOcrService &) = delete;
+  // 锁内复用的引擎选择+加载逻辑（init/懒初始化共用，调用方必须已持锁）。
+  int init_unlocked(const std::wstring &engine, const std::wstring &dllName,
+                    const std::vector<std::string> &argv);
   std::mutex m_mutex;
   std::unique_ptr<OcrEngine> m_engine; // 当前选中的引擎（默认内置 OnnxOcrEngine）
+  bool m_lazy_failed = false;          // 懒初始化已尝试且失败：只试一次，后续快速返回 -1
 };
 
 } // namespace op::ocr

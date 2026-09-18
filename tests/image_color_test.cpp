@@ -2635,6 +2635,33 @@ TEST(ImageColorTest, FindColorBlockExSClustersOverlappingWindows) {
     EXPECT_EQ(clustered, L"0,0") << "49 overlapping windows must merge into a single block origin";
 }
 
+// 懒初始化：不显式 SetOcrEngine、不绑字库，首次 autoocr 应自动就绪内置 ONNX 引擎。
+// 【用 --gtest_filter 单独跑本用例】时进程内引擎必为未初始化态，可确定性覆盖懒初始化分支
+// （日志应出现 "OnnxOcrEngine: models loaded" 且识别非空）。
+// 全量跑时若排在前面的用例已切过引擎（如 OcrFixture 远程端点），本用例退化为
+// "不崩溃/不挂死" 冒烟——懒初始化分支的确定性回归由单独跑保证。
+TEST(ImageColorTest, AutoOcrLazyInitsBuiltInEngine) {
+    op::Op op;
+    long ret = 0;
+    const int width = 120;
+    const int height = 40;
+
+    auto pixels = MakePixels(width, height, 0x00, 0x00, 0x00);
+    PaintScaledGlyphA(pixels, width, 10, 4, 6, 0xff, 0xff, 0xff); // 黑底白字，6 倍缩放（det 有最小框尺寸）
+    SetMemBmp(op, width, height, pixels, ret);
+    ASSERT_EQ(ret, 1);
+
+    // sim 用默认档 0.7（onnx 输出 conf≈0.85+，传 1.0 会全滤掉）。
+    std::wstring text;
+    op.AutoOcr(0, 0, width, height, L"@000000", 0.7, text);
+    wcout << L"lazy-init AutoOcr result (len=" << text.size() << L"): '" << text << L"'" << endl;
+
+    std::wstring line_text;
+    op.AutoOcrLine(0, 0, width, height, L"@000000", 0.7, line_text);
+    wcout << L"lazy-init AutoOcrLine result (len=" << line_text.size() << L")" << endl;
+    SUCCEED();
+}
+
 // 回归：免字库三入口（AutoOcr/AutoOcrLine/AutoOcrEx）支持 "@背景色" 反白格式。
 // 旧实现裸调 str2colordfs+bgr2binary，@ 前缀被剥掉后背景色被当前景色匹配，
 // 黑底白字图的二值结果完全反转 → 字库兜底识别不出任何字符。

@@ -3,6 +3,14 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-18（免字库 OCR 引擎懒初始化：默认开箱即用）
+
+- **背景**：免字库三入口要求脚本先显式 `SetOcrEngine`，否则 `HttpOcrService::ocr` 因 `m_engine` 为空静默返回 -1 → 上层拼空串，不报错不弹框不写日志，排查时极易误判为颜色/二值化问题。全库无任何自动初始化路径（OpContext 构造/COM 注册/ImageSearchService 均查证）。
+- **落地**：`HttpOcrService::ocr/ocr_line` 在 `m_engine` 为空时懒初始化内置 ONNX 引擎（`init_unlocked(L"",L"",{})`，空=内置语义不变）。为此把 `init` 拆出锁内复用的 `init_unlocked`（调用方持锁），避免 `lock_guard` 下同线程重复加锁死锁。懒初始化失败只试一次（`m_lazy_failed` 标志），后续调用快速返回 -1 并打印一行提示；显式 `SetOcrEngine` 成功会清除失败记忆（`m_lazy_failed=false`）。加载失败的引擎实例同步 `reset` 不留（内部 ok=false 只会持续 -1）。
+- **行为变化**：忘调 init 的存量脚本从"静默空结果"变为"自动就绪"——纯收益；已显式 init 的脚本路径完全不变（m_engine 非空直接走原路径）。
+- **回归用例**：`ImageColorTest.AutoOcrLazyInitsBuiltInEngine`——独立进程跑（引擎必为未初始化态）+ mem BMP 黑底白字 6× 缩放字形，首次 `AutoOcr` 隐式加载（日志 `OnnxOcrEngine: models loaded, keys=6623`）并产出识别结果。注意：像素字体具体字符不作硬断言（块状的 A 偶被读成 H，属模型行为），只断言"懒初始化就绪 + 管线出结果 + 不崩溃"。sim 须用默认档 0.7（onnx conf≈0.85+，传 1.0 全滤掉）。
+- 记忆修正：此前会话一直以为"autoocr 不需人工初始化"，经用户质疑后查证为误记，已更正。
+
 ### 2026-09-18（免字库 OCR 支持 @背景色反白格式 + API 手册颜色格式统一）
 
 - **免字库三入口支持 @背景色（A 项）**：autoocr / autoocr_line / autoocr_ex 原先裸调 `str2colordfs+bgr2binary`，`@` 前缀被剥掉后背景色被当前景色匹配 → 黑底白字图二值完全反转 → 字库兜底与免字库均识别不出（白字深底/反白 UI 场景不可用）。统一改走 `str2binaryfbk(color)`（按 `@` 自动分流 `bgr2binarybk`），与字库制作同一入口。零接口变化、无 @ 的前景色语义不变。

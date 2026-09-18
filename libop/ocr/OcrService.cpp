@@ -205,6 +205,11 @@ HttpOcrService *HttpOcrService::getInstance() {
 int HttpOcrService::init(const std::wstring &engine, const std::wstring &dllName,
                         const std::vector<std::string> &argv) {
     std::lock_guard<std::mutex> lock(m_mutex);
+    return init_unlocked(engine, dllName, argv);
+}
+
+int HttpOcrService::init_unlocked(const std::wstring &engine, const std::wstring &dllName,
+                                  const std::vector<std::string> &argv) {
     const std::string eng = _ws2string(engine);
     std::string dummy;
     const bool is_http = (eng.rfind("http", 0) == 0) || try_resolve_ocr_backend(eng, dummy);
@@ -216,6 +221,7 @@ int HttpOcrService::init(const std::wstring &engine, const std::wstring &dllName
         m_engine = std::make_unique<OnnxOcrEngine>();
         cout << "HttpOcrService: selected OnnxOcrEngine (built-in)" << endl;
     }
+    m_lazy_failed = false; // 显式 init 成功后清掉懒初始化失败记忆
     return m_engine->init(engine, dllName, argv);
 }
 
@@ -225,18 +231,34 @@ int HttpOcrService::release() {
     return 0;
 }
 
+// 懒初始化：脚本未显式 SetOcrEngine 时，首次免字库调用自动就绪内置 ONNX 引擎。
+// 失败只试一次（m_lazy_failed），避免每次调用重复加载/刷日志；显式 init 会清除该记忆。
 int HttpOcrService::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::unique_lock<std::mutex> lock(m_mutex);
     if (!m_engine) {
-        return -1;
+        if (m_lazy_failed)
+            return -1;
+        if (init_unlocked(L"", L"", {}) != 0 || !m_engine) {
+            m_engine.reset(); // 加载失败的引擎实例不留着（其内部 ok=false，只会持续返回 -1）
+            m_lazy_failed = true;
+            cout << "ocr: lazy init of built-in engine failed, call SetOcrEngine explicitly" << endl;
+            return -1;
+        }
     }
     return m_engine->ocr(data, w, h, bpp, result);
 }
 
 int HttpOcrService::ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    std::unique_lock<std::mutex> lock(m_mutex);
     if (!m_engine) {
-        return -1;
+        if (m_lazy_failed)
+            return -1;
+        if (init_unlocked(L"", L"", {}) != 0 || !m_engine) {
+            m_engine.reset();
+            m_lazy_failed = true;
+            cout << "ocr_line: lazy init of built-in engine failed, call SetOcrEngine explicitly" << endl;
+            return -1;
+        }
     }
     return m_engine->ocr_line(data, w, h, bpp, result);
 }
