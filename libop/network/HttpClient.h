@@ -1,4 +1,7 @@
 #pragma once
+// 【已隐藏，不入构建】2026-09-18 决策：OCR/YOLO 不走 HTTP 远程后端，本模块整体移出
+// CMake 源列表（libop/CMakeLists.txt OP_NETWORK_SOURCES）。恢复方式见
+// OcrService.h / YoloDetector.h 顶部说明（条件宏 OP_ENABLE_HTTP_*_BACKEND）。
 #include "../base/Types.h"
 #include <functional>
 #include <string>

@@ -1,7 +1,10 @@
 #include "OcrService.h"
 #include "OnnxOcrEngine.h"
+#ifdef OP_ENABLE_HTTP_OCR_BACKEND
 #include "../network/HttpClient.h"
+#endif
 #include "../base/Utils.h"
+#include <cctype>
 #include <iostream>
 #include <regex>
 
@@ -11,6 +14,7 @@ using std::endl;
 namespace op::ocr {
 
 namespace {
+#ifdef OP_ENABLE_HTTP_OCR_BACKEND
 constexpr const char *kTesseractDefaultEndpoint = "http://127.0.0.1:8080/api/v1/ocr";
 constexpr const char *kPaddleOcrDefaultEndpoint = "http://127.0.0.1:8081/api/v1/ocr";
 constexpr const char *kPaddleNcnnOcrDefaultEndpoint = "http://127.0.0.1:8082/api/v1/ocr";
@@ -50,8 +54,25 @@ std::string resolve_default_endpoint() {
 int resolve_default_timeout_ms() {
     return parse_positive_int(getenv_trimmed("OP_OCR_TIMEOUT_MS"), 3000);
 }
+#else
+// HTTP 后端隐藏期的远程名判定：http(s):// 地址与旧远程别名（tesseract/paddle 系）
+// 一律视为"已移除"，init 显式拒绝并提示，避免静默落到内置引擎造成语义漂移。
+// 自包含实现（不依赖 network/HttpClient，该模块已整体移出构建）。
+bool is_removed_remote_backend(const std::string &engine) {
+    std::string key;
+    key.reserve(engine.size());
+    for (unsigned char ch : engine) {
+        if (ch == ' ' || ch == '\t')
+            continue; // trim
+        key += static_cast<char>(std::tolower(ch));
+    }
+    return key.rfind("http", 0) == 0 || key == "tesseract" || key == "tess" ||
+           key == "paddle" || key == "paddleocr" || key == "paddle_ocr" || key == "paddle_ncnn";
+}
+#endif // OP_ENABLE_HTTP_OCR_BACKEND
 } // namespace
 
+#ifdef OP_ENABLE_HTTP_OCR_BACKEND
 // ---- HttpOcrEngine（原 HttpOcrService 的 HTTP 实现，作可选远程兜底）----
 HttpOcrEngine::HttpOcrEngine() : m_endpoint(resolve_default_endpoint()), m_timeout_ms(resolve_default_timeout_ms()) {
     if (!normalize_endpoint(m_endpoint, kOcrDefaultPathSuffix)) {
@@ -192,6 +213,7 @@ int HttpOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
 
     return n;
 }
+#endif // OP_ENABLE_HTTP_OCR_BACKEND
 
 // ---- HttpOcrService（OCR 引擎管理器单例）----
 HttpOcrService::HttpOcrService() = default;
@@ -211,6 +233,7 @@ int HttpOcrService::init(const std::wstring &engine, const std::wstring &dllName
 int HttpOcrService::init_unlocked(const std::wstring &engine, const std::wstring &dllName,
                                   const std::vector<std::string> &argv) {
     const std::string eng = _ws2string(engine);
+#ifdef OP_ENABLE_HTTP_OCR_BACKEND
     std::string dummy;
     const bool is_http = (eng.rfind("http", 0) == 0) || try_resolve_ocr_backend(eng, dummy);
     if (is_http) {
@@ -221,6 +244,19 @@ int HttpOcrService::init_unlocked(const std::wstring &engine, const std::wstring
         m_engine = std::make_unique<OnnxOcrEngine>();
         cout << "HttpOcrService: selected OnnxOcrEngine (built-in)" << endl;
     }
+#else
+    // HTTP 远程后端已隐藏：http(s):// 与旧远程别名（tesseract/paddle 系）显式拒绝
+    // （dll_name 位同样检查——旧远程写法允许经 dll_name 传 URL），
+    // 其余（空/"onnx"/"builtin"/未知）一律内置进程内 ONNX 引擎。
+    if (is_removed_remote_backend(eng) || is_removed_remote_backend(_ws2string(dllName))) {
+        cout << "SetOcrEngine: HTTP backend removed (built-in ONNX only, remote aliases "
+                "tesseract/paddle rejected); define OP_ENABLE_HTTP_OCR_BACKEND to restore"
+             << endl;
+        return -1;
+    }
+    m_engine = std::make_unique<OnnxOcrEngine>();
+    cout << "HttpOcrService: selected OnnxOcrEngine (built-in)" << endl;
+#endif
     m_lazy_failed = false; // 显式 init 成功后清掉懒初始化失败记忆
     return m_engine->init(engine, dllName, argv);
 }

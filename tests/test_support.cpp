@@ -9,26 +9,8 @@
 #include <sstream>
 #include <vector>
 
-#pragma comment(lib, "winhttp.lib")
-
 namespace test_support {
 namespace {
-
-bool GetConfiguredOcrHostPort(std::wstring &host, INTERNET_PORT &port) {
-    const std::wstring endpoint = GetConfiguredOcrEndpoint();
-    URL_COMPONENTS parts = {};
-    parts.dwStructSize = sizeof(parts);
-    parts.dwSchemeLength = static_cast<DWORD>(-1);
-    parts.dwHostNameLength = static_cast<DWORD>(-1);
-    parts.dwUrlPathLength = static_cast<DWORD>(-1);
-    parts.dwExtraInfoLength = static_cast<DWORD>(-1);
-    if (!WinHttpCrackUrl(endpoint.c_str(), 0, 0, &parts))
-        return false;
-
-    host.assign(parts.lpszHostName, parts.dwHostNameLength);
-    port = parts.nPort;
-    return !host.empty();
-}
 
 bool WriteBinaryFile(const std::wstring &path, const std::vector<uchar> &buffer) {
     std::ofstream out(std::filesystem::path(path), std::ios::binary);
@@ -63,84 +45,6 @@ std::wstring GetEnvString(const wchar_t *name) {
     std::wstring out(value);
     free(value);
     return TrimCopy(out);
-}
-
-std::wstring GetConfiguredOcrEndpoint() {
-    const std::wstring explicit_url = GetEnvString(L"OP_OCR_URL");
-    if (!explicit_url.empty()) {
-        URL_COMPONENTS parts = {};
-        parts.dwStructSize = sizeof(parts);
-        parts.dwSchemeLength = static_cast<DWORD>(-1);
-        parts.dwHostNameLength = static_cast<DWORD>(-1);
-        parts.dwUrlPathLength = static_cast<DWORD>(-1);
-        parts.dwExtraInfoLength = static_cast<DWORD>(-1);
-        if (!WinHttpCrackUrl(explicit_url.c_str(), 0, 0, &parts))
-            return L"";
-
-        std::wstring path;
-        if (parts.dwUrlPathLength > 0)
-            path.assign(parts.lpszUrlPath, parts.dwUrlPathLength);
-        if (parts.dwExtraInfoLength > 0)
-            path.append(parts.lpszExtraInfo, parts.dwExtraInfoLength);
-        if (path.empty() || path == L"/") {
-            if (!explicit_url.empty() && explicit_url.back() == L'/')
-                return explicit_url + L"api/v1/ocr";
-            return explicit_url + L"/api/v1/ocr";
-        }
-        return explicit_url;
-    }
-
-    const std::wstring backend = GetEnvString(L"OP_OCR_BACKEND");
-    if (!_wcsicmp(backend.c_str(), L"paddle") || !_wcsicmp(backend.c_str(), L"paddleocr") ||
-        !_wcsicmp(backend.c_str(), L"paddle_ocr")) {
-        return L"http://127.0.0.1:8081/api/v1/ocr";
-    }
-
-    return L"http://127.0.0.1:8080/api/v1/ocr";
-}
-
-bool IsOcrServerHealthy() {
-    std::wstring host;
-    INTERNET_PORT port = 0;
-    if (!GetConfiguredOcrHostPort(host, port))
-        return false;
-
-    HINTERNET hSession = WinHttpOpen(L"op-test-health/1.0", WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME,
-                                     WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!hSession)
-        return false;
-
-    HINTERNET hConnect = WinHttpConnect(hSession, host.c_str(), port, 0);
-    if (!hConnect) {
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
-
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", L"/health", nullptr, WINHTTP_NO_REFERER,
-                                            WINHTTP_DEFAULT_ACCEPT_TYPES, 0);
-    if (!hRequest) {
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
-
-    WinHttpSetTimeouts(hRequest, 1000, 1000, 1000, 1000);
-
-    bool ok = false;
-    if (WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) &&
-        WinHttpReceiveResponse(hRequest, nullptr)) {
-        DWORD status_code = 0;
-        DWORD size = sizeof(status_code);
-        if (WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
-                                WINHTTP_HEADER_NAME_BY_INDEX, &status_code, &size, WINHTTP_NO_HEADER_INDEX)) {
-            ok = (status_code == 200);
-        }
-    }
-
-    WinHttpCloseHandle(hRequest);
-    WinHttpCloseHandle(hConnect);
-    WinHttpCloseHandle(hSession);
-    return ok;
 }
 
 std::wstring PtrToWString(const void *ptr, bool hex) {
@@ -764,34 +668,13 @@ void OcrTest::SetUp() {
     if (!GetEnvString(L"OP_SKIP_OCR_TESTS").empty())
         GTEST_SKIP() << "OCR tests are disabled by OP_SKIP_OCR_TESTS.";
 
-    const std::wstring backend = GetEnvString(L"OP_OCR_BACKEND");
-    const bool use_builtin = _wcsicmp(backend.c_str(), L"builtin") == 0 ||
-                              _wcsicmp(backend.c_str(), L"onnx") == 0;
-    if (use_builtin) {
-        // 内置 PP-OCRv4 引擎（OnnxOcrEngine，模型内嵌于 op_x64.dll）无需外部 HTTP 服务。
-        // 直接激活并跳过健康检查，使 OCR 用例可在无外部服务环境下验证内置推理链路。
-        op.SetOcrEngine(L"onnx", L"", L"");
-        return;
-    }
-
-    if (!IsOcrServerHealthy()) {
-        GTEST_SKIP() << "OCR service is not running. Configure OP_OCR_URL/OP_OCR_BACKEND and start the service to run OCR tests.";
-    }
+    // HTTP 远程后端已移除（2026-09-18）：OCR 引擎恒为内置 ONNX（模型内嵌于 op_x64.dll），
+    // 无需外部服务，原先依赖远程服务健康检查的 SKIP 门槛一并取消。
+    op.SetOcrEngine(L"onnx", L"", L"");
 }
 
 void OcrTest::TearDown() {
-    const std::wstring backend = GetEnvString(L"OP_OCR_BACKEND");
-    const bool use_builtin = _wcsicmp(backend.c_str(), L"builtin") == 0 ||
-                              _wcsicmp(backend.c_str(), L"onnx") == 0;
-    if (use_builtin) {
-        op.SetOcrEngine(L"onnx", L"", L"");
-        return;
-    }
-
-    const std::wstring endpoint = GetConfiguredOcrEndpoint();
-    if (!endpoint.empty()) {
-        op.SetOcrEngine(endpoint.c_str(), L"", L"--timeout=3000");
-    }
+    op.SetOcrEngine(L"onnx", L"", L"");
 }
 
 } // namespace test_support

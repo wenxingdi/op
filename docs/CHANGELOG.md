@@ -3,6 +3,19 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-18（OCR/YOLO HTTP 远程后端整体隐藏：YOLO 定调自训 ONNX 模型）
+
+- **决策**：YOLO 后期只依赖自训模型（`SetYoloEngine("xxx.onnx", ...)` 统一入口），不使用 HTTP 远程推理；OCR 同理（内置 PP-OCRv4 内嵌模型已够用）。HTTP 接口模式现阶段确定不需要，整体隐藏但**物理保留**，后期需要可一行恢复。
+- **隐藏方式（注释/条件宏，不删代码）**：
+  - `libop/CMakeLists.txt`：`network/HttpClient.cpp`、`yolo/HttpYoloEngine.cpp` 移出源列表（注释保留）；winhttp/crypt32 依赖随 HttpClient.cpp 的 `#pragma comment(lib)` 一并摘除。
+  - `OcrService.h/.cpp`：`HttpOcrEngine` 类与实现、`try_resolve_ocr_backend`、endpoint 常量全部包进 `#ifdef OP_ENABLE_HTTP_OCR_BACKEND`。
+  - `YoloDetector.h/.cpp`：默认引擎 HttpYoloEngine → OnnxYoloEngine（YOLO 有内嵌资源段模型，空路径即可用）；`release()` 回到未加载态 ONNX 引擎；HTTP 分支以 `OP_ENABLE_HTTP_YOLO_BACKEND` 保留。
+  - `HttpClient.h`、`HttpYoloEngine.h` 顶部加"已隐藏"说明注释（含恢复步骤）。
+- **对外行为（隐藏期的显式拒绝，防静默跑偏）**：`SetOcrEngine`/`SetYoloEngine` 传 http(s):// 或旧远程别名（OCR: tesseract/paddle 系；YOLO: yolo/yolo11/yolo_http/yolo_server）→ init 返 0 + cout 一行提示（"HTTP backend removed ... define OP_ENABLE_HTTP_*_BACKEND to restore"）。OCR 侧 dll_name 位也检查（旧写法允许经 dll_name 传 URL）；YOLO 侧 dll_name 本就当模型路径，http URL 文件不存在自然失败。
+- **测试**：`OcrTest::SetUp/TearDown` 去掉 winhttp 健康检查门（`IsOcrServerHealthy`/`GetConfiguredOcrEndpoint` 及 winhttp include/pragma 删除），恒 `SetOcrEngine("onnx")` ——原先 25 个"无 OCR 服务"SKIP 的用例转真跑。ocr_test 6 个 SetOcrEngine 用例改为断言拒绝语义；yolo_test 远程用例改 `RejectsRemoteUrlAndAliasArgs` / `RemoteAliasAfterFailedOnnxInitRejectedNoCrash`。
+- **文档**：API 手册 SetOcrEngine/SetYoloEngine 注解更新（http 与别名已移除说明），重新生成 api_reference.html。
+- **连带消项**：network 模块（原待排查清单 366 行）整体移出构建，待排查模块只剩 c_api、op 转发层。
+
 ### 2026-09-18（免字库 OCR 引擎懒初始化：默认开箱即用）
 
 - **背景**：免字库三入口要求脚本先显式 `SetOcrEngine`，否则 `HttpOcrService::ocr` 因 `m_engine` 为空静默返回 -1 → 上层拼空串，不报错不弹框不写日志，排查时极易误判为颜色/二值化问题。全库无任何自动初始化路径（OpContext 构造/COM 注册/ImageSearchService 均查证）。

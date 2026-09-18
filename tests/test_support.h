@@ -10,7 +10,6 @@
 #endif
 #include <windows.h>
 #include <windowsx.h>
-#include <winhttp.h>
 
 #include "../libop/hook/HookProtocol.h"
 #include "../libop/base/Types.h"
@@ -27,8 +26,6 @@ class OpEnvironment : public ::testing::Environment {
 
 std::wstring TrimCopy(const std::wstring &value);
 std::wstring GetEnvString(const wchar_t *name);
-std::wstring GetConfiguredOcrEndpoint();
-bool IsOcrServerHealthy();
 std::wstring PtrToWString(const void *ptr, bool hex = false);
 std::vector<uchar> BuildBmp32TopDown(int width, int height, const std::vector<uchar> &bgra_pixels);
 std::wstring ToLowerCopy(std::wstring value);

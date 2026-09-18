@@ -8,15 +8,17 @@
 
 using namespace test_support;
 
-TEST(YoloTest, SetYoloEngineAcceptsBaseUrlAndAliasArgs) {
+// HTTP 远程后端已移除（2026-09-18）：http(s):// 与旧远程别名显式拒绝（返 0）
+TEST(YoloTest, SetYoloEngineRejectsRemoteUrlAndAliasArgs) {
     op::Op op;
-    EXPECT_EQ(1, op.SetYoloEngine(L"http://127.0.0.1:8090", L"", L"--timeout=5000"));
-    EXPECT_EQ(1, op.SetYoloEngine(L"yolo", L"", L"--timeout=2000"));
+    EXPECT_EQ(0, op.SetYoloEngine(L"http://127.0.0.1:8090", L"", L""));
+    EXPECT_EQ(0, op.SetYoloEngine(L"yolo", L"", L""));
+    EXPECT_EQ(0, op.SetYoloEngine(L"yolo11", L"", L""));
 }
 
 TEST(YoloTest, SetYoloEngineRejectsInvalidUrl) {
     op::Op op;
-    EXPECT_EQ(0, op.SetYoloEngine(L"http://", L"", L"--timeout=5000"));
+    EXPECT_EQ(0, op.SetYoloEngine(L"http://", L"", L""));
 }
 
 TEST(YoloTest, YoloDetectFromFileReturnsFailureJsonForMissingFile) {
@@ -138,11 +140,11 @@ TEST(YoloOnnxTest, EndToEndAutoLoadsLabelsFromModelMetadata) {
     EXPECT_NE(std::wstring::npos, json.find(L"\"label\":\"target_cls\""));
 }
 
-// onnx 切换后再切回 http：引擎选择器正常工作，detect 走 HTTP（无服务端 -> 失败 JSON 但不崩溃）
-TEST(YoloOnnxTest, SwitchBackToHttpEngineNoCrash) {
+// 失败 init 后再给远程别名：显式拒绝（返 0），detect 无服务端不崩溃，走失败 JSON
+TEST(YoloOnnxTest, RemoteAliasAfterFailedOnnxInitRejectedNoCrash) {
     op::Op op;
     op.SetYoloEngine(L"onnx", L"__missing_yolo_model__.onnx", L"");
-    EXPECT_EQ(1, op.SetYoloEngine(L"yolo", L"", L"--timeout=1000"));
+    EXPECT_EQ(0, op.SetYoloEngine(L"yolo", L"", L""));
     std::wstring json;
     long ret = 123;
     op.YoloDetectFromFile(L"__missing_yolo_input__.bmp", 0.25, 0.45, json, &ret);

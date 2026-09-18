@@ -240,42 +240,44 @@ TEST(OcrParsing, WordResultParsingHandlesBadInput) {
     EXPECT_EQ(word_str, L"negative");
 }
 
+// HTTP 远程后端已移除（2026-09-18）：引擎恒为内置 ONNX。
 TEST_F(OcrFixture, SetOcrEngine) {
-    const std::wstring endpoint = test_support::GetConfiguredOcrEndpoint();
-    const long engine_ret = op.SetOcrEngine(endpoint.c_str(), L"", L"--timeout=5000");
-    cout << "SetOcrEngine: " << engine_ret << endl;
+    const long engine_ret = op.SetOcrEngine(L"onnx", L"", L"");
+    cout << "SetOcrEngine(onnx builtin): " << engine_ret << endl;
     EXPECT_EQ(engine_ret, 1);
 }
 
+// http(s):// 地址：远程后端已移除，显式拒绝（返 0）
 TEST_F(OcrFixture, SetOcrEngineBaseUrl) {
     const long engine_ret = op.SetOcrEngine(L"http://127.0.0.1:8080", L"", L"");
     cout << "SetOcrEngine(base url): " << engine_ret << endl;
-    EXPECT_EQ(engine_ret, 1);
+    EXPECT_EQ(engine_ret, 0);
 }
 
 TEST_F(OcrFixture, SetOcrEngineInvalidUrl) {
-    const long engine_ret = op.SetOcrEngine(L"http://", L"", L"--timeout=5000");
+    const long engine_ret = op.SetOcrEngine(L"http://", L"", L"");
     cout << "SetOcrEngine(invalid): " << engine_ret << endl;
     EXPECT_EQ(engine_ret, 0);
 }
 
+// http url 经 dll_name 传入：同样拒绝（load 会把 dll_name 当模型路径，文件不存在 -> 0）
 TEST_F(OcrFixture, SetOcrEngineViaDllNameArg) {
-    const std::wstring endpoint = test_support::GetConfiguredOcrEndpoint();
-    const long engine_ret = op.SetOcrEngine(L"", endpoint.c_str(), L"--timeout=2000");
+    const long engine_ret = op.SetOcrEngine(L"", L"http://127.0.0.1:8080/api/v1/ocr", L"");
     cout << "SetOcrEngine(via dll_name): " << engine_ret << endl;
-    EXPECT_EQ(engine_ret, 1);
+    EXPECT_EQ(engine_ret, 0);
 }
 
+// 旧远程别名（tesseract/paddle 系）：随 HTTP 后端一并移除，显式拒绝
 TEST_F(OcrFixture, SetOcrEngineTesseractAlias) {
-    const long engine_ret = op.SetOcrEngine(L"tesseract", L"", L"--timeout=2000");
+    const long engine_ret = op.SetOcrEngine(L"tesseract", L"", L"");
     cout << "SetOcrEngine(tesseract): " << engine_ret << endl;
-    EXPECT_EQ(engine_ret, 1);
+    EXPECT_EQ(engine_ret, 0);
 }
 
 TEST_F(OcrFixture, SetOcrEnginePaddleAlias) {
-    const long engine_ret = op.SetOcrEngine(L"paddle", L"", L"--timeout=2000");
+    const long engine_ret = op.SetOcrEngine(L"paddle", L"", L"");
     cout << "SetOcrEngine(paddle): " << engine_ret << endl;
-    EXPECT_EQ(engine_ret, 1);
+    EXPECT_EQ(engine_ret, 0);
 }
 
 TEST_F(OcrFixture, OcrAutoFromGeneratedConsoleLikeBmpContainsExpectedText) {

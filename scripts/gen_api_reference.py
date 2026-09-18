@@ -539,9 +539,9 @@ PARAM_DOCS = {
     "CvShapeMatchTemplate": {"threshold": "形状匹配阈值 0~1", "etjson": "命中结果 JSON 数组"},
     # ---------- OCR ----------
     "SetOcrEngine": {
-        "path_of_engine": "OCR 引擎目录（按引擎要求的目录结构）",
-        "dll_name": "引擎 DLL 名",
-        "argv": "传给引擎初始化函数的参数字符串",
+        "path_of_engine": "引擎标识：传 <code>onnx</code>/空/任意未知名=内置 ONNX 引擎（PP-OCRv4 模型内嵌 DLL）；<b>http(s):// 与旧远程别名（tesseract/paddle 系）已移除</b>，传入返 0 并提示",
+        "dll_name": "引擎 DLL 名（内置 ONNX 下忽略）",
+        "argv": "传给引擎初始化函数的参数字符串（内置 ONNX 支持 <code>--threads=N</code> 等）",
     },
     "GetDict": {"idx": "字库槽位", "font_index": "字库内第几个字（从 0）", "etstr": "该字的字库条目串"},
     "SetMemDict": {"data": "字库文本字节数据", "size": "字节数"},
@@ -614,9 +614,9 @@ PARAM_DOCS = {
     "FindLineEx": {"etstr": "返回 <code>\"角度,距离\"</code>；ret=线上点数（0=不可信）"},
     # ---------- YOLO ----------
     "SetYoloEngine": {
-        "path_of_engine": "统一入口：<b>.onnx 模型文件路径</b>（dll_name 留空，自动切进程内 ONNX 引擎）；旧写法 = 引擎名（<code>onnx</code> 开头=进程内 ONNX）或 http(s) URL / 别名 <code>yolo</code> <code>yolo_http</code>",
+        "path_of_engine": "统一入口：<b>.onnx 模型文件路径</b>（dll_name 留空，自动切进程内 ONNX 引擎）；旧写法 = <code>onnx</code> 开头引擎名；<b>http(s):// 与旧远程别名（yolo/yolo11/yolo_http/yolo_server）已移除</b>，传入返 0 并提示",
         "dll_name": "模型路径（ONNX 引擎；空=内置资源段模型）",
-        "argv": "空格分隔参数；ONNX 类别名<b>自动读模型内嵌 metadata</b>（ultralytics 导出自带，免 --labels），无 metadata 时用 <code>--labels=a,b,c</code>（UTF-8）或 <code>--labels=@classes.txt</code> 兜底（显式优先）；另支持 <code>--conf=0.25</code> <code>--iou=0.45</code>；HTTP 支持 <code>--timeout=毫秒</code>",
+        "argv": "空格分隔参数；ONNX 类别名<b>自动读模型内嵌 metadata</b>（ultralytics 导出自带，免 --labels），无 metadata 时用 <code>--labels=a,b,c</code>（UTF-8）或 <code>--labels=@classes.txt</code> 兜底（显式优先）；另支持 <code>--conf=0.25</code> <code>--iou=0.45</code>",
     },
     "YoloDetect": {
         "etjson": "检测结果 JSON 数组：每个元素含类别/置信度/包围盒 {class,score,x,y,w,h}",

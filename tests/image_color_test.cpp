@@ -2638,7 +2638,7 @@ TEST(ImageColorTest, FindColorBlockExSClustersOverlappingWindows) {
 // 懒初始化：不显式 SetOcrEngine、不绑字库，首次 autoocr 应自动就绪内置 ONNX 引擎。
 // 【用 --gtest_filter 单独跑本用例】时进程内引擎必为未初始化态，可确定性覆盖懒初始化分支
 // （日志应出现 "OnnxOcrEngine: models loaded" 且识别非空）。
-// 全量跑时若排在前面的用例已切过引擎（如 OcrFixture 远程端点），本用例退化为
+// 全量跑时 OcrFixture 的 SetUp 已显式 init 过引擎，本用例退化为
 // "不崩溃/不挂死" 冒烟——懒初始化分支的确定性回归由单独跑保证。
 TEST(ImageColorTest, AutoOcrLazyInitsBuiltInEngine) {
     op::Op op;

@@ -1,4 +1,7 @@
 #pragma once
+// 【已隐藏，不入构建】2026-09-18 决策：YOLO 依赖自训 ONNX 模型，不走 HTTP 服务。
+// 本文件保留供后期需要时恢复：把 yolo/HttpYoloEngine.cpp 与 network/HttpClient.cpp
+// 加回 libop/CMakeLists.txt 源列表，并在 YoloDetector.cpp 定义 OP_ENABLE_HTTP_YOLO_BACKEND。
 #include "YoloService.h"
 #include <string>
 

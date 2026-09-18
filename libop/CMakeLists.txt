@@ -171,8 +171,11 @@ set(OP_IMAGE_SOURCES
   "image/ImageSearchService.cpp"
 )
 
+# HTTP 远程后端整体隐藏（2026-09-18 决策：YOLO 依赖自训模型，不走 HTTP 服务）。
+# 如需恢复：取消下列注释 + 在 OcrService.cpp / YoloDetector.cpp 定义
+# OP_ENABLE_HTTP_OCR_BACKEND / OP_ENABLE_HTTP_YOLO_BACKEND（代码以条件宏保留）。
 set(OP_NETWORK_SOURCES
-  "network/HttpClient.cpp"
+  # "network/HttpClient.cpp"
 )
 
 set(OP_OCR_SOURCES
@@ -215,7 +218,7 @@ endif()
 
 set(OP_YOLO_SOURCES
   "yolo/YoloDetector.cpp"
-  "yolo/HttpYoloEngine.cpp"
+  # "yolo/HttpYoloEngine.cpp"  # HTTP 远程后端隐藏（见 OP_NETWORK_SOURCES 说明）
   "yolo/OnnxYoloEngine.cpp"
 )
 
