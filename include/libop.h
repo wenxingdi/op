@@ -512,6 +512,8 @@ class OP_API Op {
     void FetchWordEx(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                      _In_ double sim, _In_ const wchar_t *word, _Out_ std::wstring &retstr);
     // 自动切出指定范围内的点阵字块，返回格式: x1,y1,x2,y2|...
+    // 注意：min_word_h 是历史命名，本函数实际只按"字块宽度 >= min_word_h"过滤（不过滤高度）；
+    // 需要宽高双重过滤请用 ExtractWordRectsEx。
     void ExtractWordRects(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                           _In_ double sim, _In_ long min_word_h, _Out_ std::wstring &retstr);
     // 自动切出点阵字块，并按最小宽高过滤噪点；padding 用来给每个字块保留一点边缘
@@ -519,6 +521,8 @@ class OP_API Op {
                             _In_ double sim, _In_ long min_word_w, _In_ long min_word_h, _In_ long padding,
                             _Out_ std::wstring &retstr);
     // 自动切字并按 words 的字符顺序生成多条点阵字库，返回多行字库文本
+    // 注意：min_word_h 是历史命名，本函数实际只按"字块宽度 >= min_word_h"过滤（不过滤高度）；
+    // 需要宽高双重过滤请用 FetchWordsEx。切出的字数与 words 长度不一致时返回空（日志有提示）。
     void FetchWords(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
                     _In_ const wchar_t *words, _In_ long min_word_h, _Out_ std::wstring &retstr);
     // 使用更细的切字参数批量生成点阵字库，适合截图里夹杂小噪点的情况

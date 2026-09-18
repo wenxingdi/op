@@ -568,11 +568,14 @@ PARAM_DOCS = {
     },
     "FetchWords": {
         "words": "多字模串（每个字一个字模）",
-        "min_word_h": "最小字高（过滤过小噪点）",
-        "etstr": "逐字结果串（坐标+匹配到的字）",
+        "min_word_h": "⚠️ 历史命名：本函数实际按字块<b>宽度</b>过滤（不过滤高度），需宽高双过滤用 FetchWordsEx",
+        "etstr": "逐字结果串（坐标+匹配到的字）；切出字数与 words 长度不符时返回空（日志有提示）",
     },
     "FetchWordsByRects": {"rects": "限定区域串：为 words 中每个字指定独立搜索范围"},
-    "ExtractWordRects": {"min_word_h": "最小字高", "etstr": "识别到的文字块矩形串"},
+    "ExtractWordRects": {
+        "min_word_h": "⚠️ 历史命名：实际按字块<b>宽度</b>过滤（不过滤高度），需宽高双过滤用 ExtractWordRectsEx",
+        "etstr": "识别到的文字块矩形串",
+    },
     "ExtractWordRectsEx": {"min_word_w": "最小字宽", "padding": "矩形外扩像素"},
     "GetBinaryPreview": {
         "etstr": "返回二值化预览文本：首行 <code>\"宽,高\"</code>，其后每行以 <code>#</code>=前景点、<code>.</code>=背景绘制",

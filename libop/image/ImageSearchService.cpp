@@ -509,14 +509,18 @@ wstring ImageSearchService::FetchWordFromBinary(rect_t rc, const wstring &word) 
     auto orc = rc;
     if (!bin_image_cut(2, rc, orc))
         return L"";
-    // check is too large
+    // check is too large（字模 w/h 为 uint8，上限 255；超限部分静默裁剪，记日志提示用户收窄取模区域）
     if (orc.width() > 255) {
+        setlog(L"FetchWord: width %d > 255, truncated to 255 (narrow the rect to avoid losing glyph columns)",
+               orc.width());
         orc.x2 = orc.x1 + 255;
         rc = orc;
         if (!bin_image_cut(2, rc, orc))
             return L"";
     }
     if (orc.height() > 255) {
+        setlog(L"FetchWord: height %d > 255, truncated to 255 (narrow the rect to avoid losing glyph rows)",
+               orc.height());
         orc.y2 = orc.y1 + 255;
         rc = orc;
         if (!bin_image_cut(2, rc, orc))
@@ -532,8 +536,11 @@ wstring ImageSearchService::FetchWordFromBinary(rect_t rc, const wstring &word) 
 long ImageSearchService::FetchWordsFromBinary(const wstring &words, const std::vector<rect_t> &rects,
                                               std::wstring &out_str) {
     out_str.clear();
-    if (rects.empty() || rects.size() != words.size())
+    if (rects.empty() || rects.size() != words.size()) {
+        setlog(L"FetchWords: extracted %zu word rect(s) but words has %zu char(s), they must be equal; returns empty",
+               rects.size(), words.size());
         return 0;
+    }
 
     for (size_t i = 0; i < rects.size(); ++i) {
         if (!rects[i].valid() || rects[i].x2 > _src.width || rects[i].y2 > _src.height) {
@@ -588,8 +595,11 @@ long ImageSearchService::FetchWords(const wstring &color, double sim, const wstr
     std::vector<rect_t> rects;
     get_rois(static_cast<int>(min_word_h), rects);
     const long rect_count = static_cast<long>(rects.size());
-    if (rect_count == 0 || rects.size() != words.size())
+    if (rect_count == 0 || rects.size() != words.size()) {
+        setlog(L"FetchWords: extracted %zu word rect(s) but words has %zu char(s), they must be equal; returns empty",
+               rects.size(), words.size());
         return 0;
+    }
     return FetchWordsFromBinary(words, rects, out_str);
 }
 

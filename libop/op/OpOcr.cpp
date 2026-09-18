@@ -319,6 +319,7 @@ void op::Op::GetWordsNoDict(long x1, long y1, long x2, long y2, const wchar_t *c
     internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
         m_context->image_proc.str2binaryfbk(color_text);
         std::vector<rect_t> vroi;
+        // 魔法数 5：单参 get_rois 的 min 语义实为"最小字宽"（见 OC7 文档正名），即过滤宽度 <5 的碎块
         m_context->image_proc.get_rois(5, vroi);
         for (auto &it : vroi) {
             const wstring tempWord = m_context->image_proc.FetchWord(it, color_text, L"");

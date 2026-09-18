@@ -3,6 +3,14 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-18（字库管理/制作排查落地：OC7 文档正名 + 两处静默点补日志，P2 批）
+
+- **OC7 实锤并文档正名**：单参 `get_rois(min_word_h, vroi)`（ImageSearchAlgorithms.cpp:1462）判的是 `vrcx[j].width() >= min_word_h`——`ExtractWordRects`/`FetchWords` 的 `min_word_h` 参数**实为最小字宽**（不过滤高度；Ex 版才是宽高双过滤）。改行为会破坏现有调用 → 不改码，正名：libop.h 两处函数注释、API 手册注解（gen_api_reference.py 函数级 FetchWords/ExtractWordRects 条目加 ⚠️ 标注，899/899 覆盖不变）、OpOcr.cpp GetWordsNoDict 魔法数 5 补注释。
+- **FetchWordFromBinary 255 截断补 setlog**（ImageSearchService.cpp）：字模 w/h 为 uint8 上限 255，宽/高超限时静默裁掉右侧/下侧列行，用户会拿到半个字无感知 → 两个分支各补一行 setlog（提示收窄取模区域）。
+- **FetchWords 系列字数不符补 setlog**：`FetchWords` 与 `FetchWordsFromBinary`（覆盖 FetchWordsEx/FetchWordsByRects）在"切出字数 ≠ words 长度"时原来静默返空 → 各补一行 setlog（带两个数量）。零行为变更。
+- **排查记录（P3 只记录不动）**：SetDict 失败路径不清私有槽（与"失败不动当前字库"语义一致）；文件版 read_binary_dict 缺内存版那样的头部预校验（损坏文件慢但不崩）；实例级字库成员无锁（大漠也不保证）；ClearDict 会遮蔽全局文件字库。
+- **验证**：nmake 增量通过；全量回归 266 用例 · 259 PASS · 6 SKIPPED · 1 FAILED（仅 WaitKeyScanAll 时序环境项），与基线逐项一致零回归。
+
 ### 2026-09-18（OCR/YOLO HTTP 远程后端整体隐藏：YOLO 定调自训 ONNX 模型）
 
 - **决策**：YOLO 后期只依赖自训模型（`SetYoloEngine("xxx.onnx", ...)` 统一入口），不使用 HTTP 远程推理；OCR 同理（内置 PP-OCRv4 内嵌模型已够用）。HTTP 接口模式现阶段确定不需要，整体隐藏但**物理保留**，后期需要可一行恢复。
