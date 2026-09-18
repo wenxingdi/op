@@ -2634,3 +2634,44 @@ TEST(ImageColorTest, FindColorBlockExSClustersOverlappingWindows) {
     op.FindColorBlockExS(0, 0, width, height, L"ffffff", 1.0, 1, 4, 4, 1, clustered);
     EXPECT_EQ(clustered, L"0,0") << "49 overlapping windows must merge into a single block origin";
 }
+
+// 回归：免字库三入口（AutoOcr/AutoOcrLine/AutoOcrEx）支持 "@背景色" 反白格式。
+// 旧实现裸调 str2colordfs+bgr2binary，@ 前缀被剥掉后背景色被当前景色匹配，
+// 黑底白字图的二值结果完全反转 → 字库兜底识别不出任何字符。
+// 现统一改走 str2binaryfbk（按 @ 自动分流 bgr2binarybk），与字库制作同一入口。
+TEST(ImageColorTest, AutoOcrEntriesSupportBackgroundColorFormat) {
+    op::Op op;
+    long ret = 0;
+    const int width = 8;
+    const int height = 8;
+
+    // 黑底白字（反白字场景）
+    auto pixels = MakePixels(width, height, 0x00, 0x00, 0x00);
+    PaintGlyphA(pixels, width, 0, 0, 0xff, 0xff, 0xff);
+    SetMemBmp(op, width, height, pixels, ret);
+    ASSERT_EQ(ret, 1);
+
+    // 取模与字库制作同一路径：@背景色
+    ASSERT_NO_FATAL_FAILURE(UseSingleWordDict(op, width, height, L"@000000", L"A", ret));
+
+    std::wstring text;
+    op.AutoOcr(0, 0, width, height, L"@000000", 1.0, text);
+    EXPECT_EQ(text, L"A");
+
+    op.AutoOcrLine(0, 0, width, height, L"@000000", 1.0, text);
+    EXPECT_EQ(text, L"A");
+
+    const long ct = op.AutoOcrEx(0, 0, width, height, L"@000000", 1.0, text);
+    EXPECT_EQ(ct, 1);
+    ASSERT_FALSE(text.empty());
+    EXPECT_NE(text.find(L",A"), wstring::npos) << "AutoOcrEx 应输出 \"x1,y1,x2,y2,conf,A\" 结构";
+
+    // 对照1：普通前景格式不得回归
+    ASSERT_NO_FATAL_FAILURE(UseSingleWordDict(op, width, height, L"FFFFFF-000000", L"A", ret));
+    op.AutoOcr(0, 0, width, height, L"FFFFFF-000000", 1.0, text);
+    EXPECT_EQ(text, L"A");
+
+    // 对照2：无 @ 时按前景语义解析（黑=前景 → 二值反转 → 识别不出），钉死语义不漂移
+    op.AutoOcr(0, 0, width, height, L"000000", 1.0, text);
+    EXPECT_TRUE(text.empty());
+}

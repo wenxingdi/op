@@ -109,7 +109,7 @@ GLOBAL_PARAM_DOCS = {
     "y": "纵坐标（物理像素；绑定窗口后为客户区坐标）",
     "sim": "相似度 0~1（越大越严格）；找色系 sim&lt;0 钳为 1.0，OCR/找字系回退 0.7",
     "dir": DIR_IMAGE,
-    "color": "16 进制颜色 RGB（如 <code>eef4f5</code>）；OCR 系支持 <code>\"前景-背景\"</code> 如 <code>\"9f2e3f-000000\"</code>",
+    "color": "RGB hex <code>RRGGBB</code>（如 <code>FF0000</code>=红）；<code>-</code> 后为<b>偏色容差</b>（如 <code>9f2e3f-303030</code>，非背景色）；<code>@</code> 开头为背景色模式（命中像素置 0，反白字场景）",
     "hwnd": "窗口句柄（HWND，十进制数值）",
     "file_name": "文件路径；相对路径基于 <code>SetPath</code> 设定的全局目录解析",
     "src_file": "源图片路径（含扩展名）",
@@ -132,7 +132,7 @@ GLOBAL_PARAM_DOCS = {
     "value": "要写入的值",
     "process_id": "进程 PID",
     "files": "图片文件名串，多图用 | 分隔（相对路径基于 SetPath）",
-    "delta_color": "透明色 16 进制 BGR（如 <code>000000</code> 表黑色透）；不需要透明匹配传 000000 配 sim 普通匹配",
+    "delta_color": "透明色 RGB hex <code>RRGGBB</code>（与 color 同规则；<b>注意与大漠相反</b>——大漠 FindPic delta 为 BGR，迁移需红蓝互换）；不需要透明匹配传 000000 配 sim 普通匹配",
     "word": "单字模串（点阵字库格式）",
     "words": "多字模串（每个字一个字模）",
     "pic_name": "缓存中的图片名（LoadPic/LoadMemPic 注册的名）",
@@ -230,25 +230,25 @@ PARAM_DOCS = {
         "file_name": "保存路径，<b>必须带扩展名</b>（bmp/png/jpg/jpeg/gif/tif，大小写不敏感）；无扩展名或 .txt/.emf 等格式静默失败（ret=0，日志见 __op.log）。窗口最小化时同样静默失败"
     },
     "FindPic": {
-        "delta_color": "透明色（16 进制 BGR，如 000000 表黑色透）；不需要透明匹配传 <code>000000</code> 配 sim 使用普通匹配",
+        "delta_color": "透明色 RGB hex <code>RRGGBB</code>（与 color 同规则；<b>注意与大漠相反</b>——大漠 FindPic delta 为 BGR，迁移需红蓝互换）；不需要透明匹配传 <code>000000</code> 使用普通匹配",
         "sim": "相似度 0~1。内部阈值=<code>0.5 + sim/2</code>；越界不钳制",
         "dir": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上",
     },
     "FindColor": {
-        "color": "16 进制 RGB（如 <code>eef4f5</code>），可带偏移标记",
+        "color": "RGB hex <code>RRGGBB</code>（如 <code>FF0000</code>=红），可带偏移标记",
         "sim": "相似度 0~1；<b>sim&lt;0 时钳为 1.0（变精确匹配）</b>。多点串中 sim 同理",
         "dir": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上",
     },
     "FindMultiColor": {
-        "first_color": "基准点颜色 RGB",
-        "offset_color": "偏移点串：<code>\"dx|dy|RGB,dx|dy|RGB,...\"</code>；畸形段自动跳过（09-17 加固）",
+        "first_color": "基准点颜色 RGB hex <code>RRGGBB</code>",
+        "offset_color": "偏移点串：<code>\"dx|dy|RRGGBB,dx|dy|RRGGBB,...\"</code>；畸形段自动跳过（09-17 加固）",
     },
     "FindColorBlock": {
         "count": "期望找到的色块数量",
         "height": "色块最小高度（⚠️ 顺序是 count, <b>height, width</b>——高在宽前，与大漠一致）",
         "width": "色块最小宽度",
     },
-    "GetColor": {"ret": "BGR 16 进制串，如 <code>eef4f5</code>"},
+    "GetColor": {"ret": "RGB hex <code>RRGGBB</code> 串（如 <code>FF0000</code>=红）"},
     "CmpColor": {"sim": "同 FindColor：sim&lt;0 钳为 1.0"},
     # ---------- Input 键鼠 ----------
     "SetMouseDelay": {
@@ -313,7 +313,7 @@ PARAM_DOCS = {
     "SetDict": {"idx": "字库槽位 0~9；0 为全局默认，1~9 为私有槽（可被 UseDict 切换）", "file_name": "字库文件路径（点阵字库文本）"},
     "UseDict": {"idx": "切换当前生效字库槽位（0~9）"},
     "FindStr": {
-        "color_format": "颜色格式串（同 OCR），如 <code>\"9f2e3f-000000\"</code>",
+        "color_format": "颜色格式串（同 OCR），RGB hex <code>\"RRGGBB[-DDRGGBB]\"</code>，如 <code>\"9f2e3f-000000\"</code>",
         "sim": "⚠️ OCR 系 sim&lt;0 时<b>回退 0.7</b>（与找色系钳 1.0 不同）",
         "retx": "出参：首个命中横坐标（-1=未找到）",
         "rety": "出参：首个命中纵坐标",
@@ -406,8 +406,8 @@ PARAM_DOCS = {
     # ---------- Image 图色（其余） ----------
     "FindColorEx": {"etstr": "全部命中坐标串，每条 <code>\"x,y\"</code>，| 连接"},
     "FindMultiColorEx": {
-        "first_color": "基准点颜色 RGB",
-        "offset_color": "偏移点串：<code>\"dx|dy|RGB,dx|dy|RGB,...\"</code>；畸形段自动跳过",
+        "first_color": "基准点颜色 RGB hex <code>RRGGBB</code>",
+        "offset_color": "偏移点串：<code>\"dx|dy|RRGGBB,dx|dy|RRGGBB,...\"</code>；畸形段自动跳过",
         "etstr": "全部命中坐标串，每条 <code>\"x,y\"</code>，| 连接",
     },
     "FindPicEx": {
@@ -434,7 +434,7 @@ PARAM_DOCS = {
     "SetDisplayInput": {"mode": "内部显示输入模式（开发调试保留），脚本侧请用 BindWindow"},
     "GetScreenData": {
         "x1": "区域左上角（物理像素）", "y1": "左上角纵", "x2": "右下角横（含）", "y2": "右下角纵（含）",
-        "data": "出参：BGRA32 位原始像素内存指针（4 字节/像素），生命周期到下一次截图操作前",
+        "data": "出参：32 位原始像素内存指针（4 字节/像素；BGRA 字节序=B 在低地址，同 Win32 DIB，非 RRGGBB 字符串），生命周期到下一次截图操作前",
     },
     "GetScreenDataBmp": {
         "data": "出参：标准 BMP 格式内存数据指针（含文件头）",
@@ -598,10 +598,10 @@ PARAM_DOCS = {
     },
     "OcrFromFile": {
         "file_name": "图片文件路径",
-        "color_format": "颜色格式串 <code>\"前景-背景\"</code> 或单颜色",
+        "color_format": "颜色格式串（RGB hex）：<code>\"RRGGBB\"</code>、<code>\"RRGGBB-偏色\"</code>（如 <code>9f2e3f-303030</code>）或 <code>\"@RRGGBB\"</code> 背景色模式",
         "etstr": "识别出的纯文本",
     },
-    "AutoOcrFromFile": {"file_name": "图片路径", "color_format": "颜色格式串", "etstr": "自动阈值版识别文本"},
+    "AutoOcrFromFile": {"file_name": "图片路径", "color_format": "颜色格式串（RGB hex <code>RRGGBB</code>）", "etstr": "自动阈值版识别文本"},
     "OcrAutoFromFile": {"file_name": "图片路径", "etstr": "免配色识别文本"},
     "FindStrEx": {
         "etstr": "全部命中串：每条 <code>\"strs序号,x,y\"</code>（序号为 strs 以 | 拆分后的下标，从 0），| 连接",
@@ -786,7 +786,7 @@ def render(fns, src_rel, gen_time):
                     f'<tr><td class="p-name"><code>{esc(p["name"])}</code></td>'
                     f'<td class="p-type"><code>{esc(p["type"])}</code></td>'
                     f'<td class="p-dir"><span class="dir {p["dir"]}">{p["dir"]}</span></td>'
-                    f'<td class="p-doc">{pdoc.get(p["name"], "")}</td></tr>'
+                    f'<td class="p-doc">{pdoc.get(p["name"]) or GLOBAL_PARAM_DOCS.get(p["name"], "")}</td></tr>'
                     for p in fn["params"])
                 ptable = f'<table class="params"><thead><tr><th>参数</th><th>类型</th><th>方向</th><th>取值 / 语义</th></tr></thead><tbody>{rows}</tbody></table>'
             else:

@@ -773,10 +773,10 @@ long ImageSearchService::autoocr(const wstring &color, double sim, wstring &out_
     if (sim < 0. || sim > 1.)
         sim = 0.7; // 默认置信度阈值：免字库 onnx 输出 conf≈0.85+，1.0 会全滤掉
 
-    // 1) 按颜色二值化 -> _binary（WORD_COLOR=1 命中文字，WORD_BKCOLOR=0 背景）
-    std::vector<color_df_t> colors;
-    str2colordfs(color, colors);
-    bgr2binary(colors);
+    // 1) 按颜色二值化 -> _binary（WORD_COLOR=1 命中文字，WORD_BKCOLOR=0 背景）。
+    //    用 str2binaryfbk 而非裸 str2colordfs+bgr2binary：它支持 "@背景色" 格式
+    //    （分流到 bgr2binarybk，反白字/白字深底场景），与字库制作同一入口。
+    str2binaryfbk(color);
 
     auto dict = ActiveDict(_curr_idx);
     if (dict) {
@@ -804,10 +804,9 @@ long ImageSearchService::autoocr_line(const wstring &color, double sim, wstring 
     if (sim < 0. || sim > 1.)
         sim = 0.7;
 
-    // 1) 按颜色二值化 -> _binary（命中文字=1，背景=0）
-    std::vector<color_df_t> colors;
-    str2colordfs(color, colors);
-    bgr2binary(colors);
+    // 1) 按颜色二值化 -> _binary（命中文字=1，背景=0）。
+    //    str2binaryfbk：支持 "@背景色" 反白格式，与字库制作同一入口。
+    str2binaryfbk(color);
 
     auto dict = ActiveDict(_curr_idx);
     if (dict) {
@@ -866,10 +865,9 @@ long ImageSearchService::autoocr_ex(const wstring &color, double sim, wstring &o
     if (sim < 0. || sim > 1.)
         sim = 0.7;
 
-    // 1) 按颜色二值化 -> _binary
-    std::vector<color_df_t> colors;
-    str2colordfs(color, colors);
-    bgr2binary(colors);
+    // 1) 按颜色二值化 -> _binary。
+    //    str2binaryfbk：支持 "@背景色" 反白格式，与字库制作同一入口。
+    str2binaryfbk(color);
 
     auto dict = ActiveDict(_curr_idx);
     if (dict) {

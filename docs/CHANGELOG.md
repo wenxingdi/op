@@ -3,6 +3,13 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-18（免字库 OCR 支持 @背景色反白格式 + API 手册颜色格式统一）
+
+- **免字库三入口支持 @背景色（A 项）**：autoocr / autoocr_line / autoocr_ex 原先裸调 `str2colordfs+bgr2binary`，`@` 前缀被剥掉后背景色被当前景色匹配 → 黑底白字图二值完全反转 → 字库兜底与免字库均识别不出（白字深底/反白 UI 场景不可用）。统一改走 `str2binaryfbk(color)`（按 `@` 自动分流 `bgr2binarybk`），与字库制作同一入口。零接口变化、无 @ 的前景色语义不变。
+- **回归用例**：`ImageColorTest.AutoOcrEntriesSupportBackgroundColorFormat`——mem BMP 黑底白字 + @000000 取模入字典，三入口 @ 格式均识别 "A"；对照1 前景格式不回归；对照2 无 @ 的 "000000" 按前景语义解析（二值反转识别不出），钉死语义不漂移。
+- **API 手册颜色格式纠错（C 项）**：全局 `color` 注解原写"OCR 系支持 前景-背景 如 9f2e3f-000000"——错误，`-` 后实为**偏色容差**（str2colordfs 按 `-` 切分，后段解析为容差）。已改"颜色-偏色（如 9f2e3f-303030），@ 开头为背景色模式"，OcrFromFile 的 color_format 同步修正。delta_color 两处"16 进制 BGR"错误标注已于上一轮改为 RGB hex RRGGBB 并附"与大漠相反"警告。
+- 过程自纠：同文件 3 处 Edit 并行发出触发写回竞态（项目记忆 15a 规则），仅 1 处落盘且测试半小时"修了但行为没变" → 改串行重发后正常。教训复验：**同文件多 Edit 必须串行 + 改完 Grep 复核**。
+
 ### 2026-09-18（OCR 免字库/字库制作子域排查落地：OC1-OC3 + OC5）
 
 - **OC1 模糊 OCR 加速**：`_bin_ocr(dict, sim)` 从"每个像素点遍历全字库"（O(W×H×N)）改为与精确版同构的加速结构——`sort_dict` 保证 (h desc, w desc, bit_cnt asc) 有序，按 (h,w) 分组后组内 bit_cnt 升序，先组级容限窗口过滤、再二分定位 `[cnt_src-tol, cnt_src+tol]` 候选窗口，只对窗口内候选做 `part_match`。字库越大收益越大，判定语义与旧版逐词版完全等价（窗口条件 = 旧版 `abs(cnt-bit_cnt) > tol` 的补集）。顺手删除残留未用变量 `int k = 0;`。
