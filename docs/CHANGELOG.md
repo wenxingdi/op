@@ -3,6 +3,15 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-18（OCR 挂起项 OC4/OC6 落地：Ocr 双路径返回值语义对齐 + 行切分参数文档化）
+
+- **OC4a · Ocr/OcrEx 免字库路径语义注明**：未装载字库时 color 参数不参与（直接对整幅区域原图识别），与 autoocr 系（先按颜色二值化）区分；libop.h 注释 + 手册注解注明，要按颜色识别引导用 AutoOcr 系。不改码（改行为有存量风险）。
+- **OC4b · 内部返回值对齐**（外部 COM/C-API/Python 均为 void，零外部影响）：`ImageSearchAlgorithms::Ocr` 原恒返 1（空结果也返 1）→ 改返实际命中块数 `ps.size()`；`ImageSearchService::OCR` 免字库路径原恒返 0 → 改返过滤后条数。与 OcrEx 两路径统一。已核全部消费方（仅 OpOcr.cpp:420 一处且丢弃返回值）。
+- **OC4c · 免字库路径补 `_src` 尺寸早退**：`OCR()`/`OcrEx()` 免字库分支补 `w<=0||h<=0` 返回 0（截屏失败不喂 0×0 给引擎），与 autoocr 三件套对齐。零成功路径变更。
+- **OC4d · 手册错误注解修正**：AutoOcr "自动阈值版"→ 实际按 color 颜色二值化（支持 @背景色），非自动阈值；AutoOcrLine "逐行结果串"→ 实际各行文本直接拼接（无分隔符无坐标）。
+- **OC6 · autoocr_line 行切分硬编码文档化**：`kMaxInLineGap=3`（行间隙>3px 切段）/`kMinSegH=5`（段高<5px 丢弃）为写死阈值，libop.h + 手册注明，使用方须保证 ROI 行距/字高达标。代码已有命名常量+注释，不改。
+- **验证**：手册重生成 899/899 覆盖不变；全量回归与基线一致（见下）。
+
 ### 2026-09-18（c_api/op 转发层排查落地：C 边界异常静默吞咽补 setlog，最后两个待排查模块闭环）
 
 - **c_api 10 处 catch-all 补 setlog**（op_c_api.cpp）：C 边界是异常最后一道闸，原来 10 处 `catch(...)` 只返 0/空串无任何线索，Python 侧出错完全无法诊断；而 COM 边界有 `guard_exceptions`（带日志）——两处策略不一致。现 5 个模板助手（call_int/call_intptr/call_string/call_json_string/call_memory）+ 5 个具名函数（OpCreate/OpFindPic/OpGetScreenData/OpGetScreenDataBmp/OpGetScreenFrameInfo）各补 `catch (const std::exception&)`（带 what）+ `catch(...)`（带函数名）双分支日志。零行为变更（返回值路径不变），新增 include `base/Utils.h` + `<exception>`。

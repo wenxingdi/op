@@ -972,7 +972,8 @@ long ImageSearchAlgorithms::Ocr(Dictionary &dict, double sim, wstring &retstr) {
     for (auto &it : ps) {
         retstr += it.second.text;
     }
-    return 1;
+    // 返回实际命中块数，与 OcrEx 对齐（原恒返 1，空结果也返 1，见 OC4）；外部 COM/C-API 为 void，仅内部语义
+    return static_cast<long>(ps.size());
 }
 
 long ImageSearchAlgorithms::OcrEx(Dictionary &dict, double sim, std::wstring &retstr) {

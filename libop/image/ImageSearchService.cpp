@@ -768,11 +768,15 @@ long ImageSearchService::OCR(const wstring &color, double sim, std::wstring &out
     long s = 0;
     auto dict = ActiveDict(_curr_idx);
     if (!dict) {
+        // 免字库路径：直接对整幅区域原图识别，color 不参与（要按颜色过滤请用 AutoOcr 系）
+        if (_src.width <= 0 || _src.height <= 0)
+            return 0; // 与 autoocr 系对齐：截屏失败早退，不喂 0x0 给引擎
         vocr_rec_t res;
         HttpOcrService::getInstance()->ocr(_src.pdata, _src.width, _src.height, 4, res);
         for (auto &it : res) {
             if (it.confidence >= sim - 1e-9) {
                 out_str += it.text;
+                ++s; // 返回过滤后条数，与 OcrEx 免字库路径对齐（原恒返 0，见 OC4）
             }
         }
     } else {
@@ -1248,6 +1252,9 @@ long ImageSearchService::OcrEx(const wstring &color, double sim, std::wstring &r
         sim = 0.7;
     auto dict = ActiveDict(_curr_idx);
     if (!dict) {
+        // 免字库路径：直接对整幅区域原图识别，color 不参与（同 OCR()）
+        if (_src.width <= 0 || _src.height <= 0)
+            return 0;
         vocr_rec_t res;
         int find_ct = 0;
         HttpOcrService::getInstance()->ocr(_src.pdata, _src.width, _src.height, 4, res);

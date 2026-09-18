@@ -555,6 +555,8 @@ class OP_API Op {
     // 在使用GetWords进行词组识别以后,可以用此接口进行识别各个词组的内容
     void GetWordResultStr(_In_ const wchar_t *result, _In_ long index, _Out_ std::wstring &ret_str);
     // 识别屏幕范围(x1,y1,x2,y2)内符合color_format的字符串,并且相似度为sim,sim取值范围(0.1-1.0),
+    // 已装载字库时按 color_format 二值化后做字库识别；未装载字库时走免字库引擎，直接对整幅区域
+    // 原图识别（color_format 不参与过滤，要按颜色识别请用 AutoOcr 系接口）
     void Ocr(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
              _Out_ std::wstring &ret_str);
     // 回识别到的字符串，以及每个字符的坐标.
@@ -565,6 +567,7 @@ class OP_API Op {
                  _Out_ std::wstring &ret_str);
     // 单行快模式 AutoOcr：颜色二值化后整图直接 rec（跳过检测），适用于读出区/固定单行文本。
     // 区域须只含单行文本，否则结果语义由使用方承担。
+    // 行切分参数为硬编码阈值（OC6，暂不提供参数）：行间隙 >3px 切段、段高 <5px 视为噪点丢弃。
     void AutoOcrLine(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                      _In_ double sim, _Out_ std::wstring &ret_str);
     // 结构化 AutoOcr：输出 "x1,y1,x2,y2,conf,text|..."（bbox 为屏幕绝对坐标），返回命中行数。
