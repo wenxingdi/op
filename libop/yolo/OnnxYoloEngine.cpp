@@ -11,6 +11,8 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -171,6 +173,27 @@ float iou_of(const Cand &a, const Cand &b) {
     return uni > 0.0f ? inter / uni : 0.0f;
 }
 
+// 解析 ultralytics 嵌入 ONNX metadata 的类别名字典串，两种 repr 均兼容：
+//   {0: 'person', 1: 'car'}   （单引号、数字键）
+//   {"0": "person", ...}      （双引号、字符串键）
+// 按索引位填 vector（索引空洞留空串）；解析不出任何条目时返回空 vector。
+std::vector<std::wstring> parse_names_dict(const char *s) {
+    std::vector<std::wstring> names;
+    if (!s || !*s)
+        return names;
+    static const std::regex re(R"(['\"]?(\d+)['\"]?\s*:\s*['\"]([^'\"]*)['\"])");
+    const std::string text(s);
+    for (std::sregex_iterator it(text.begin(), text.end(), re), end; it != end; ++it) {
+        const unsigned long long idx = std::strtoull((*it)[1].str().c_str(), nullptr, 10);
+        if (idx >= 4096) // 防御异常索引，避免恶意 metadata 撑爆内存
+            continue;
+        if (names.size() <= idx)
+            names.resize(size_t(idx) + 1);
+        names[size_t(idx)] = utf8_to_wstring((*it)[2].str());
+    }
+    return names;
+}
+
 // 类别感知 NMS：同类才互相抑制
 std::vector<Cand> class_aware_nms(std::vector<Cand> &cands, float iou_thr) {
     std::sort(cands.begin(), cands.end(), [](const Cand &a, const Cand &b) { return a.conf > b.conf; });
@@ -250,6 +273,23 @@ class OnnxYoloEngine::Impl {
             }
         } catch (...) {
         }
+        // 自动读取 ultralytics 嵌入的类别名（metadata "names"）。
+        // 显式 --labels 优先；模型未嵌入 metadata（或解析失败）时保持空——JSON 只给 class_id。
+        if (m_labels.empty()) {
+            try {
+                Ort::AllocatorWithDefaultOptions alloc;
+                auto names_val = sess->GetModelMetadata().LookupCustomMetadataMapAllocated("names", alloc);
+                if (names_val) {
+                    m_labels = parse_names_dict(names_val.get());
+                    if (!m_labels.empty())
+                        cout << "OnnxYoloEngine: labels auto-loaded from model metadata, n=" << m_labels.size()
+                             << endl;
+                }
+            } catch (const Ort::Exception &) {
+                // 无 metadata 的旧模型/其他框架导出：静默，JSON 只给 class_id
+            }
+        }
+        ok = true; // 会话就绪，detect 门禁（修复：load 成功后此前未置位，ONNX detect 恒返 -1）
         cout << "OnnxYoloEngine: model loaded, input=" << m_in_h << "x" << m_in_w << endl;
         return true;
     }

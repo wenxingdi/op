@@ -3,6 +3,15 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-18（YOLO 方案B 落地：类别名自动识别 + 修复 ONNX detect 恒失败的 ok 门禁 bug）
+
+- **类别名自动识别（方案B 第 1 步）**：`OnnxYoloEngine::load` 成功创建会话后，自动读模型 metadata 的 `names` 键（ORT 1.19 `LookupCustomMetadataMapAllocated`），解析 ultralytics 嵌入的类别名字典（`{0: 'a', 1: 'b'}` / `{"0": "a"}` 两种 repr 兼容，UTF-8，索引空洞留空，≥4096 索引防御）填充标签表。显式 `--labels` 优先；无 metadata（旧模型/其他框架导出）保持空，JSON 只给 `class_id`。
+- **🔴 顺手修复潜伏 bug**：`Impl::ok` 从未被置 true，`detect()` 门禁 `if (!m_impl->ok) return -1` 导致 **ONNX 引擎加载成功后 detect 恒返 -1**（静默 ret=0）——自 ONNX 引擎引入以来该路径从未真正跑通过，旧测试全走失败分支所以零暴露。修复 = `load()` 成功路径 `ok = true`。
+- **端到端测试资产**：`scripts/gen_yolo_meta_test_model.py`（onnx+numpy 托管 venv 生成）产出 `tests/testdata/yolo_meta_test.onnx`——单 Constant 节点输出固定 [1,84,8400] v8 布局（全 anchor 类别 1 分数 0.99），metadata 嵌 `names`。新用例 `YoloOnnxTest.EndToEndAutoLoadsLabelsFromModelMetadata`：统一入口加载（无 --labels）→ detect → 断言 `class_id=1` 且 `label="target_cls"`。**YoloTest 10/10 PASS**。
+- 过程自纠：`sregex_iterator` 是 string 迭代器 typedef，直接喂 `const char*` 编译失败 → 先包 `std::string` 再迭代（独立小程序验证 8 组解析场景全过后才进主代码）。
+- 同步：`libop.h` 注释 · `doc/yolo.md`（detect 按标签过滤 Python 一行示例）· API 手册注解（899/899 覆盖保持）。
+- **基线**：**264 用例 · 232 PASS · 31 SKIP · 1 FAILED**（唯一 FAILED=WaitKeyScanAll 已知时序环境项），全量 1m26s 零回归。
+
 ### 2026-09-17（YOLO 统一入口：SetYoloEngine 直接吃 .onnx 模型路径，零接口变化）
 
 - **统一入口**：`SetYoloEngine("D:/xx/best.onnx", "", "--labels=...")` 一步到位——第一参数以 `.onnx` 结尾（大小写不敏感、兼容正反斜杠）且 `dll_name` 为空时，自动切进程内 ONNX 引擎并以该路径为模型文件，等价于旧写法 `SetYoloEngine("onnx", 模型路径, ...)`。旧写法/HTTP 模式（URL、yolo/yolo_http 别名）完全不受影响；`dll_name` 非空时保持旧语义（优先作模型路径）。

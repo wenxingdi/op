@@ -14,8 +14,18 @@ ret, json = op.YoloDetectFromFile(r"D:\test.png", 0.25, 0.45)
 ```
 
 - 按输出张量形状自动识别 YOLO 版本：v5 系（objectness）/ v8/v11 通道在前 / v8/v11 转置，标准 ultralytics `export format=onnx` 检测模型均可。
-- `argv` 支持：`--conf=0.25`（默认置信度）、`--iou=0.45`（默认 NMS IoU）、`--labels=a,b,c`（UTF-8 逗号分隔类别名）或 `--labels=@classes.txt`（每行一个类别，ultralytics 格式）。
+- **类别名自动识别**：ultralytics 导出的 ONNX 内嵌类别名 metadata，加载时自动读出——JSON 结果的 `label` 字段直接是模型自带类别名，`--labels` 一般不用传。仅当模型未嵌入 metadata（非 ultralytics 导出）时才需要 `--labels=a,b,c`（UTF-8 逗号分隔）或 `--labels=@classes.txt`（每行一个类别）兜底；显式 `--labels` 优先于 metadata。
+- `argv` 另支持：`--conf=0.25`（默认置信度）、`--iou=0.45`（默认 NMS IoU）。
 - 换模型只需再调一次 `SetYoloEngine(新路径, "", ...)`，旧会话自动释放。
+
+### detect 时按标签过滤
+
+`YoloDetect`/`YoloDetectFromFile` 返回全部类别，每条结果含 `class_id` 与 `label`，Python 侧按需过滤：
+
+```python
+ret, js = op.YoloDetectFromFile(r"D:\test.png", 0.25, 0.45)
+hits = [d for d in json.loads(js)["results"] if d["label"] in ("person", "car")]
+```
 
 ## HTTP 模式（外部服务）
 

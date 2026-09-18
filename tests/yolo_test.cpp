@@ -2,6 +2,10 @@
 
 #include "op_c_api.h"
 
+#include <filesystem>
+#include <fstream>
+#include <vector>
+
 using namespace test_support;
 
 TEST(YoloTest, SetYoloEngineAcceptsBaseUrlAndAliasArgs) {
@@ -84,6 +88,54 @@ TEST(YoloOnnxTest, UnifiedEntryAcceptsOnnxModelPathDirectly) {
 
     // dll_name 非空时保持旧语义（优先作模型路径），不会被统一入口改写
     EXPECT_EQ(0, op.SetYoloEngine(L"onnx", L"__missing_yolo_model__.onnx", L""));
+}
+
+// ---- 类别名自动加载（模型 metadata "names"，方案B：加载即识别，免 --labels）----
+
+// 定位 tests/testdata/yolo_meta_test.onnx（scripts/gen_yolo_meta_test_model.py 生成；缺失则跳过）
+static std::wstring FindYoloMetaTestModel() {
+    const auto cwd = std::filesystem::current_path();
+    const std::vector<std::filesystem::path> candidates = {
+        cwd / L"tests" / L"testdata" / L"yolo_meta_test.onnx",
+        cwd.parent_path() / L"tests" / L"testdata" / L"yolo_meta_test.onnx",
+        cwd.parent_path().parent_path() / L"tests" / L"testdata" / L"yolo_meta_test.onnx",
+        cwd.parent_path().parent_path().parent_path() / L"tests" / L"testdata" / L"yolo_meta_test.onnx",
+    };
+    for (const auto &candidate : candidates) {
+        if (std::filesystem::exists(candidate))
+            return candidate.wstring();
+    }
+    return L"";
+}
+
+// 端到端：统一入口加载 .onnx（无 --labels）→ 引擎自动读出 metadata 类别名 →
+// 检测 JSON 的 label 字段直接使用模型自带类别名
+TEST(YoloOnnxTest, EndToEndAutoLoadsLabelsFromModelMetadata) {
+    const std::wstring model = FindYoloMetaTestModel();
+    if (model.empty())
+        GTEST_SKIP() << "yolo_meta_test.onnx 缺失（scripts/gen_yolo_meta_test_model.py 生成）";
+
+    op::Op op;
+    ASSERT_EQ(1, op.SetYoloEngine(model.c_str(), L"", L""));
+
+    // 40x40 纯色 BMP 作为检测输入
+    const std::wstring bmp = GetTempBmpPath(L"__yolo_meta_input__.bmp");
+    {
+        const auto bytes = BuildBmp32TopDown(40, 40, std::vector<uchar>(40 * 40 * 4, 127));
+        std::ofstream out(std::filesystem::path(bmp), std::ios::binary);
+        ASSERT_TRUE(out.good());
+        out.write(reinterpret_cast<const char *>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    }
+
+    std::wstring json;
+    long ret = 0;
+    op.YoloDetectFromFile(bmp.c_str(), 0.25, 0.45, json, &ret);
+    DeleteFileW(bmp.c_str());
+
+    ASSERT_EQ(1, ret);
+    // 模型 metadata 嵌入 "{0: 'zero_cls', 1: 'target_cls'}"，固定输出命中类别 1
+    EXPECT_NE(std::wstring::npos, json.find(L"\"class_id\":1"));
+    EXPECT_NE(std::wstring::npos, json.find(L"\"label\":\"target_cls\""));
 }
 
 // onnx 切换后再切回 http：引擎选择器正常工作，detect 走 HTTP（无服务端 -> 失败 JSON 但不崩溃）

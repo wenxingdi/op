@@ -473,7 +473,9 @@ class OP_API Op {
     // （dll_name 留空）即自动切进程内 ONNX 引擎，等价于 ("onnx", 模型路径, argv)。
     // 旧写法仍兼容：engine 以 "onnx" 开头=进程内 ONNX（dll_name=模型路径，空=内置资源段模型）；
     // 否则=远程 HTTP（http(s):// 完整/基础 URL 或别名 yolo/yolo_http 等）。
-    // argv 空格分隔，ONNX 支持 --conf=0.25 --iou=0.45 --labels=a,b,c 或 --labels=@classes.txt。
+    // ONNX 类别名优先自动读取模型内嵌 metadata（ultralytics export 自带），无需 --labels；
+    // 无 metadata 或非 ultralytics 导出时才需要 --labels=a,b,c 或 --labels=@classes.txt 兜底。
+    // argv 空格分隔，ONNX 另支持 --conf=0.25 --iou=0.45（detect 传 <=0 时的默认阈值）。
     long SetYoloEngine(_In_ const wchar_t *path_of_engine, _In_ const wchar_t *dll_name, _In_ const wchar_t *argv);
     void YoloDetect(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
                     _Out_ std::wstring &retjson, _Out_ long *ret);
