@@ -3,7 +3,7 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
-### 2026-09-18（字库超集根治落地：匹配内核邻域净空检查，DICT_SUPERSET 闭环）
+### 2026-09-18（字库超集根治落地：匹配内核邻域净空检查，DICT_SUPERSET 闭环，`17b3716`）
 
 - **新增 `superset_adjacent_ink` 邻域净空检查**（ImageSearchAlgorithms.cpp，精确/模糊两条匹配路径同接）：full_match/part_match 命中后，除历史右侧列检查（rs < h/2）外，补查模板窗口**紧贴的上/下/左三条邻接线**——任一邻接线前景像素 >=2 点即判为超集子匹配拒绝。修掉"超集字借窗口外笔画反杀本尊"缺陷（太=大+点、犬=大+点、8=3+闭合影，命中时置信度 1.0 无法区分）。
 - **原理依据**：切字流水线（投影切分/字库制作）本身要求字/行间至少 1px 背景间隙，紧贴邻域的成块前景几乎只可能是同一字形的附加笔画；阈值容忍 1px 抗锯齿残留。
@@ -12,7 +12,7 @@
 - **回归用例 2 条**（image_color_test.cpp，犬=大+点模型）：字库只装 A 时屏幕上的 B 必须拒识且干净 A 不误杀；字库同装 A/B 时 B 必须命中 B。另有手册 Ocr 注解补邻域检查说明。
 - **影响面**：字库识别内核行为变更（Ocr/OcrEx/FindStr/FindStrEx/GetWords 系全部经过此内核），免字库 ONNX 路径不受影响。
 
-### 2026-09-18（OCR 挂起项 OC4/OC6 落地：Ocr 双路径返回值语义对齐 + 行切分参数文档化）
+### 2026-09-18（OCR 挂起项 OC4/OC6 落地：Ocr 双路径返回值语义对齐 + 行切分参数文档化，`76ee522`）
 
 - **OC4a · Ocr/OcrEx 免字库路径语义注明**：未装载字库时 color 参数不参与（直接对整幅区域原图识别），与 autoocr 系（先按颜色二值化）区分；libop.h 注释 + 手册注解注明，要按颜色识别引导用 AutoOcr 系。不改码（改行为有存量风险）。
 - **OC4b · 内部返回值对齐**（外部 COM/C-API/Python 均为 void，零外部影响）：`ImageSearchAlgorithms::Ocr` 原恒返 1（空结果也返 1）→ 改返实际命中块数 `ps.size()`；`ImageSearchService::OCR` 免字库路径原恒返 0 → 改返过滤后条数。与 OcrEx 两路径统一。已核全部消费方（仅 OpOcr.cpp:420 一处且丢弃返回值）。
@@ -21,7 +21,7 @@
 - **OC6 · autoocr_line 行切分硬编码文档化**：`kMaxInLineGap=3`（行间隙>3px 切段）/`kMinSegH=5`（段高<5px 丢弃）为写死阈值，libop.h + 手册注明，使用方须保证 ROI 行距/字高达标。代码已有命名常量+注释，不改。
 - **验证**：手册重生成 899/899 覆盖不变；全量回归与基线一致（见下）。
 
-### 2026-09-18（c_api/op 转发层排查落地：C 边界异常静默吞咽补 setlog，最后两个待排查模块闭环）
+### 2026-09-18（c_api/op 转发层排查落地：C 边界异常静默吞咽补 setlog，最后两个待排查模块闭环，`5df1a30`）
 
 - **c_api 10 处 catch-all 补 setlog**（op_c_api.cpp）：C 边界是异常最后一道闸，原来 10 处 `catch(...)` 只返 0/空串无任何线索，Python 侧出错完全无法诊断；而 COM 边界有 `guard_exceptions`（带日志）——两处策略不一致。现 5 个模板助手（call_int/call_intptr/call_string/call_json_string/call_memory）+ 5 个具名函数（OpCreate/OpFindPic/OpGetScreenData/OpGetScreenDataBmp/OpGetScreenFrameInfo）各补 `catch (const std::exception&)`（带 what）+ `catch(...)`（带函数名）双分支日志。零行为变更（返回值路径不变），新增 include `base/Utils.h` + `<exception>`。
 - **op 转发层（15 文件 121KB）核查结论：健康，无需改动**。OpInput 53 / OpOpenCv 35 / OpWindow 29 / OpOcr ~42 函数参数 null 安全、枚举解析容错、截屏助手偏移一致性均规范；异常策略分层一致（层内不重复 catch，COM 边界统一 guard）。
@@ -30,14 +30,14 @@
 - **验证**：nmake 增量通过（含 op_c_api_x64.dll）；全量回归 266 用例 · 259 PASS · 13 SKIPPED · 1 FAILED（仅 WaitKeyScanAll 环境项），与基线逐项一致。
 - **注意**：`bin/x64` 与 `bindings/python/op/bin/x64` 下的 DLL 是 09-17 的旧产物（gitignore，不由 _wb_build.py 部署），近几日提交（含本次）不在其中；最新 DLL 在 `build/nmake-x64-Release/libop/`。
 
-### 2026-09-18（字库制作其余函数：GetWordsNoDict 去重复二值化 + 两处静默点补日志，P2 批续）
+### 2026-09-18（字库制作其余函数：GetWordsNoDict 去重复二值化 + 两处静默点补日志，P2 批续，`5ed5881`）
 
 - **GetWordsNoDict 消除 N+1 次全区域二值化**（OpOcr.cpp）：外层已 `str2binaryfbk` 一次，循环里每字又调 `FetchWord`（内部 `str2pointbinaryfbk` 重扫整区域+去噪），N 字 = N+1 次扫描 → 改调 `FetchWordFromBinary` 直接复用 `_binary`，O(N)→O(1)。**行为顺带统一**：原实现首字用未去噪 _binary、其余字用去噪后重算结果，现全部用同一份。`FetchWordFromBinary` 声明从 private 提至 public（仅可见性，无签名变更）。
 - **RenameWordDict 数量不符补 setlog**：有效条目数 ≠ words 长度时原静默返 0 → 补一行（带两个数量）。
 - **NormalizeWordDict 坏行补 setlog**：解析失败的行原静默丢弃 → 补一行（带行号）。
 - **验证**：定向 4/4（NormalizeWordDictKeepsOnlyValidEntries / RenameWordDictUpdatesValidEntryNames / OcrFixture.GetWordsNoDict / WordResultParsing）；全量回归 266 用例 · 259 PASS · 13 SKIPPED · 1 FAILED（仅 WaitKeyScanAll 环境项），与基线逐项一致。
 
-### 2026-09-18（字库管理/制作排查落地：OC7 文档正名 + 两处静默点补日志，P2 批）
+### 2026-09-18（字库管理/制作排查落地：OC7 文档正名 + 两处静默点补日志，P2 批，`26738fd`）
 
 - **OC7 实锤并文档正名**：单参 `get_rois(min_word_h, vroi)`（ImageSearchAlgorithms.cpp:1462）判的是 `vrcx[j].width() >= min_word_h`——`ExtractWordRects`/`FetchWords` 的 `min_word_h` 参数**实为最小字宽**（不过滤高度；Ex 版才是宽高双过滤）。改行为会破坏现有调用 → 不改码，正名：libop.h 两处函数注释、API 手册注解（gen_api_reference.py 函数级 FetchWords/ExtractWordRects 条目加 ⚠️ 标注，899/899 覆盖不变）、OpOcr.cpp GetWordsNoDict 魔法数 5 补注释。
 - **FetchWordFromBinary 255 截断补 setlog**（ImageSearchService.cpp）：字模 w/h 为 uint8 上限 255，宽/高超限时静默裁掉右侧/下侧列行，用户会拿到半个字无感知 → 两个分支各补一行 setlog（提示收窄取模区域）。
@@ -45,7 +45,7 @@
 - **排查记录（P3 只记录不动）**：SetDict 失败路径不清私有槽（与"失败不动当前字库"语义一致）；文件版 read_binary_dict 缺内存版那样的头部预校验（损坏文件慢但不崩）；实例级字库成员无锁（大漠也不保证）；ClearDict 会遮蔽全局文件字库。
 - **验证**：nmake 增量通过；全量回归 266 用例 · 259 PASS · 6 SKIPPED · 1 FAILED（仅 WaitKeyScanAll 时序环境项），与基线逐项一致零回归。
 
-### 2026-09-18（OCR/YOLO HTTP 远程后端整体隐藏：YOLO 定调自训 ONNX 模型）
+### 2026-09-18（OCR/YOLO HTTP 远程后端整体隐藏：YOLO 定调自训 ONNX 模型，`196df8c`）
 
 - **决策**：YOLO 后期只依赖自训模型（`SetYoloEngine("xxx.onnx", ...)` 统一入口），不使用 HTTP 远程推理；OCR 同理（内置 PP-OCRv4 内嵌模型已够用）。HTTP 接口模式现阶段确定不需要，整体隐藏但**物理保留**，后期需要可一行恢复。
 - **隐藏方式（注释/条件宏，不删代码）**：
@@ -58,7 +58,7 @@
 - **文档**：API 手册 SetOcrEngine/SetYoloEngine 注解更新（http 与别名已移除说明），重新生成 api_reference.html。
 - **连带消项**：network 模块（原待排查清单 366 行）整体移出构建，待排查模块只剩 c_api、op 转发层。
 
-### 2026-09-18（免字库 OCR 引擎懒初始化：默认开箱即用）
+### 2026-09-18（免字库 OCR 引擎懒初始化：默认开箱即用，`9c4e585`）
 
 - **背景**：免字库三入口要求脚本先显式 `SetOcrEngine`，否则 `HttpOcrService::ocr` 因 `m_engine` 为空静默返回 -1 → 上层拼空串，不报错不弹框不写日志，排查时极易误判为颜色/二值化问题。全库无任何自动初始化路径（OpContext 构造/COM 注册/ImageSearchService 均查证）。
 - **落地**：`HttpOcrService::ocr/ocr_line` 在 `m_engine` 为空时懒初始化内置 ONNX 引擎（`init_unlocked(L"",L"",{})`，空=内置语义不变）。为此把 `init` 拆出锁内复用的 `init_unlocked`（调用方持锁），避免 `lock_guard` 下同线程重复加锁死锁。懒初始化失败只试一次（`m_lazy_failed` 标志），后续调用快速返回 -1 并打印一行提示；显式 `SetOcrEngine` 成功会清除失败记忆（`m_lazy_failed=false`）。加载失败的引擎实例同步 `reset` 不留（内部 ok=false 只会持续 -1）。
@@ -66,14 +66,14 @@
 - **回归用例**：`ImageColorTest.AutoOcrLazyInitsBuiltInEngine`——独立进程跑（引擎必为未初始化态）+ mem BMP 黑底白字 6× 缩放字形，首次 `AutoOcr` 隐式加载（日志 `OnnxOcrEngine: models loaded, keys=6623`）并产出识别结果。注意：像素字体具体字符不作硬断言（块状的 A 偶被读成 H，属模型行为），只断言"懒初始化就绪 + 管线出结果 + 不崩溃"。sim 须用默认档 0.7（onnx conf≈0.85+，传 1.0 全滤掉）。
 - 记忆修正：此前会话一直以为"autoocr 不需人工初始化"，经用户质疑后查证为误记，已更正。
 
-### 2026-09-18（免字库 OCR 支持 @背景色反白格式 + API 手册颜色格式统一）
+### 2026-09-18（免字库 OCR 支持 @背景色反白格式 + API 手册颜色格式统一，`d22a272`）
 
 - **免字库三入口支持 @背景色（A 项）**：autoocr / autoocr_line / autoocr_ex 原先裸调 `str2colordfs+bgr2binary`，`@` 前缀被剥掉后背景色被当前景色匹配 → 黑底白字图二值完全反转 → 字库兜底与免字库均识别不出（白字深底/反白 UI 场景不可用）。统一改走 `str2binaryfbk(color)`（按 `@` 自动分流 `bgr2binarybk`），与字库制作同一入口。零接口变化、无 @ 的前景色语义不变。
 - **回归用例**：`ImageColorTest.AutoOcrEntriesSupportBackgroundColorFormat`——mem BMP 黑底白字 + @000000 取模入字典，三入口 @ 格式均识别 "A"；对照1 前景格式不回归；对照2 无 @ 的 "000000" 按前景语义解析（二值反转识别不出），钉死语义不漂移。
 - **API 手册颜色格式纠错（C 项）**：全局 `color` 注解原写"OCR 系支持 前景-背景 如 9f2e3f-000000"——错误，`-` 后实为**偏色容差**（str2colordfs 按 `-` 切分，后段解析为容差）。已改"颜色-偏色（如 9f2e3f-303030），@ 开头为背景色模式"，OcrFromFile 的 color_format 同步修正。delta_color 两处"16 进制 BGR"错误标注已于上一轮改为 RGB hex RRGGBB 并附"与大漠相反"警告。
 - 过程自纠：同文件 3 处 Edit 并行发出触发写回竞态（项目记忆 15a 规则），仅 1 处落盘且测试半小时"修了但行为没变" → 改串行重发后正常。教训复验：**同文件多 Edit 必须串行 + 改完 Grep 复核**。
 
-### 2026-09-18（OCR 免字库/字库制作子域排查落地：OC1-OC3 + OC5）
+### 2026-09-18（OCR 免字库/字库制作子域排查落地：OC1-OC3 + OC5，`e015d4d`）
 
 - **OC1 模糊 OCR 加速**：`_bin_ocr(dict, sim)` 从"每个像素点遍历全字库"（O(W×H×N)）改为与精确版同构的加速结构——`sort_dict` 保证 (h desc, w desc, bit_cnt asc) 有序，按 (h,w) 分组后组内 bit_cnt 升序，先组级容限窗口过滤、再二分定位 `[cnt_src-tol, cnt_src+tol]` 候选窗口，只对窗口内候选做 `part_match`。字库越大收益越大，判定语义与旧版逐词版完全等价（窗口条件 = 旧版 `abs(cnt-bit_cnt) > tol` 的补集）。顺手删除残留未用变量 `int k = 0;`。
 - **OC2 字库加载线程安全**：`Dictionary::read_dict_dm` / `read_memory_dict_dm` 每行 `setlocale(LC_ALL, "")` + `mbstowcs`（setlocale 是进程全局状态，多线程同时加载字库互相干扰）→ 改 `MultiByteToWideChar(CP_ACP)`（与 `_string2ws` 同路，线程安全、零全局状态、失败行跳过）。Windows.h 经 `Utils.h → Types.h` 已可用。
@@ -82,7 +82,7 @@
 - 可选未做（记录在案）：OC4（OCR() 字库/免字库返回值语义混乱）· OC6（autoocr_line 行切分参数硬编码）· OC7（get_rois 参数名 min_word_h 实际过滤宽度）。
 - **基线**：Ocr*/ImageColorTest 83/83（含 sim=0.7~0.9 模糊路径真实字库用例）；全量 **264 用例 · 232 PASS · 31 SKIP · 1 FAILED**（唯一 FAILED=WaitKeyScanAll 已知时序环境项），1m31s 与上基线逐项一致零回归。
 
-### 2026-09-18（YOLO 方案B 落地：类别名自动识别 + 修复 ONNX detect 恒失败的 ok 门禁 bug）
+### 2026-09-18（YOLO 方案B 落地：类别名自动识别 + 修复 ONNX detect 恒失败的 ok 门禁 bug，`02983ac`）
 
 - **类别名自动识别（方案B 第 1 步）**：`OnnxYoloEngine::load` 成功创建会话后，自动读模型 metadata 的 `names` 键（ORT 1.19 `LookupCustomMetadataMapAllocated`），解析 ultralytics 嵌入的类别名字典（`{0: 'a', 1: 'b'}` / `{"0": "a"}` 两种 repr 兼容，UTF-8，索引空洞留空，≥4096 索引防御）填充标签表。显式 `--labels` 优先；无 metadata（旧模型/其他框架导出）保持空，JSON 只给 `class_id`。
 - **🔴 顺手修复潜伏 bug**：`Impl::ok` 从未被置 true，`detect()` 门禁 `if (!m_impl->ok) return -1` 导致 **ONNX 引擎加载成功后 detect 恒返 -1**（静默 ret=0）——自 ONNX 引擎引入以来该路径从未真正跑通过，旧测试全走失败分支所以零暴露。修复 = `load()` 成功路径 `ok = true`。
@@ -91,7 +91,7 @@
 - 同步：`libop.h` 注释 · `doc/yolo.md`（detect 按标签过滤 Python 一行示例）· API 手册注解（899/899 覆盖保持）。
 - **基线**：**264 用例 · 232 PASS · 31 SKIP · 1 FAILED**（唯一 FAILED=WaitKeyScanAll 已知时序环境项），全量 1m26s 零回归。
 
-### 2026-09-17（YOLO 统一入口：SetYoloEngine 直接吃 .onnx 模型路径，零接口变化）
+### 2026-09-17（YOLO 统一入口：SetYoloEngine 直接吃 .onnx 模型路径，零接口变化，`7eb879a`）
 
 - **统一入口**：`SetYoloEngine("D:/xx/best.onnx", "", "--labels=...")` 一步到位——第一参数以 `.onnx` 结尾（大小写不敏感、兼容正反斜杠）且 `dll_name` 为空时，自动切进程内 ONNX 引擎并以该路径为模型文件，等价于旧写法 `SetYoloEngine("onnx", 模型路径, ...)`。旧写法/HTTP 模式（URL、yolo/yolo_http 别名）完全不受影响；`dll_name` 非空时保持旧语义（优先作模型路径）。
 - 实现：`OpYolo.cpp` SetYoloEngine 入口做扩展名识别与参数改写（+`has_onnx_model_extension` 助手），YoloDetector/引擎层不动。
@@ -99,7 +99,7 @@
 - 测试：新增 `YoloOnnxTest.UnifiedEntryAcceptsOnnxModelPathDirectly`——缺失路径/大写扩展名/乱码模型均优雅失败 ret=0，且 dll_name 非空时旧语义不被改写。YoloTest 9/9 PASS。
 - 接口面：COM 223 / C-API 227 / Python 225 三层零变化（api_surface_diff 校验通过）。
 
-### 2026-09-17（opencv 模块排查闭环：CV1-CV4 + OpenCV 测试链修复）
+### 2026-09-17（opencv 模块排查闭环：CV1-CV4 + OpenCV 测试链修复，`55d5a65`）
 
 - **排查结论**：无 P0。线程安全设计扎实（模板缓存 shared_mutex 读写分离 / ORB thread_local / 线程池 magic static），六条匹配路径（直搜/金字塔/条带/缩放/特征/边缘/形状）架构清晰，测试素材覆盖真实照片。发现 4 项落地：
 - **CV1（P1 性能）**：`collectRegionThresholdMatches` 逐像素全扫描 → 复用峰值抑制版 `collectPeakCandidates`，低阈值下不再产生海量相邻命中点（后续 suppressOverlapping 反正要合并）。**首版引入两个 bug 均已修**：①`reserve(SIZE_MAX)` 触发 vector too long——预分配改有界 `min(max, 4096)`；②见 CV3。
@@ -109,7 +109,7 @@
 - **测试链修复（本次关键发现）**：tests/CMakeLists.txt 硬编码 `x64/vc18/staticlib`，本机 OpenCV 安装是 vc17 → **OpenCvTest 26 用例自 a6fbe45 起从未编进 op_test**，此前基线 245 从未包含它们。修法：工具集目录 vc18→vc17 自动探测。重新编入后 22/22 PASS（含新增 MatchTemplateScaleEvictsStaleCache：单调用传 21+1 档 scale 触发逐出后仍命中）。
 - **基线**：全量（-WgcTest.*）**262 用例 · 230 PASS · 31 SKIP · 1 FAILED**（唯一 FAILED=MouseKeyTest.WaitKeyScanAllWithWaitFindsKey，已知 WaitKey 家族时序环境项；5 个 OpenCvTest 真实素材用例因素材缺失 SKIP 与 OCR 一致）。上一基线 245/218/26/1 → 差值 +17（OpenCvTest 新编入 22 − 素材 SKIP 5）。零 API 变化。
 
-### 2026-09-17（API 参考手册参数注解层补齐：全函数 100% 覆盖）
+### 2026-09-17（API 参考手册参数注解层补齐：全函数 100% 覆盖，`490cb29`；生成器初版 `6a3754c`）
 
 - **背景**：上一版（`1a86b71`）注解只覆盖 37 个函数的 63 个参数格，用户要求全部函数加上。
 - **生成器改动**（`scripts/gen_api_reference.py`，仅文档生成层，零 API/代码变化）：
@@ -120,7 +120,7 @@
 - **验证**：生成 `docs/api_reference.html`（223 接口/292KB），AST 查重零重复键，参数覆盖脚本断言 missing=[]。
 - 注意：个别描述性条目（如 CvLoadTemplateList 整体失败行为、GetScreenFrameInfo）以源码实现为准；接口面变更后重跑本脚本即可。
 
-### 2026-09-17（ipc 模块排查闭环：IP1-IP4，纯卫生零行为变化）
+### 2026-09-17（ipc 模块排查闭环：IP1-IP4，纯卫生零行为变化，`29160c3`）
 
 - **排查结论**：无 P0/P1。重点设计项核查均健康——多开按 `op_*_<hwnd>` 命名隔离不串数据；宿主崩溃残锁靠 `FrameInfo` 校验和 + hwnd/宽高三重校验兜底（撕裂帧过不了校验和即判"无帧"）；Pipe reader 阻塞 ReadFile + `CancelSynchronousIo` 防孙进程继承句柄致 join 挂死；CommandRunner 超时 `terminate_process_tree` 杀整棵进程树不留孤儿。
 - **IP1**：`Pipe.cpp` 删除重复 SAFE_DELETE（死代码）。
@@ -129,7 +129,7 @@
 - **IP4**：删除 `SharedMemory::at<T>` 死代码（全库零调用，实现按字节索引强转怪异；`data<T>` 保留）。
 - **遗留记录**：Pipe 基类本身全库零调用（仅 CommandRunner 派生用），上游大漠遗留"连接外部识别程序"设计，本仓库已内置 OCR/YOLO——保留不动，未来可考虑整体移除。
 
-### 2026-09-17（image 模块排查闭环：I1-I3）
+### 2026-09-17（image 模块排查闭环：I1-I3，`3aff4aa`）
 
 - **I1（P1）异常穿出 COM 边界**：`Image::create` 尺寸非法/溢出/realloc 失败时 `throw(const char*)`、`ImageBin::create` 抛 `bad_alloc`，全库仅 OpImage 一处局部 catch，截图链与直调入口均无兜底 → 异常穿出 COM 方法 = 宿主进程 terminate。修法：①`OpCaptureHelpers.h` 新增 `guard_exceptions`（catch std::exception/const char*/...，setlog 后吞掉，出参保持调用方已初始化值）；②`capture_region` 整体包裹（覆盖全部截图链入口）；③直调图像入口逐个包裹——OpImage 的 LoadPic/LoadMemPic/GetPicSize/MatchPicName、OpOcr 的 OcrFromFile/AutoOcrFromFile/OcrAutoFromFile（经核查字典解析无 throw，SetDict 系不用包）。
 - **I2（P1）FindPic 系模板缺失静默**：`files2mats` 路径解析失败/解码失败/建模板失败三处 continue，调用方无法区分 ret=-1 是"没找到"还是"模板根本没加载"。三处补 setlog（含解析后全路径）。注意 .mem 前缀（LoadMemPic 名）路径解析失败也走第一条日志，属正常语义。
@@ -139,7 +139,7 @@
 - **记录不排期**（I6）：`record_sum/region_sum` int 累加，5K+ 屏幕灰度和溢出 21.4 亿 → FindPic quick-check 误判。当前 4K 内安全。
 - **测试**：image_color_test.cpp +3——FindMultiColorSkipsMalformedOffsetSegments（畸形段跳过且结果确定，setlog 实测可见）、FindPicWithMissingTemplateDoesNotMatch、DirectImageEntriesFailSoft。零 API 变化。
 
-### 2026-09-17（LayoutWindows 加固 + 层叠布局）
+### 2026-09-17（LayoutWindows 加固 + 层叠布局，`25eab13`）
 
 - **层叠布局（layout_type=2，Cascade）**：第 i 个窗口左上角 = 起点 + i×(gap_x, gap_y)，尺寸取各自值；gap 语义转为层叠步距（经典值 32，标题栏逐层露出便于点击切换）。`Type` 枚举 + `Calculate` 分支 + parse case，**接口签名零变化**（layout_type 本就 long 透传，COM/idl/C-API/Python 全不动）。
 - **#1 全路径 setlog**：非法 layout_type/size_mode/anchor_mode、句柄串空/含非法项/含 0 或负值、Uniform 尺寸 <50×50、Apply 每窗 IsWindow/SetWindowPos/尺寸/位置校验失败——原先全部静默 ret=0，现在原因落 `__op.log`（失败时注明"前 k 个可能已移动"）。
@@ -148,7 +148,7 @@
 - **测试**：`window_state_test.cpp` +3——Cascade 步距判别力（3 窗实测左上角 = 起点+i×32）、句柄串含 0 拒绝、非法 layout_type 拒绝。WindowStateTest 10/10。
 - libop.h LayoutWindows 注释补格式/失败语义/半应用说明。
 
-### 2026-09-17（RunApp 支持 .lnk 快捷方式）
+### 2026-09-17（RunApp 支持 .lnk 快捷方式，`2be989e`）
 
 - **背景**：RunApp 底层直调 `CreateProcessW`，不解析 .lnk（非 PE 文件），实测传快捷方式 mode=0/1 均 ret=0。用户拍板走 ShellExecuteEx 方案。
 - **实现**（`WindowProcess.cpp` `RunApp` 开头分支）：检测后缀 `.lnk`（不区分大小写、容忍尾部引号/空格）→ `ShellExecuteExW`（`SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI`，verb=open）由 Shell 解析目标/参数/工作目录。非 .lnk 路径原逻辑一行不动。
@@ -199,7 +199,7 @@
 - **验证**：`UtilsTest` 10/10（3 条新用例全 PASS）；`MouseKeyTest.*` 42 RUN / 41 PASS / 1 FAILED（FAILED = 既有 `WaitKeyScanAllWithWaitFindsKey` 环境项）；全量 **203 用例 / 170 PASS / 26 SKIP / 7 FAILED**，FAILED 与基线**同名同数**（6 WGC + WaitKey），且 203-200=3 差值恰为 3 条新用例 → 零回归。全量 1m30s 自行退完（上一轮 1h6m 为环境偶发，未复现）。首编曾因 `DelayJitter` 声明缺默认参数 C2660 返工一次。
 - **备注**：首轮回全量后 `git status` 发现键盘两文件漏改（`WinKeyboard.cpp`/`DxKeyboard.cpp` 共 4 处 `KEYPAD_*` 仍是 `::Delay`），已补改并重编重跑，最终数字为补改后结果。
 
-### 2026-09-17（测试进程退出挂起修复）
+### 2026-09-17（测试进程退出挂起修复，`60fc909`）
 
 - **现象（系统性，非偶发）**：op_test 全量/部分套件跑完后 gtest 总结已打印、结果已落盘，但进程不退出（此前多轮全量均为手动杀进程）。逐套件二分定位：**HandleCompatTest / MouseKeyTest / ImageColorTest / WgcTest** 四个建"可见+焦点窗口"的套件挂起（HandleCompatTest 最稳，5 挂 4），纯逻辑套件全正常。
 - **根因（环境）**：窗口抢焦点后 Windows 把本机 IME（**搜狗 SogouPY.ime**）+ TextInputFramework 载入测试进程；挂起进程 tasklist /V 显示 `OleMainThreadWndName / Not Responding`——COM/OLE 在 ExitProcess 分离阶段被第三方 IME 卡死。op 代码本身无缺陷。
@@ -209,7 +209,7 @@
 
 ## [Unreleased] — 2026-09
 
-### 2026-09-17（键鼠增强与加固批次）
+### 2026-09-17（键鼠增强与加固批次，`156015f`）
 
 - **dx 字符输入补齐**（`libop/hook/InputHook.cpp`）：`OP_WM_CHAR` 不再受 WINDOWMSG 通道开关约束——该开关只约束鼠标/键盘事件的窗口消息镜像，而 WM_CHAR 是向 GDI/Qt 类目标输入文本的唯一载体。修复前绑 `dx.dinput`/`dx.raw` 后 `KeyPressStr` 返回 1 但目标收不到字符（静默无效）。新用例 `DxModeKeyPressStrDeliversCharOutsideWindowMsgChannel`。
 - **bind 后缀防污染**（`libop/binding/BindingSession.*`）：新增 `_dx_attr_from_suffix` 来源标记，上次带后缀的绑定不再把掩码残留到下一次纯 `dx` 绑定（无后缀且有标 → 回默认全开；`SetDxAttr` 显式设置优先）。新用例 `BindWindowDxSuffixDoesNotPolluteSessionAttr`。
@@ -252,7 +252,7 @@
 - **绑定层收口**：`21108d6` Go 补 `SetDxAttr`/`GetDxAttr`（本机无 Go 工具链，未 `go build`）；`6b0af21` SWIG 4.4.1 重新生成，补齐落后契约的 **12 个方法**（wrapper `_wrap_Op_*` 223→235，`_pyop.pyd` 424,960 B，`import _pyop` 后 235 个 `Op_*` 全可见）；`228751a` 四类验证工具入库（`api_surface_diff.py` / `five_layer_matrix.py` / `check_swig_sync.py` / `dx_probe.py` / `dx_target.cpp` + `build_dx_target.py`）。
 - **DX 门槛 B（按"够用"原则降级为文档化，未做）**：目标进程须已加载 `dinput8.dll`，否则 `hook_dinput()` 失败即**整体拒绝**输入绑定（`InputHook.cpp:883-890`，P1-9 引入），无辜牵连 `dx.raw` / `dx.win`。改"按需判定"需先把期望通道掩码传进 `SetInputHook`（现第二参数被忽略），属**增强而非必需**。
 
-### 2026-09-16（base 修复补针对性测试 + 判别力验证，2文件）
+### 2026-09-16（base 修复补针对性测试 + 判别力验证，2文件，`71cf822`）
 
 - **背景**：73dce39 的四项修复此前只有"编译 + 全量回归"验证（证明未引入回归，未证明修复行为生效）；原 `tests/utils_test.cpp` 仅 2 个 happy-path 用例（ThreadPool(4) / divideBlock(2)）。
 - **新增 5 个回归用例**（utils_test.cpp 2→7）：S3 `ThreadPool(0)`（用 wait_for 防挂死）、S1 `count<=0` 清空 + `count>span` clamp、S2 hex2bin 小写、B1 setlog 宽版不再二次解析（**比对 `__op.log` 内容而非返回值**——旧实现同样返回 1）。
@@ -260,6 +260,28 @@
 - **判别力验证（回退对照，实证）**：`git restore --source=73dce39^` 回退 base 重编实测 —— B1 用例**进程中断**（UB 实致崩溃，非理论风险）、S1 zero-count 触发 `Assertion failed: count > 0`（Types.h:99，EXIT=3）、S1 count>span FAIL（size=20≠10 + 20 个 0 宽块）、S2 FAIL（'a'=42/'f'=47 恰为 c-'A'+10）、S3 FAIL（wait_for 5s 超时）。恢复后 7/7 PASS。**5/5 捕获旧缺陷，判别力成立**。
 - **附带发现**：op_test（`/MT`、**无 NDEBUG**）与生产（`/MD`、`/DNDEBUG`）编译标志不一致 → S1 在测试中表现 assert 中止、生产中才是除零（报告"release 除零"表述成立）；测试对跨 DLL 内存传递无覆盖（观察项）。
 - 验证：全量回归 **187 用例 / 151 PASS / 35 SKIP / 1 FAILED（已知 MouseKey）= 零回归**。
+
+### 2026-09-17（文档/整理类提交 hash 汇总补记）
+
+> 以下提交的内容本身就是文档/整理动作（多数已并入上方各批次条目正文），不单独展开，集中登记提交号：
+
+| 提交 | 内容 |
+|------|------|
+| `fb447e2` | 模块排查总纲——逐模块五步闭环，17 模块档案+体检清单 A-H+严格金字塔四批序 |
+| `cd9199c` | 收官小结——27 提交/106 文件/+6193-1078，A-D 真机闭环，P1/P2 清零 |
+| `967c413` | WgcCapture 批3 改动真机复核 10/10 PASS 关闭遗留 |
+| `7d1b56e` | SWIG 通道保留作编译型备选（用户拍板，不退役） |
+| `ea54241` | CHANGELOG 记 op-capi DLL 预置 6dd9e57（双绑定澄清+可安装化） |
+| `2c48143` | doc2 验收记录(md) 纳入 git 版本历史 |
+| `2abc08d` | CHANGELOG 记录四处静默失败补日志 + DPI 检测（内容见 2026-09-16 条目） |
+| `a08e36b` | CHANGELOG 记录 DX 注入崩溃闭环(方案A1) + 绑定层收口（内容见 2026-09-16 条目） |
+| `aae4c38` | 回填 MoveR 收口条目提交号与全量回归终值（内容见 MoveR 收口条目） |
+| `5b4cbc6` | 记录 2026-09-17 dx Hook 生命周期修复与测试基线更新（内容见 dx Hook 条目） |
+| `6a8a155` | 回填 window 排查批次 hash 74f8e70 |
+| `38ff75e` | CHANGELOG 补记 RunApp .lnk 支持 |
+| `6007ee6` | CHANGELOG 补记 LayoutWindows 层叠与加固 |
+| `c945fb0` | CHANGELOG 补记 image 模块排查闭环 |
+| `6b113be` | 全项目整理——docs/ 时间线归档 + workbench/ 中间产物隔离 |
 
 ### 2026-09-09（模块排查·批1 base 修复，4文件 +54/-30）
 
