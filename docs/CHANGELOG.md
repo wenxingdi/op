@@ -3,6 +3,13 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-18（字库制作其余函数：GetWordsNoDict 去重复二值化 + 两处静默点补日志，P2 批续）
+
+- **GetWordsNoDict 消除 N+1 次全区域二值化**（OpOcr.cpp）：外层已 `str2binaryfbk` 一次，循环里每字又调 `FetchWord`（内部 `str2pointbinaryfbk` 重扫整区域+去噪），N 字 = N+1 次扫描 → 改调 `FetchWordFromBinary` 直接复用 `_binary`，O(N)→O(1)。**行为顺带统一**：原实现首字用未去噪 _binary、其余字用去噪后重算结果，现全部用同一份。`FetchWordFromBinary` 声明从 private 提至 public（仅可见性，无签名变更）。
+- **RenameWordDict 数量不符补 setlog**：有效条目数 ≠ words 长度时原静默返 0 → 补一行（带两个数量）。
+- **NormalizeWordDict 坏行补 setlog**：解析失败的行原静默丢弃 → 补一行（带行号）。
+- **验证**：定向 4/4（NormalizeWordDictKeepsOnlyValidEntries / RenameWordDictUpdatesValidEntryNames / OcrFixture.GetWordsNoDict / WordResultParsing）；全量回归 266 用例 · 259 PASS · 13 SKIPPED · 1 FAILED（仅 WaitKeyScanAll 环境项），与基线逐项一致。
+
 ### 2026-09-18（字库管理/制作排查落地：OC7 文档正名 + 两处静默点补日志，P2 批）
 
 - **OC7 实锤并文档正名**：单参 `get_rois(min_word_h, vroi)`（ImageSearchAlgorithms.cpp:1462）判的是 `vrcx[j].width() >= min_word_h`——`ExtractWordRects`/`FetchWords` 的 `min_word_h` 参数**实为最小字宽**（不过滤高度；Ex 版才是宽高双过滤）。改行为会破坏现有调用 → 不改码，正名：libop.h 两处函数注释、API 手册注解（gen_api_reference.py 函数级 FetchWords/ExtractWordRects 条目加 ⚠️ 标注，899/899 覆盖不变）、OpOcr.cpp GetWordsNoDict 魔法数 5 补注释。

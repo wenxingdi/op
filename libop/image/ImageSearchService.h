@@ -79,6 +79,9 @@ class ImageSearchService : public ImageSearchAlgorithms {
 
     std::wstring FetchWord(rect_t rc, const wstring &color, double sim, const wstring &word);
 
+    // 取模（单字）：直接基于当前已二值化的 _binary，不再截屏/二值化（GetWordsNoDict 等批量场景用）
+    std::wstring FetchWordFromBinary(rect_t rc, const wstring &word);
+
     long ExtractWordRects(const wstring &color, double sim, long min_word_h, std::vector<rect_t> &rects);
 
     long ExtractWordRectsEx(const wstring &color, double sim, long min_word_w, long min_word_h, long padding,
@@ -173,7 +176,6 @@ class ImageSearchService : public ImageSearchAlgorithms {
     void str2pointbinaryfbk(const wstring &color);
     void str2pointbinaryfbk(const wstring &color, double sim);
     void ApplyBinaryPreprocess();
-    std::wstring FetchWordFromBinary(rect_t rc, const wstring &word);
     long FetchWordsFromBinary(const wstring &words, const std::vector<rect_t> &rects, std::wstring &out_str);
     std::shared_ptr<Dictionary> ActiveDict(int idx);
     Dictionary &MutablePrivateDict(int idx);

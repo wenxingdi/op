@@ -720,13 +720,15 @@ long ImageSearchService::NormalizeWordDict(const wstring &dict_info, std::wstrin
     out_str.clear();
 
     long valid_count = 0;
-    for_each_dict_line(dict_info, [&](long, const std::wstring &item) {
+    for_each_dict_line(dict_info, [&](long item_index, const std::wstring &item) {
         word1_t word;
         if (dict_entry_importer::parse_text_dict_entry(item, word)) {
             if (!out_str.empty())
                 out_str += L"\n";
             out_str += word.to_string();
             ++valid_count;
+        } else {
+            setlog(L"NormalizeWordDict: line %ld dropped (unparseable dict entry)", item_index + 1);
         }
     });
 
@@ -743,8 +745,11 @@ long ImageSearchService::RenameWordDict(const wstring &dict_info, const wstring 
             entries.push_back(word);
     });
 
-    if (entries.empty() || entries.size() != words.size())
+    if (entries.empty() || entries.size() != words.size()) {
+        setlog(L"RenameWordDict: %zu valid dict entr(ies) but words has %zu char(s), they must be equal; returns empty",
+               entries.size(), words.size());
         return 0;
+    }
 
     for (size_t i = 0; i < entries.size(); ++i) {
         entries[i].set_chars(std::wstring(1, words[i]));
