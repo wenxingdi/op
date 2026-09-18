@@ -1537,6 +1537,33 @@ inline void fill_rect(ImageBin &record, const rect_t &rc) {
     }
 }
 
+// 邻域净空检查（字库超集根治）：模板窗口"紧贴"的上/下/左三条邻接线存在前景像素（>=2 点）
+// 时判为超集子匹配并拒绝。典型场景：字库中 B 的点集是 A 的超集（太=大+点、犬=大+点），
+// 屏幕上出现 B 时，A 的模板窗口内逐位全对（多出的笔画落在窗口外），会借窗口外笔画
+// 以置信度 1.0 反杀本尊。依据：切字流水线（投影切分/字库制作）本身要求字/行间至少 1px
+// 背景间隙，紧贴邻域的成块前景几乎只可能是同一字形的附加笔画；容忍 1px 抗锯齿残留。
+// 注：右侧邻域沿用历史检查（rs < h/2），此处补齐另外三边；阈值刻意从宽，不追求四边对称。
+// 已知取舍：行间/字间 0 间隙（二值化后笔画相连）的文本上下字都会被拒识，需保证 >=1px 间隙。
+static inline bool superset_adjacent_ink(const ImageBin &binary, const rect_t &rc) {
+    int ink = 0;
+    if (rc.y1 > 0)
+        for (int x = rc.x1; x < rc.x2; ++x)
+            ink += binary.at(rc.y1 - 1, x);
+    if (ink > 1)
+        return true;
+    ink = 0;
+    if (rc.y2 < binary.height)
+        for (int x = rc.x1; x < rc.x2; ++x)
+            ink += binary.at(rc.y2, x);
+    if (ink > 1)
+        return true;
+    ink = 0;
+    if (rc.x1 > 0)
+        for (int y = rc.y1; y < rc.y2; ++y)
+            ink += binary.at(y, rc.x1 - 1);
+    return ink > 1;
+}
+
 int binarySearch(const word1_t a[], int bidx, int eidx, int target) // 循环实现
 {
     int low = bidx, high = eidx, middle;
@@ -1670,6 +1697,13 @@ void ImageSearchAlgorithms::_bin_ocr(const Dictionary &dict, std::map<point_t, o
                                 rs += _binary.at(k, crc.x2);
                         }
                         if (rs < it.info.h / 2) {
+                            if (superset_adjacent_ink(_binary, crc)) {
+                                // 上/下/左邻域紧贴前景 → 超集子匹配，拒绝并尝试其他条目
+                                //（必须清 matched，否则最后一个候选被拒后残留 1，会跳出尺寸组循环，
+                                // 导致后续更大的超集本尊条目失去匹配机会）
+                                matched = 0;
+                                continue;
+                            }
                             ocr_rec_t ocr_res;
                             ocr_res.left_top = pt;
                             ocr_res.right_bottom = point_t(crc.x2, crc.y2);
@@ -1783,6 +1817,8 @@ void ImageSearchAlgorithms::_bin_ocr(const Dictionary &dict, double sim, std::ma
                             rs += _binary.at(k, crc.x2);
                     }
                     if (rs < it.info.h / 2) {
+                        if (superset_adjacent_ink(_binary, crc))
+                            continue; // 超集子匹配拒绝（同精确版）
                         ocr_rec_t ocr_res;
                         ocr_res.left_top = pt;
                         ocr_res.right_bottom = point_t(crc.x2, crc.y2);

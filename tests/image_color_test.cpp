@@ -1756,6 +1756,96 @@ TEST(ImageColorTest, FindStrKeepsAntialiasedTextWithinTolerance) {
     EXPECT_EQ(y, 1);
 }
 
+// 超集根治回归（DICT_SUPERSET）：字形 B = A + 紧贴的附加笔画（犬=大+点 模型）。
+// 字库只装 A 时，屏幕上出现 B 不允许被 A 借窗口外笔画匹配（反杀本尊）；
+// 干净 A 图必须仍可识别（不误杀）；字库同时有 A/B 时 B 必须命中 B。
+namespace {
+
+void PaintSupersetB(vector<uchar> &pixels, int width) {
+    PaintGlyphA(pixels, width, 0, 0, 0x00, 0x00, 0x00);
+    // 附加 2px 笔画紧贴 A 框下方（y=5，0 间隙）——模拟"太=大+点"的超集关系
+    PaintPixel(pixels, width, 1, 5, 0x00, 0x00, 0x00);
+    PaintPixel(pixels, width, 2, 5, 0x00, 0x00, 0x00);
+}
+
+} // namespace
+
+TEST(ImageColorTest, DictOcrRejectsSupersetStrokeBelowGlyph) {
+    op::Op op;
+    long ret = 0;
+    const int width = 7;
+    const int height = 8;
+
+    auto clean_a = MakePixels(width, height);
+    PaintGlyphA(clean_a, width, 0, 0, 0x00, 0x00, 0x00);
+    SetMemBmp(op, width, height, clean_a, ret);
+    ASSERT_EQ(ret, 1);
+
+    wstring entry_a;
+    op.FetchWord(0, 0, width, height, L"000000-000000", L"A", entry_a);
+    ASSERT_EQ(entry_a, L"A$4,3,8$5E0E");
+    op.ClearDict(0, &ret);
+    ASSERT_EQ(ret, 1);
+    op.AddDict(0, entry_a.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+    op.UseDict(0, &ret);
+    ASSERT_EQ(ret, 1);
+
+    // 屏幕上是 B（A+紧贴下笔画）：A 模板窗口内逐位全对、多出的笔画在窗口外，
+    // 修复前会以置信度 1.0 误识为 A；邻域净空检查后必须拒识
+    auto superset = MakePixels(width, height);
+    PaintSupersetB(superset, width);
+    SetMemBmp(op, width, height, superset, ret);
+    ASSERT_EQ(ret, 1);
+    wstring text;
+    op.Ocr(0, 0, width, height, L"000000-000000", 1.0, text);
+    EXPECT_TRUE(text.empty()) << "subset template must not match superset glyph via adjacent ink below";
+
+    // 干净 A 图仍可识别（不误杀正常字形）
+    SetMemBmp(op, width, height, clean_a, ret);
+    ASSERT_EQ(ret, 1);
+    op.Ocr(0, 0, width, height, L"000000-000000", 1.0, text);
+    EXPECT_EQ(text, L"A");
+}
+
+TEST(ImageColorTest, DictOcrMatchesSupersetEntryWhenBothInDict) {
+    op::Op op;
+    long ret = 0;
+    const int width = 7;
+    const int height = 8;
+
+    auto clean_a = MakePixels(width, height);
+    PaintGlyphA(clean_a, width, 0, 0, 0x00, 0x00, 0x00);
+    auto superset = MakePixels(width, height);
+    PaintSupersetB(superset, width);
+
+    wstring entry_a, entry_b;
+    SetMemBmp(op, width, height, clean_a, ret);
+    ASSERT_EQ(ret, 1);
+    op.FetchWord(0, 0, width, height, L"000000-000000", L"A", entry_a);
+    SetMemBmp(op, width, height, superset, ret);
+    ASSERT_EQ(ret, 1);
+    op.FetchWord(0, 0, width, height, L"000000-000000", L"B", entry_b);
+    ASSERT_EQ(entry_a, L"A$4,3,8$5E0E");
+    ASSERT_FALSE(entry_b.empty());
+
+    op.ClearDict(0, &ret);
+    ASSERT_EQ(ret, 1);
+    op.AddDict(0, entry_a.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+    op.AddDict(0, entry_b.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+    op.UseDict(0, &ret);
+    ASSERT_EQ(ret, 1);
+
+    // 屏幕上的 B 必须命中 B：A 子匹配被邻域检查拒绝后，机会留给超集本尊条目
+    SetMemBmp(op, width, height, superset, ret);
+    ASSERT_EQ(ret, 1);
+    wstring text;
+    op.Ocr(0, 0, width, height, L"000000-000000", 1.0, text);
+    EXPECT_EQ(text, L"B") << "superset glyph must match its own entry, not the subset one";
+}
+
 TEST(ImageColorTest, FindStrSupportsColoredTextWithChannelTolerance) {
     op::Op op;
     long ret = 0;

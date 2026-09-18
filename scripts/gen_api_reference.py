@@ -590,7 +590,7 @@ PARAM_DOCS = {
     "GetWordResultCount": {"result": "GetWordsNoDict 等的结果串", "ret": "结果条目数（按 / 计数）"},
     "GetWordResultPos": {"result": "结果串", "index": "第几条（从 0）", "x": "出参：横坐标", "y": "出参：纵坐标"},
     "GetWordResultStr": {"result": "结果串", "index": "第几条（从 0）", "et_str": "出参：该条的文字"},
-    "Ocr": {"et_str": "识别出的纯文本；字库路径按 color 二值化，免字库路径 color 不参与（整幅区域直识别，按颜色识别请用 AutoOcr 系）"},
+    "Ocr": {"et_str": "识别出的纯文本；字库路径按 color 二值化，免字库路径 color 不参与（整幅区域直识别，按颜色识别请用 AutoOcr 系）；字库匹配含邻域净空检查——字形紧贴边（&lt;1px 间隙）有附加笔画时拒识（防超集字反杀，如 犬≠大）"},
     "OcrEx": {"et_str": "逐块结果串：<code>\"x,y,文字|x,y,文字|...\"</code>；免字库路径同 Ocr 语义（color 不参与）"},
     "AutoOcr": {"et_str": "免字库纯文本：按 color 颜色二值化（支持 <code>@背景色</code> 反白格式）后送内置引擎识别，非自动阈值"},
     "AutoOcrLine": {"et_str": "免字库纯文本（各行文本直接拼接，无分隔符无坐标）：水平投影按行切段后逐行识别；行切分阈值硬编码——行间隙>3px 切段、段高<5px 丢弃，ROI 行距过近或字高过小会被合并/丢弃"},
