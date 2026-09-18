@@ -1710,7 +1710,22 @@ void ImageSearchAlgorithms::_bin_ocr(const Dictionary &dict, double sim, std::ma
         w_max = max(w_max, it.info.w);
         h_max = max(h_max, it.info.h);
     }
-    // int matched = 0;
+    // 与精确版共用加速结构：sort_dict 已按 (h desc, w desc, bit_cnt asc) 排序，
+    // 按 (h,w) 分组后组内 bit_cnt 升序，二分定位候选窗口，不再对每个像素点全词库扫描。
+    auto &vword = dict.words;
+    struct word_group {
+        int h, w;
+        size_t begin, end; // vword[begin, end)，组内 bit_cnt 升序
+    };
+    std::vector<word_group> groups;
+    for (size_t i = 0; i < vword.size();) {
+        size_t j = i + 1;
+        while (j < vword.size() && vword[j].info.h == vword[i].info.h && vword[j].info.w == vword[i].info.w)
+            ++j;
+        groups.push_back({vword[i].info.h, vword[i].info.w, i, j});
+        i = j;
+    }
+
     // 遍历行
     for (py = 0; py < _binary.height - h_min + 1; ++py) {
         // 遍历列
@@ -1726,34 +1741,47 @@ void ImageSearchAlgorithms::_bin_ocr(const Dictionary &dict, double sim, std::ma
             point_t pt;
             pt.x = px;
             pt.y = py;
-            // 遍历字库
-            //  assert(i != 4 || j != 3);
-            int k = 0;
-            for (auto &it : dict.words) {
+            // 遍历各尺寸组，组内按 bit_cnt 二分定位候选窗口
+            for (const auto &g : groups) {
                 rect_t crc;
                 crc.x1 = px;
                 crc.y1 = py;
-                crc.x2 = px + it.info.w;
-                crc.y2 = py + it.info.h;
+                crc.x2 = px + g.w;
+                crc.y2 = py + g.h;
                 // 边界检查
                 if (crc.y2 > _binary.height || crc.x2 > _binary.width)
                     continue;
-                // quick check
-                // error tolerance
-                int error_tolerance = static_cast<int>((1 - sim) * it.info.w * it.info.h);
-                if (abs(region_sum(crc.x1, crc.y1, crc.x2, crc.y2) - it.info.bit_cnt) > error_tolerance)
+                // error tolerance：组内 w,h 相同，整组为定值
+                const int error_tolerance = static_cast<int>((1 - sim) * g.w * g.h);
+                const int cnt_src = region_sum(crc.x1, crc.y1, crc.x2, crc.y2);
+                // 组级快速过滤：容限窗口与组内 bit_cnt 范围 [lo, hi] 无交集则整组跳过
+                if (cnt_src + error_tolerance < vword[g.begin].info.bit_cnt ||
+                    cnt_src - error_tolerance > vword[g.end - 1].info.bit_cnt)
                     continue;
-                // match
-                int match_error = part_match(_binary, crc, error_tolerance, it.data.data());
-                if (match_error <= error_tolerance) {
+                // 组内二分：候选 = bit_cnt ∈ [cnt_src-tol, cnt_src+tol]
+                auto lo_it = std::lower_bound(vword.begin() + static_cast<std::ptrdiff_t>(g.begin),
+                                              vword.begin() + static_cast<std::ptrdiff_t>(g.end),
+                                              cnt_src - error_tolerance,
+                                              [](const auto &wd, int v) { return wd.info.bit_cnt < v; });
+                auto hi_it = std::upper_bound(vword.begin() + static_cast<std::ptrdiff_t>(g.begin),
+                                              vword.begin() + static_cast<std::ptrdiff_t>(g.end),
+                                              cnt_src + error_tolerance,
+                                              [](int v, const auto &wd) { return v < wd.info.bit_cnt; });
+                bool matched = false;
+                for (auto wit = lo_it; wit != hi_it; ++wit) {
+                    auto &it = *wit;
+                    // match
+                    const int match_error = part_match(_binary, crc, error_tolerance, it.data.data());
+                    if (match_error > error_tolerance)
+                        continue;
                     // final check
-                    // check right col is empty/background
+                    // check right col is empty/background（判定阈值与精确版统一为 < h/2）
                     int rs = 0;
                     if (crc.x2 < _binary.width) {
                         for (int k = crc.y1; k < crc.y2; k++)
                             rs += _binary.at(k, crc.x2);
                     }
-                    if (rs <= it.info.h / 2) {
+                    if (rs < it.info.h / 2) {
                         ocr_rec_t ocr_res;
                         ocr_res.left_top = pt;
                         ocr_res.right_bottom = point_t(crc.x2, crc.y2);
@@ -1761,14 +1789,13 @@ void ImageSearchAlgorithms::_bin_ocr(const Dictionary &dict, double sim, std::ma
                         ocr_res.confidence = static_cast<float>((crc.area() - match_error) / (double)crc.area());
                         ps[pt] = ocr_res;
                         fill_rect(_record, crc);
-                        // break;//words
+                        matched = true;
                         break;
-                    } else {
-                        // not matched
                     }
                 }
-            } // end for words
-              // if (matched)break;
+                if (matched)
+                    break;
+            } // end for groups
         }     // end for j
     }         // end for i
 }

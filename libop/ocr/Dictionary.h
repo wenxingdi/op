@@ -546,16 +546,14 @@ struct Dictionary {
         std::wstring ss;
         std::string str;
         while (std::getline(file, str)) {
-            std::string strLocale = setlocale(LC_ALL, "");
-            const char *chSrc = str.c_str();
-            size_t nDestSize = mbstowcs(NULL, chSrc, 0) + 1;
-            wchar_t *wchDest = new wchar_t[nDestSize];
-            wmemset(wchDest, 0, nDestSize);
-            mbstowcs(wchDest, chSrc, nDestSize);
-            std::wstring wstrResult = wchDest;
-            delete[] wchDest;
-            setlocale(LC_ALL, strLocale.c_str());
-            ss = wstrResult;
+            // 用 MultiByteToWideChar(CP_ACP) 替代 mbstowcs：线程安全、不触碰进程全局 locale
+            // （旧实现每行 setlocale(LC_ALL,"")，多线程同时加载字库会互相干扰）。
+            const int conv_len = MultiByteToWideChar(CP_ACP, 0, str.data(), static_cast<int>(str.size()), nullptr, 0);
+            if (conv_len <= 0)
+                continue;
+            std::wstring wstrResult(static_cast<size_t>(conv_len), L'\0');
+            MultiByteToWideChar(CP_ACP, 0, str.data(), static_cast<int>(str.size()), wstrResult.data(), conv_len);
+            ss = std::move(wstrResult);
             size_t idx1 = ss.find(L'$');
             auto idx2 = ss.find(L'$', idx1 + 1);
             word1_t wd1;
@@ -575,16 +573,14 @@ struct Dictionary {
         std::wstring ss;
         std::string str;
         while (std::getline(file, str)) {
-            std::string strLocale = setlocale(LC_ALL, "");
-            const char *chSrc = str.c_str();
-            size_t nDestSize = mbstowcs(NULL, chSrc, 0) + 1;
-            wchar_t *wchDest = new wchar_t[nDestSize];
-            wmemset(wchDest, 0, nDestSize);
-            mbstowcs(wchDest, chSrc, nDestSize);
-            std::wstring wstrResult = wchDest;
-            delete[] wchDest;
-            setlocale(LC_ALL, strLocale.c_str());
-            ss = wstrResult;
+            // 用 MultiByteToWideChar(CP_ACP) 替代 mbstowcs：线程安全、不触碰进程全局 locale
+            // （旧实现每行 setlocale(LC_ALL,"")，多线程同时加载字库会互相干扰）。
+            const int conv_len = MultiByteToWideChar(CP_ACP, 0, str.data(), static_cast<int>(str.size()), nullptr, 0);
+            if (conv_len <= 0)
+                continue;
+            std::wstring wstrResult(static_cast<size_t>(conv_len), L'\0');
+            MultiByteToWideChar(CP_ACP, 0, str.data(), static_cast<int>(str.size()), wstrResult.data(), conv_len);
+            ss = std::move(wstrResult);
             size_t idx1 = ss.find(L'$');
             auto idx2 = ss.find(L'$', idx1 + 1);
             word1_t wd1;

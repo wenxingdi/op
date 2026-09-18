@@ -48,6 +48,18 @@ color_t sim_to_point_color_diff(double sim) {
     return color_diff;
 }
 
+// 免字库共用：二值图（1=文字, 0=背景）-> 白字黑底 BGRA 缓冲，喂给 OCR 引擎。
+void binary_to_white_on_black_bgra(const unsigned char *bin, int w, int h, std::vector<unsigned char> &buf) {
+    buf.assign(static_cast<size_t>(w) * h * 4, 0);
+    for (int i = 0; i < w * h; ++i) {
+        const unsigned char v = bin[i] ? 255 : 0; // 命中文字->白，背景->黑
+        buf[size_t(i) * 4 + 0] = v;               // B
+        buf[size_t(i) * 4 + 1] = v;               // G
+        buf[size_t(i) * 4 + 2] = v;               // R
+        buf[size_t(i) * 4 + 3] = 255;             // A
+    }
+}
+
 template <typename Fn> void for_each_dict_line(const wstring &dict_info, Fn fn) {
     long item_index = 0;
     size_t begin = 0;
@@ -776,15 +788,8 @@ long ImageSearchService::autoocr(const wstring &color, double sim, wstring &out_
     int w = _binary.width, h = _binary.height;
     if (w <= 0 || h <= 0)
         return 0;
-    std::vector<unsigned char> buf(static_cast<size_t>(w) * h * 4, 0);
-    const unsigned char *bin = _binary.data();
-    for (int i = 0; i < w * h; ++i) {
-        unsigned char v = bin[i] ? 255 : 0; // 命中文字->白，背景->黑
-        buf[i * 4 + 0] = v;                 // B
-        buf[i * 4 + 1] = v;                 // G
-        buf[i * 4 + 2] = v;                 // R
-        buf[i * 4 + 3] = 255;               // A
-    }
+    std::vector<unsigned char> buf;
+    binary_to_white_on_black_bgra(_binary.data(), w, h, buf);
     vocr_rec_t res;
     HttpOcrService::getInstance()->ocr(buf.data(), w, h, 4, res);
     for (auto &it : res) {
@@ -844,15 +849,8 @@ long ImageSearchService::autoocr_line(const wstring &color, double sim, wstring 
 
     for (const auto &s : segs) {
         int seg_h = s.second - s.first + 1;
-        const unsigned char *bin0 = bin + size_t(s.first) * w;
-        std::vector<unsigned char> buf(static_cast<size_t>(w) * seg_h * 4, 0);
-        for (int i = 0; i < w * seg_h; ++i) {
-            unsigned char v = bin0[i] ? 255 : 0; // 命中文字->白，背景->黑
-            buf[i * 4 + 0] = v;                  // B
-            buf[i * 4 + 1] = v;                  // G
-            buf[i * 4 + 2] = v;                  // R
-            buf[i * 4 + 3] = 255;                // A
-        }
+        std::vector<unsigned char> buf;
+        binary_to_white_on_black_bgra(bin + size_t(s.first) * w, w, seg_h, buf);
         vocr_rec_t res;
         HttpOcrService::getInstance()->ocr_line(buf.data(), w, seg_h, 4, res);
         for (auto &it : res) {
@@ -883,15 +881,8 @@ long ImageSearchService::autoocr_ex(const wstring &color, double sim, wstring &o
     int w = _binary.width, h = _binary.height;
     if (w <= 0 || h <= 0)
         return 0;
-    std::vector<unsigned char> buf(static_cast<size_t>(w) * h * 4, 0);
-    const unsigned char *bin = _binary.data();
-    for (int i = 0; i < w * h; ++i) {
-        unsigned char v = bin[i] ? 255 : 0;
-        buf[i * 4 + 0] = v;
-        buf[i * 4 + 1] = v;
-        buf[i * 4 + 2] = v;
-        buf[i * 4 + 3] = 255;
-    }
+    std::vector<unsigned char> buf;
+    binary_to_white_on_black_bgra(_binary.data(), w, h, buf);
     vocr_rec_t res;
     HttpOcrService::getInstance()->ocr(buf.data(), w, h, 4, res);
     // det 结果按阅读序稳定排序（上→下、同行左→右），输出顺序确定

@@ -3,6 +3,15 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-18（OCR 免字库/字库制作子域排查落地：OC1-OC3 + OC5）
+
+- **OC1 模糊 OCR 加速**：`_bin_ocr(dict, sim)` 从"每个像素点遍历全字库"（O(W×H×N)）改为与精确版同构的加速结构——`sort_dict` 保证 (h desc, w desc, bit_cnt asc) 有序，按 (h,w) 分组后组内 bit_cnt 升序，先组级容限窗口过滤、再二分定位 `[cnt_src-tol, cnt_src+tol]` 候选窗口，只对窗口内候选做 `part_match`。字库越大收益越大，判定语义与旧版逐词版完全等价（窗口条件 = 旧版 `abs(cnt-bit_cnt) > tol` 的补集）。顺手删除残留未用变量 `int k = 0;`。
+- **OC2 字库加载线程安全**：`Dictionary::read_dict_dm` / `read_memory_dict_dm` 每行 `setlocale(LC_ALL, "")` + `mbstowcs`（setlocale 是进程全局状态，多线程同时加载字库互相干扰）→ 改 `MultiByteToWideChar(CP_ACP)`（与 `_string2ws` 同路，线程安全、零全局状态、失败行跳过）。Windows.h 经 `Utils.h → Types.h` 已可用。
+- **OC3 免字库转换去重**：autoocr / autoocr_line / autoocr_ex 三处"二值图→白字黑底 BGRA"各写一遍 → 抽匿名命名空间助手 `binary_to_white_on_black_bgra(bin, w, h, buf)`（含 autoocr_line 的行段子缓冲场景）。
+- **OC5 右邻列判定统一**：模糊版 `rs <= h/2` → `rs < h/2`，与精确版一致（仅 rs 恰等于 h/2 的边界变化；语义=右列墨水少于半数视为背景）。
+- 可选未做（记录在案）：OC4（OCR() 字库/免字库返回值语义混乱）· OC6（autoocr_line 行切分参数硬编码）· OC7（get_rois 参数名 min_word_h 实际过滤宽度）。
+- **基线**：Ocr*/ImageColorTest 83/83（含 sim=0.7~0.9 模糊路径真实字库用例）；全量 **264 用例 · 232 PASS · 31 SKIP · 1 FAILED**（唯一 FAILED=WaitKeyScanAll 已知时序环境项），1m31s 与上基线逐项一致零回归。
+
 ### 2026-09-18（YOLO 方案B 落地：类别名自动识别 + 修复 ONNX detect 恒失败的 ok 门禁 bug）
 
 - **类别名自动识别（方案B 第 1 步）**：`OnnxYoloEngine::load` 成功创建会话后，自动读模型 metadata 的 `names` 键（ORT 1.19 `LookupCustomMetadataMapAllocated`），解析 ultralytics 嵌入的类别名字典（`{0: 'a', 1: 'b'}` / `{"0": "a"}` 两种 repr 兼容，UTF-8，索引空洞留空，≥4096 索引防御）填充标签表。显式 `--labels` 优先；无 metadata（旧模型/其他框架导出）保持空，JSON 只给 `class_id`。
