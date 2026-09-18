@@ -3,11 +3,13 @@
 #include "../../include/libop.h"
 #include "../memory/ProcessMemory.h"
 #include "../base/Environment.h"
+#include "../base/Utils.h"
 #include "binding/BindingSession.h"
 #include "image/Image.h"
 
 #include <Windows.h>
 #include <cstdint>
+#include <exception>
 #include <string>
 #include <utility>
 
@@ -48,7 +50,11 @@ int call_int(op_handle handle, Func &&func) {
 
     try {
         return static_cast<int>(std::forward<Func>(func)(*op));
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception escaped to C boundary in call_int: %s", e.what());
+        return 0;
     } catch (...) {
+        setlog("op_c_api: unknown exception escaped to C boundary in call_int");
         return 0;
     }
 }
@@ -71,7 +77,11 @@ intptr_t call_intptr(op_handle handle, Func &&func) {
         LONG_PTR ret = 0;
         std::forward<Func>(func)(handle->op, &ret);
         return static_cast<intptr_t>(ret);
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception escaped to C boundary in call_intptr: %s", e.what());
+        return 0;
     } catch (...) {
+        setlog("op_c_api: unknown exception escaped to C boundary in call_intptr");
         return 0;
     }
 }
@@ -85,7 +95,11 @@ const wchar_t *call_string(op_handle handle, Func &&func) {
         handle->string_result.clear();
         std::forward<Func>(func)(handle->op, handle->string_result);
         return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception escaped to C boundary in call_string: %s", e.what());
+        return L"";
     } catch (...) {
+        setlog("op_c_api: unknown exception escaped to C boundary in call_string");
         return L"";
     }
 }
@@ -101,7 +115,11 @@ const wchar_t *call_json_string(op_handle handle, const wchar_t *fallback, Func 
         if (handle->string_result.empty())
             handle->string_result = fallback;
         return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception escaped to C boundary in call_json_string: %s", e.what());
+        return fallback;
     } catch (...) {
+        setlog("op_c_api: unknown exception escaped to C boundary in call_json_string");
         return fallback;
     }
 }
@@ -146,7 +164,11 @@ int call_memory(op_handle handle, intptr_t hwnd, Func &&func) {
         ProcessMemory mem;
         const LONG_PTR target = resolve_memory_hwnd(handle, hwnd);
         return std::forward<Func>(func)(mem, reinterpret_cast<HWND>(target)) ? 1 : 0;
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception escaped to C boundary in call_memory: %s", e.what());
+        return 0;
     } catch (...) {
+        setlog("op_c_api: unknown exception escaped to C boundary in call_memory");
         return 0;
     }
 }
@@ -158,7 +180,11 @@ int call_memory(op_handle handle, intptr_t hwnd, Func &&func) {
 op_handle OP_CALL OpCreate(void) {
     try {
         return new op_c_context();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: OpCreate failed with exception: %s", e.what());
+        return nullptr;
     } catch (...) {
+        setlog("op_c_api: OpCreate failed with unknown exception");
         return nullptr;
     }
 }
@@ -714,7 +740,13 @@ int OP_CALL OpFindPic(op_handle handle, int x1, int y1, int x2, int y2, const wc
         out_int(x, lx);
         out_int(y, ly);
         return static_cast<int>(ret);
+    } catch (const std::exception &e) {
+        setlog("op_c_api: OpFindPic failed with exception: %s", e.what());
+        out_int(x, -1);
+        out_int(y, -1);
+        return -1;
     } catch (...) {
+        setlog("op_c_api: OpFindPic failed with unknown exception");
         out_int(x, -1);
         out_int(y, -1);
         return -1;
@@ -820,7 +852,12 @@ uintptr_t OP_CALL OpGetScreenData(op_handle handle, int x1, int y1, int x2, int 
         handle->op.GetScreenData(x1, y1, x2, y2, &data, &ret);
         out_int(out_ret, ret);
         return static_cast<uintptr_t>(data);
+    } catch (const std::exception &e) {
+        setlog("op_c_api: OpGetScreenData failed with exception: %s", e.what());
+        out_int(out_ret, 0);
+        return 0;
     } catch (...) {
+        setlog("op_c_api: OpGetScreenData failed with unknown exception");
         out_int(out_ret, 0);
         return 0;
     }
@@ -840,7 +877,13 @@ uintptr_t OP_CALL OpGetScreenDataBmp(op_handle handle, int x1, int y1, int x2, i
         out_int(size, data_size);
         out_int(out_ret, ret);
         return static_cast<uintptr_t>(data);
+    } catch (const std::exception &e) {
+        setlog("op_c_api: OpGetScreenDataBmp failed with exception: %s", e.what());
+        out_int(size, 0);
+        out_int(out_ret, 0);
+        return 0;
     } catch (...) {
+        setlog("op_c_api: OpGetScreenDataBmp failed with unknown exception");
         out_int(size, 0);
         out_int(out_ret, 0);
         return 0;
@@ -858,7 +901,12 @@ void OP_CALL OpGetScreenFrameInfo(op_handle handle, int *frame_id, int *time) {
         handle->op.GetScreenFrameInfo(&frame, &frame_time);
         out_int(frame_id, frame);
         out_int(time, frame_time);
+    } catch (const std::exception &e) {
+        setlog("op_c_api: OpGetScreenFrameInfo failed with exception: %s", e.what());
+        out_int(frame_id, 0);
+        out_int(time, 0);
     } catch (...) {
+        setlog("op_c_api: OpGetScreenFrameInfo failed with unknown exception");
         out_int(frame_id, 0);
         out_int(time, 0);
     }

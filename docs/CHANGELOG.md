@@ -3,6 +3,15 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-18（c_api/op 转发层排查落地：C 边界异常静默吞咽补 setlog，最后两个待排查模块闭环）
+
+- **c_api 10 处 catch-all 补 setlog**（op_c_api.cpp）：C 边界是异常最后一道闸，原来 10 处 `catch(...)` 只返 0/空串无任何线索，Python 侧出错完全无法诊断；而 COM 边界有 `guard_exceptions`（带日志）——两处策略不一致。现 5 个模板助手（call_int/call_intptr/call_string/call_json_string/call_memory）+ 5 个具名函数（OpCreate/OpFindPic/OpGetScreenData/OpGetScreenDataBmp/OpGetScreenFrameInfo）各补 `catch (const std::exception&)`（带 what）+ `catch(...)`（带函数名）双分支日志。零行为变更（返回值路径不变），新增 include `base/Utils.h` + `<exception>`。
+- **op 转发层（15 文件 121KB）核查结论：健康，无需改动**。OpInput 53 / OpOpenCv 35 / OpWindow 29 / OpOcr ~42 函数参数 null 安全、枚举解析容错、截屏助手偏移一致性均规范；异常策略分层一致（层内不重复 catch，COM 边界统一 guard）。
+- 排查记录（P3 只记录不动）：c_api `string_result` 为 handle 级共享缓冲，同 handle 多线程并发字符串 API 有竞争（大漠同模式）；OpImage 12 函数 sim 透传不归一（底层 sim_to_point_color_diff 有钳制，无风险）；OCR 系两套 sim 默认值并存（normalize_similarity→1.0 / autoocr 内部→0.7，历史设计已文档化）。
+- **排查清单全部闭环**：base/binding/hook/input/capture/ocr/com/memory/algorithm/window/image/ipc/RunApp/LayoutWindows/opencv/yolo/OCR 子域/network/c_api/op 转发层。
+- **验证**：nmake 增量通过（含 op_c_api_x64.dll）；全量回归 266 用例 · 259 PASS · 13 SKIPPED · 1 FAILED（仅 WaitKeyScanAll 环境项），与基线逐项一致。
+- **注意**：`bin/x64` 与 `bindings/python/op/bin/x64` 下的 DLL 是 09-17 的旧产物（gitignore，不由 _wb_build.py 部署），近几日提交（含本次）不在其中；最新 DLL 在 `build/nmake-x64-Release/libop/`。
+
 ### 2026-09-18（字库制作其余函数：GetWordsNoDict 去重复二值化 + 两处静默点补日志，P2 批续）
 
 - **GetWordsNoDict 消除 N+1 次全区域二值化**（OpOcr.cpp）：外层已 `str2binaryfbk` 一次，循环里每字又调 `FetchWord`（内部 `str2pointbinaryfbk` 重扫整区域+去噪），N 字 = N+1 次扫描 → 改调 `FetchWordFromBinary` 直接复用 `_binary`，O(N)→O(1)。**行为顺带统一**：原实现首字用未去噪 _binary、其余字用去噪后重算结果，现全部用同一份。`FetchWordFromBinary` 声明从 private 提至 public（仅可见性，无签名变更）。
