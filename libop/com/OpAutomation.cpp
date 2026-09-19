@@ -4,6 +4,7 @@
 #include "stdafx.h"
 
 #include "../base/AutomationModes.h"
+#include "../base/Utils.h"
 #include <cstdint>
 #include <exception>
 #include <filesystem>
@@ -37,6 +38,50 @@ HRESULT RunCvRetOnly(LONG *ret, Callback &&callback) {
     SetOutValue(ret, 0L);
     callback(ret);
     return S_OK;
+}
+
+// ---- VARIANT LONG in/out helpers (IDispatch late-binding adaptation) ----
+// Dynamic dispatch clients (PowerShell [ref]) pass VT_BYREF|VT_I4 wrappers:
+// oleaut hands the server the wrapper VARIANT itself, so the value must be
+// written through the byref pointer instead of overwriting the wrapper.
+// Standard VT_BYREF|VT_VARIANT args are dereferenced one level.
+LONG InLong(const VARIANT *v) {
+    if (!v)
+        return 0;
+    if (v->vt == (VT_BYREF | VT_I4))
+        return v->plVal ? *v->plVal : 0;
+    if (v->vt == (VT_BYREF | VT_VARIANT) && v->pvarVal) {
+        const VARIANT &inner = *v->pvarVal;
+        if (inner.vt == VT_I4 || inner.vt == VT_INT)
+            return inner.lVal;
+        if (inner.vt == (VT_BYREF | VT_I4))
+            return inner.plVal ? *inner.plVal : 0;
+        return 0;
+    }
+    if (v->vt & VT_BYREF)
+        return 0;
+    return v->lVal;
+}
+
+void OutLong(VARIANT *v, LONG value) {
+    if (!v)
+        return;
+    if (v->vt == (VT_BYREF | VT_I4)) { // PowerShell [ref] wrapper: write through
+        if (v->plVal)
+            *v->plVal = value;
+        return;
+    }
+    if (v->vt == (VT_BYREF | VT_VARIANT)) { // byref VARIANT: write the inner
+        if (v->pvarVal) {
+            v->pvarVal->vt = VT_I4;
+            v->pvarVal->lVal = value;
+        }
+        return;
+    }
+    if (v->vt & VT_BYREF) // unsupported byref payload (BYREF|BSTR etc.): leave untouched
+        return;
+    v->vt = VT_I4;
+    v->lVal = value;
 }
 
 } // namespace
@@ -186,13 +231,11 @@ STDMETHODIMP OpAutomation::EnumProcess(BSTR name, BSTR *retstring) {
 STDMETHODIMP OpAutomation::ClientToScreen(LONGLONG hwnd, VARIANT *x, VARIANT *y, LONG *bret) {
     if (!x || !y || !bret)
         return E_POINTER;
-    x->vt = VT_I4;
-    y->vt = VT_I4;
-    long lx = x->lVal;
-    long ly = y->lVal;
+    long lx = InLong(x);
+    long ly = InLong(y);
     obj.ClientToScreen(static_cast<LONG_PTR>(hwnd), &lx, &ly, bret);
-    x->lVal = lx;
-    y->lVal = ly;
+    OutLong(x, lx);
+    OutLong(y, ly);
     return S_OK;
 }
 
@@ -223,11 +266,12 @@ STDMETHODIMP OpAutomation::FindWindowEx(LONGLONG parent, BSTR class_name, BSTR t
 STDMETHODIMP OpAutomation::GetClientRect(LONGLONG hwnd, VARIANT *x1, VARIANT *y1, VARIANT *x2, VARIANT *y2, LONG *nret) {
     if (!x1 || !y1 || !x2 || !y2 || !nret)
         return E_POINTER;
-    x1->vt = VT_I4;
-    y1->vt = VT_I4;
-    x2->vt = VT_I4;
-    y2->vt = VT_I4;
-    obj.GetClientRect(static_cast<LONG_PTR>(hwnd), &x1->lVal, &y1->lVal, &x2->lVal, &y2->lVal, nret);
+    LONG vx1 = 0, vy1 = 0, vx2 = 0, vy2 = 0;
+    obj.GetClientRect(static_cast<LONG_PTR>(hwnd), &vx1, &vy1, &vx2, &vy2, nret);
+    OutLong(x1, vx1);
+    OutLong(y1, vy1);
+    OutLong(x2, vx2);
+    OutLong(y2, vy2);
 
     return S_OK;
 }
@@ -235,9 +279,10 @@ STDMETHODIMP OpAutomation::GetClientRect(LONGLONG hwnd, VARIANT *x1, VARIANT *y1
 STDMETHODIMP OpAutomation::GetClientSize(LONGLONG hwnd, VARIANT *width, VARIANT *height, LONG *nret) {
     if (!width || !height || !nret)
         return E_POINTER;
-    width->vt = VT_I4;
-    height->vt = VT_I4;
-    obj.GetClientSize(static_cast<LONG_PTR>(hwnd), &width->lVal, &height->lVal, nret);
+    LONG w = 0, h = 0;
+    obj.GetClientSize(static_cast<LONG_PTR>(hwnd), &w, &h, nret);
+    OutLong(width, w);
+    OutLong(height, h);
 
     return S_OK;
 }
@@ -309,12 +354,12 @@ STDMETHODIMP OpAutomation::GetWindowProcessPath(LONGLONG hwnd, BSTR *retstring) 
 STDMETHODIMP OpAutomation::GetWindowRect(LONGLONG hwnd, VARIANT *x1, VARIANT *y1, VARIANT *x2, VARIANT *y2, LONG *nret) {
     if (!x1 || !y1 || !x2 || !y2 || !nret)
         return E_POINTER;
-    x1->vt = VT_I4;
-    x2->vt = VT_I4;
-    y1->vt = VT_I4;
-    y2->vt = VT_I4;
-
-    obj.GetWindowRect(static_cast<LONG_PTR>(hwnd), &x1->lVal, &y1->lVal, &x2->lVal, &y2->lVal, nret);
+    LONG vx1 = 0, vy1 = 0, vx2 = 0, vy2 = 0;
+    obj.GetWindowRect(static_cast<LONG_PTR>(hwnd), &vx1, &vy1, &vx2, &vy2, nret);
+    OutLong(x1, vx1);
+    OutLong(y1, vy1);
+    OutLong(x2, vx2);
+    OutLong(y2, vy2);
 
     return S_OK;
 }
@@ -341,9 +386,10 @@ STDMETHODIMP OpAutomation::MoveWindow(LONGLONG hwnd, LONG x, LONG y, LONG *nret)
 STDMETHODIMP OpAutomation::ScreenToClient(LONGLONG hwnd, VARIANT *x, VARIANT *y, LONG *nret) {
     if (!x || !y || !nret)
         return E_POINTER;
-    x->vt = VT_I4;
-    y->vt = VT_I4;
-    obj.ScreenToClient(static_cast<LONG_PTR>(hwnd), &x->lVal, &y->lVal, nret);
+    LONG vx = InLong(x), vy = InLong(y);
+    obj.ScreenToClient(static_cast<LONG_PTR>(hwnd), &vx, &vy, nret);
+    OutLong(x, vx);
+    OutLong(y, vy);
 
     return S_OK;
 }
@@ -491,8 +537,10 @@ STDMETHODIMP OpAutomation::IsBind(LONG *ret) {
 STDMETHODIMP OpAutomation::GetCursorPos(VARIANT *x, VARIANT *y, LONG *ret) {
     if (!x || !y || !ret)
         return E_POINTER;
-    x->vt = y->vt = VT_I4;
-    obj.GetCursorPos(&x->lVal, &y->lVal, ret);
+    long vx = 0, vy = 0;
+    obj.GetCursorPos(&vx, &vy, ret);
+    OutLong(x, vx);
+    OutLong(y, vy);
 
     return S_OK;
 }
@@ -784,9 +832,10 @@ STDMETHODIMP OpAutomation::FindColor(LONG x1, LONG y1, LONG x2, LONG y2, BSTR co
 
     if (!x || !y || !ret)
         return E_POINTER;
-    x->vt = y->vt = VT_I4;
-
-    obj.FindColor(x1, y1, x2, y2, color, sim, dir, &x->lVal, &y->lVal, ret);
+    long vx = 0, vy = 0;
+    obj.FindColor(x1, y1, x2, y2, color, sim, dir, &vx, &vy, ret);
+    OutLong(x, vx);
+    OutLong(y, vy);
 
     return S_OK;
 }
@@ -812,8 +861,10 @@ STDMETHODIMP OpAutomation::FindMultiColor(LONG x1, LONG y1, LONG x2, LONG y2, BS
         return E_POINTER;
 
     SetOutValue(ret, 0L);
-    x->vt = y->vt = VT_I4;
-    obj.FindMultiColor(x1, y1, x2, y2, first_color, offset_color, sim, dir, &x->lVal, &y->lVal, ret);
+    long vx = 0, vy = 0;
+    obj.FindMultiColor(x1, y1, x2, y2, first_color, offset_color, sim, dir, &vx, &vy, ret);
+    OutLong(x, vx);
+    OutLong(y, vy);
 
     return S_OK;
 }
@@ -831,8 +882,10 @@ STDMETHODIMP OpAutomation::FindPic(LONG x1, LONG y1, LONG x2, LONG y2, BSTR file
 
     if (!x || !y || !ret)
         return E_POINTER;
-    x->vt = y->vt = VT_I4;
-    obj.FindPic(x1, y1, x2, y2, files, delta_color, sim, dir, &x->lVal, &y->lVal, ret);
+    long vx = 0, vy = 0;
+    obj.FindPic(x1, y1, x2, y2, files, delta_color, sim, dir, &vx, &vy, ret);
+    OutLong(x, vx);
+    OutLong(y, vy);
 
     return S_OK;
 }
@@ -858,8 +911,10 @@ STDMETHODIMP OpAutomation::FindColorBlock(LONG x1, LONG y1, LONG x2, LONG y2, BS
                                          LONG height, LONG width, VARIANT *x, VARIANT *y, LONG *ret) {
     if (!x || !y || !ret)
         return E_POINTER;
-    x->vt = y->vt = VT_I4;
-    obj.FindColorBlock(x1, y1, x2, y2, color, sim, count, height, width, &x->lVal, &y->lVal, ret);
+    long vx = 0, vy = 0;
+    obj.FindColorBlock(x1, y1, x2, y2, color, sim, count, height, width, &vx, &vy, ret);
+    OutLong(x, vx);
+    OutLong(y, vy);
     return S_OK;
 }
 // 查找指定区域内的所有颜色块, 颜色格式"RRGGBB-DRDGDB", 注意, 和按键的颜色格式相反
@@ -904,8 +959,10 @@ STDMETHODIMP OpAutomation::LoadMemPic(BSTR pic_name, long long data, LONG size, 
 STDMETHODIMP OpAutomation::GetPicSize(BSTR pic_name, VARIANT *width, VARIANT *height, LONG *ret) {
     if (!width || !height || !ret)
         return E_POINTER;
-    width->vt = height->vt = VT_I4;
-    obj.GetPicSize(pic_name, &width->lVal, &height->lVal, ret);
+    long vw = 0, vh = 0;
+    obj.GetPicSize(pic_name, &vw, &vh, ret);
+    OutLong(width, vw);
+    OutLong(height, vh);
     return S_OK;
 }
 
@@ -1203,13 +1260,11 @@ STDMETHODIMP OpAutomation::GetWordResultPos(BSTR result, LONG index, VARIANT *x,
     if (!x || !y || !ret)
         return E_POINTER;
 
-    ::VariantInit(x);
-    ::VariantInit(y);
-    x->vt = y->vt = VT_I4;
-    x->lVal = 0;
-    y->lVal = 0;
+    long vx = 0, vy = 0;
     SetOutValue(ret, 0L);
-    obj.GetWordResultPos(result, index, &x->lVal, &y->lVal, ret);
+    obj.GetWordResultPos(result, index, &vx, &vy, ret);
+    OutLong(x, vx);
+    OutLong(y, vy);
     return S_OK;
 }
 // 在使用GetWords进行词组识别以后,可以用此接口进行识别各个词组的内容
@@ -1241,8 +1296,10 @@ STDMETHODIMP OpAutomation::FindStr(LONG x1, LONG y1, LONG x2, LONG y2, BSTR strs
                                   VARIANT *rety, LONG *ret) {
     if (!retx || !rety || !ret)
         return E_POINTER;
-    retx->vt = rety->vt = VT_INT;
-    obj.FindStr(x1, y1, x2, y2, strs, color, sim, &retx->lVal, &rety->lVal, ret);
+    long vx = 0, vy = 0;
+    obj.FindStr(x1, y1, x2, y2, strs, color, sim, &vx, &vy, ret);
+    OutLong(retx, vx);
+    OutLong(rety, vy);
 
     return S_OK;
 }
