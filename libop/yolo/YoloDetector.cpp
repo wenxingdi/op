@@ -45,8 +45,10 @@ YoloDetector::~YoloDetector() {
 }
 
 YoloDetector *YoloDetector::getInstance() {
-    static YoloDetector sYoloEngine;
-    return &sYoloEngine;
+    // 故意泄漏（同 HttpOcrService::getInstance）：持有 ORT Session 的引擎
+    // 不能在进程退出的静态析构里拆除，否则 ORT 线程池 teardown 死锁挂起。
+    static YoloDetector *sYoloEngine = new YoloDetector();
+    return sYoloEngine;
 }
 
 int YoloDetector::init(const std::wstring &engine, const std::wstring &dllName, const vector<string> &argvs) {

@@ -220,8 +220,14 @@ HttpOcrService::HttpOcrService() = default;
 HttpOcrService::~HttpOcrService() = default;
 
 HttpOcrService *HttpOcrService::getInstance() {
-    static HttpOcrService sInstance;
-    return &sInstance;
+    // 故意泄漏（leak-by-design）：单例持有 OnnxOcrEngine -> Ort::Env/Session。
+    // 若由静态对象析构，进程退出时 CRT 会在 DLL_PROCESS_DETACH 里拆除 ORT
+    // 线程池，与尚未退出的 intra-op worker 死锁（实测：任何用过 OCR 的宿主
+    // 进程退出必挂起，minidump 证实主线程卡在 op 静态析构 -> ORT teardown
+    // -> WaitForMultipleObjects）。泄漏后退出阶段完全不触碰 ORT，由进程
+    // 回收一切资源。宿主是短生命周期自动化脚本，泄漏可接受。
+    static HttpOcrService *sInstance = new HttpOcrService();
+    return sInstance;
 }
 
 int HttpOcrService::init(const std::wstring &engine, const std::wstring &dllName,
