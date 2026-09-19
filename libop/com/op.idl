@@ -30,6 +30,11 @@ import "ocidl.idl";
 	nonextensible,
 	pointer_default(unique)
 ]
+	// NOTE: VARIANT* out params MUST be declared [in, out] (not [out]).
+	//       IDispatch::Invoke (late binding: VBScript/PowerShell/易语言) only writes
+	//       back byref storage for [in, out] pointer params; [out]-only VARIANT* args
+	//       never read back in late-binding clients. vtable signature is unchanged.
+	//       See workbench/repro_dispinvoke2.py for the verification evidence.
 interface IOpAutomation : IDispatch
 {
 	//base config 1-19
@@ -57,8 +62,8 @@ interface IOpAutomation : IDispatch
 	[id(63)] HRESULT FindWindowByProcess([in] BSTR process_name, [in] BSTR class_name, [in] BSTR title, [out, retval] hyper* rethwnd);
 	[id(64)] HRESULT FindWindowByProcessId([in] LONG process_id, [in] BSTR class_name, [in] BSTR title, [out, retval] hyper* rethwnd);
 	[id(65)] HRESULT FindWindowEx([in] hyper parent, [in] BSTR class_name, [in] BSTR title, [out, retval] hyper* rethwnd);
-	[id(66)] HRESULT GetClientRect([in] hyper hwnd, [out] VARIANT* x1, [out] VARIANT* y1, [out] VARIANT* x2, [out] VARIANT* y2, [out, retval] LONG* nret);
-	[id(67)] HRESULT GetClientSize([in] hyper hwnd, [out] VARIANT* width, [out] VARIANT* height, [out, retval] LONG* nret);
+	[id(66)] HRESULT GetClientRect([in] hyper hwnd, [in, out] VARIANT* x1, [in, out] VARIANT* y1, [in, out] VARIANT* x2, [in, out] VARIANT* y2, [out, retval] LONG* nret);
+	[id(67)] HRESULT GetClientSize([in] hyper hwnd, [in, out] VARIANT* width, [in, out] VARIANT* height, [out, retval] LONG* nret);
 	[id(68)] HRESULT GetForegroundFocus([out, retval] hyper* rethwnd);
 	[id(69)] HRESULT GetForegroundWindow([out, retval] hyper* rethwnd);
 	[id(70)] HRESULT GetMousePointWindow([out, retval] hyper* rethwnd);
@@ -69,7 +74,7 @@ interface IOpAutomation : IDispatch
 	[id(75)] HRESULT GetWindowClass([in] hyper hwnd, [out, retval] BSTR* retstring);
 	[id(76)] HRESULT GetWindowProcessId([in] hyper hwnd, [out, retval] LONG* nretpid);
 	[id(77)] HRESULT GetWindowProcessPath([in] hyper hwnd, [out, retval] BSTR* retstring);
-	[id(78)] HRESULT GetWindowRect([in] hyper hwnd, [out] VARIANT* x1, [out] VARIANT* y1, [out] VARIANT* x2, [out] VARIANT* y2, [out, retval] LONG* nret);
+	[id(78)] HRESULT GetWindowRect([in] hyper hwnd, [in, out] VARIANT* x1, [in, out] VARIANT* y1, [in, out] VARIANT* x2, [in, out] VARIANT* y2, [out, retval] LONG* nret);
 	[id(79)] HRESULT GetWindowState([in] hyper hwnd, [in] LONG flag, [out, retval] LONG* rethwnd);
 	[id(80)] HRESULT GetWindowTitle([in] hyper hwnd, [out, retval] BSTR* rettitle);
 	[id(81)] HRESULT MoveWindow([in] hyper hwnd, [in] LONG x, [in] LONG y, [out, retval] LONG* nret);
@@ -96,7 +101,7 @@ interface IOpAutomation : IDispatch
 	[id(106)] HRESULT SetDxAttr([in] LONG attr, [in] LONG value, [out, retval] LONG* ret);
 	[id(107)] HRESULT GetDxAttr([out, retval] LONG* ret);
 	//mouse & ketboard 120-149
-	[id(120)] HRESULT GetCursorPos([out] VARIANT* x, [out] VARIANT* y, [out, retval] LONG* ret);
+	[id(120)] HRESULT GetCursorPos([in, out] VARIANT* x, [in, out] VARIANT* y, [out, retval] LONG* ret);
 	[id(121)] HRESULT MoveR([in] LONG x, [in] LONG y, [out, retval] LONG* ret);
 	[id(122)] HRESULT MoveTo([in] LONG x, [in] LONG y, [out, retval] LONG* ret);
 	[id(123)] HRESULT MoveToEx([in] LONG x, [in] LONG y, [in] LONG w, [in] long h, [out, retval] BSTR* ret);
@@ -148,15 +153,15 @@ interface IOpAutomation : IDispatch
 	//image & color 150-199
 	[id(150)] HRESULT Capture([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR file_name, [out, retval] LONG* ret);
 	[id(151)] HRESULT CmpColor([in] LONG x, [in] LONG y, [in] BSTR color, [in] DOUBLE sim, [out, retval] LONG* ret);
-	[id(152)] HRESULT FindColor([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] LONG dir, [out] VARIANT* x, [out] VARIANT* y, [out, retval] LONG* ret);
+	[id(152)] HRESULT FindColor([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] LONG dir, [in, out] VARIANT* x, [in, out] VARIANT* y, [out, retval] LONG* ret);
 	[id(153)] HRESULT FindColorEx([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] LONG dir, [out, retval] BSTR* retstr);
-	[id(154)] HRESULT FindMultiColor([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR first_color, [in] BSTR offset_color, [in] DOUBLE sim, [in] LONG dir, [out] VARIANT* x, [out] VARIANT* y, [out, retval] LONG* ret);
+	[id(154)] HRESULT FindMultiColor([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR first_color, [in] BSTR offset_color, [in] DOUBLE sim, [in] LONG dir, [in, out] VARIANT* x, [in, out] VARIANT* y, [out, retval] LONG* ret);
 	[id(155)] HRESULT FindMultiColorEx([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR first_color, [in] BSTR offset_color, [in] DOUBLE sim, [in] LONG dir, [out, retval] BSTR* ret);
-	[id(156)] HRESULT FindPic([in] LONG x1, [in]LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR files, [in] BSTR delta_color, [in] DOUBLE sim, [in] LONG dir, [out] VARIANT* x, [out] VARIANT* y, [out, retval] LONG* ret);
+	[id(156)] HRESULT FindPic([in] LONG x1, [in]LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR files, [in] BSTR delta_color, [in] DOUBLE sim, [in] LONG dir, [in, out] VARIANT* x, [in, out] VARIANT* y, [out, retval] LONG* ret);
 	[id(157)] HRESULT FindPicEx([in] LONG x1, [in]LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR files, [in] BSTR delta_color, [in] DOUBLE sim, [in] LONG dir, [out, retval] BSTR* retstr);
 	//new
 	[id(158)] HRESULT FindPicExS([in] LONG x1, [in]LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR files, [in] BSTR delta_color, [in] DOUBLE sim, [in] LONG dir, [out, retval] BSTR* retstr);
-	[id(159)] HRESULT FindColorBlock([in] LONG x1, [in]LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] LONG count, [in] LONG height, [in] LONG width, [out] VARIANT* x, [out] VARIANT* y, [out, retval] LONG* ret);
+	[id(159)] HRESULT FindColorBlock([in] LONG x1, [in]LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] LONG count, [in] LONG height, [in] LONG width, [in, out] VARIANT* x, [in, out] VARIANT* y, [out, retval] LONG* ret);
 	[id(160)] HRESULT FindColorBlockEx([in] LONG x1, [in]LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] LONG count, [in] LONG height, [in] LONG width, [out, retval] BSTR* retstr);
 
 	[id(163)] HRESULT GetColor([in] LONG x, [in] LONG y, [out, retval] BSTR* ret);
@@ -164,7 +169,7 @@ interface IOpAutomation : IDispatch
 	[id(165)] HRESULT LoadPic([in] BSTR pic_name, [out, retval] LONG* ret);
 	[id(166)] HRESULT FreePic([in] BSTR Pic_name, [out, retval] LONG* ret);
 	[id(167)] HRESULT GetScreenData([in] LONG  x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [out, retval] hyper* ret);
-	[id(168)] HRESULT GetScreenDataBmp([in] LONG  x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [out] VARIANT* data, [out] VARIANT* size, [out, retval]LONG* ret);
+	[id(168)] HRESULT GetScreenDataBmp([in] LONG  x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in, out] VARIANT* data, [in, out] VARIANT* size, [out, retval]LONG* ret);
 	[id(169)] HRESULT MatchPicName([in] BSTR pic_name, [out, retval] BSTR* retstr);
 	[id(170)] HRESULT LoadMemPic([in] BSTR pic_name, [in]long long data, [in]LONG size,[out, retval] LONG* ret);
 	[id(171)] HRESULT SetMouseDelay([in] BSTR type, [in] LONG delay, [out, retval]LONG* ret);
@@ -175,7 +180,7 @@ interface IOpAutomation : IDispatch
     [id(176)] HRESULT Delays([in] LONG mis_min,[in] LONG mis_max, [out, retval] LONG* ret);
 	[id(177)] HRESULT KeyPressStr([in]BSTR key_str,[in]LONG delay,[out, retval] LONG* ret);
 	[id(178)] HRESULT GetColorNum([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out, retval]LONG* ret);
-	[id(179)] HRESULT GetPicSize([in] BSTR pic_name, [out] VARIANT* width, [out] VARIANT* height, [out, retval] LONG* ret);
+	[id(179)] HRESULT GetPicSize([in] BSTR pic_name, [in, out] VARIANT* width, [in, out] VARIANT* height, [out, retval] LONG* ret);
 	[id(180)] HRESULT GetScreenFrameInfo([out] LONG* frame_id, [out] LONG* time);
 	
 	//ocr 200-230
@@ -183,7 +188,7 @@ interface IOpAutomation : IDispatch
 	[id(201)] HRESULT UseDict([in] LONG idx, [out, retval] LONG* ret);
 	[id(202)] HRESULT Ocr([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out, retval] BSTR* ret_str);
 	[id(203)] HRESULT OcrEx([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out, retval] BSTR* ret_str);
-	[id(204)] HRESULT FindStr([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR str, [in] BSTR color, [in] DOUBLE sim, [out] VARIANT* retx, [out] VARIANT* rety, [out, retval]LONG* ret);
+	[id(204)] HRESULT FindStr([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR str, [in] BSTR color, [in] DOUBLE sim, [in, out] VARIANT* retx, [in, out] VARIANT* rety, [out, retval]LONG* ret);
 	[id(205)] HRESULT FindStrEx([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR str, [in] BSTR color, [in] DOUBLE sim, [out, retval] BSTR* ret_str);
 	[id(206)] HRESULT OcrAuto([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE sim, [out, retval] BSTR* retstr);
 	[id(207)] HRESULT OcrFromFile([in] BSTR file_name, [in] BSTR color_format, [in] DOUBLE sim, [out, retval] BSTR* retstr);
@@ -203,7 +208,7 @@ interface IOpAutomation : IDispatch
 	[id(227)] HRESULT FetchWord([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] BSTR word, [out, retval] BSTR* retstr);
 	[id(228)] HRESULT GetWordsNoDict([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [out, retval] BSTR* retstr);
 	[id(229)] HRESULT GetWordResultCount([in] BSTR result, [out, retval] LONG* ret);
-	[id(230)] HRESULT GetWordResultPos([in] BSTR result, [in] LONG index, [out] VARIANT* x, [out] VARIANT* y, [out, retval] LONG* ret);
+	[id(230)] HRESULT GetWordResultPos([in] BSTR result, [in] LONG index, [in, out] VARIANT* x, [in, out] VARIANT* y, [out, retval] LONG* ret);
 	[id(231)] HRESULT GetWordResultStr([in] BSTR result, [in] LONG index, [out, retval] BSTR* retstr);
 	[id(232)] HRESULT ExtractWordRects([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] LONG min_word_h, [out, retval] BSTR* retstr);
 	[id(233)] HRESULT FetchWords([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] BSTR words, [in] LONG min_word_h, [out, retval] BSTR* retstr);
