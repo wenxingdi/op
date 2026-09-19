@@ -8,9 +8,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$root = Split-Path -Parent $PSScriptRoot          # op/ 根（= op_test 的工作目录，资产按 cwd 查找）
+
 # 自动探测构建目录
 if (-not $BuildDir) {
-    $root = Split-Path -Parent $PSScriptRoot      # op/ 根
     $candidates = @(
         Join-Path $root "build\nmake-x64-Release"
         Join-Path $root "build\nmake-x86-Release"
@@ -36,6 +37,7 @@ if ($Filter) { $args += "--gtest_filter=$Filter" }
 
 Write-Host "运行: $exe $($args -join ' ')"
 $p = Start-Process -FilePath $exe -ArgumentList $args -NoNewWindow `
+    -WorkingDirectory $root `
     -RedirectStandardOutput $outFile -RedirectStandardError $errFile -PassThru
 if (-not $p.WaitForExit(180000)) {
     $p.Kill()

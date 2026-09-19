@@ -3,6 +3,40 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-19（gdi/gdi2/dx2 截图通道改造：PW_RENDERFULLCONTENT + 全黑回退，修 UWP/Chromium 全黑）
+
+- **根因**：`gdi`/`gdi2` 用 `PrintWindow(hwnd,hdc,0)`、`dx2` 用 `BitBlt(窗口 DC)`，二者对 **DirectComposition 合成的窗口**（UWP、Chromium 系：系统计算器 / Electron 壳 / Edge 内核应用）都只能拿到**整幅全黑**——而且**是静默的**：绑定与截图 `ret=1`、尺寸与字节数全正常。真机 7 目标 × 4 模式矩阵实测，改前有 4 个目标（计算器 / WorkBuddy / 紫鸟 / 汽水音乐）**没有任何可用模式**。
+- **改动**（`libop/capture/backends/GdiCapture.cpp`）：① `gdi`/`gdi2` 改 `PrintWindow(..., PW_RENDER_FULL_CONTENT=0x2)`（Win8.1+，本项目最低支持 Win10，不做运行时判断），结果整幅全黑再退回 `flags=0`；② `dx2` 保留窗口 DC `BitBlt` 快路径（不向目标窗口发消息），仅 BitBlt 全黑时才回退到 PrintWindow 分支（`gdi2` 的 `UpdateWindow` 前置保留，dx2 回退刻意不发消息）；③ 新增 `frame_is_all_black()`（只查 B/G/R、遇首个非黑像素即返回，仅全黑帧才整幅扫描）作为回退判据——**取图失败是静默的，必须靠像素判定**。
+- **验证**：新增 `tests/capture_mode_test.cpp` 2 例（gdi/gdi2/dx2 断言**像素颜色**并验证取的是实时帧；遮挡穿透用例自带 `WindowFromPoint` 自检）——150% DPI 全过。全量回归 **270 ran / 262 PASS / 6 SKIP / 2 FAILED**（两条均键鼠域既有环境项，其一单跑即过）**零回归**。真机矩阵复跑：4 个原全黑目标的 gdi/dx2 → 非黑 99~100%（目视核对内容正确）；原可用目标零劣化——**BlueStacks 色数变化已用同轮 `PrintWindow(0)` vs `(0x2)` 对照定位**：内容区仅 0.3% 像素差，差异集中在顶端 74px 带与底部 20 行，即"此前留黑的标题栏/边框区被正确渲染"，**不是内容错位**（故客户区裁剪偏移 `dx_`/`dy_` 语义不变）。回退分支实测：`dx2 BitBlt→回退` 触发 4 次（正是 4 个合成窗口目标），`PW 主路径全黑→flags=0 重试` 触发 0 次（防御性分支，本机无目标触发、暂无实测覆盖）。
+- **连带修正**：`dx2` 实际不走 `PrintWindow`（此前报告/记忆误记为三模式同一句），`requestCapture` 中 `RDT_GDI_DX2` 分支先于 PrintWindow 分支命中；`gen_api_reference.py` 的 `DISPLAY_MODES` 重写（`normal` 原被误标为"PrintWindow 后台截图"，实为桌面 DC 位块拷贝 = 屏幕所见），手册已重生成（参数注解 899/899）。
+- **发布件**：`bin/x64` + `bindings/python/op/bin/x64` 已同步（MD5 一致）；OPTestTool 三处 `Dll/` 的 `op_c_api_x64.dll` 已刷新为 `aec98c7e…`（`OPTestTool/bin` 的 `onnxruntime.dll` 被外部进程占用未能覆盖，但哈希与源一致，内容无差异）。
+- **未做（决策延后）**：`normal.dxgi` 对 WorkBuddy 全黑（不立项）；WGC 通道修复（唯一能同时解决遮挡 + 最小化的通道，本机受 4 个虚拟显示驱动阻塞，需干净机器）。
+
+### 2026-09-19（P1 退出段挂起根治：OCR/YOLO 引擎单例 leak-by-design，`17574a0`）
+
+- **根因实证（minidump，非猜测）**：分阶段探针 `workbench/exit_hang_probe.py` 二分锁定——仅带 OCR 的轮次进程退出必挂起（gdi/dx2 纯绑定+截图干净退出），挂起点在 PRE_EXIT 之后的进程退出段。自研 `workbench/dump_hang.py`（MiniDumpWriteDump 抓取 + minidump 结构手工解析，无 cdb 环境）抓挂起现场，主线程栈：`ExitProcess/CRT exit → DLL_PROCESS_DETACH → op_x64.dll 静态析构 → onnxruntime Session/Env 拆除 → WaitForMultipleObjects`，且 3 个 ORT intra-op worker 线程仍存活等条件变量 → **静态单例 `HttpOcrService` 析构 ORT 线程池在退出阶段死锁**。
+- **修复**：`HttpOcrService::getInstance` 与 `YoloDetector::getInstance` 的函数级 static 对象改为 **`static T* = new T()` 故意泄漏**——进程退出阶段完全不触碰 ORT（Session/Env/线程池由进程回收），运行期行为零变化（单例仍全局唯一）。宿主为短生命周期自动化脚本，泄漏可接受，已在注释中说明依据与证据。
+- **验证**：修复后 gdi_ocr/ocr_only/dx2_ocr/gdi 四轮全部 3-4 秒干净退出（修复前 45 秒超时强杀）。全量回归 **261 PASS / 1 FAILED（仅基线已知 WaitKeyScanAll）** 零回归。新 DLL 已部署 `bin/x64` + `bindings/python/op/bin/x64`。
+- **方法论沉淀**：无调试器环境下用 Python ctypes 直调 `MiniDumpWriteDump`（注意 HANDLE 须经 `msvcrt.get_osfhandle`）+ 手工解析 MINIDUMP_MODULE/THREAD/CONTEXT（Module NameRva@+20，Thread: Teb@+16/Stack@+24/ContextRva@+44，x64 CONTEXT Rip@+0xF8/Rsp@+0x98）即可拿挂起线程栈，偏移错一处全盘错位。
+- **发布阻断项清零**。剩余建议项：真机 PS 复跑 `real_machine_test.ps1` 确认 powershell 正常退出（预期已修，机制同路径）。
+
+### 2026-09-19（PS 动态派发出参读回根治：VARIANT byref 包装写穿，`8da94da`）
+
+- **二次根因（服务器实现层）**：`79aede7` 只修了 typelib 声明层，真机 PS 终验仍读零。服务器侧临时诊断（`diag GetClientSize in: width.vt=16387`）坐实：**PS 动态 COM binder 传的是 `VT_BYREF|VT_I4` 包装**（非标准 `VT_BYREF|VT_VARIANT`），oleaut 把包装 VARIANT 原样递给服务器；原实现写 `vt=VT_I4`+值等于破坏包装，PS 的 Int32 存储从未被更新。ret（retval）能读回、出参全零与此完全吻合。
+- **修复**：OpAutomation.cpp 新增匿名空间 `InLong`/`OutLong` 助手——`OutLong` 对 `VT_BYREF|VT_I4` **写穿 `plVal` 指针**（PS [ref] 读回），对 `VT_BYREF|VT_VARIANT` 写内层，对普通 VARIANT 保持原行为（vtable 路径零变化），未知 BYREF 载荷不碰防破坏；`InLong` 对称处理 `[in]` 方向。13 个方法改造（GetClientRect/GetClientSize/GetWindowRect/GetCursorPos/ClientToScreen/ScreenToClient/FindColor/FindMultiColor/FindPic/FindColorBlock/GetPicSize/GetWordResultPos/FindStr），全部改为局部变量调内核 + OutLong 写回；GetCursorPos/GetWordResultPos 顺带消除对调用方 VARIANT 的 VariantInit 破坏。`GetScreenDataBmp` 维持原样（传出内存指针，PS 场景本不可用）。
+- **验证**：裸 Invoke 三形态——标准 `BYREF|VARIANT` 读回 1348×925 ✅；`BYREF|I4`（PS 形态）holder 读回 1348/925 ✅；plain 非 byref 无写回（调用方必须传 [ref]，符合预期）。全量回归 **261 PASS / 1 FAILED（仅基线已知 WaitKeyScanAll）** 零回归。临时诊断 setlog 已移除。
+- **PS 调用姿势结论**：`$w=0; $r=$op.GetClientSize($hwnd,[ref]$w,[ref]$h)` 现在可读回；不传 [ref]（plain）因 PS 传临时副本，读回不可能（oleaut 机制决定，任何服务器实现无解）。
+- 遗留不变：P1 退出段挂起（发布阻断）。
+
+### 2026-09-19（COM IDispatch late-binding 出参读不回根治：VARIANT* [out]→[in,out]，`79aede7`）
+
+- **根因定性修正**：真机排查期间的"GetClientSize/GetWindowRect 读不回"此前定性为 IDispatch 路径兼容性问题待处置；本轮确认根因 = IDL 中 12 个方法的 VARIANT* 出参声明为 `[out]`-only。oleaut 的 `ITypeInfo::Invoke`（PowerShell/VBScript/易语言等 late-binding 客户端唯一路径）只对 `[in,out]` 指针参数写回调用方 byref 存储，`[out]`-only 的写回不可达——服务器实现（OpAutomation.cpp）本身已正确置 `vt=VT_I4` 并写值，问题纯在 typelib 声明层。
+- **修复**：`op.idl` 12 处 `[out] VARIANT*` → `[in, out] VARIANT*`（GetClientRect/GetClientSize/GetWindowRect/GetCursorPos/FindColor/FindMultiColor/FindPic/FindColorBlock/GetScreenDataBmp/GetPicSize/FindStr/GetWordResultPos），并加防回归注释。**vtable 签名不变**（IDL 属性不影响 C 签名），早绑定（C-API/comtypes vtable/Python ctypes）与注册表内容（CLSID/路径/TypeLib GUID）零变化，无需重注册；BSTR* 出参（retval 相邻位，PS 下实测正常）不在本次范围。
+- **验证**：裸 `IDispatch::Invoke`（workbench/repro_dispinvoke2.py，标准 `VT_BYREF|VT_VARIANT` 形态）GetClientSize 读回 **1348×925**（与 C-API 路径 150% DPI 实测一致）、GetCursorPos 双参数全写回，S_OK。**重要方法论教训**：此前该实验报"S_OK 但参数错乱"系实验脚本自身手写 16 字节 VARIANT（真身 24 字节）致 DISPPARAMS 按 24 字节步长索引错位——**复刻实验工具的内存布局错误会污染根因证据**。
+- **回归**：全量 268 用例 · 260 PASS · 6 SKIP · 2 FAILED（`GetKeyStateTracksMouseButtons` 单跑即过属环境抖动；`WaitKeyScanAllWithWaitFindsKey` 为基线已知时序项），与基线一致零回归。op_test.exe 链接已含新 op_i.c。
+- **注意**：新 DLL 已部署 `bin/x64` + `bindings/python/op/bin/x64`（本次人工同步，_wb_build.py 不部署）。构建脚本 `_wb_build.py` 已补 Windows SDK bin 进 PATH（midl 定位）。
+- **遗留**：P1 退出段挂起（powershell 子进程不退出）仍未修，为发布阻断项（约 30-60 分钟工作量）。真实 PS 客户端终验脚本就绪：`workbench/verify_idl_inout.ps1`（自起记事本、三方法读回矩阵、末尾自杀绕挂起），可直接跑确认。
+
 ### 2026-09-18（字库超集根治落地：匹配内核邻域净空检查，DICT_SUPERSET 闭环，`17b3716`）
 
 - **新增 `superset_adjacent_ink` 邻域净空检查**（ImageSearchAlgorithms.cpp，精确/模糊两条匹配路径同接）：full_match/part_match 命中后，除历史右侧列检查（rs < h/2）外，补查模板窗口**紧贴的上/下/左三条邻接线**——任一邻接线前景像素 >=2 点即判为超集子匹配拒绝。修掉"超集字借窗口外笔画反杀本尊"缺陷（太=大+点、犬=大+点、8=3+闭合影，命中时置信度 1.0 无法区分）。

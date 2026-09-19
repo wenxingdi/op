@@ -139,6 +139,7 @@ set(OP_TEST_SOURCES
   "op_algorithm_windows_test.cpp"
   "mouse_keyboard_test.cpp"
   "image_color_test.cpp"
+  "capture_mode_test.cpp"
   "wgc_test.cpp"
   "ocr_test.cpp"
   "yolo_test.cpp"

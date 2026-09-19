@@ -50,6 +50,30 @@ std::span<const std::byte> gdi_row(std::span<const std::byte> pixels, int src_wi
     return pixels.subspan(offset, static_cast<size_t>(width) * 4);
 }
 
+// PrintWindow 取图标志，Win8.1+ 提供（本项目最低支持 Win10，无需运行时判断）。
+// DirectComposition 合成的窗口（UWP / Chromium 系）GDI 表面为空，只有该标志能取到已合成画面。
+constexpr UINT PW_RENDER_FULL_CONTENT = 0x00000002;
+
+// 判定 32 位 BGRA 帧是否整幅全黑。
+// 合成窗口的取图失败是**静默**的：调用返回成功、尺寸正常，只是内容全黑，必须靠像素判定才能发现。
+// 只查 B/G/R 三通道（忽略 GDI 常置 0 的 alpha）；遇到首个非黑像素即返回，正常帧开销可忽略，
+// 仅真正全黑的帧才做整幅扫描。
+bool frame_is_all_black(const std::byte *pixels, int stride, int width, int height) {
+    for (int y = 0; y < height; ++y) {
+        const std::byte *row = pixels + static_cast<std::ptrdiff_t>(y) * stride;
+        for (int x = 0; x < width; ++x) {
+            const std::byte *px = row + static_cast<std::ptrdiff_t>(x) * 4;
+            if (px[0] != std::byte{0} || px[1] != std::byte{0} || px[2] != std::byte{0})
+                return false;
+        }
+    }
+    return true;
+}
+
+bool frame_is_all_black(std::span<const std::byte> pixels, int width, int height) {
+    return frame_is_all_black(pixels.data(), width * 4, width, height);
+}
+
 } // namespace
 
 namespace op::capture {
@@ -182,6 +206,28 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
     }
 
     img.create(w, h);
+
+    // dx2 主路径：窗口 DC 直接 BitBlt —— 不向目标窗口发 WM_PRINT，是最轻的后台取图方式。
+    // 合成窗口（DirectComposition：UWP / Chromium 系）的窗口 DC 上没有内容，这条路径会拿到
+    // 全黑图，此时返回 false，交给下面的 PrintWindow 分支兜底（见该处注释）。
+    auto capture_via_window_dc = [&]() -> bool {
+        if (RDT_GDI_DX2 != _render_type)
+            return false;
+
+        ATL::CImage image;
+        image.Create(w, h, _device_caps);
+        BitBlt(image.GetDC(), 0, 0, w, h, _hdc, x1, y1, SRCCOPY);
+        img.read(&image);
+        image.ReleaseDC();
+
+        // Image 的行距恒为 width*4（见 Image::ptr），可整块线性扫描。
+        if (!frame_is_all_black(reinterpret_cast<const std::byte *>(img.ptr<uchar>(0)), w * 4, w, h))
+            return true;
+
+        setlog("GdiCapture: dx2 window-DC BitBlt is all black, fallback to PrintWindow");
+        return false;
+    };
+
     if (_render_type == RDT_NORMAL) { // normal 拷贝的大小为实际需要的大小
         release_capture_bitmap(_hmdc, _hbmpscreen, _hbmp_old);
 
@@ -252,15 +298,10 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
             memcpy(img.ptr<uchar>(i), row.data(), row.size());
         }
         _pmutex->unlock();
-    } else if (RDT_GDI_DX2 == _render_type) {
-        ATL::CImage image;
-        image.Create(w, h, _device_caps);
-        BitBlt(image.GetDC(), 0, 0, w, h, _hdc, x1, y1, SRCCOPY);
-        img.read(&image);
-        image.ReleaseDC();
-    } else { // gdi ... 由于printwindow 函数的原因
+    } else if (capture_via_window_dc()) {
+        // dx2 快路径命中：BitBlt 结果非全黑，无需再走 PrintWindow
+    } else { // PrintWindow 取图：gdi / gdi2，以及 dx2 快路径全黑时的回退
              // 截取大小为实际的窗口大小，在后续的处理中，需要转化成客户区大小
-        //
         RECT rc;
         ::GetWindowRect(_hwnd, &rc);
         int ww = rc.right - rc.left;
@@ -292,33 +333,47 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
         _bih.biSizeImage = ww * wh * 4; // 图像数据大小
         _bih.biWidth = ww;              // 宽度
 
-        // 对指定的源设备环境区域中的像素进行位块（bit_block）转换
-
-        if (_render_type == RDT_GDI) {
-            ::PrintWindow(_hwnd, _hmdc, 0);
-
-        } else {
-            ::UpdateWindow(_hwnd);
-            //::RedrawWindow(_hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE |
-            //: RDW_ALLCHILDREN | RDW_FRAME);
-            ::PrintWindow(_hwnd, _hmdc, 0);
-        }
-        // 函数获取指定兼容位图的位，然后将其作一个DIB—设备无关位图（Device-Independent
-        //  Bitmap）使用的指定格式复制到一个缓冲区中
         if (!ensureSharedFrameCapacity(ww, wh)) {
             setlog("GdiCapture: ensureSharedFrameCapacity(%d,%d) failed", ww, wh);
             release_capture_bitmap(_hmdc, _hbmpscreen, _hbmp_old);
             return false;
         }
-        _pmutex->lock();
-        uchar *pshare = _shmem->data<byte>();
-        // 头尺寸与实际写下的整窗载荷一致（共享段已按当前整窗容量扩容）。
-        fmtFrameInfo(pshare, _hwnd, ww, wh);
-        GetDIBits(_hmdc, _hbmpscreen, 0L, (DWORD)wh, pshare + sizeof(FrameInfo), (LPBITMAPINFO)&_bih,
-                  (DWORD)DIB_RGB_COLORS);
+
+        // 把一帧写进共享段（帧头 + 整窗 DIB）。共享段容量已由上方保证。
+        auto render_window_frame = [&](UINT pw_flags) {
+            ::PrintWindow(_hwnd, _hmdc, pw_flags);
+            _pmutex->lock();
+            uchar *pshare = _shmem->data<byte>();
+            // 头尺寸与实际写下的整窗载荷一致（共享段已按当前整窗容量扩容）。
+            fmtFrameInfo(pshare, _hwnd, ww, wh);
+            GetDIBits(_hmdc, _hbmpscreen, 0L, (DWORD)wh, pshare + sizeof(FrameInfo),
+                      (LPBITMAPINFO)&_bih, (DWORD)DIB_RGB_COLORS);
+            _pmutex->unlock();
+        };
+
+        // gdi2 先强制刷新再取图；dx2 回退路径刻意不走这一步（不向目标窗口发任何消息）。
+        if (RDT_GDI2 == _render_type)
+            ::UpdateWindow(_hwnd);
+        //::RedrawWindow(_hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ERASE |
+        //: RDW_ALLCHILDREN | RDW_FRAME);
+
+        // PrintWindow 取的是窗口真实内容：穿透遮挡、不依赖 Z 序。
+        // 优先 PW_RENDER_FULL_CONTENT 拿合成窗口（UWP / Chromium 系）的画面；个别窗口在该标志下
+        // 反而渲染不出内容（表现为整幅全黑），此时退回传统 flags=0 再取一次。
+        render_window_frame(PW_RENDER_FULL_CONTENT);
+        {
+            _pmutex->lock();
+            const bool blank = frame_is_all_black(shared_pixels(_shmem, ww, wh), ww, wh);
+            _pmutex->unlock();
+            if (blank) {
+                setlog("GdiCapture: PrintWindow(PW_RENDERFULLCONTENT) all black, retry with flags=0");
+                render_window_frame(0);
+            }
+        }
 
         release_capture_bitmap(_hmdc, _hbmpscreen, _hbmp_old);
 
+        _pmutex->lock();
         // 将数据拷贝到目标注意实际数据是反的(注意偏移)
         auto pixels = shared_pixels(_shmem, ww, wh);
         for (int i = 0; i < h; i++) {

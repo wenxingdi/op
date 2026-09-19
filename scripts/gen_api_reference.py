@@ -65,14 +65,15 @@ SAL_RE = re.compile(r"_(In|Out|Inout|In_reads_bytes)_(\([^)]*\))?\s*")
 # 新增参数或改语义时同步改这里，重跑本脚本即可。
 # ---------------------------------------------------------------------------
 DISPLAY_MODES = (
-    "<code>normal</code> PrintWindow 后台截图（通用，推荐）<br>"
-    "<code>gdi</code> / <code>gdi2</code> GDI 位图拷贝<br>"
-    "<code>normal.dxgi</code> DXGI 桌面复制（Win8+）<br>"
+    "<code>normal</code> 桌面 DC 位块拷贝：取“屏幕所见”，窗口须可见且未被遮挡（不在最前时会截到遮挡物）<br>"
+    "<code>gdi</code> / <code>gdi2</code> 窗口内容取图（PrintWindow + PW_RENDERFULLCONTENT）：穿透遮挡、不依赖 Z 序，支持 UWP / Chromium 合成窗口<br>"
+    "<code>normal.dxgi</code> DXGI 桌面复制（Win8+，同为“屏幕所见”，需窗口可见）<br>"
     "<code>normal.wgc</code> WGC 捕获（Win10 1903+，本机偶发不稳）<br>"
     "<code>normal.auto</code> 按窗口特征自动逐个尝试候选后端<br>"
-    "<code>dx</code> DX 注入取帧（d3d9~12 自动）；细分 <code>dx.d3d9</code> <code>dx.d3d10</code> <code>dx.d3d11</code> <code>dx.d3d12</code>。注意：Qt/GL 渲染目标 dx 无帧，capture 静默失败，此时改用 normal/gdi/dx2<br>"
-    "<code>dx2</code> 实为 GDI 家族兼容模式<br>"
-    "<code>opengl</code> GL 注入取帧；细分 <code>opengl.std</code> <code>opengl.nox</code> <code>opengl.es</code> <code>opengl.fi</code>(glFinish)"
+    "<code>dx</code> DX 注入取帧（d3d9~12 自动）；细分 <code>dx.d3d9</code> <code>dx.d3d10</code> <code>dx.d3d11</code> <code>dx.d3d12</code>。注意：Qt/GL 渲染目标 dx 无帧，capture 静默失败，此时改用 gdi<br>"
+    "<code>dx2</code> 窗口 DC 位块拷贝（最轻，不向目标窗口发消息）；合成窗口取不到内容时自动回退到 <code>gdi</code> 路径<br>"
+    "<code>opengl</code> GL 注入取帧；细分 <code>opengl.std</code> <code>opengl.nox</code> <code>opengl.es</code> <code>opengl.fi</code>(glFinish)<br>"
+    "注：截图接口返回 1 仅表示调用成功，不代表内容非空；绑定后建议先 <code>GetColor</code> 抽验一次再进入业务循环"
 )
 INPUT_MODES = (
     "<code>normal</code> 驱动级模拟，移动系统光标<br>"
