@@ -3,6 +3,13 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-21（OCR charset 手册补全：默认建议白名单 + 修正过期 http 注释）
+
+- **背景**：OPTool 字符检测页把 `--charset` 从自由文本框改为「字符集设置…」对话框（分类勾选 + 自定义补充 + 实时预览），默认值定为 `@zh` + 数字 + 大小写字母 + 常用符号，手册需同步；顺带发现 `libop.h` 的 `SetOcrEngine` 注释与手册口径冲突。
+- **`include/libop.h`**：`SetOcrEngine` 注释里 `http(s):// 或 backend 别名=远程 HTTP` **已过期**（手册早已写明"http(s):// 与旧远程别名（tesseract/paddle 系）已移除，传入返 0"），改为 `onnx / 空 / 任意未知名 = 内置 ONNX`；`--charset` 段补三条：**规则串不能含空格**（argv 以空格分隔会被截断）、**默认建议白名单**（中文 + 数字 + 大小写字母 + 常用符号）、**缺字符会静默吞字**（漏字母时 `Lv99` 只识别出 `99`）。
+- **`scripts/gen_api_reference.py`**：`PARAM_DOCS["SetOcrEngine"]["argv"]` 从一句 `--threads=N` 扩写为完整说明（`--timeout` / `--model-dir` / `--threads` + charset 语法 / 空格限制 / 推荐值 / 静默吞字告警）。
+- **验证**：重生成 `docs/api_reference.html` —— 223 函数、参数注解覆盖 **899/899（100%）**。
+
 ### 2026-09-19（gdi/gdi2/dx2 截图通道改造：PW_RENDERFULLCONTENT + 全黑回退，修 UWP/Chromium 全黑）
 
 - **根因**：`gdi`/`gdi2` 用 `PrintWindow(hwnd,hdc,0)`、`dx2` 用 `BitBlt(窗口 DC)`，二者对 **DirectComposition 合成的窗口**（UWP、Chromium 系：系统计算器 / Electron 壳 / Edge 内核应用）都只能拿到**整幅全黑**——而且**是静默的**：绑定与截图 `ret=1`、尺寸与字节数全正常。真机 7 目标 × 4 模式矩阵实测，改前有 4 个目标（计算器 / WorkBuddy / 紫鸟 / 汽水音乐）**没有任何可用模式**。

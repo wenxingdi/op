@@ -462,12 +462,16 @@ class OP_API Op {
     void CvShapeMatchTemplate(_In_ long x, _In_ long y, _In_ long width, _In_ long height, _In_ const wchar_t *template_name,
                               _In_ double threshold, _Out_ std::wstring &retjson, _Out_ long *ret);
     //----------------------ocr-------------------------
-    // 选择 OCR 引擎并透传启动参数。engine: "onnx"/空=内置(默认)；http(s):// 或 backend 别名=远程 HTTP。
+    // 选择 OCR 引擎并透传启动参数。engine: "onnx"/空/任意未知名=内置 ONNX（默认）。
+    //   http(s):// 与旧远程别名（tesseract/paddle 系）已移除，传入返 0。
     // argv 空格分隔，支持 --timeout=3000、--model-dir=path；内置 ONNX 另支持：
-    //   --charset=<规则>  解码期字符白名单（只识别白名单内字符，形近误识如 0/O、,/. 被消除）。
+    //   --charset=<规则>  解码期字符白名单（只在名单内选字，形近误识如 0/O、,/. 被消除）。
     //                      语法：@zh = keys 内全部中文(U+4E00-9FFF)；其余可打印 ASCII 按字面加入。
-    //                      例：--charset=@zh0123456789[],-+  （中文+数字+[ ] , - + 五符号）
+    //                      规则串不能含空格（argv 以空格分隔，会被截断）。
     //                      未设置 = 全字典（默认，与原行为一致）。
+    //                      建议值（中文 + 数字 + 大小写字母 + 常用符号）：
+    //                      @zh0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;-+=/|!?%#*()[]~_
+    //                      注：白名单缺哪个字符，该字符就被静默吞掉（漏字母时 "Lv99" 只识别出 "99"）。
     long SetOcrEngine(_In_ const wchar_t *path_of_engine, _In_ const wchar_t *dll_name, _In_ const wchar_t *argv);
     // 选择 YOLO 引擎并加载模型。统一入口：path_of_engine 直接传 .onnx 模型文件路径
     // （dll_name 留空）即自动切进程内 ONNX 引擎，等价于 ("onnx", 模型路径, argv)。

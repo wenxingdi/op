@@ -542,7 +542,13 @@ PARAM_DOCS = {
     "SetOcrEngine": {
         "path_of_engine": "引擎标识：传 <code>onnx</code>/空/任意未知名=内置 ONNX 引擎（PP-OCRv4 模型内嵌 DLL）；<b>http(s):// 与旧远程别名（tesseract/paddle 系）已移除</b>，传入返 0 并提示",
         "dll_name": "引擎 DLL 名（内置 ONNX 下忽略）",
-        "argv": "传给引擎初始化函数的参数字符串（内置 ONNX 支持 <code>--threads=N</code> 等）",
+        "argv": ("传给引擎初始化函数的参数字符串，空格分隔：<code>--timeout=3000</code>、<code>--model-dir=path</code>、"
+                 "<code>--threads=N</code>。<br>内置 ONNX 另支持 <code>--charset=&lt;规则&gt;</code> —— <b>解码期字符白名单</b>，"
+                 "只在名单内选字，形近误识（0/O、,/. 等）被消除；语法 <code>@zh</code>=keys 内全部中文，"
+                 "其余可打印 ASCII 按字面加入；<b>规则串不能含空格</b>（argv 以空格分隔，会被截断）；未设置=全字典。<br>"
+                 "推荐值（中文 + 数字 + 大小写字母 + 常用符号）：<br>"
+                 "<code>@zh0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;-+=/|!?%#*()[]~_</code><br>"
+                 "⚠ 白名单缺哪个字符，该字符就被<b>静默吞掉</b>（漏字母时 <code>Lv99</code> 只识别出 <code>99</code>），请按需列全。"),
     },
     "GetDict": {"idx": "字库槽位", "font_index": "字库内第几个字（从 0）", "etstr": "该字的字库条目串"},
     "SetMemDict": {"data": "字库文本字节数据", "size": "字节数"},
