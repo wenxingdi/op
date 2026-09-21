@@ -537,7 +537,10 @@ class OP_API Op {
     void FetchWordsByRects(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                            _In_ double sim, _In_ const wchar_t *words, _In_ const wchar_t *rects,
                            _Out_ std::wstring &retstr);
-    // 返回指定区域按颜色规则二值化后的文本预览，ret 为前景点数量
+    // 返回指定区域按颜色规则二值化后的文本预览，ret 为前景点数量。
+    // 文本格式：首行 "宽,高"；随后每行一个像素行，'#' 为前景点、'.' 为背景点（与区域像素一一对应）。
+    // 预览与识别共用同一份二值图，并已包含 SetBinaryPreprocess 的预处理结果（默认 mode=1 去孤立点），
+    // 因此可直接用返回值校准 color 颜色描述是否准确。
     void GetBinaryPreview(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                           _In_ double sim, _Out_ std::wstring &retstr, _Out_ long *ret);
     // 返回点阵字库条目的文本预览，ret 为条目是否合法
