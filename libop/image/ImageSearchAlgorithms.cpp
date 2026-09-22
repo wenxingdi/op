@@ -84,11 +84,61 @@ struct ocr_text_span_t {
     point_t point;
 };
 
+// 把 OCR 命中块按"阅读顺序"展开成有序列表:
+// 先按字符包围盒的纵向重叠聚类成行(替代旧的 y/row_height 量化分行,见 point_t::row_height),
+// 行内再按 x 升序。Ocr/OcrEx/FindStr/FindStrEx 的拼接顺序一律以本函数为准,
+// 不再依赖 std::map 的 key 序(量化分行会把同一视觉行拆成多个逻辑行)。
+std::vector<std::pair<point_t, ocr_rec_t>> ocr_items_in_reading_order(const std::map<point_t, ocr_rec_t> &ps) {
+    std::vector<std::pair<point_t, ocr_rec_t>> items(ps.begin(), ps.end());
+    if (items.size() <= 1)
+        return items;
+
+    std::sort(items.begin(), items.end(), [](const auto &a, const auto &b) {
+        const int ay = a.second.left_top.y, by = b.second.left_top.y;
+        return ay != by ? ay < by : a.first.x < b.first.x;
+    });
+
+    // 行聚类:上边缘落在当前行下边缘之内(包围盒纵向重叠 ≥1px)即并入,
+    // 行下边缘取成员最大值——同一视觉行内字形高度/上下错位(如 "]" 与数字)因此不会断行。
+    struct line_t {
+        int bottom = 0;
+        std::vector<size_t> idx;
+    };
+    std::vector<line_t> lines;
+    for (size_t i = 0; i < items.size(); ++i) {
+        const int top = items[i].second.left_top.y;
+        int bottom = items[i].second.right_bottom.y;
+        if (bottom <= top)
+            bottom = top + 1; // 退化包围盒按 1px 高处理
+        if (!lines.empty() && top < lines.back().bottom) {
+            lines.back().idx.push_back(i);
+            if (bottom > lines.back().bottom)
+                lines.back().bottom = bottom;
+        } else {
+            line_t ln;
+            ln.bottom = bottom;
+            ln.idx.push_back(i);
+            lines.push_back(std::move(ln));
+        }
+    }
+
+    std::vector<std::pair<point_t, ocr_rec_t>> out;
+    out.reserve(items.size());
+    for (auto &ln : lines) {
+        std::sort(ln.idx.begin(), ln.idx.end(), [&items](size_t a, size_t b) {
+            return items[a].first.x < items[b].first.x;
+        });
+        for (const size_t i : ln.idx)
+            out.push_back(std::move(items[i]));
+    }
+    return out;
+}
+
 std::wstring build_ocr_text_spans(const std::map<point_t, ocr_rec_t> &ps, std::vector<ocr_text_span_t> &spans) {
     spans.clear();
     std::wstring text;
 
-    for (const auto &it : ps) {
+    for (const auto &it : ocr_items_in_reading_order(ps)) {
         if (it.second.text.empty())
             continue;
 
@@ -969,7 +1019,7 @@ long ImageSearchAlgorithms::Ocr(Dictionary &dict, double sim, wstring &retstr) {
     retstr.clear();
     std::map<point_t, ocr_rec_t> ps;
     bin_ocr(dict, sim, ps);
-    for (auto &it : ps) {
+    for (const auto &it : ocr_items_in_reading_order(ps)) {
         retstr += it.second.text;
     }
     // 返回实际命中块数，与 OcrEx 对齐（原恒返 1，空结果也返 1，见 OC4）；外部 COM/C-API 为 void，仅内部语义
@@ -982,7 +1032,7 @@ long ImageSearchAlgorithms::OcrEx(Dictionary &dict, double sim, std::wstring &re
     bin_ocr(dict, sim, ps);
     // x1,y1,str....|x2,y2,str2...|...
     int find_ct = 0;
-    for (auto &it : ps) {
+    for (const auto &it : ocr_items_in_reading_order(ps)) {
         retstr += std::to_wstring(it.first.x + _x1 + _dx);
         retstr += L",";
         retstr += std::to_wstring(it.first.y + _y1 + _dy);

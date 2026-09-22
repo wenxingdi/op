@@ -3,6 +3,20 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
 
+### 2026-09-22（OCR 拼接序改包围盒行聚类：修同视觉行被量化分行拆散、FindStr 返回 -1）
+
+- **背景**：字库 OCR 结果拼接顺序原由 `std::map<point_t, ocr_rec_t>` 的 key 序决定，`point_t::operator<` 用 `y/9` 量化分行（`row_height=9`）。同一视觉行内字形高度/上下错位稍大（实测 `割喉台[` 顶 y=8、数字串顶 y=10~16）就会被量化边界切成两个逻辑行 → `Ocr` 拼接串变成 `割喉台[]-1130,-1829`、`FindStr("割喉台[-1130,-1829]")` 恒返 -1。识别本身 16/16 全对，纯排序问题。
+- **`libop/image/ImageSearchAlgorithms.cpp`**：新增 `ocr_items_in_reading_order()` —— 先把命中块按 (顶 y, x) 排序，再按**字符包围盒纵向重叠 ≥1px** 贪心聚类成行（行下边缘取成员最大值，容忍同视觉行内字形高差），行内按 x 升序。`Ocr`/`OcrEx`/`build_ocr_text_spans`（FindStr/FindStrEx 共用）4 处拼接全部改走该顺序，不再依赖 map key 序。`point_t::row_height` 保留（map key 仍需严格弱序），但不再影响输出文本顺序。
+- **验证**：OcrProbe 端到端（`1 - 副本.bmp` + 用户 op.dict，sim=1.0）——修复前 `Ocr=割喉台[]-1130,-1829`、`FindStr=-1`；修复后 `Ocr=割喉台[-1130,-1829]`、`OcrEx` 16 块按 x 连续、`FindStr=0 @(15,8)`。OPTool GuiSmoke 冒烟 EXIT=0 全绿。低 sim（0.9/0.8）的误识别噪声为既有行为，与本次无关。
+- **影响面**：字库 OCR 的 Ocr/OcrEx/FindStr/FindStrEx 输出顺序；HTTP/ONNX 引擎结果走同一拼接层，一并修正。行聚类按包围盒重叠判定，相邻两行字形包围盒真实重叠时仍会并行（旧量化口径同样无法避免，属固有歧义）。
+
+### 2026-09-21（GetBinaryPreview 返回值格式文档化 —— OPTool 二值预览改走 SDK）
+
+- **背景**：OPTool 字库制作（WordDictTool）的二值预览原为自研实现，与识别实际使用的二值图有三处偏离（前景色按灰度差比较 / 背景色多色槽互相覆盖 / 24bpp 图按 4 字节步长扫描）。改为调用 `GetBinaryPreview` 后，工具直接依赖其返回文本格式，而手册此前**未写明格式**（只写"文本预览"）。
+- **`include/libop.h`**：`GetBinaryPreview` 注释补三点 —— ① 文本格式：首行 `宽,高`，随后每行一个像素行，`#` 前景、`.` 背景，与区域像素一一对应；② 预览与识别共用同一份二值图，已含 `SetBinaryPreprocess` 的预处理结果（**默认 mode=1 去孤立点**）；③ 用途：可直接拿返回值校准 `color` 颜色描述是否准确。
+- **验证**：重生成 `docs/api_reference.html` —— 223 函数、参数注解覆盖 899/899（100%）。
+- **未改代码**：仅注释与手册，SDK 行为零变化。
+
 ### 2026-09-21（OCR charset 手册补全：默认建议白名单 + 修正过期 http 注释）
 
 - **背景**：OPTool 字符检测页把 `--charset` 从自由文本框改为「字符集设置…」对话框（分类勾选 + 自定义补充 + 实时预览），默认值定为 `@zh` + 数字 + 大小写字母 + 常用符号，手册需同步；顺带发现 `libop.h` 的 `SetOcrEngine` 注释与手册口径冲突。
