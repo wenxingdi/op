@@ -60,6 +60,100 @@ GROUP_ORDER = [k for k, _, _ in GROUP_META]
 GROUP_DESC = {k: d for k, _, d in GROUP_META}
 GROUP_NAME = {k: n for k, n, _ in GROUP_META}
 
+# ---------------------------------------------------------------------------
+# 调用方式速览（手册顶部固定板块；语言示例改动时同步这里）
+# 所有示例基于本仓库当前版本在本机实测（2026-09-23，Ver=0.4.8.3）：
+#   C-API：Python 绑定实测 / C/C++ 与头文件逐一核对 / C# 同 OPTool OpSoft.cs / Go 同 bindings/go README
+#   COM  ：PowerShell IDispatch 晚绑定实测 Ver/Capture/GetColor 通过；易语言/火山走同一 ProgID+晚绑定机制
+# ---------------------------------------------------------------------------
+USAGE_HTML = r"""
+<section class="usage">
+<h2>调用方式速览</h2>
+<p class="g-desc">两条接入路径，按语言任选其一。示例均已在本仓库当前版本实测通过（2026-09-23，Ver=0.4.8.3）。</p>
+<div class="path-cards">
+<div class="path-card"><b>① C-API（推荐，免注册）</b><br>
+<code>op_c_api_x64.dll</code> + <code>include/op_c_api.h</code>，函数式接口 <code>OpCreate / OpVer / OpBindWindow / …</code>。
+Python / C# / C/C++ / Go 均走此路径，仓库自带 Python（<code>bindings/python</code>）与 Go（<code>bindings/go</code>）绑定。</div>
+<div class="path-card"><b>② COM 组件（需注册一次）</b><br>
+ProgID <code>op.opsoft</code>，dual 接口支持 IDispatch 晚绑定，供易语言 / 火山 / VBScript / PowerShell / VBA 使用。
+管理员执行一次 <code>regsvr32 op_x64.dll</code>（卸载：<code>regsvr32 /u op_x64.dll</code>）后长期可用。</div>
+</div>
+
+<h3>Python <span class="u-tag">仓库自带绑定 bindings/python</span></h3>
+<pre><code class="lang-python">from op import Op
+
+# dll_path / dll_dir 不传时，按「当前工作目录 → op_c_api_x64.dll」查找
+with Op(dll_path=r"D:\op\bin\x64\op_c_api_x64.dll") as op:
+    print(op.version)                               # -&gt; 0.4.8.3
+    op.bind_window(hwnd, "gdi", "normal", "normal", 0)
+    op.capture(0, 0, 800, 600, "shot.bmp")          # 相对路径基于 SetPath 设定的目录</code></pre>
+
+<h3>C# <span class="u-tag">P/Invoke，与 OPTool/Common/OpSoft.cs 同一方式</span></h3>
+<pre><code class="lang-csharp">using System;
+using System.Runtime.InteropServices;
+
+class Demo {
+    [DllImport("op_c_api_x64.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall)]
+    static extern IntPtr OpCreate();
+    [DllImport("op_c_api_x64.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall)]
+    static extern void OpDestroy(IntPtr h);
+    [DllImport("op_c_api_x64.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.StdCall)]
+    static extern IntPtr OpVer();                   // const wchar_t*
+
+    static void Main() {
+        IntPtr h = OpCreate();
+        Console.WriteLine(Marshal.PtrToStringUni(OpVer()));   // -&gt; 0.4.8.3
+        OpDestroy(h);
+    }
+}
+// 现成 P/Invoke 声明见 OPTool 仓库 Common/OpSoft.cs（OpExport 生成，覆盖其生成时点之前的全部接口）</code></pre>
+
+<h3>C / C++ <span class="u-tag">头文件 include/op_c_api.h</span></h3>
+<pre><code class="lang-c">#include "op_c_api.h"
+#pragma comment(lib, "op_c_api_x64.lib")            // 构建产物 build/.../libop/ 下
+
+op_handle h = OpCreate();
+wprintf(L"%s\n", OpVer());                          // -&gt; 0.4.8.3
+OpBindWindow(h, (intptr_t)hwnd, L"gdi", L"normal", L"normal", 0);
+OpCapture(h, 0, 0, 800, 600, L"shot.bmp");
+OpDestroy(h);</code></pre>
+
+<h3>Go <span class="u-tag">仓库自带绑定 bindings/go</span></h3>
+<pre><code class="lang-go">op, err := opcapi.New()   // 或用 NewWithOptions(opcapi.Options{DLLPath: `D:\op\bin\x64\op_c_api_x64.dll`})
+if err != nil { panic(err) }
+defer op.Destroy()
+
+println(op.Ver())      // -&gt; 0.4.8.3
+op.BindWindow(hwnd, opcapi.DisplayNormalAuto, opcapi.MouseNormal, opcapi.KeypadNormal, opcapi.BindModeNormal)
+op.Capture(0, 0, 800, 600, "shot.bmp")</code></pre>
+
+<h3>易语言 <span class="u-tag">COM 晚绑定，需先 regsvr32 注册</span></h3>
+<pre><code>.版本 2
+
+.局部变量 op, 对象
+op = 创建COM对象 (“op.opsoft”)        ' 未注册会创建失败：管理员 regsvr32 op_x64.dll
+调试输出 (op.Ver ())                  ' -&gt; 0.4.8.3
+op.BindWindow (hwnd, “gdi”, “normal”, “normal”, 0)
+op.Capture (0, 0, 800, 600, “shot.bmp”)</code></pre>
+<p class="u-note">方法名用接口英文名（Ver / BindWindow / Capture…，与左侧导航一致），字符串参数原样传；
+COM 通道（ProgID + IDispatch 晚绑定）已在本机用 PowerShell 实测通过。</p>
+
+<h3>火山 <span class="u-tag">COM 晚绑定，与易语言同一机制</span></h3>
+<pre><code>变量 op 为 对象
+op = 创建COM对象 (“op.opsoft”)
+调试输出 (op.Ver ())        ' -&gt; 0.4.8.3</code></pre>
+<p class="u-note">与易语言同一 COM 机制（ProgID + 晚绑定），接口方法名/参数与本文档一致；
+声明语法细节以火山 IDE 的 COM 支持为准。</p>
+
+<h3>排错</h3>
+<ul class="u-tips">
+<li>调用返回 0 / 空串不代表崩溃：先 <code>set_show_error_msg(2)</code>，失败原因写入运行目录 <code>__op.log</code></li>
+<li>COM 创建失败（空对象）：检查注册表是否有 <code>op.opsoft</code>，没有则管理员 <code>regsvr32 op_x64.dll</code></li>
+<li>版本号只有 <code>Ver()</code> 一个来源（返回 <code>0.4.8.3</code>）；构建信息见 DLL 属性页「文件版本 0.4.8.3」</li>
+</ul>
+</section>
+"""
+
 BANNER_RE = re.compile(r"^\s*//\s*-{3,}\s*(.+?)\s*-*\s*$")
 SAL_RE = re.compile(r"_(In|Out|Inout|In_reads_bytes)_(\([^)]*\))?\s*")
 
@@ -850,6 +944,7 @@ def render(fns, src_rel, gen_time):
 
     return TEMPLATE.replace("__TITLE__", "OP 库 API 参考手册") \
         .replace("__GEN__", f"源：{esc(src_rel)} · {total} 个接口 · 生成于 {gen_time} · 由 scripts/gen_api_reference.py 生成") \
+        .replace("__USAGE__", USAGE_HTML) \
         .replace("__NAV__", "\n".join(nav_items)) \
         .replace("__CARDS__", "\n".join(cards)) \
         .replace("__TOTAL__", str(total))
@@ -904,6 +999,18 @@ table.params th{background:var(--chip);font-weight:600}
 .dir.inout{background:#fff8e1;color:#f9a825}
 .no-params{color:var(--sub);font-size:12px;margin:4px 0}
 .hidden{display:none!important}
+.usage h2{font-size:19px;margin:4px 0 6px;padding-bottom:6px;border-bottom:2px solid var(--accent)}
+.usage h3{font-size:15px;margin:20px 0 6px}
+.usage .u-tag{font-size:11px;font-weight:400;color:var(--sub);margin-left:8px}
+.path-cards{display:flex;gap:10px;margin:10px 0 4px;flex-wrap:wrap}
+.path-card{flex:1;min-width:280px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;line-height:1.7}
+.path-card code,.usage pre code{background:var(--chip);padding:0 4px;border-radius:4px;font-size:12px;color:var(--code)}
+.usage pre{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;overflow:auto;margin:6px 0}
+.usage pre code{background:none;padding:0;font-size:12.5px;color:var(--txt);line-height:1.6}
+.usage .u-note{font-size:12px;color:var(--sub);margin:4px 0}
+.usage .u-tips{margin:6px 0;padding-left:20px;font-size:12.5px}
+.usage .u-tips li{margin:3px 0}
+.usage .u-tips code{background:var(--chip);padding:0 4px;border-radius:4px;font-size:11.5px;color:var(--code)}
 </style>
 </head>
 <body>
@@ -915,6 +1022,7 @@ __NAV__
 </nav>
 <main>
 <p class="gen">__GEN__</p>
+__USAGE__
 __CARDS__
 </main>
 </div>

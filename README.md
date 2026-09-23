@@ -27,7 +27,7 @@ OP（Operator & Open）是一个面向 Windows 的自动化插件。它把窗口
 ## 文档
 
 - **[docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md) — 构建与环境配置完整指南（零基础版，推荐先读）**
-- [docs/api_reference.html](docs/api_reference.html) — 接口速查手册（223 接口，参数注解 100%）
+- [docs/api_reference.html](docs/api_reference.html) — 接口速查手册（240 接口，含调用方式速览：Python/C#/C/C++/Go/易语言/火山 示例，参数注解 100%）
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) — 迭代记录
 - [docs/INDEX.md](docs/INDEX.md) / [docs/<年月>/](docs/) — 专题报告与审计文档
 - [CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md) — 给 AI 编程助手的真实构建/协作指南
