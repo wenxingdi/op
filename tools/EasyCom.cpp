@@ -103,7 +103,7 @@ HRESULT __stdcall myCoCreateInstance(_In_ REFCLSID rclsid, _In_opt_ LPUNKNOWN pU
 HRESULT __stdcall myCoGetClassObject(_In_ REFCLSID rclsid, _In_ DWORD dwClsContext, _In_opt_ LPVOID pvReserved,
                                      _In_ REFIID riid, _Outptr_ LPVOID FAR *ppv) {
     // printf("myCoGetClassObject\n");
-    // flaot:在这里如果走原始"oCoGetClassObject"则会失败，找注册表肯定找不到
+    // wenxingdi:在这里如果走原始"oCoGetClassObject"则会失败，找注册表肯定找不到
     if (memcmp(&rclsid, &CLSID_OpAutomation, sizeof(CLSID_OpAutomation)) == 0) {
 
         HMODULE hdll = LoadLibraryA(dllpathA);
