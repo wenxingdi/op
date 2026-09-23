@@ -5,7 +5,7 @@
 
 ## 项目概述
 
-OP 是 Windows 桌面自动化 COM 插件（C++17），功能：截图（GDI/DX/WGC/Hook）、键鼠输入（SendInput/SendMessage/DX 注入）、找图找色、OCR（字库 + HTTP 服务）。本仓库是上游 0.4.8.3（tag `0.4.8.3` = 6d6b285）之后的私有迭代 fork，上游 remote 保留为 `upstream`。
+OP 是 Windows 桌面自动化 COM 插件（C++17），功能：截图（GDI/DX/WGC/Hook）、键鼠输入（SendInput/SendMessage/DX 注入）、找图找色、OCR（点阵字库 + **内置 ONNX 引擎**，HTTP 远程后端已编译期移除）、本地 ONNX YOLO 检测。本仓库是上游 0.4.8.3（tag `0.4.8.3` = 6d6b285）之后的私有迭代 fork，上游 remote 保留为 `upstream`。
 
 ## 构建（唯一可信路径）
 
@@ -102,7 +102,10 @@ libop/libop.cpp            — 主实现：WindowService/BindingSession/截图/�
 libop/com/op.idl           — MIDL COM 接口（IOpAutomation，~300 dispids）
 libop/capture/backends/    — GdiCapture / DxgiCapture / WgcCapture / HookCapture / GdiInputHook
 libop/input/               — 鼠标/键盘/DX 输入后端
-libop/image/               — 找图算法 / OCR（字库 TesseractOcr + HTTP HttpOcrService）
+libop/image/               — 找图算法 / 图像搜索服务
+libop/ocr/                 — OCR：字库点阵匹配 + 内置 ONNX 引擎（OcrEngine 抽象；HTTP 后端被
+                             OP_ENABLE_HTTP_OCR_BACKEND 宏包裹，默认不编译，network/HttpClient.cpp 已移出构建）
+libop/yolo/                — 本地 ONNX YOLO 检测（HTTP 引擎同样已移除）
 libop/window|binding|ipc|algorithm|runtime|hook/  — 其余服务
 tests/                     — GoogleTest（必须 cd 仓库根跑）
 ```

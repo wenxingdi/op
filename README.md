@@ -1,38 +1,48 @@
-# OP - Windows 自动化插件
-
-[![GitHub Release](https://img.shields.io/github/v/release/WallBreaker2/op?style=flat-square)](https://github.com/WallBreaker2/op/releases)
-[![CI](https://github.com/WallBreaker2/op/actions/workflows/ci.yml/badge.svg)](https://github.com/WallBreaker2/op/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows-blue.svg)](https://microsoft.com/windows)
+# OP - Windows 自动化插件（本仓库为迭代 fork）
 
 [English](README_EN.md)
 
-OP（Operator & Open）是一个面向 Windows 的自动化插件。它把窗口查找、后台绑定、截图、键鼠输入、找色找图、OCR、OpenCV、YOLO HTTP 检测和进程内存读写放在同一套接口里，方便脚本工具和桌面自动化程序直接调用。
+> ** fork 说明**：本仓库 fork 自 [WallBreaker2/op](https://github.com/WallBreaker2/op)，基线为上游 `0.4.8.3`（2026-07-07）。
+> 在上游基础上做了大量功能修复与扩展（详见 [docs/CHANGELOG.md](docs/CHANGELOG.md)），构建流程也已改为本仓库专用工具链（见下）。
+> 上游的 [GitHub Wiki](https://github.com/WallBreaker2/op/wiki) 对基础接口仍适用，但 OCR/YOLO 接入方式、构建命令以本文档为准。
 
-核心代码使用 C++ 实现，提供 COM、C API、Python 和 Go 绑定，支持 x86/x64。截图后端覆盖普通窗口、GDI、DXGI、WGC、DirectX Hook、OpenGL 和 OpenGL ES；字库、图片模板可以从本地文件加载，也可以从内存加载，适合把资源随程序一起打包。
+OP（Operator & Open）是一个面向 Windows 的自动化插件。它把窗口查找、后台绑定、截图、键鼠输入、找色找图、OCR、OpenCV、YOLO 检测和进程内存读写放在同一套接口里，方便脚本工具和桌面自动化程序直接调用。
 
-OCR 目前有两条路线：固定字体场景使用点阵字库，兼容 OP 二进制字库和大漠文本点阵字库；通用 OCR 可以接入独立 HTTP 服务 [op_ocr_engine](https://github.com/WallBreaker2/op_ocr_engine)，由 Tesseract、PaddleOCR 等后端完成识别。
+核心代码使用 C++17 实现，提供 COM 与 C API，支持 x86/x64。截图后端覆盖普通窗口、GDI、DXGI、WGC、DirectX Hook、OpenGL 和 OpenGL ES；字库、图片模板可以从本地文件加载，也可以从内存加载，适合把资源随程序一起打包。
 
-YOLO 检测同样走外部 HTTP 服务模式。OP 负责截图、读图和请求封装，模型推理由独立服务完成。接口格式见 [YOLO HTTP 检测](doc/yolo.md)，仓库里也放了一个最小服务样例：`tools/op_yolo_engine.py`。
+## OCR / YOLO（与上游的重要差异）
+
+**本仓库已彻底移除 HTTP 远程服务接入，全部改为进程内本地引擎：**
+
+| 能力 | 上游 0.4.8.3 | 本仓库 |
+|---|---|---|
+| 通用 OCR | 需部署独立 HTTP 服务（op_ocr_engine） | **内置 ONNX 引擎**（PP-OCRv4 模型内嵌 DLL，零外部依赖，免配置直接用） |
+| 固定字体 OCR | 点阵字库 | 点阵字库（保留，兼容 OP 二进制字库和大漠文本点阵字库） |
+| YOLO 检测 | 独立 HTTP 服务 | **本地 `.onnx` 模型**（`SetYoloEngine("xxx.onnx",...)` 统一入口，自训模型） |
+
+- `SetOcrEngine("onnx"/空, ...)` 走内置引擎；传入 `http(s)://` 或旧远程别名（tesseract/paddle 系）会返回 0 并提示已移除。
+- OCR 家族新增：`AutoOcr` / `AutoOcrLine`（单行快模式）/ `AutoOcrEx`（结构化输出带坐标置信度）/ 免字库自动识别；字库结果统一按阅读顺序拼接。
+- 截图修复：`gdi/gdi2/dx2` 改用 `PW_RENDERFULLCONTENT` + 全黑回退，UWP（计算器）/Chromium（Electron、CEF）窗口不再截出纯黑（见 [docs/2026-09/UWP窗口截图全黑根因_20260919.md](docs/2026-09/UWP窗口截图全黑根因_20260919.md)）。
 
 ## 文档
 
-- [GitHub Wiki](https://github.com/WallBreaker2/op/wiki)：安装、接口说明、OpenCV、OCR、免注册、多语言示例
-- [插件下载](https://github.com/WallBreaker2/op/releases)
-- [本地 OCR 说明](doc/ocr.md)
-- [YOLO HTTP 检测](doc/yolo.md)
-- [测试工具 OPTestTool](https://github.com/flaot/OPTestTool)
+- **[docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md) — 构建与环境配置完整指南（零基础版，推荐先读）**
+- [docs/api_reference.html](docs/api_reference.html) — 接口速查手册（223 接口，参数注解 100%）
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) — 迭代记录
+- [docs/INDEX.md](docs/INDEX.md) / [docs/<年月>/](docs/) — 专题报告与审计文档
+- [CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md) — 给 AI 编程助手的真实构建/协作指南
+- 接口文档与多语言示例可参考[上游 Wiki](https://github.com/WallBreaker2/op/wiki)（基础接口一致）
 
 ## 主要能力
 
 - 窗口枚举、进程查询、窗口状态控制、批量窗口布局
 - 普通绑定、后台绑定、显示句柄和输入句柄分离绑定
-- GDI、DXGI、WGC、DX Hook、OpenGL、OpenGL ES 等截图方式
+- GDI、DXGI、WGC、DX Hook、OpenGL、OpenGL ES 等截图方式（UWP/Chromium 已修复）
 - 前台/后台鼠标键盘模拟，支持平滑移动、轨迹移动和 DX 输入锁定
 - 找色、找图、透明图片模板、OpenCV 模板匹配和特征匹配
-- 点阵字库 OCR，支持本地字库和内存字库
-- OCR / YOLO HTTP 服务接入
-- C API、COM、Python、Go 等调用方式
+- 点阵字库 OCR + 内置 ONNX 通用 OCR（免外部服务）
+- 本地 ONNX 模型 YOLO 检测（免外部服务）
+- C API、COM 调用方式；Python 经 `bindings/python`（ctypes 直调 C API）
 - 进程内存读写、汇编调用和常用算法工具
 
 ## 目录概览
@@ -41,158 +51,71 @@ YOLO 检测同样走外部 HTTP 服务模式。OP 负责截图、读图和请求
 op/
 ├─ libop/            核心 C++ 源码
 │  ├─ op/            op::Op 对外接口的分文件实现
-│  ├─ c_api/         C API 封装
-│  ├─ com/           COM 组件、IDL 和自动化接口实现
+│  ├─ c_api/         C API 封装（op_c_api_x64.dll）
+│  ├─ com/           COM 组件、IDL 和自动化接口实现（op_x64.dll）
 │  ├─ binding/       窗口绑定和后台模式调度
-│  ├─ capture/       GDI、DXGI、WGC、Hook 等截图后端
-│  ├─ hook/          远端注入、显示 hook、输入 hook 和共享帧写入
+│  ├─ capture/       GDI/DXGI/WGC/Hook 截图后端
+│  ├─ hook/          远端注入、显示/输入 hook
 │  ├─ input/         鼠标、键盘输入后端
-│  ├─ image/         图片加载、找色、找图和图像搜索服务
-│  ├─ ocr/           字库管理和 OCR 识别
+│  ├─ image/         图片加载、找色、找图
+│  ├─ ocr/           字库 + 内置 ONNX OCR 引擎（HTTP 后端已编译期移除）
+│  ├─ yolo/          本地 ONNX YOLO 检测（HTTP 后端已编译期移除）
 │  ├─ opencv/        OpenCV 桥接、模板匹配和图像处理
 │  ├─ window/        窗口、进程和 DLL 注入相关能力
-│  ├─ base/          基础类型、运行环境和工具函数
-│  ├─ ipc/           共享内存、互斥量、管道等进程间通信封装
 │  ├─ memory/        目标进程内存读写
-│  ├─ network/       HTTP 客户端等网络辅助能力
-│  ├─ algorithm/     内部算法与通用计算逻辑
-│  └─ yolo/          YOLO 检测器封装
-├─ include/          对外头文件
-├─ bindings/         C API 的 Python、Go 包装
-├─ swig/             SWIG 绑定生成文件
-├─ python/           `pyop` Python 包源码
-├─ tools/            免注册加载工具和 YOLO 服务样例
-├─ examples/         本地示例和测试资源
-├─ tests/            C++ 单元测试和集成测试
-├─ doc/              项目内补充文档和流程图
-├─ scripts/          wheel 构建脚本
-├─ ci/               CI triplet 和辅助配置
-├─ 3rd_party/        第三方源码或本地依赖
-├─ build.py          推荐的一键构建入口
-└─ CMakeLists.txt    CMake 工程入口
+│  ├─ network/       HTTP 客户端（已移出构建，仅 HTTP 后端恢复时才需要）
+│  ├─ ipc/           共享内存、互斥量等进程间通信
+│  ├─ base/          基础类型与工具函数
+│  └─ algorithm/     内部算法（含 A* 寻路）
+├─ include/          对外头文件 libop.h
+├─ bindings/python/  C API 的 Python ctypes 包装
+├─ tests/            GoogleTest 测试套件
+├─ bin/x64|x86/      发布件输出目录
+├─ build/            构建目录（nmake-x64-Release + _deps 第三方依赖）
+├─ scripts/          run_tests.ps1 / gen_api_reference.py 等
+├─ docs/             本文档所在：BUILD_GUIDE / CHANGELOG / 专题报告
+├─ workbench/        探针与中间产物（不入库）
+├─ build.py          上游一键构建（仅全新机器 bootstrap 依赖时用）
+├─ build/_wb_build.py  ★ 日常增量构建入口
+└─ CMakeLists.txt
 ```
 
 ## 快速开始
 
-下载 Release 后，根据宿主程序位数使用对应 DLL。COM 方式需要注册：
+从 `bin/x64/`（或 Release 包）取 DLL，按宿主程序位数使用。COM 方式需要注册（管理员）：
 
 ```powershell
-# 32 位宿主程序
-regsvr32 .\op_x86.dll
-
-# 64 位宿主程序
-regsvr32 .\op_x64.dll
+regsvr32 .\op_x64.dll   # 64 位宿主
 ```
 
 Python 通过 COM 调用：
 
 ```python
 from win32com.client import Dispatch
-
 op = Dispatch("op.opsoft")
 print("op version:", op.Ver())
 ```
 
-免注册调用请看 Wiki：
-
-- [安装与免注册](https://github.com/WallBreaker2/op/wiki/docs/install)
-- [Python 免注册示例](https://github.com/WallBreaker2/op/wiki/demo/python-regfree)
-- [C# / Lua / Golang / Rust / Node.js / Java 示例](https://github.com/WallBreaker2/op/wiki/Home)
-
-## Python
-
-`op-plugins` wheel 面向直接使用 `pyop` 的用户，支持 Python 3.9-3.12，提供 `win32` 和 `win_amd64` 两种架构：
-
-```powershell
-pip install op-plugins
-```
+或 ctypes 直调 C API（免注册）：
 
 ```python
-from pyop import Op
-
-op = Op()
-print("op version:", op.Ver())
+import ctypes
+op = ctypes.windll.op_c_api_x64
+# 详见 bindings/python 与 docs/api_reference.html
 ```
 
-如果从 Release 安装指定 wheel，把 `<tag>` 和 `<wheel>` 换成实际文件名：
-
-```powershell
-pip install https://github.com/WallBreaker2/op/releases/download/<tag>/<wheel>.whl
-```
-
-注意：
-
-- 64 位 Python 使用 `win_amd64` wheel，32 位 Python 使用 `win32` wheel
-- wheel 已内置对应架构的 OP 运行文件，不需要再手动复制 zip 里的 DLL
-- `bindings/python` 是基于 `ctypes` 的 C API 包装，和 SWIG 版 `pyop` 相互独立，适合需要直接调用 `op_c_api_*.dll` 的场景
-
-验证安装：
-
-```powershell
-python -c "from pyop import Op; print(Op().Ver())"
-```
+配套测试工具 **OPTestTool**（.NET 10 WinForms，管理员权限运行）位于独立仓库/目录 `D:\AutoPro\OPTool`，通过 `op_c_api_x64.dll` 调用本插件全部接口。
 
 ## 源码编译
 
-环境要求：
+环境要求与**逐步操作**（含每步验证命令）见 **[docs/BUILD_GUIDE.md](docs/BUILD_GUIDE.md)**，摘要：
 
-- Windows 10 或更新版本
-- Visual Studio 2022 或更新版本
-- CMake 3.24 或更新版本
-- Python 3.12（用于构建脚本、SWIG 绑定和测试工具）
-
-推荐使用根目录 `build.py`：
-
-```powershell
-# 当前 CI 使用的 Release x64 构建
-python build.py -g vs2026 -t Release -a x64
-
-# 构建 x86
-python build.py -g vs2026 -t Release -a x86
-
-# Debug
-python build.py -g vs2026 -t Debug -a x64
-
-# 如果本机是 VS2022，可以把 -g 改成 vs2022
-python build.py -g vs2022 -t Release -a x64
-```
-
-Release 产物会安装到 `bin/x86` 或 `bin/x64`。发布包通常包含：
-
-```text
-op_x86.dll / op_x64.dll
-op_c_api_x86.dll / op_c_api_x64.dll
-tools.dll
-_pyop.pyd
-pyop.py
-lib/op_c_api_x86.lib / lib/op_c_api_x64.lib
-```
-
-本地构建 wheel：
-
-```powershell
-pip install scikit-build-core setuptools-scm
-.\scripts\build_wheel.ps1
-```
-
-如果手动构建，先跑一次 `build.py` 完成依赖引导：
-
-```powershell
-python build.py -g vs2026 -t Release -a x64
-pip wheel . --no-deps -w wheelhouse
-```
-
-## 社区
-
-- [GitHub Issues](https://github.com/WallBreaker2/op/issues)
-- [GitHub Discussions](https://github.com/WallBreaker2/op/discussions)
-- QQ 群：`743710486`、`27872381`
+- Windows 10+ / VS2022（MSVC 14.44）/ Windows SDK 10.0.26100 / CMake / Python 3.12
+- 全新机器：`python build.py` 引导依赖 → cmake 配置 `build/nmake-x64-Release`（命令见指南）
+- 日常增量：`python build/_wb_build.py`
+- 测试：`powershell -File scripts/run_tests.ps1`（基线 270 ran / 262 PASS）
+- 构建后同步发布件：`D:\AutoPro\OPTool\sync_op_dll.py`
 
 ## 许可证
 
-[MIT License](LICENSE)
-
-## 参考项目
-
-- [TSPLUG](https://github.com/tcplugins/tsplug)
-- [Kiero](https://github.com/Rebzzel/kiero)
+[MIT License](LICENSE)（继承上游）
