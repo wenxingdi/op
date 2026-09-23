@@ -119,6 +119,10 @@ void op::Op::LockInput(long lock, long *ret) {
     internal::set_result(ret, m_context->bkproc.LockInput(lock));
 }
 
+void op::Op::DownCpu(long type, long rate, long *ret) {
+    internal::set_result(ret, m_context->bkproc.DownCpu(type, rate));
+}
+
 void op::Op::SetDxAttr(long attr, long value, long *ret) {
     internal::set_result(ret, m_context->bkproc.SetDxAttr(attr, value));
 }

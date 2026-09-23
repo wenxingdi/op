@@ -548,6 +548,36 @@ STDMETHODIMP OpAutomation::IsElevated(LONG *ret) {
     return S_OK;
 }
 
+STDMETHODIMP OpAutomation::LockWindowPosition(LONGLONG hwnd, LONG enable, LONG *ret) {
+    obj.LockWindowPosition(static_cast<LONG_PTR>(hwnd), enable, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::LockWindowSize(LONGLONG hwnd, LONG enable, LONG *ret) {
+    obj.LockWindowSize(static_cast<LONG_PTR>(hwnd), enable, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DisableMinMax(LONGLONG hwnd, LONG enable, LONG *ret) {
+    obj.DisableMinMax(static_cast<LONG_PTR>(hwnd), enable, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::SetIme(LONGLONG hwnd, LONG enable, LONG *ret) {
+    obj.SetIme(static_cast<LONG_PTR>(hwnd), enable, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetFPS(LONG *ret) {
+    obj.GetFPS(ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DownCpu(LONG type, LONG rate, LONG *ret) {
+    obj.DownCpu(type, rate, ret);
+    return S_OK;
+}
+
 STDMETHODIMP OpAutomation::BindWindow(LONGLONG hwnd, BSTR display, BSTR mouse, BSTR keypad, LONG mode, LONG *ret) {
     obj.BindWindow(static_cast<LONG_PTR>(hwnd), display, mouse, keypad, mode, ret);
     return S_OK;

@@ -27,6 +27,9 @@ class BindingSession {
                             long mode);
     virtual long UnBindWindow();
     virtual long LockInput(long lock);
+    // 绑定降载:每次截图成功后强制延时 rate 毫秒(0-100)。type 0=推荐 1=高效(实现相同,预留)。
+    // 会话级配置:解绑不清空,0 表示关闭。
+    virtual long DownCpu(long type, long rate);
     // 设置 dx 输入通道开关。attr 为 0 时把 value 当作完整的 DX_ATTR_* 掩码；
     // attr 为 DX_ATTR_* 位（可组合）时，value 非 0 表示打开这些通道，0 表示关闭。
     // 会话级配置：解绑不会清空，下次绑定 dx 输入时自动下发。
@@ -67,6 +70,8 @@ class BindingSession {
     // _dx_attr 是否来自 bind 后缀（"dx.dinput" 等）：是则下次无后缀绑定时回默认全开，
     // 避免上次的后缀掩码残留污染后续绑定；SetDxAttr 显式设置会清掉该标记。
     bool _dx_attr_from_suffix;
+    // 每次截图成功后的强制延时毫秒数(0-100),由 DownCpu 维护,不随解绑重置。
+    int _down_cpu_rate = 0;
     std::pair<wstring, wstring> _display_method;
     Image _pic;
 

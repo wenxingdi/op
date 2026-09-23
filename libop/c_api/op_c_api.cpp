@@ -471,6 +471,30 @@ int OP_CALL OpSendStringIme(op_handle handle, intptr_t hwnd, const wchar_t *str)
     });
 }
 
+int OP_CALL OpLockWindowPosition(op_handle handle, intptr_t hwnd, int enable) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.LockWindowPosition(static_cast<LONG_PTR>(hwnd), enable, ret);
+    });
+}
+
+int OP_CALL OpLockWindowSize(op_handle handle, intptr_t hwnd, int enable) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.LockWindowSize(static_cast<LONG_PTR>(hwnd), enable, ret);
+    });
+}
+
+int OP_CALL OpDisableMinMax(op_handle handle, intptr_t hwnd, int enable) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.DisableMinMax(static_cast<LONG_PTR>(hwnd), enable, ret);
+    });
+}
+
+int OP_CALL OpSetIme(op_handle handle, intptr_t hwnd, int enable) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.SetIme(static_cast<LONG_PTR>(hwnd), enable, ret);
+    });
+}
+
 int OP_CALL OpRunApp(op_handle handle, const wchar_t *cmdline, int mode, uint32_t *pid) {
     return call_ret(handle, [&](op::Op &op, long *ret) {
         unsigned long local_pid = 0;
@@ -583,6 +607,10 @@ int OP_CALL OpUnbindWindow(op_handle handle) {
 
 int OP_CALL OpLockInput(op_handle handle, int lock) {
     return call_ret(handle, [&](op::Op &op, long *ret) { op.LockInput(lock, ret); });
+}
+
+int OP_CALL OpDownCpu(op_handle handle, int type, int rate) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DownCpu(type, rate, ret); });
 }
 
 int OP_CALL OpSetDxAttr(op_handle handle, int attr, int value) {
@@ -963,6 +991,10 @@ void OP_CALL OpGetScreenFrameInfo(op_handle handle, int *frame_id, int *time) {
         out_int(frame_id, 0);
         out_int(time, 0);
     }
+}
+
+int OP_CALL OpGetFPS(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.GetFPS(ret); });
 }
 
 const wchar_t *OP_CALL OpMatchPicName(op_handle handle, const wchar_t *pic_name) {

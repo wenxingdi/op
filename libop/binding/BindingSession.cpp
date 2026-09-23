@@ -392,6 +392,17 @@ long BindingSession::LockInput(long lock) {
     return op::hook::input_hook_client::LockInput(_input_hwnd, static_cast<int>(lock));
 }
 
+long BindingSession::DownCpu(long type, long rate) {
+    if (type < 0 || type > 1)
+        return 0;
+    if (rate < 0)
+        rate = 0;
+    if (rate > 100)
+        rate = 100;
+    _down_cpu_rate = static_cast<int>(rate);
+    return 1;
+}
+
 long BindingSession::SetDxAttr(long attr, long value) {
     int next = _dx_attr;
     if (attr == 0) {
@@ -656,8 +667,9 @@ long BindingSession::set_display_method(const wstring &method) {
 
 bool BindingSession::requestCapture(int x1, int y1, int w, int h, Image &img) {
     const auto &method = get_display_method().first;
+    bool ok = false;
     if (method == L"screen")
-        return _capture && _capture->requestCapture(x1, y1, w, h, img);
+        ok = _capture && _capture->requestCapture(x1, y1, w, h, img);
     else if (method == L"pic" || method == L"mem") {
         // 防御性边界校验：pic/mem 路径不走 RectConvert，直接调用者可能传入越界坐标；
         // 越界 memcpy 会读 _pic 外内存（UB/崩溃），这里 fail-loud 返回 false。
@@ -670,9 +682,12 @@ bool BindingSession::requestCapture(int x1, int y1, int w, int h, Image &img) {
         img.create(w, h);
         for (int i = 0; i < h; i++)
             memcpy(img.ptr<uchar>(i), _pic.ptr<uchar>(i + y1) + x1 * 4, w * 4);
-        return true;
+        ok = true;
     }
-    return false;
+    // 降载(DownCpu):截图成功后强制延时 rate 毫秒,压低多开轮询场景 CPU 占用
+    if (ok && _down_cpu_rate > 0)
+        Sleep(static_cast<DWORD>(_down_cpu_rate));
+    return ok;
 }
 
 std::shared_ptr<ICaptureBackend> BindingSession::createDisplay(int mode) {

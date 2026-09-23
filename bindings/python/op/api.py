@@ -399,6 +399,26 @@ class Op:
     def is_elevated(self) -> bool:
         return self._call_int("OpIsElevated") == 1
 
+    def lock_window_position(self, hwnd: int, enable: bool) -> bool:
+        """锁定/解锁窗口位置：锁定后外部移动该窗口会被守护线程自动拉回。"""
+        return self._call_ok("OpLockWindowPosition", int(hwnd), 1 if enable else 0)
+
+    def lock_window_size(self, hwnd: int, enable: bool) -> bool:
+        """锁定/解锁窗口尺寸：锁定后外部缩放该窗口会被自动拉回。"""
+        return self._call_ok("OpLockWindowSize", int(hwnd), 1 if enable else 0)
+
+    def disable_min_max(self, hwnd: int, enable: bool) -> bool:
+        """禁止/恢复窗口的最大最小化按钮（恢复时还原锁定前原始样式）。"""
+        return self._call_ok("OpDisableMinMax", int(hwnd), 1 if enable else 0)
+
+    def set_ime(self, hwnd: int, enable: bool) -> bool:
+        """设置指定窗口的输入法开关：enable=False 关闭输入，True 恢复。"""
+        return self._call_ok("OpSetIme", int(hwnd), 1 if enable else 0)
+
+    def get_fps(self) -> int:
+        """获取绑定窗口当前帧率（内部采样约 1 秒）。未绑定/后端无帧返回 0。"""
+        return self._call_int("OpGetFPS")
+
     # Background binding
     def bind_window(
         self,
@@ -441,6 +461,11 @@ class Op:
 
     def lock_input(self, lock: int) -> bool:
         return self._call_ok("OpLockInput", int(lock))
+
+    def down_cpu(self, type: int = 0, rate: int = 0) -> bool:
+        """绑定降载：每次截图成功后强制延时 rate 毫秒（0-100，自动钳制），0 关闭。
+        type 0=推荐档 1=高效档（当前实现相同）。解绑不重置，随 Op 对象销毁。"""
+        return self._call_ok("OpDownCpu", int(type), int(rate))
 
     def set_dx_attr(self, attr: int, value: int) -> bool:
         """设置 dx 输入通道开关。

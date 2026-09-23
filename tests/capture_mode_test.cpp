@@ -1,5 +1,8 @@
 #include "test_support.h"
 
+#include <atomic>
+#include <thread>
+
 using test_support::ColorPulseWindow;
 
 namespace {
@@ -117,4 +120,102 @@ TEST_F(CaptureModeTest, GdiCaptureIgnoresOcclusion) {
     DestroyWindow(target.hwnd);
     target.hwnd = nullptr;
     PumpMessagesFor(200);
+}
+
+// ---------------- 绑定微调批：GetFPS / DownCpu ----------------
+
+TEST_F(CaptureModeTest, GetFpsReturnsZeroWhenUnbound) {
+    op::Op op;
+    long ret = -1;
+    op.GetFPS(&ret);
+    EXPECT_EQ(ret, 0);
+}
+
+// GetFPS 判别力：GDI 后端 frameId 随每次抓帧递增。worker 线程以 ~50Hz 抓帧时,
+// 1 秒采样窗口内 frameId 必须有可观增量。恒返回 0 / 恒返回 60 的错误实现都会 FAIL。
+TEST_F(CaptureModeTest, GetFpsReflectsCaptureRateOnGdi) {
+    ColorPulseWindow window;
+    ASSERT_TRUE(window.Create(false));
+    PumpMessagesFor(100);
+
+    op::Op op;
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"gdi", L"windows", L"windows", 0, &ret);
+    ASSERT_EQ(ret, 1);
+
+    // 预热一次抓帧:GDI 后端的 FrameInfo 在首次截图前为空(hwnd=0),先初始化再采样
+    std::wstring prime;
+    op.GetColor(10, 10, prime);
+
+    std::atomic<bool> stop{false};
+    std::thread worker([&]() {
+        std::wstring color;
+        while (!stop.load()) {
+            op.GetColor(10, 10, color);
+            Sleep(20);
+        }
+    });
+
+    op.GetFPS(&ret);
+    stop.store(true);
+    worker.join();
+
+    EXPECT_GE(ret, 5) << "采样窗口内抓帧频率应可测(恒 0 实现 FAIL)";
+    EXPECT_LE(ret, 200) << "FPS 超出合理上界(疑似返回了毫秒数等错误量纲)";
+
+    op.UnBindWindow(&ret);
+    DestroyWindow(window.hwnd);
+    window.hwnd = nullptr;
+    PumpMessagesFor(100);
+}
+
+// DownCpu 判别力:未降载时 5 次小窗截图总耗时远小于 150ms;rate=30 后每次截图强制延时 30ms,
+// 总耗时必须 >= 150ms。恒不延时 / 恒延时的错误实现必有一条 FAIL。
+TEST_F(CaptureModeTest, DownCpuAddsDelayAfterEachCapture) {
+    ColorPulseWindow window;
+    ASSERT_TRUE(window.Create(false));
+    PumpMessagesFor(100);
+
+    op::Op op;
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"gdi", L"windows", L"windows", 0, &ret);
+    ASSERT_EQ(ret, 1);
+
+    auto capture5 = [&]() -> long long {
+        std::wstring color;
+        const auto t0 = GetTickCount64();
+        for (int i = 0; i < 5; i++)
+            op.GetColor(10, 10, color);
+        return static_cast<long long>(GetTickCount64() - t0);
+    };
+
+    const auto baseline_ms = capture5();
+    EXPECT_LT(baseline_ms, 150) << "前置条件:未降载时 5 次截图应远快于 150ms,实际 " << baseline_ms << "ms";
+
+    op.DownCpu(0, 30, &ret);
+    ASSERT_EQ(ret, 1);
+    const auto slowed_ms = capture5();
+    EXPECT_GE(slowed_ms, 150) << "降载 rate=30 后 5 次截图应至少延时 150ms,实际 " << slowed_ms << "ms";
+
+    // 复位为 0,避免会话残留影响后续用例
+    op.DownCpu(0, 0, &ret);
+    ASSERT_EQ(ret, 1);
+    const auto reset_ms = capture5();
+    EXPECT_LT(reset_ms, 150) << "rate=0 复位后延时应消失,实际 " << reset_ms << "ms";
+
+    op.UnBindWindow(&ret);
+    DestroyWindow(window.hwnd);
+    window.hwnd = nullptr;
+}
+
+TEST_F(CaptureModeTest, DownCpuValidatesTypeAndClampsRate) {
+    op::Op op;
+    long ret = 1;
+    op.DownCpu(2, 10, &ret);
+    EXPECT_EQ(ret, 0) << "非法 type=2 应拒绝";
+    ret = 1;
+    op.DownCpu(-1, 10, &ret);
+    EXPECT_EQ(ret, 0) << "非法 type=-1 应拒绝";
+    op.DownCpu(1, 500, &ret);
+    EXPECT_EQ(ret, 1) << "rate 超界应钳制而非拒绝";
 }

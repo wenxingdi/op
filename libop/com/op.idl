@@ -299,6 +299,13 @@ interface IOpAutomation : IDispatch
 	[id(357)] HRESULT GaiLu([in] LONG p, [out, retval] LONG* ret);
 	[id(358)] HRESULT GetMachineCode([out, retval] BSTR* ret);
 	[id(359)] HRESULT IsElevated([out, retval] LONG* ret);
+	// Binding tuning (added 2026-09-23, ids appended to preserve vtable order)
+	[id(360)] HRESULT LockWindowPosition([in] hyper hwnd, [in] LONG enable, [out, retval] LONG* ret);
+	[id(361)] HRESULT LockWindowSize([in] hyper hwnd, [in] LONG enable, [out, retval] LONG* ret);
+	[id(362)] HRESULT DisableMinMax([in] hyper hwnd, [in] LONG enable, [out, retval] LONG* ret);
+	[id(363)] HRESULT SetIme([in] hyper hwnd, [in] LONG enable, [out, retval] LONG* ret);
+	[id(364)] HRESULT GetFPS([out, retval] LONG* ret);
+	[id(365)] HRESULT DownCpu([in] LONG type, [in] LONG rate, [out, retval] LONG* ret);
 
 
 

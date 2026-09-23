@@ -3,6 +3,18 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-23（绑定微调批：窗口几何锁 + SetIme + GetFPS + DownCpu，feat）
+
+- **背景**：`复刻难度二次评估`文档 ③"运行时微调参数"按价值取前 4 项落地（假最小化/SetKMSync/SetTimeS/三句柄分离/注入档位留待后续）。三插件对照：AJ `LockWindowPosition/LockWindowSize`、OULA Flag `LP/LS/LM`、DM `dx.public.disable.window.*`；`GetFPS` 仅 AJ 有；`SetIme`/`DownCpu` OULA/DM 均有。全部纯新增。
+- **新增函数**（COM idl `360-365` 尾部追加，保 vtable 兼容）：
+  - 窗口几何锁 `LockWindowPosition(hwnd,enable)` / `LockWindowSize(hwnd,enable)`（`OpWindow.cpp`）：启用时锚定当前矩形，**守护线程 50ms 轮询**，外部 MoveWindow/SetWindowPos 改动被自动回弹；解锁即停。不用跨进程子类化（需注入 DLL），零注入实现。
+  - `DisableMinMax(hwnd,enable)`：清/恢复 `WS_MAXIMIZEBOX|WS_MINIMIZEBOX`，**首次锁定快照原始 GWL_STYLE**，恢复时按快照还原（窗口原无按钮也能正确还原）。
+  - `SetIme(hwnd,enable)`：imm32 **动态加载**（GetProcAddress，免改链接库），`ImmGetContext+ImmSetOpenStatus` 开关输入；无上下文时关闭走 `ImmAssociateContextEx` 取消默认 IME 关联。
+  - `GetFPS(ret)`（`OpImage.cpp`）：复用 `FrameInfo.frameId` 采样 1 秒换算。Hook/DX/WGC 异步后端=真实渲染帧率；GDI 等按需截图后端=采样窗口内抓帧频率（无抓帧返 0）；未绑定/后端无帧返 0。
+  - `DownCpu(type,rate)`（`BindingSession`）：会话级 `_down_cpu_rate`（0-100 钳制，type 0/1 档位预留），`requestCapture` **唯一收口**——截图成功后强制 Sleep(rate) ms，压低多开轮询 CPU；解绑不重置，rate=0 关闭。
+- **验证**：`window_state_test.cpp` +5 用例（位置锁"拉回+解锁后不再拉回"双向判别、尺寸锁回弹、DisableMinMax 位操作+原始样式还原、SetIme 开关往返、非法句柄拒绝）；`capture_mode_test.cpp` +4 用例（未绑定返 0、GDI 抓帧频率可测且量纲正确 [5,200]、DownCpu 三段时延判别基线<150ms→降载≥150ms→复位<150ms、type 校验+rate 钳制）。全量回归零回归。
+- **未做**：SWIG/Go 绑定未补（同前批）；假最小化 `fake.window.min`、SetKMSync/SetKMLock 独立开关、SetTimeS、三句柄分离 SetHwndSKM、注入档位 Type 0~10 为下一候选。
+
 ### 2026-09-23（系统杂项 + 拟人化随机概率批：11 个新函数，feat）
 
 - **背景**：按 `插件功能对比`/`复刻难度二次评估` 两份文档的 ROI 结论，补"一行级 Win32 杂项"批——三插件（DM/OULA/AJ）全有、op-master 独缺；其中 **`GaiLu`（1/P 概率判定）是拟人化核心**，AJ 拼音工具函数。全部为纯新增，零改动既有逻辑。

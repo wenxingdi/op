@@ -10,6 +10,11 @@
 #include <string>
 #include <vector>
 
+#include <algorithm>
+#include <imm.h>
+#include <mutex>
+#include <thread>
+
 #undef FindWindow
 #undef FindWindowEx
 #undef SetWindowText
@@ -325,4 +330,224 @@ void op::Op::SendString(LONG_PTR hwnd, const wchar_t *str, long *ret) {
 void op::Op::SendStringIme(LONG_PTR hwnd, const wchar_t *str, long *ret) {
     internal::set_result(ret,
                          m_context->window_service.SendStringIme(reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd)), str));
+}
+
+namespace {
+
+// ---------------- 窗口几何锁 ----------------
+// 守护线程 50ms 轮询:锁定项的窗口被外部移动/缩放时自动拉回锚点矩形。
+// 设计取舍:跨进程子类化 WM_WINDOWPOSCHANGED 需要注入 DLL,轮询 + SetWindowPos 足够且零注入。
+struct GeoLockEntry {
+    HWND hwnd = nullptr;
+    bool lock_pos = false;
+    bool lock_size = false;
+    bool orig_style_saved = false;
+    LONG_PTR orig_style = 0;
+    RECT anchor = {};
+};
+
+std::mutex g_geo_lock_mtx;
+std::vector<GeoLockEntry> g_geo_locks;
+std::thread g_geo_lock_thread;
+std::once_flag g_geo_lock_thread_once;
+
+void geo_lock_worker() {
+    for (;;) {
+        Sleep(50);
+        std::vector<GeoLockEntry> snapshot;
+        {
+            std::lock_guard<std::mutex> lk(g_geo_lock_mtx);
+            snapshot = g_geo_locks;
+        }
+        for (auto it = snapshot.begin(); it != snapshot.end(); ++it) {
+            if (!IsWindow(it->hwnd))
+                continue; // 窗口已销毁:条目由下次解锁/开关调用清理
+            RECT now = {};
+            if (!::GetWindowRect(it->hwnd, &now))
+                continue;
+            const LONG want_w = it->anchor.right - it->anchor.left;
+            const LONG want_h = it->anchor.bottom - it->anchor.top;
+            const LONG want_x = it->lock_pos ? it->anchor.left : now.left;
+            const LONG want_y = it->lock_pos ? it->anchor.top : now.top;
+            const LONG want_cx = it->lock_size ? want_w : now.right - now.left;
+            const LONG want_cy = it->lock_size ? want_h : now.bottom - now.top;
+            if (want_x != now.left || want_y != now.top || want_cx != now.right - now.left ||
+                want_cy != now.bottom - now.top) {
+                // 注意:SetWindowPos 会同步向目标窗口发送 WM_WINDOWPOSCHANGED,
+                // 目标线程消息循环不活动(如测试中纯 Sleep)时回弹会延迟到其恢复泵消息后——与 DM/AJ 行为一致。
+                SetWindowPos(it->hwnd, nullptr, want_x, want_y, want_cx, want_cy,
+                             SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING);
+            }
+        }
+    }
+}
+
+GeoLockEntry *geo_lock_find_locked(HWND hwnd) {
+    for (auto &e : g_geo_locks) {
+        if (e.hwnd == hwnd)
+            return &e;
+    }
+    return nullptr;
+}
+
+void geo_lock_ensure_thread() {
+    std::call_once(g_geo_lock_thread_once, []() { g_geo_lock_thread = std::thread(geo_lock_worker); });
+}
+
+// 返回 false 表示该条目已无任何锁标志,调用方应删除
+bool geo_lock_prune(GeoLockEntry &e) { return !e.lock_pos && !e.lock_size && !e.orig_style_saved; }
+
+// ---------------- 输入法(imm32 动态加载,免改链接库) ----------------
+struct ImmApi {
+    HMODULE mod = nullptr;
+    HIMC(WINAPI *get_context)(HWND) = nullptr;
+    BOOL(WINAPI *set_open_status)(HIMC, BOOL) = nullptr;
+    BOOL(WINAPI *release_context)(HWND, HIMC) = nullptr;
+    BOOL(WINAPI *associate_context_ex)(HWND, HIMC, DWORD) = nullptr;
+    bool ready = false;
+};
+
+ImmApi &imm_api() {
+    static ImmApi api = [] {
+        ImmApi a;
+        a.mod = LoadLibraryW(L"imm32.dll");
+        if (a.mod) {
+            a.get_context = reinterpret_cast<HIMC(WINAPI *)(HWND)>(GetProcAddress(a.mod, "ImmGetContext"));
+            a.set_open_status =
+                reinterpret_cast<BOOL(WINAPI *)(HIMC, BOOL)>(GetProcAddress(a.mod, "ImmSetOpenStatus"));
+            a.release_context =
+                reinterpret_cast<BOOL(WINAPI *)(HWND, HIMC)>(GetProcAddress(a.mod, "ImmReleaseContext"));
+            a.associate_context_ex = reinterpret_cast<BOOL(WINAPI *)(HWND, HIMC, DWORD)>(
+                GetProcAddress(a.mod, "ImmAssociateContextEx"));
+            a.ready = a.get_context && a.set_open_status && a.release_context;
+        }
+        return a;
+    }();
+    return api;
+}
+
+} // namespace
+
+void op::Op::LockWindowPosition(LONG_PTR hwnd, long enable, long *ret) {
+    internal::set_result(ret, 0L);
+    HWND target = reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd));
+    if (!target || !IsWindow(target))
+        return;
+
+    geo_lock_ensure_thread();
+    std::lock_guard<std::mutex> lk(g_geo_lock_mtx);
+    GeoLockEntry *e = geo_lock_find_locked(target);
+    if (enable) {
+        if (!e) {
+            g_geo_locks.push_back(GeoLockEntry{});
+            e = &g_geo_locks.back();
+            e->hwnd = target;
+            ::GetWindowRect(target, &e->anchor);
+        } else if (!e->lock_pos) {
+            // 重新锚定当前位置(避免旧锚点残留)
+            ::GetWindowRect(target, &e->anchor);
+        }
+        e->lock_pos = true;
+    } else if (e) {
+        e->lock_pos = false;
+        if (geo_lock_prune(*e)) {
+            auto it = std::find_if(g_geo_locks.begin(), g_geo_locks.end(),
+                                   [&](const GeoLockEntry &x) { return x.hwnd == target; });
+            if (it != g_geo_locks.end())
+                g_geo_locks.erase(it);
+        }
+    }
+    internal::set_result(ret, 1L);
+}
+
+void op::Op::LockWindowSize(LONG_PTR hwnd, long enable, long *ret) {
+    internal::set_result(ret, 0L);
+    HWND target = reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd));
+    if (!target || !IsWindow(target))
+        return;
+
+    geo_lock_ensure_thread();
+    std::lock_guard<std::mutex> lk(g_geo_lock_mtx);
+    GeoLockEntry *e = geo_lock_find_locked(target);
+    if (enable) {
+        if (!e) {
+            g_geo_locks.push_back(GeoLockEntry{});
+            e = &g_geo_locks.back();
+            e->hwnd = target;
+            ::GetWindowRect(target, &e->anchor);
+        } else if (!e->lock_size) {
+            ::GetWindowRect(target, &e->anchor);
+        }
+        e->lock_size = true;
+    } else if (e) {
+        e->lock_size = false;
+        if (geo_lock_prune(*e)) {
+            auto it = std::find_if(g_geo_locks.begin(), g_geo_locks.end(),
+                                   [&](const GeoLockEntry &x) { return x.hwnd == target; });
+            if (it != g_geo_locks.end())
+                g_geo_locks.erase(it);
+        }
+    }
+    internal::set_result(ret, 1L);
+}
+
+void op::Op::DisableMinMax(LONG_PTR hwnd, long enable, long *ret) {
+    internal::set_result(ret, 0L);
+    HWND target = reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd));
+    if (!target || !IsWindow(target))
+        return;
+
+    constexpr LONG_PTR kMask = WS_MAXIMIZEBOX | WS_MINIMIZEBOX;
+    std::lock_guard<std::mutex> lk(g_geo_lock_mtx);
+    GeoLockEntry *e = geo_lock_find_locked(target);
+    if (enable) {
+        if (!e) {
+            g_geo_locks.push_back(GeoLockEntry{});
+            e = &g_geo_locks.back();
+            e->hwnd = target;
+        }
+        if (!e->orig_style_saved) {
+            e->orig_style = GetWindowLongPtrW(target, GWL_STYLE);
+            e->orig_style_saved = true;
+        }
+        SetWindowLongPtrW(target, GWL_STYLE, e->orig_style & ~kMask);
+    } else if (e && e->orig_style_saved) {
+        // 恢复原始样式;若位置/尺寸锁已不存在则删除条目
+        SetWindowLongPtrW(target, GWL_STYLE, e->orig_style);
+        e->orig_style = 0;
+        e->orig_style_saved = false;
+        if (geo_lock_prune(*e)) {
+            auto it = std::find_if(g_geo_locks.begin(), g_geo_locks.end(),
+                                   [&](const GeoLockEntry &x) { return x.hwnd == target; });
+            if (it != g_geo_locks.end())
+                g_geo_locks.erase(it);
+        }
+    }
+    SetWindowPos(target, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    internal::set_result(ret, 1L);
+}
+
+void op::Op::SetIme(LONG_PTR hwnd, long enable, long *ret) {
+    internal::set_result(ret, 0L);
+    HWND target = reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd));
+    if (!target || !IsWindow(target))
+        return;
+
+    ImmApi &api = imm_api();
+    if (!api.ready)
+        return;
+
+    HIMC himc = api.get_context(target);
+    if (himc) {
+        api.set_open_status(himc, enable ? TRUE : FALSE);
+        api.release_context(target, himc);
+        internal::set_result(ret, 1L);
+        return;
+    }
+    // 窗口尚无输入上下文:关闭时直接取消其默认 IME 关联
+    if (!enable && api.associate_context_ex) {
+        if (api.associate_context_ex(target, nullptr, IACE_DEFAULT))
+            internal::set_result(ret, 1L);
+    }
 }

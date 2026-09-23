@@ -337,6 +337,39 @@ PARAM_DOCS = {
     "EnablePicCache": {
         "enable": "1=开启找图模板全局缓存；FindPic 自动缓存已加载图片，源文件变更后须 FreePic / 重新 LoadPic 刷新"
     },
+    # ---------- 系统杂项批（2026-09-23） ----------
+    "Beep": {
+        "freq": "频率赫兹 37~32767",
+        "dur": "持续毫秒数",
+    },
+    "GetRandomNumber": {
+        "min": "闭区间下界",
+        "max": "闭区间上界；min>max 自动交换",
+    },
+    "GetRandomDouble": {
+        "min": "闭区间下界",
+        "max": "闭区间上界；min>max 自动交换",
+    },
+    "GaiLu": {
+        "p": "概率分母；p<=0 恒返 0，p=1 恒返 1，否则以 1/p 概率返 1（拟人化判定）",
+    },
+    # ---------- 绑定微调批（2026-09-23） ----------
+    "LockWindowPosition": {
+        "enable": "1=锁定当前位置（守护线程 50ms 轮询，外部移动自动回弹）；0=解锁",
+    },
+    "LockWindowSize": {
+        "enable": "1=锁定当前尺寸（外部缩放自动回弹）；0=解锁",
+    },
+    "DisableMinMax": {
+        "enable": "1=移除最大/最小化按钮（快照原始样式）；0=按快照还原",
+    },
+    "SetIme": {
+        "enable": "1=恢复输入；0=关闭输入（ImmSetOpenStatus，无上下文时取消默认 IME 关联）",
+    },
+    "DownCpu": {
+        "type": "0=推荐档；1=高效档（当前实现相同，预留语义）",
+        "rate": "每次截图成功后的强制延时毫秒数 0~100（钳制），0=关闭；解绑不重置",
+    },
     "CapturePre": {"file_name": "预加载图片进缓存（提前读盘，消首次 FindPic 卡顿）"},
     "SetScreenDataMode": {
         "mode": "0=顶向下行序（默认，DIB 负高度）1=自底向上行序（BMP 标准，数据首行=图像底行）"

@@ -200,6 +200,18 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(GetMachineCode)(BSTR *ret);
     // 检测当前进程是否以管理员权限运行
     STDMETHOD(IsElevated)(LONG *ret);
+    // 锁定/解锁窗口位置(守护线程 50ms 轮询回弹)
+    STDMETHOD(LockWindowPosition)(LONGLONG hwnd, LONG enable, LONG *ret);
+    // 锁定/解锁窗口尺寸
+    STDMETHOD(LockWindowSize)(LONGLONG hwnd, LONG enable, LONG *ret);
+    // 禁止/恢复窗口最大最小化按钮(恢复时还原原始样式)
+    STDMETHOD(DisableMinMax)(LONGLONG hwnd, LONG enable, LONG *ret);
+    // 设置指定窗口的输入法开关
+    STDMETHOD(SetIme)(LONGLONG hwnd, LONG enable, LONG *ret);
+    // 获取绑定窗口当前帧率(采样约 1 秒;未绑定/后端无帧返回 0)
+    STDMETHOD(GetFPS)(LONG *ret);
+    // 绑定降载:每次截图成功后强制延时 rate 毫秒(0-100)
+    STDMETHOD(DownCpu)(LONG type, LONG rate, LONG *ret);
     //--------------------Background -----------------------
     // 兼容旧接口的单句柄绑定。显示和输入都使用同一个 hwnd。
     STDMETHOD(BindWindow)(LONGLONG hwnd, BSTR display, BSTR mouse, BSTR keypad, LONG mode, LONG *ret);

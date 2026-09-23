@@ -96,6 +96,14 @@ OP_C_API int OP_CALL OpSetWindowText(op_handle handle, intptr_t hwnd, const wcha
 OP_C_API int OP_CALL OpSetWindowTransparent(op_handle handle, intptr_t hwnd, int trans);
 OP_C_API int OP_CALL OpSendString(op_handle handle, intptr_t hwnd, const wchar_t *str);
 OP_C_API int OP_CALL OpSendStringIme(op_handle handle, intptr_t hwnd, const wchar_t *str);
+// 锁定/解锁窗口位置(守护线程 50ms 轮询回弹)。返回 1 成功,0 句柄非法。
+OP_C_API int OP_CALL OpLockWindowPosition(op_handle handle, intptr_t hwnd, int enable);
+// 锁定/解锁窗口尺寸。
+OP_C_API int OP_CALL OpLockWindowSize(op_handle handle, intptr_t hwnd, int enable);
+// 禁止/恢复窗口最大最小化按钮(恢复时还原锁定前原始样式)。
+OP_C_API int OP_CALL OpDisableMinMax(op_handle handle, intptr_t hwnd, int enable);
+// 设置指定窗口的输入法开关:enable=0 关闭,1 恢复。
+OP_C_API int OP_CALL OpSetIme(op_handle handle, intptr_t hwnd, int enable);
 OP_C_API int OP_CALL OpRunApp(op_handle handle, const wchar_t *cmdline, int mode, uint32_t *pid);
 OP_C_API int OP_CALL OpWinExec(op_handle handle, const wchar_t *cmdline, int cmdshow);
 OP_C_API const wchar_t *OP_CALL OpGetCmdStr(op_handle handle, const wchar_t *cmd, int millseconds);
@@ -124,6 +132,8 @@ OP_C_API int OP_CALL OpBindWindowEx(op_handle handle, intptr_t display_hwnd, int
                                     const wchar_t *display, const wchar_t *mouse, const wchar_t *keypad, int mode);
 OP_C_API int OP_CALL OpUnBindWindow(op_handle handle);
 OP_C_API int OP_CALL OpLockInput(op_handle handle, int lock);
+// 绑定降载:每次截图成功后强制延时 rate 毫秒(0-100)。type 0=推荐 1=高效(实现相同)。解绑不重置。
+OP_C_API int OP_CALL OpDownCpu(op_handle handle, int type, int rate);
 // dx 输入通道开关：1=DirectInput 2=RawInput 4=窗口消息；attr=0 时 value 为完整掩码。
 OP_C_API int OP_CALL OpSetDxAttr(op_handle handle, int attr, int value);
 OP_C_API int OP_CALL OpGetDxAttr(op_handle handle);
@@ -220,6 +230,8 @@ OP_C_API uintptr_t OP_CALL OpGetScreenData(op_handle handle, int x1, int y1, int
 OP_C_API uintptr_t OP_CALL OpGetScreenDataBmp(op_handle handle, int x1, int y1, int x2, int y2, int *size,
                                               int *ret);
 OP_C_API void OP_CALL OpGetScreenFrameInfo(op_handle handle, int *frame_id, int *time);
+// 获取绑定窗口当前帧率(采样约 1 秒)。未绑定/后端无帧返回 0。
+OP_C_API int OP_CALL OpGetFPS(op_handle handle);
 OP_C_API const wchar_t *OP_CALL OpMatchPicName(op_handle handle, const wchar_t *pic_name);
 
 // OpenCV

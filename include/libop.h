@@ -205,6 +205,14 @@ class OP_API Op {
     void SendString(_In_ LONG_PTR hwnd, _In_ const wchar_t *str, _Out_ long *ret);
     // 向指定窗口发送文本数据-输入法
     void SendStringIme(_In_ LONG_PTR hwnd, _In_ const wchar_t *str, _Out_ long *ret);
+    // 锁定/解锁窗口位置:锁定后外部移动该窗口会被守护线程自动拉回(50ms 轮询),解锁后停止
+    void LockWindowPosition(_In_ LONG_PTR hwnd, _In_ long enable, _Out_ long *ret);
+    // 锁定/解锁窗口尺寸:锁定后外部缩放该窗口会被自动拉回
+    void LockWindowSize(_In_ LONG_PTR hwnd, _In_ long enable, _Out_ long *ret);
+    // 禁止/恢复窗口的最大最小化按钮(修改 GWL_STYLE,恢复时还原锁定前的原始样式)
+    void DisableMinMax(_In_ LONG_PTR hwnd, _In_ long enable, _Out_ long *ret);
+    // 设置指定窗口的输入法开关:enable=0 关闭输入,1 恢复
+    void SetIme(_In_ LONG_PTR hwnd, _In_ long enable, _Out_ long *ret);
     // 运行可执行文件,可指定模式；也支持 .lnk 快捷方式（经 Shell 解析启动，mode 对其不生效）
     void RunApp(_In_ const wchar_t *cmdline, _In_ long mode, _Out_ unsigned long *pid, _Out_ long *ret);
     // 运行可执行文件，可指定显示模式
@@ -254,6 +262,9 @@ class OP_API Op {
     void UnBindWindow(_Out_ long *ret);
     // 临时锁定目标窗口的外部输入。只对 dx 鼠标、dx 键盘有效。
     void LockInput(_In_ long lock, _Out_ long *ret);
+    // 绑定降载(降低多开 CPU 占用):每次截图成功后强制延时 rate 毫秒(0-100,自动钳制),0 表示关闭。
+    // type: 0=推荐档,1=高效档(当前实现相同,预留语义)。随 BindingSession 生命周期,解绑不重置。
+    void DownCpu(_In_ long type, _In_ long rate, _Out_ long *ret);
     // 设置 dx 输入通道开关。只对 dx 鼠标、dx 键盘有效。
     // attr=0 时 value 是完整掩码；attr 取 1(DirectInput)/2(RawInput)/4(窗口消息) 或其组合时，
     // value 非 0 表示打开这些通道，0 表示关闭。默认 7（三通道全开）。
@@ -425,6 +436,9 @@ class OP_API Op {
                           _Out_ long *ret);
     //
     void GetScreenFrameInfo(_Out_ long *frame_id, _Out_ long *time);
+    // 获取绑定窗口当前帧率。采样窗口约 1 秒,按 frameId 增量/经过毫秒换算。
+    // Hook/DX/WGC 等异步后端=真实渲染帧率;GDI 等按需截图后端=采样窗口内的抓帧频率(无抓帧为 0)。未绑定返回 0。
+    void GetFPS(_Out_ long *ret);
     //
     void MatchPicName(_In_ const wchar_t *pic_name, _Out_ std::wstring &retstr);
     //----------------------opcv-------------------------

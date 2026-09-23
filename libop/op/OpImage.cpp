@@ -313,6 +313,30 @@ void op::Op::GetScreenFrameInfo(long *frame_id, long *time) {
     internal::set_result(time, info.time);
 }
 
+void op::Op::GetFPS(long *ret) {
+    internal::set_result(ret, 0L);
+    if (!m_context->bkproc.IsBind())
+        return;
+
+    FrameInfo a = {}, b = {};
+    m_context->bkproc._capture->getFrameInfo(a);
+    if (a.hwnd == 0)
+        return; // 后端尚无帧
+
+    ::Sleep(1000); // 采样窗口 1 秒
+
+    m_context->bkproc._capture->getFrameInfo(b);
+    if (b.hwnd == 0)
+        return;
+
+    const DWORD elapsed = b.time - a.time; // GetTickCount 域,DWORD 减法天然抗回绕
+    if (elapsed == 0)
+        return;
+
+    const auto delta = static_cast<long>(b.frameId - a.frameId);
+    internal::set_result(ret, static_cast<long>(delta * 1000.0 / elapsed + 0.5));
+}
+
 void op::Op::MatchPicName(const wchar_t *pic_name, std::wstring &retstr) {
     retstr.clear();
     internal::guard_exceptions("MatchPicName", [&]() {

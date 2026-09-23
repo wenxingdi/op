@@ -5,6 +5,8 @@
 #include <string>
 #include <windows.h>
 
+#include <imm.h>
+
 using test_support::SendStringWindow;
 
 namespace {
@@ -215,4 +217,149 @@ TEST(WindowStateTest, SendPasteDeliversToFocusedChildEdit) {
     op.SendPaste(reinterpret_cast<LONG_PTR>(wnd.parent), &ret);
     EXPECT_EQ(ret, 1);
     EXPECT_EQ(wnd.GetEditText(), L"paste9");
+}
+
+// ---------------- 绑定微调批：窗口几何锁 / DisableMinMax / SetIme ----------------
+
+// 等待期间持续泵消息:SetWindowPos 会同步向目标窗口发 WM_WINDOWPOSCHANGED,
+// 守护线程的回弹需要目标窗口消息循环存活才能落地(与真实游戏窗口一致;纯 Sleep 会延迟回弹)。
+namespace {
+void PumpGeoLockWait(int milliseconds) {
+    const auto deadline = GetTickCount64() + milliseconds;
+    MSG msg = {};
+    while (GetTickCount64() < deadline) {
+        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+        Sleep(5);
+    }
+}
+} // namespace
+
+// 位置锁判别力：锁定后外部 MoveWindow 必须被拉回锚点；解锁后再移动必须能生效（证明锁真的关了，
+// 防止实现退化成"永远拉回"或"从不拉回"两种恒真错误）。
+TEST(WindowStateTest, LockWindowPositionPullsBackExternalMove) {
+    op::Op op;
+    TopmostWindow wnd;
+    ASSERT_TRUE(wnd.Create());
+
+    RECT base = {};
+    ASSERT_TRUE(GetWindowRect(wnd.hwnd, &base) != FALSE);
+
+    long ret = 0;
+    op.LockWindowPosition(reinterpret_cast<LONG_PTR>(wnd.hwnd), 1, &ret);
+    ASSERT_EQ(ret, 1);
+
+    const int base_w = base.right - base.left;
+    const int base_h = base.bottom - base.top;
+    ASSERT_TRUE(MoveWindow(wnd.hwnd, base.left + 150, base.top + 100, base_w, base_h, FALSE) != FALSE);
+    PumpGeoLockWait(300); // 守护线程 50ms 轮询,留足回弹时间
+
+    RECT now = {};
+    ASSERT_TRUE(GetWindowRect(wnd.hwnd, &now) != FALSE);
+    EXPECT_NEAR(now.left, base.left, 2) << "位置锁未回弹外部移动";
+    EXPECT_NEAR(now.top, base.top, 2) << "位置锁未回弹外部移动";
+
+    op.LockWindowPosition(reinterpret_cast<LONG_PTR>(wnd.hwnd), 0, &ret);
+    ASSERT_EQ(ret, 1);
+    ASSERT_TRUE(MoveWindow(wnd.hwnd, base.left + 150, base.top + 100, base_w, base_h, FALSE) != FALSE);
+    PumpGeoLockWait(200); // 解锁后不允许再被拉回
+    ASSERT_TRUE(GetWindowRect(wnd.hwnd, &now) != FALSE);
+    EXPECT_NEAR(now.left, base.left + 150, 2) << "解锁后位置仍被拉回,锁未真正关闭";
+}
+
+TEST(WindowStateTest, LockWindowSizePullsBackExternalResize) {
+    op::Op op;
+    TopmostWindow wnd;
+    ASSERT_TRUE(wnd.Create());
+
+    RECT base = {};
+    ASSERT_TRUE(GetWindowRect(wnd.hwnd, &base) != FALSE);
+    const int base_w = base.right - base.left;
+    const int base_h = base.bottom - base.top;
+
+    long ret = 0;
+    op.LockWindowSize(reinterpret_cast<LONG_PTR>(wnd.hwnd), 1, &ret);
+    ASSERT_EQ(ret, 1);
+
+    ASSERT_TRUE(SetWindowPos(wnd.hwnd, nullptr, 0, 0, 640, 480,
+                             SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE) != FALSE);
+    PumpGeoLockWait(300);
+
+    RECT now = {};
+    ASSERT_TRUE(GetWindowRect(wnd.hwnd, &now) != FALSE);
+    EXPECT_NEAR(now.right - now.left, base_w, 2) << "尺寸锁未回弹外部缩放";
+    EXPECT_NEAR(now.bottom - now.top, base_h, 2) << "尺寸锁未回弹外部缩放";
+
+    op.LockWindowSize(reinterpret_cast<LONG_PTR>(wnd.hwnd), 0, &ret);
+    ASSERT_EQ(ret, 1);
+}
+
+TEST(WindowStateTest, DisableMinMaxRemovesAndRestoresStyleBits) {
+    op::Op op;
+    TopmostWindow wnd;
+    ASSERT_TRUE(wnd.Create());
+    constexpr LONG_PTR kMask = WS_MAXIMIZEBOX | WS_MINIMIZEBOX;
+
+    const auto orig = GetWindowLongPtrW(wnd.hwnd, GWL_STYLE);
+    ASSERT_TRUE((orig & kMask) != 0) << "前置条件:测试窗口应自带最大最小化按钮";
+
+    long ret = 0;
+    op.DisableMinMax(reinterpret_cast<LONG_PTR>(wnd.hwnd), 1, &ret);
+    ASSERT_EQ(ret, 1);
+    const auto disabled = GetWindowLongPtrW(wnd.hwnd, GWL_STYLE);
+    EXPECT_TRUE((disabled & kMask) == 0) << "DisableMinMax 未移除 WS_MAXIMIZEBOX/WS_MINIMIZEBOX";
+
+    op.DisableMinMax(reinterpret_cast<LONG_PTR>(wnd.hwnd), 0, &ret);
+    ASSERT_EQ(ret, 1);
+    const auto restored = GetWindowLongPtrW(wnd.hwnd, GWL_STYLE);
+    EXPECT_EQ(restored, orig) << "恢复时未还原锁定前原始样式";
+}
+
+TEST(WindowStateTest, SetImeTogglesOpenStatus) {
+    op::Op op;
+    TopmostWindow wnd;
+    ASSERT_TRUE(wnd.Create());
+
+    // imm32 动态加载读取状态(测试工程未链 imm32.lib)
+    HMODULE imm = LoadLibraryW(L"imm32.dll");
+    ASSERT_TRUE(imm != nullptr);
+    auto get_ctx = reinterpret_cast<HIMC(WINAPI *)(HWND)>(GetProcAddress(imm, "ImmGetContext"));
+    auto get_open = reinterpret_cast<BOOL(WINAPI *)(HIMC)>(GetProcAddress(imm, "ImmGetOpenStatus"));
+    auto release = reinterpret_cast<BOOL(WINAPI *)(HWND, HIMC)>(GetProcAddress(imm, "ImmReleaseContext"));
+    ASSERT_TRUE(get_ctx && get_open && release);
+
+    long ret = 0;
+    op.SetIme(reinterpret_cast<LONG_PTR>(wnd.hwnd), 0, &ret);
+    ASSERT_EQ(ret, 1);
+    HIMC himc = get_ctx(wnd.hwnd);
+    ASSERT_TRUE(himc != nullptr);
+    EXPECT_EQ(get_open(himc), 0) << "SetIme(0) 后输入法仍处打开状态";
+    release(wnd.hwnd, himc);
+
+    op.SetIme(reinterpret_cast<LONG_PTR>(wnd.hwnd), 1, &ret);
+    ASSERT_EQ(ret, 1);
+    himc = get_ctx(wnd.hwnd);
+    ASSERT_TRUE(himc != nullptr);
+    EXPECT_EQ(get_open(himc), 1) << "SetIme(1) 后输入法未恢复打开";
+    release(wnd.hwnd, himc);
+
+    FreeLibrary(imm);
+}
+
+TEST(WindowStateTest, BindingTuneFunctionsRejectInvalidHwnd) {
+    op::Op op;
+    long ret = 1;
+    op.LockWindowPosition(0, 1, &ret);
+    EXPECT_EQ(ret, 0);
+    ret = 1;
+    op.LockWindowSize(0, 1, &ret);
+    EXPECT_EQ(ret, 0);
+    ret = 1;
+    op.DisableMinMax(0, 1, &ret);
+    EXPECT_EQ(ret, 0);
+    ret = 1;
+    op.SetIme(0, 1, &ret);
+    EXPECT_EQ(ret, 0);
 }
