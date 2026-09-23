@@ -132,3 +132,142 @@ TEST(UtilsTest, SetLogWideFormatDoesNotReexpand) {
 
     EXPECT_NE(content.find("val=%d pct=50%"), std::string::npos) << "实际日志内容: " << content;
 }
+
+//-------------------- SystemMisc: 系统杂项 + 拟人化随机概率 (2026-09-23 新增) --------------------
+
+// 屏幕三要素必须与 Win32 权威值一致（可判别"返回硬编码 1920x1080"的错误实现）
+TEST(SystemMiscTest, ScreenMetricsMatchWin32) {
+    op::Op op;
+    long w = 0, h = 0, depth = 0;
+    op.GetScreenWidth(&w);
+    op.GetScreenHeight(&h);
+    op.GetScreenDepth(&depth);
+    EXPECT_EQ(w, static_cast<long>(::GetSystemMetrics(SM_CXSCREEN)));
+    EXPECT_EQ(h, static_cast<long>(::GetSystemMetrics(SM_CYSCREEN)));
+    HDC dc = ::GetDC(nullptr);
+    ASSERT_NE(dc, nullptr);
+    EXPECT_EQ(depth, static_cast<long>(::GetDeviceCaps(dc, BITSPIXEL)));
+    ::ReleaseDC(nullptr, dc);
+}
+
+TEST(SystemMiscTest, DpiIsPositive) {
+    op::Op op;
+    long dpi = 0;
+    op.GetDPI(&dpi);
+    EXPECT_GE(dpi, 96); // 96=100%, 系统 DPI 不可能低于 96
+}
+
+// 格式 "yyyy-MM-dd HH:mm:ss" 逐位校验（可判别"返回时间戳数字"的错误实现）
+TEST(SystemMiscTest, TimeFormatFixedWidth) {
+    op::Op op;
+    std::wstring t;
+    op.GetTime(t);
+    ASSERT_EQ(t.size(), 19u) << "实际: " << t;
+    const auto is_digit = [](wchar_t c) { return c >= L'0' && c <= L'9'; };
+    for (size_t i = 0; i < 19; ++i) {
+        if (i == 4 || i == 7)
+            EXPECT_EQ(t[i], L'-');
+        else if (i == 10)
+            EXPECT_EQ(t[i], L' ');
+        else if (i == 13 || i == 16)
+            EXPECT_EQ(t[i], L':');
+        else
+            EXPECT_TRUE(is_digit(t[i])) << "pos " << i;
+    }
+    EXPECT_EQ(t.substr(0, 2), L"20"); // 21 世纪
+}
+
+// Beep 只是 ::Beep 薄封装：无声卡环境可合法返回 0，故只钉"返回值域 + 不崩溃"
+TEST(SystemMiscTest, BeepReturnsBoolean) {
+    op::Op op;
+    long ret = -1;
+    op.Beep(800, 10, &ret);
+    EXPECT_TRUE(ret == 0 || ret == 1);
+}
+
+// 随机整数：闭区间界 + 样本必须多变（可判别"恒定返回 min"的退化实现）
+TEST(SystemMiscTest, RandomNumberBoundsAndVariation) {
+    op::Op op;
+    std::set<long> samples;
+    for (int i = 0; i < 500; ++i) {
+        long v = 0;
+        op.GetRandomNumber(10, 20, &v);
+        EXPECT_GE(v, 10);
+        EXPECT_LE(v, 20);
+        samples.insert(v);
+    }
+    EXPECT_GT(samples.size(), 1u);
+}
+
+// 随机浮点：界 + 多变 + 逆序参数自动纠正（min>max 时交换）
+TEST(SystemMiscTest, RandomDoubleBoundsSwappedArgs) {
+    op::Op op;
+    std::set<long> quant;
+    for (int i = 0; i < 500; ++i) {
+        double v = 0.0;
+        op.GetRandomDouble(0.5, 2.5, &v);
+        EXPECT_GE(v, 0.5);
+        EXPECT_LE(v, 2.5);
+        quant.insert(static_cast<long>(v * 1000)); // 量化去重，避免 double 直比永远不同
+    }
+    EXPECT_GT(quant.size(), 1u);
+    for (int i = 0; i < 100; ++i) {
+        double v = 0.0;
+        op.GetRandomDouble(2.5, 0.5, &v); // 逆序
+        EXPECT_GE(v, 0.5);
+        EXPECT_LE(v, 2.5);
+    }
+}
+
+TEST(SystemMiscTest, GaiLuEdgeCases) {
+    op::Op op;
+    long r = -1;
+    op.GaiLu(0, &r);
+    EXPECT_EQ(r, 0); // p<=0 恒 0
+    op.GaiLu(-7, &r);
+    EXPECT_EQ(r, 0);
+    for (int i = 0; i < 20; ++i) {
+        op.GaiLu(1, &r);
+        EXPECT_EQ(r, 1); // p==1 恒 1
+    }
+}
+
+// 命中率统计判别：p=2 时 4000 次试验命中须落在二项分布 3σ 宽区间内
+// （恒定返回 1 → 4000 次全中；恒定返回 0 → 0 次中，均必然 FAIL）
+TEST(SystemMiscTest, GaiLuHitRateApproximatelyOneOverP) {
+    op::Op op;
+    int hits = 0;
+    const int trials = 4000;
+    long r = 0;
+    for (int i = 0; i < trials; ++i) {
+        op.GaiLu(2, &r);
+        hits += static_cast<int>(r);
+    }
+    EXPECT_GT(hits, 1500);
+    EXPECT_LT(hits, 2500);
+}
+
+// 机器码 = 注册表 MachineGuid，36 字符 GUID 形如 8-4-4-4-12 全十六进制
+TEST(SystemMiscTest, MachineCodeIsGuidFormat) {
+    op::Op op;
+    std::wstring mc;
+    op.GetMachineCode(mc);
+    ASSERT_EQ(mc.size(), 36u) << "实际: " << mc;
+    const auto is_hex = [](wchar_t c) {
+        return (c >= L'0' && c <= L'9') || (c >= L'a' && c <= L'f') || (c >= L'A' && c <= L'F');
+    };
+    for (size_t i = 0; i < 36; ++i) {
+        if (i == 8 || i == 13 || i == 18 || i == 23)
+            EXPECT_EQ(mc[i], L'-');
+        else
+            EXPECT_TRUE(is_hex(mc[i])) << "pos " << i << " char " << static_cast<int>(mc[i]);
+    }
+}
+
+// 管理员检测结果只钉值域（沙箱/真机权限不同，不能钉具体值）
+TEST(SystemMiscTest, IsElevatedReturnsBoolean) {
+    op::Op op;
+    long r = -1;
+    op.IsElevated(&r);
+    EXPECT_TRUE(r == 0 || r == 1);
+}

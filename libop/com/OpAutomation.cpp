@@ -491,6 +491,63 @@ STDMETHODIMP OpAutomation::Delays(LONG mis_min, LONG mis_max, LONG *ret) {
     return S_OK;
 }
 
+STDMETHODIMP OpAutomation::GetScreenWidth(LONG *ret) {
+    obj.GetScreenWidth(ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetScreenHeight(LONG *ret) {
+    obj.GetScreenHeight(ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetScreenDepth(LONG *ret) {
+    obj.GetScreenDepth(ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetDPI(LONG *ret) {
+    obj.GetDPI(ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetTime(BSTR *ret) {
+    wstring s;
+    obj.GetTime(s);
+    return CopyOutBstr(ret, s);
+}
+
+STDMETHODIMP OpAutomation::Beep(LONG freq, LONG dur, LONG *ret) {
+    obj.Beep(freq, dur, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetRandomNumber(LONG min, LONG max, LONG *ret) {
+    obj.GetRandomNumber(min, max, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetRandomDouble(DOUBLE min, DOUBLE max, DOUBLE *ret) {
+    obj.GetRandomDouble(min, max, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GaiLu(LONG p, LONG *ret) {
+    obj.GaiLu(p, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetMachineCode(BSTR *ret) {
+    wstring s;
+    obj.GetMachineCode(s);
+    return CopyOutBstr(ret, s);
+}
+
+STDMETHODIMP OpAutomation::IsElevated(LONG *ret) {
+    obj.IsElevated(ret);
+    return S_OK;
+}
+
 STDMETHODIMP OpAutomation::BindWindow(LONGLONG hwnd, BSTR display, BSTR mouse, BSTR keypad, LONG mode, LONG *ret) {
     obj.BindWindow(static_cast<LONG_PTR>(hwnd), display, mouse, keypad, mode, ret);
     return S_OK;

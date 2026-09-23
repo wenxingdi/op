@@ -177,6 +177,29 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(Delay)(LONG mis, LONG *ret);
     // 延时指定范围内随机毫秒,过程中不阻塞UI操作
     STDMETHOD(Delays)(LONG mis_min, LONG mis_max, LONG *ret);
+    //--------------------system misc------------------
+    // 获取屏幕宽度(像素)
+    STDMETHOD(GetScreenWidth)(LONG *ret);
+    // 获取屏幕高度(像素)
+    STDMETHOD(GetScreenHeight)(LONG *ret);
+    // 获取屏幕色深(位/像素)
+    STDMETHOD(GetScreenDepth)(LONG *ret);
+    // 获取系统 DPI 缩放值(96=100%)
+    STDMETHOD(GetDPI)(LONG *ret);
+    // 获取当前系统时间, 格式 "yyyy-MM-dd HH:mm:ss"
+    STDMETHOD(GetTime)(BSTR *ret);
+    // 蜂鸣器发声
+    STDMETHOD(Beep)(LONG freq, LONG dur, LONG *ret);
+    // 获取 [min, max] 区间内随机整数(闭区间)
+    STDMETHOD(GetRandomNumber)(LONG min, LONG max, LONG *ret);
+    // 获取 [min, max] 区间内随机浮点数
+    STDMETHOD(GetRandomDouble)(DOUBLE min, DOUBLE max, DOUBLE *ret);
+    // 概率判定: 以 1/p 的概率返回1, 否则返回0
+    STDMETHOD(GaiLu)(LONG p, LONG *ret);
+    // 获取本机机器码(注册表 MachineGuid)
+    STDMETHOD(GetMachineCode)(BSTR *ret);
+    // 检测当前进程是否以管理员权限运行
+    STDMETHOD(IsElevated)(LONG *ret);
     //--------------------Background -----------------------
     // 兼容旧接口的单句柄绑定。显示和输入都使用同一个 hwnd。
     STDMETHOD(BindWindow)(LONGLONG hwnd, BSTR display, BSTR mouse, BSTR keypad, LONG mode, LONG *ret);

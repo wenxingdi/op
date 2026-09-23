@@ -32,6 +32,10 @@ REROUTE = {
     "RunApp": "runtime", "WinExec": "runtime", "GetCmdStr": "runtime",
     "SetClipboard": "runtime", "GetClipboard": "runtime",
     "Delay": "runtime", "Delays": "runtime",
+    "GetScreenWidth": "runtime", "GetScreenHeight": "runtime", "GetScreenDepth": "runtime",
+    "GetDPI": "runtime", "GetTime": "runtime", "Beep": "runtime",
+    "GetRandomNumber": "runtime", "GetRandomDouble": "runtime", "GaiLu": "runtime",
+    "GetMachineCode": "runtime", "IsElevated": "runtime",
     "SetYoloEngine": "yolo", "YoloDetect": "yolo", "YoloDetectFromFile": "yolo",
 }
 MEMORY_FNS = {

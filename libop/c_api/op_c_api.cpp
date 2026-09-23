@@ -503,6 +503,59 @@ int OP_CALL OpDelays(op_handle handle, int mis_min, int mis_max) {
     return call_ret(handle, [&](op::Op &op, long *ret) { op.Delays(mis_min, mis_max, ret); });
 }
 
+// System misc
+
+int OP_CALL OpGetScreenWidth(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.GetScreenWidth(ret); });
+}
+
+int OP_CALL OpGetScreenHeight(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.GetScreenHeight(ret); });
+}
+
+int OP_CALL OpGetScreenDepth(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.GetScreenDepth(ret); });
+}
+
+int OP_CALL OpGetDPI(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.GetDPI(ret); });
+}
+
+const wchar_t *OP_CALL OpGetTime(op_handle handle) {
+    return call_string(handle, [](op::Op &op, std::wstring &ret) { op.GetTime(ret); });
+}
+
+int OP_CALL OpBeep(op_handle handle, int freq, int dur) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.Beep(freq, dur, ret); });
+}
+
+int OP_CALL OpGetRandomNumber(op_handle handle, int min, int max) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.GetRandomNumber(min, max, ret); });
+}
+
+double OP_CALL OpGetRandomDouble(op_handle handle, double min, double max) {
+    double ret = 0.0;
+    call_ret(handle, [&](op::Op &op, long *status) {
+        double v = 0.0;
+        op.GetRandomDouble(min, max, &v);
+        *status = 1L;
+        ret = v;
+    });
+    return ret;
+}
+
+int OP_CALL OpGaiLu(op_handle handle, int p) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.GaiLu(p, ret); });
+}
+
+const wchar_t *OP_CALL OpGetMachineCode(op_handle handle) {
+    return call_string(handle, [](op::Op &op, std::wstring &ret) { op.GetMachineCode(ret); });
+}
+
+int OP_CALL OpIsElevated(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.IsElevated(ret); });
+}
+
 // Background binding
 
 int OP_CALL OpBindWindow(op_handle handle, intptr_t hwnd, const wchar_t *display, const wchar_t *mouse,

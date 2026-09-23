@@ -104,6 +104,19 @@ OP_C_API const wchar_t *OP_CALL OpGetClipboard(op_handle handle);
 OP_C_API int OP_CALL OpDelay(op_handle handle, int mis);
 OP_C_API int OP_CALL OpDelays(op_handle handle, int mis_min, int mis_max);
 
+// System misc
+OP_C_API int OP_CALL OpGetScreenWidth(op_handle handle);
+OP_C_API int OP_CALL OpGetScreenHeight(op_handle handle);
+OP_C_API int OP_CALL OpGetScreenDepth(op_handle handle);
+OP_C_API int OP_CALL OpGetDPI(op_handle handle);
+OP_C_API const wchar_t *OP_CALL OpGetTime(op_handle handle);
+OP_C_API int OP_CALL OpBeep(op_handle handle, int freq, int dur);
+OP_C_API int OP_CALL OpGetRandomNumber(op_handle handle, int min, int max);
+OP_C_API double OP_CALL OpGetRandomDouble(op_handle handle, double min, double max);
+OP_C_API int OP_CALL OpGaiLu(op_handle handle, int p);
+OP_C_API const wchar_t *OP_CALL OpGetMachineCode(op_handle handle);
+OP_C_API int OP_CALL OpIsElevated(op_handle handle);
+
 // Background binding
 OP_C_API int OP_CALL OpBindWindow(op_handle handle, intptr_t hwnd, const wchar_t *display, const wchar_t *mouse,
                                   const wchar_t *keypad, int mode);

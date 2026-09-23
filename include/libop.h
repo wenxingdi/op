@@ -220,6 +220,29 @@ class OP_API Op {
     void Delay(_In_ long mis, _Out_ long *ret);
     // 延时指定范围内随机毫秒,过程中不阻塞UI操作
     void Delays(_In_ long mis_min, _In_ long mis_max, _Out_ long *ret);
+    //--------------------system misc------------------------------
+    // 获取屏幕宽度(像素)
+    void GetScreenWidth(_Out_ long *ret);
+    // 获取屏幕高度(像素)
+    void GetScreenHeight(_Out_ long *ret);
+    // 获取屏幕色深(位/像素, 如 32)
+    void GetScreenDepth(_Out_ long *ret);
+    // 获取系统 DPI 缩放值(96=100%)
+    void GetDPI(_Out_ long *ret);
+    // 获取当前系统时间, 格式 "yyyy-MM-dd HH:mm:ss"
+    void GetTime(_Out_ std::wstring &ret);
+    // 蜂鸣器发声. freq: 频率Hz(37..32767), dur: 时长ms. 返回1成功
+    void Beep(_In_ long freq, _In_ long dur, _Out_ long *ret);
+    // 获取 [min, max] 区间内随机整数(闭区间, 含两端)
+    void GetRandomNumber(_In_ long min, _In_ long max, _Out_ long *ret);
+    // 获取 [min, max] 区间内随机浮点数
+    void GetRandomDouble(_In_ double min, _In_ double max, _Out_ double *ret);
+    // 概率判定: 以 1/p 的概率返回1, 否则返回0. p<=0 返回0, p==1 恒返回1(拟人化核心)
+    void GaiLu(_In_ long p, _Out_ long *ret);
+    // 获取本机机器码(注册表 MachineGuid), 失败返回空串
+    void GetMachineCode(_Out_ std::wstring &ret);
+    // 检测当前进程是否以管理员权限运行. 1是 0否
+    void IsElevated(_Out_ long *ret);
     //--------------------Background -----------------------
     // 兼容旧接口的单句柄绑定。显示和输入都使用同一个 hwnd。
     void BindWindow(_In_ LONG_PTR hwnd, _In_ const wchar_t *display, _In_ const wchar_t *mouse, _In_ const wchar_t *keypad,

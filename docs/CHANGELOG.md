@@ -3,6 +3,18 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-23（系统杂项 + 拟人化随机概率批：11 个新函数，feat）
+
+- **背景**：按 `插件功能对比`/`复刻难度二次评估` 两份文档的 ROI 结论，补"一行级 Win32 杂项"批——三插件（DM/OULA/AJ）全有、op-master 独缺；其中 **`GaiLu`（1/P 概率判定）是拟人化核心**，AJ 拼音工具函数。全部为纯新增，零改动既有逻辑。
+- **新增函数**（核心 `OpRuntime.cpp` / C API / COM idl `349-359` 尾部追加 / Python ctypes 绑定）：
+  - 屏幕三要素 `GetScreenWidth/GetScreenHeight`（GetSystemMetrics）+ `GetScreenDepth`（GetDeviceCaps BITSPIXEL）
+  - `GetDPI`（GetDpiForSystem）、`GetTime`（GetLocalTime → "yyyy-MM-dd HH:mm:ss"）、`Beep(freq,dur)`
+  - 随机族 `GetRandomNumber(min,max)` 闭区间 / `GetRandomDouble(min,max)`（min>max 自动交换）/ `GaiLu(p)`（p≤0→0，p=1→恒1，否则 1/p 概率返1）
+  - `GetMachineCode`（注册表 MachineGuid，64位视图）、`IsElevated`（IsUserAnAdmin）
+- **实现要点**：随机引擎为进程级 `mt19937`（random_device 播种一次，多 Op 实例不取同一序列）。
+- **验证**：`tests/utils_test.cpp` 新增 `SystemMiscTest` 9 用例——屏幕三要素与 Win32 权威值逐一比对（可判别硬编码 1920x1080 的错误实现）、时间串 19 位逐位格式校验、随机数界+多变性、`GaiLu(2)` 4000 次命中率落在 [1500,2500]（恒定返1/返0 的错误实现必然 FAIL）、机器码 GUID 格式逐位校验。
+- **未做**：SWIG 绑定（本机无 swig 可执行文件，pyop 通道不补这 11 个方法不影响 ctypes 通道）；Go 绑定同步留待下次。
+
 ### 2026-09-22（OCR 拼接序改包围盒行聚类：修同视觉行被量化分行拆散、FindStr 返回 -1）
 
 - **背景**：字库 OCR 结果拼接顺序原由 `std::map<point_t, ocr_rec_t>` 的 key 序决定，`point_t::operator<` 用 `y/9` 量化分行（`row_height=9`）。同一视觉行内字形高度/上下错位稍大（实测 `割喉台[` 顶 y=8、数字串顶 y=10~16）就会被量化边界切成两个逻辑行 → `Ocr` 拼接串变成 `割喉台[]-1130,-1829`、`FindStr("割喉台[-1130,-1829]")` 恒返 -1。识别本身 16/16 全对，纯排序问题。

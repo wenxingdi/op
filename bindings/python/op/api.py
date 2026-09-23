@@ -363,6 +363,42 @@ class Op:
     def delays(self, min_milliseconds: int, max_milliseconds: int) -> bool:
         return self._call_ok("OpDelays", int(min_milliseconds), int(max_milliseconds))
 
+    # System misc
+    def get_screen_width(self) -> int:
+        return self._call_int("OpGetScreenWidth")
+
+    def get_screen_height(self) -> int:
+        return self._call_int("OpGetScreenHeight")
+
+    def get_screen_depth(self) -> int:
+        return self._call_int("OpGetScreenDepth")
+
+    def get_dpi(self) -> int:
+        return self._call_int("OpGetDPI")
+
+    def get_time(self) -> str:
+        return self._call_string("OpGetTime")
+
+    def beep(self, freq: int, duration_ms: int) -> bool:
+        return self._call_ok("OpBeep", int(freq), int(duration_ms))
+
+    def get_random_number(self, min_value: int, max_value: int) -> int:
+        return self._call_int("OpGetRandomNumber", int(min_value), int(max_value))
+
+    def get_random_double(self, min_value: float, max_value: float) -> float:
+        self._check_open()
+        return float(self._dll.OpGetRandomDouble(self._handle, float(min_value), float(max_value)))
+
+    def gai_lu(self, p: int) -> bool:
+        """以 1/p 的概率返回 True（拟人化概率判定）。p<=0 恒 False，p==1 恒 True。"""
+        return self._call_int("OpGaiLu", int(p)) == 1
+
+    def get_machine_code(self) -> str:
+        return self._call_string("OpGetMachineCode")
+
+    def is_elevated(self) -> bool:
+        return self._call_int("OpIsElevated") == 1
+
     # Background binding
     def bind_window(
         self,

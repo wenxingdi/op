@@ -287,6 +287,18 @@ interface IOpAutomation : IDispatch
 	// NOTE: new methods must be appended at the END of the interface, otherwise the vtable order
 	//       of existing methods changes and binary compatibility is broken.
 	[id(348)] HRESULT FindLineEx([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out] BSTR* retstr, [out, retval] LONG* ret);
+	// System misc (added 2026-09-23, ids appended to preserve vtable order)
+	[id(349)] HRESULT GetScreenWidth([out, retval] LONG* ret);
+	[id(350)] HRESULT GetScreenHeight([out, retval] LONG* ret);
+	[id(351)] HRESULT GetScreenDepth([out, retval] LONG* ret);
+	[id(352)] HRESULT GetDPI([out, retval] LONG* ret);
+	[id(353)] HRESULT GetTime([out, retval] BSTR* ret);
+	[id(354)] HRESULT Beep([in] LONG freq, [in] LONG dur, [out, retval] LONG* ret);
+	[id(355)] HRESULT GetRandomNumber([in] LONG min, [in] LONG max, [out, retval] LONG* ret);
+	[id(356)] HRESULT GetRandomDouble([in] DOUBLE min, [in] DOUBLE max, [out, retval] DOUBLE* ret);
+	[id(357)] HRESULT GaiLu([in] LONG p, [out, retval] LONG* ret);
+	[id(358)] HRESULT GetMachineCode([out, retval] BSTR* ret);
+	[id(359)] HRESULT IsElevated([out, retval] LONG* ret);
 
 
 
