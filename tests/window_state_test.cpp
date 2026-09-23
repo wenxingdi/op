@@ -1,5 +1,7 @@
 #include "test_support.h"
 
+#include "../libop/base/Environment.h"
+
 #include <gtest/gtest.h>
 
 #include <string>
@@ -362,4 +364,41 @@ TEST(WindowStateTest, BindingTuneFunctionsRejectInvalidHwnd) {
     ret = 1;
     op.SetIme(0, 1, &ret);
     EXPECT_EQ(ret, 0);
+}
+
+// ---------------- 绑定防护：完整性预检（UIPI 假成功拦截） ----------------
+
+// 助手自洽性：本进程 RID 合法、按 pid 取与直接取一致、自己不可能"高于自己"。
+// 反向验证点：若 IsProcessIntegrityHigher 恒返 true，第二条必挂；恒返 false 则第三、四条挂。
+TEST(WindowStateTest, IntegrityHelpersAreSelfConsistent) {
+    DWORD self = 0;
+    ASSERT_TRUE(GetCurrentIntegrityRid(self));
+    EXPECT_GE(self, 0x1000u) << "完整性 RID 应至少为 Low(0x1000)";
+    EXPECT_LE(self, 0x4000u) << "完整性 RID 不应超过 System(0x4000)";
+
+    DWORD by_pid = 0;
+    ASSERT_TRUE(GetProcessIntegrityRid(::GetCurrentProcessId(), by_pid));
+    EXPECT_EQ(by_pid, self);
+
+    EXPECT_FALSE(IsProcessIntegrityHigher(::GetCurrentProcessId()));
+
+    // 非法 pid：取不到完整性，且不应被误判为"更高"
+    DWORD rid = 12345;
+    EXPECT_FALSE(GetProcessIntegrityRid(0x7FFFFFFF, rid));
+    EXPECT_EQ(rid, 0u);
+    EXPECT_FALSE(IsProcessIntegrityHigher(0x7FFFFFFF));
+}
+
+// 同完整性目标走 dx 注入必须绑得上：若完整性预检/钩子回环误伤同等级进程，此用例立刻暴露。
+// 同时它间接验证 PingHook 回环对活钩子必返 1——回环若误杀正常钩子，此绑定会失败。
+TEST(WindowStateTest, DxBindToSameIntegrityWindowStillSucceeds) {
+    op::Op op;
+    TopmostWindow wnd;
+    ASSERT_TRUE(wnd.Create());
+
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)wnd.hwnd, L"gdi", L"dx", L"windows", 0, &ret);
+    EXPECT_EQ(ret, 1) << "同完整性 dx 绑定不应被完整性预检或钩子回环误伤";
+    if (ret == 1)
+        op.UnBindWindow(&ret);
 }

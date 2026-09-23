@@ -1,6 +1,7 @@
 // #include "stdafx.h"
 #include "BindingSession.h"
 #include "../base/AutomationModes.h"
+#include "../base/Environment.h"
 #include "../base/Utils.h"
 #include "../base/WindowsVersion.h"
 #include <algorithm>
@@ -279,6 +280,24 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
         setlog(L"error keypad mode: %s", skeypad.c_str());
         return 0;
     }
+
+    // step 3.5 完整性预检：UIPI 会静默吞掉低完整性→高完整性的跨进程输入（windows 投递被丢、
+    // dx 注入/RPC 失败但 API 照常返成功），绑定时看似成功实则一切键鼠操作无效。
+    // normal 系是真输入不受 UIPI 影响，只拦依赖跨进程信任的输入模式。
+    const bool cross_process_input =
+        (mouse != INPUT_TYPE::IN_NORMAL && mouse != INPUT_TYPE::IN_NORMAL2) ||
+        (keypad != INPUT_TYPE::IN_NORMAL && keypad != INPUT_TYPE::IN_NORMAL2);
+    if (cross_process_input) {
+        DWORD input_pid = 0;
+        ::GetWindowThreadProcessId(inputWnd, &input_pid);
+        if (input_pid != 0 && input_pid != ::GetCurrentProcessId() &&
+            IsProcessIntegrityHigher(input_pid)) {
+            setlog(L"BindWindow rejected: target process(pid=%d) integrity is higher than ours, "
+                   L"UIPI would silently drop all cross-process input. Run the host as administrator.",
+                   input_pid);
+            return 0;
+        }
+    }
     // DXGI 只在 Windows 8 及以上开放。
     if (display == RDT_NORMAL_DXGI && !IsWindowsVersionAtLeast(6, 2, 0)) {
         setlog(L"normal.dxgi requires Windows 8 or later");
@@ -324,8 +343,15 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
         const long keypad_ret = (display_ret == 1 && mouse_ret == 1) ? _keyboard->Bind(inputWnd, keypad) : 0;
         // dx 输入注入成功后再把通道开关下发给远端 Hook；默认值无需多做一次跨进程调用。
         const bool dx_input = mouse == INPUT_TYPE::IN_DX || keypad == INPUT_TYPE::IN_DX;
-        if (keypad_ret == 1 && dx_input && _dx_attr != DX_ATTR_ALL) {
-            if (op::hook::input_hook_client::SetInputAttr(inputWnd, _dx_attr) != 1)
+        if (keypad_ret == 1 && dx_input) {
+            // 钩子活性回环：注入+SetInputHook 返 1 不等于钩子真能工作（权限边界/残留态可造成
+            // 静默假成功），绑定成功瞬间做一次轻量 RPC，钩子不应答则整次绑定判失败。
+            if (op::hook::input_hook_client::PingHook(inputWnd) != 1) {
+                setlog("input hook ping failed after bind. hwnd=%p", inputWnd);
+                return std::make_tuple(display_ret, 0L, 0L);
+            }
+            if (_dx_attr != DX_ATTR_ALL &&
+                op::hook::input_hook_client::SetInputAttr(inputWnd, _dx_attr) != 1)
                 setlog("apply dx input attr failed. hwnd=%p attr=%d", inputWnd, _dx_attr);
         }
         return std::make_tuple(display_ret, mouse_ret, keypad_ret);

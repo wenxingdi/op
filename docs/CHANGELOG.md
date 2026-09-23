@@ -3,6 +3,13 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-23（绑定防护：UIPI 完整性预检 + dx 钩子活性回环，fix）
+
+- **背景**：BlueStacks 键鼠"绑定返 1 但点击无效"排查中发现两类静默假成功都需要在绑定期拦截——① 目标进程以管理员运行而宿主不是（UIPI 吞跨进程输入，API 照常返 1）；② dx 注入/SetInputHook 返 1 但钩子实际不应答（权限边界、残留态）。注：BlueStacks 本案经实测双方均为 High 完整性，最终根因是**目标侧拒绝合成按钮消息**（windows/dx 的 SendMessage 点击被 Android 输入管线忽略，仅 WM_MOUSEMOVE 悬停有视觉响应；物理光标在场/物理键垫底/dx 进程内发消息均无效，normal 真输入有效）——此类目标侧行为插件层无法强制，防护①②解决的是权限类假成功。
+- **完整性预检**（`BindWindowEx`，`base/Environment` 新增 `GetProcessIntegrityRid/GetCurrentIntegrityRid/IsProcessIntegrityHigher`）：鼠标或键盘任一为非 normal 系模式时，比对输入窗口进程完整性级别，高于本进程直接返 0 并写日志（提示以管理员运行宿主）。normal 系是真输入不受 UIPI 影响，不拦。打不开目标进程且原因为访问拒绝时（UIPI 连查询权限都不发）按"更高"处理；其余判定失败放行。
+- **dx 钩子活性回环**（`hook/InputHookClient` 新增 `PingHook`）：dx 绑定成功瞬间对已注入窗口做一次轻量 RPC（调一次远端 `GetInputCursorShapeHashLow`），钩子不应答则整次绑定判失败（解绑返 0）。兜住"注入+SetInputHook 返 1 但钩子实际不工作"的静默假成功。
+- **测试**：`IntegrityHelpersAreSelfConsistent`（RID 合法区间/按 pid 与直取一致/自己不高于自己/非法 pid 不误判）、`DxBindToSameIntegrityWindowStillSucceeds`（同等级不被误伤，间接验证回环对活钩子放行）。
+
 ### 2026-09-23（绑定微调批：窗口几何锁 + SetIme + GetFPS + DownCpu，feat）
 
 - **背景**：`复刻难度二次评估`文档 ③"运行时微调参数"按价值取前 4 项落地（假最小化/SetKMSync/SetTimeS/三句柄分离/注入档位留待后续）。三插件对照：AJ `LockWindowPosition/LockWindowSize`、OULA Flag `LP/LS/LM`、DM `dx.public.disable.window.*`；`GetFPS` 仅 AJ 有；`SetIme`/`DownCpu` OULA/DM 均有。全部纯新增。

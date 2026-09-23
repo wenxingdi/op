@@ -160,6 +160,35 @@ long call_set_input_attr(HWND hwnd, int attrs) {
     return ret;
 }
 
+// 轻量回环：只对已注入 Hook 的窗口调一次远端导出。BlackBone RPC 可能抛异常（目标进程
+// 状态异常时），这里全部兜住并按"不应答"返回。
+long call_ping_hook(HWND hwnd) {
+    DWORD pid = 0;
+    ::GetWindowThreadProcessId(hwnd, &pid);
+    if (pid == 0)
+        return 0;
+
+    long ret = 0;
+    try {
+        blackbone::Process proc;
+        const NTSTATUS status = proc.Attach(pid);
+        if (!NT_SUCCESS(status))
+            return 0;
+
+        const std::wstring dll_name = resolve_hook_dll(proc);
+        using ping_t = unsigned long(__stdcall *)();
+        auto remote = blackbone::MakeRemoteFunction<ping_t>(proc, dll_name, "GetInputCursorShapeHashLow");
+        if (remote) {
+            remote(); // 只验证可调用性，返回值无意义
+            ret = 1;
+        }
+        proc.Detach();
+    } catch (...) {
+        ret = 0;
+    }
+    return ret;
+}
+
 bool call_cursor_shape(HWND hwnd, unsigned long long &hash, unsigned long long &meta) {
     DWORD pid = 0;
     ::GetWindowThreadProcessId(hwnd, &pid);
@@ -270,6 +299,17 @@ long SetInputAttr(HWND hwnd, int attrs) {
         return 0;
 
     return call_set_input_attr(hwnd, attrs);
+}
+
+long PingHook(HWND hwnd) {
+    if (!::IsWindow(hwnd))
+        return 0;
+
+    std::lock_guard<std::mutex> guard(g_mutex);
+    if (g_bind_refs.find(hwnd) == g_bind_refs.end())
+        return 0;
+
+    return call_ping_hook(hwnd);
 }
 
 bool GetCursorShape(HWND hwnd, unsigned long long &hash, unsigned long long &meta) {

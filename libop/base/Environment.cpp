@@ -48,3 +48,61 @@ std::wstring RuntimeEnvironment::getBasePath() {
 std::wstring RuntimeEnvironment::getOpName() {
     return m_opName;
 }
+
+namespace {
+
+// 从进程/线程句柄取完整性级别 RID；失败返回 false 且 rid=0。
+bool integrity_rid_from_handle(HANDLE handle, DWORD &rid) {
+    rid = 0;
+    HANDLE token = nullptr;
+    if (::OpenProcessToken(handle, TOKEN_QUERY, &token) == FALSE)
+        return false;
+
+    bool ok = false;
+    char buf[64] = {0};
+    DWORD size = sizeof(buf);
+    // TokenIntegrityLevel = 25，缓冲区前 8 字节是 SID_AND_ATTRIBUTES，其首字段即 SID 指针。
+    if (::GetTokenInformation(token, TokenIntegrityLevel, buf, size, &size) != FALSE) {
+        const PSID sid = *reinterpret_cast<PSID *>(buf);
+        const auto count_ptr = ::GetSidSubAuthorityCount(sid);
+        if (count_ptr != nullptr) {
+            const auto rid_ptr = ::GetSidSubAuthority(sid, *count_ptr - 1);
+            if (rid_ptr != nullptr) {
+                rid = *rid_ptr;
+                ok = true;
+            }
+        }
+    }
+    ::CloseHandle(token);
+    return ok;
+}
+
+} // namespace
+
+bool GetCurrentIntegrityRid(DWORD &rid) {
+    return integrity_rid_from_handle(::GetCurrentProcess(), rid);
+}
+
+bool GetProcessIntegrityRid(DWORD pid, DWORD &rid) {
+    rid = 0;
+    const HANDLE proc = ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (proc == nullptr)
+        return false;
+    const bool ok = integrity_rid_from_handle(proc, rid);
+    ::CloseHandle(proc);
+    return ok;
+}
+
+bool IsProcessIntegrityHigher(DWORD pid) {
+    DWORD self = 0;
+    if (!GetCurrentIntegrityRid(self))
+        return false;
+
+    DWORD target = 0;
+    if (GetProcessIntegrityRid(pid, target))
+        return target > self;
+
+    // 打不开目标进程且原因是访问拒绝：UIPI 对更高完整性进程连查询权限都不发，按"更高"处理，
+    // 宁可误伤受保护进程（本就不能注入），也不放行注定静默失败的绑定。
+    return ::GetLastError() == ERROR_ACCESS_DENIED;
+}
