@@ -1,7 +1,7 @@
-# OP 插件更新日志（本地维护，不入库）
+# OP 插件更新日志
 
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
-> 位置：`op/doc2/CHANGELOG.md`（doc2/ 已在 .gitignore，仅存本地）。
+> 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
 ### 2026-09-22（OCR 拼接序改包围盒行聚类：修同视觉行被量化分行拆散、FindStr 返回 -1）
 
