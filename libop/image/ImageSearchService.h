@@ -143,6 +143,12 @@ class ImageSearchService : public ImageSearchAlgorithms {
 
     long FreePic(const wstring &files);
 
+    // 清空进程级图片缓存（FindPic 自动缓存与 LoadPic/LoadMemPic 显式加载共用）。
+    long clear_pic_cache();
+
+    // 设置进程级图片缓存条目上限；max_count<=0 表示不设上限。默认 500，满时整体清空重存。
+    void set_pic_cache_max(long max_count);
+
     long LoadMemPic(const wstring &file_name, void *data, long size);
 
     long GetPicSize(const wstring &file_name, long *x, long *y);

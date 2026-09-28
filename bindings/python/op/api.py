@@ -166,6 +166,14 @@ class Op:
     def enable_pic_cache(self, enable: bool | int) -> bool:
         return self._call_ok("OpEnablePicCache", int(enable))
 
+    def clear_pic_cache(self) -> bool:
+        """清空进程级图片缓存（FindPic 自动缓存与显式加载共用）。"""
+        return self._call_ok("OpClearPicCache")
+
+    def set_pic_cache_max(self, max_count: int) -> bool:
+        """设置进程级图片缓存条目上限；<=0 表示不设上限，默认 500，满时整体清空重存。"""
+        return self._call_ok("OpSetPicCacheMax", int(max_count))
+
     def capture_pre(self, file_name: str | Path) -> bool:
         return self._call_ok("OpCapturePre", str(file_name))
 

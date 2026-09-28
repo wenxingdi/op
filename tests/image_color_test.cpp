@@ -679,6 +679,127 @@ TEST(ImageColorTest, SharedPicCacheIsGlobalAcrossObjects) {
     std::filesystem::remove(std::filesystem::path(file_path));
 }
 
+// 屏幕固定图案（与 SharedPicCacheIsGlobalAcrossObjects 同源）：12x10 白底 + 2x2 深色块。
+static vector<uchar> MakeClearCacheScreenPixels(int width, int height) {
+    vector<uchar> pixels(static_cast<size_t>(width) * height * 4, 0xff);
+    PaintPixel(pixels, width, 5, 4, 0x21, 0x43, 0x65);
+    PaintPixel(pixels, width, 6, 4, 0x32, 0x54, 0x76);
+    PaintPixel(pixels, width, 5, 5, 0x43, 0x65, 0x87);
+    PaintPixel(pixels, width, 6, 5, 0x54, 0x76, 0x98);
+    return pixels;
+}
+
+static vector<uchar> MakeFlatTemplate(uchar b, uchar g, uchar r) {
+    vector<uchar> tpl(static_cast<size_t>(2) * 2 * 4, 0xff);
+    PaintPixel(tpl, 2, 0, 0, b, g, r);
+    PaintPixel(tpl, 2, 1, 0, b, g, r);
+    PaintPixel(tpl, 2, 0, 1, b, g, r);
+    PaintPixel(tpl, 2, 1, 1, b, g, r);
+    return BuildBmp32TopDown(2, 2, tpl);
+}
+
+static void WriteBmpFile(const std::wstring &path, const vector<uchar> &bmp) {
+    std::ofstream out(std::filesystem::path(path), std::ios::binary);
+    EXPECT_TRUE(out);
+    out.write(reinterpret_cast<const char *>(bmp.data()), static_cast<std::streamsize>(bmp.size()));
+}
+
+// 反向验证判据：若 ClearPicCache 不清缓存（旧实现），同名文件覆盖后 FindPic 仍命中旧模板 ret=0，
+// 断言 ret=-1 必挂。
+TEST(ImageColorTest, ClearPicCacheForcesReloadFromFile) {
+    op::Op loader;
+    op::Op matcher;
+    long ret = 0;
+    matcher.ClearPicCache(&ret);
+    ASSERT_EQ(ret, 1);
+
+    const int width = 12;
+    const int height = 10;
+    auto screen_bmp = BuildBmp32TopDown(width, height, MakeClearCacheScreenPixels(width, height));
+    wstring mode = L"mem:" + PtrToWString(screen_bmp.data());
+    matcher.SetDisplayInput(mode.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+
+    // 命中版：屏幕上那个 2x2 深色块（与屏幕像素同源）。
+    vector<uchar> hit_tpl(static_cast<size_t>(2) * 2 * 4, 0xff);
+    PaintPixel(hit_tpl, 2, 0, 0, 0x21, 0x43, 0x65);
+    PaintPixel(hit_tpl, 2, 1, 0, 0x32, 0x54, 0x76);
+    PaintPixel(hit_tpl, 2, 0, 1, 0x43, 0x65, 0x87);
+    PaintPixel(hit_tpl, 2, 1, 1, 0x54, 0x76, 0x98);
+    auto hit_bmp = BuildBmp32TopDown(2, 2, hit_tpl);
+    auto miss_bmp = MakeFlatTemplate(0x11, 0x22, 0x33); // 未命中版：屏幕没有的深色
+
+    const std::wstring file_path = test_support::GetTempBmpPath(L"op_clear_cache_reload.bmp");
+    WriteBmpFile(file_path, hit_bmp);
+    ASSERT_TRUE(std::filesystem::exists(std::filesystem::path(file_path)));
+
+    loader.LoadPic(file_path.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+    long x = -1;
+    long y = -1;
+    matcher.FindPic(0, 0, width, height, file_path.c_str(), L"000000", 1.0, 0, &x, &y, &ret);
+    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(x, 5);
+    EXPECT_EQ(y, 4);
+
+    // 同名文件覆盖为未命中内容（模拟模板目录更新），不触发重新加载。
+    WriteBmpFile(file_path, miss_bmp);
+    matcher.ClearPicCache(&ret);
+    EXPECT_EQ(ret, 1);
+    x = -1;
+    y = -1;
+    matcher.FindPic(0, 0, width, height, file_path.c_str(), L"000000", 1.0, 0, &x, &y, &ret);
+    EXPECT_EQ(ret, -1);
+    EXPECT_EQ(x, -1);
+    EXPECT_EQ(y, -1);
+
+    std::filesystem::remove(std::filesystem::path(file_path));
+}
+
+// 反向验证判据：若无上限淘汰（旧实现），f1 缓存不淘汰 → 删源文件后 GetPicSize 仍 ret=1，断言必挂。
+TEST(ImageColorTest, SetPicCacheMaxEvictsWholeCacheWhenFull) {
+    op::Op loader;
+    op::Op matcher;
+    long ret = 0;
+    matcher.ClearPicCache(&ret);
+    matcher.SetPicCacheMax(2, &ret);
+    ASSERT_EQ(ret, 1);
+
+    const std::wstring f1 = test_support::GetTempBmpPath(L"op_cache_max_f1.bmp");
+    const std::wstring f2 = test_support::GetTempBmpPath(L"op_cache_max_f2.bmp");
+    const std::wstring f3 = test_support::GetTempBmpPath(L"op_cache_max_f3.bmp");
+    WriteBmpFile(f1, MakeFlatTemplate(0x11, 0x22, 0x33));
+    WriteBmpFile(f2, MakeFlatTemplate(0x44, 0x55, 0x66));
+    WriteBmpFile(f3, MakeFlatTemplate(0x77, 0x88, 0x99));
+
+    loader.LoadPic(f1.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+    loader.LoadPic(f2.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+    // 第 3 次加载达到上限 → 整体清空重存 → f1/f2 出缓存，f3 在缓存。
+    loader.LoadPic(f3.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+
+    long pic_w = 0;
+    long pic_h = 0;
+    matcher.GetPicSize(f3.c_str(), &pic_w, &pic_h, &ret);
+    EXPECT_EQ(ret, 1);
+    EXPECT_EQ(pic_w, 2);
+    EXPECT_EQ(pic_h, 2);
+
+    // f1 已被整体清空淘汰：删源文件后 GetPicSize 读不到（若未淘汰则纯走缓存仍 ret=1）。
+    std::filesystem::remove(std::filesystem::path(f1));
+    matcher.GetPicSize(f1.c_str(), &pic_w, &pic_h, &ret);
+    EXPECT_EQ(ret, 0);
+
+    // 恢复进程级默认（无上限），避免污染其他用例。
+    matcher.SetPicCacheMax(0, &ret);
+    EXPECT_EQ(ret, 1);
+    matcher.ClearPicCache(&ret);
+    std::filesystem::remove(std::filesystem::path(f2));
+    std::filesystem::remove(std::filesystem::path(f3));
+}
+
 TEST(ImageColorTest, MissingPicSizeClearsOutputValues) {
     op::Op op;
     long width = 123;

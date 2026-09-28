@@ -237,6 +237,14 @@ int OP_CALL OpEnablePicCache(op_handle handle, int enable) {
     return call_ret(handle, [&](op::Op &op, long *ret) { op.EnablePicCache(enable, ret); });
 }
 
+int OP_CALL OpClearPicCache(op_handle handle) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.ClearPicCache(ret); });
+}
+
+int OP_CALL OpSetPicCacheMax(op_handle handle, int max_count) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.SetPicCacheMax(max_count, ret); });
+}
+
 int OP_CALL OpCapturePre(op_handle handle, const wchar_t *file_name) {
     return call_ret(handle, [&](op::Op &op, long *ret) { op.CapturePre(safe_text(file_name), ret); });
 }

@@ -114,6 +114,10 @@ class OP_API Op {
     void InjectDll(_In_ const wchar_t *process_name, _In_ const wchar_t *dll_name, _Out_ long *ret);
     // 设置是否开启或者关闭插件内部的图片缓存机制
     void EnablePicCache(_In_ long enable, _Out_ long *ret);
+    // 清空进程级图片缓存（FindPic 自动缓存与显式加载共用）
+    void ClearPicCache(_Out_ long *ret);
+    // 设置进程级图片缓存条目上限；max_count<=0 表示不设上限，默认 500，满时整体清空重存
+    void SetPicCacheMax(_In_ long max_count, _Out_ long *ret);
     // 取上次操作的图色区域，保存为file(24位位图)
     void CapturePre(_In_ const wchar_t *file_name, _Out_ long *ret);
     // 设置屏幕数据模式，0:从上到下(默认),1:从下到上

@@ -29,6 +29,15 @@ void op::Op::EnablePicCache(long enable, long *ret) {
     internal::set_result(ret, 1L);
 }
 
+void op::Op::ClearPicCache(long *ret) {
+    internal::set_result(ret, m_context->image_proc.clear_pic_cache());
+}
+
+void op::Op::SetPicCacheMax(long max_count, long *ret) {
+    m_context->image_proc.set_pic_cache_max(max_count);
+    internal::set_result(ret, 1L);
+}
+
 void op::Op::CapturePre(const wchar_t *file, LONG *ret) {
     internal::set_result(ret, m_context->image_proc.Capture(file));
 }

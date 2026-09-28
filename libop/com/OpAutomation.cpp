@@ -179,6 +179,18 @@ STDMETHODIMP OpAutomation::EnablePicCache(LONG enable, LONG *ret) {
     return S_OK;
 }
 
+STDMETHODIMP OpAutomation::ClearPicCache(LONG *ret) {
+    obj.ClearPicCache(ret);
+
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::SetPicCacheMax(LONG max_count, LONG *ret) {
+    obj.SetPicCacheMax(max_count, ret);
+
+    return S_OK;
+}
+
 STDMETHODIMP OpAutomation::CapturePre(BSTR file, LONG *ret) {
 
     obj.CapturePre(file, ret);

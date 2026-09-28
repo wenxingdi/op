@@ -3,6 +3,13 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（内存盘点 + 图片缓存上限与清空 API，feat）
+
+- **背景**：内存维度盘点。基本面结论：RAII 全覆盖（PROJECT_REVIEW 判 🟢）、`screenData/screenDataBmp` 复用容量不涨、`mem:` 输入零拷贝、字库进程级共享（`g_file_dicts` 100 槽 shared_ptr + shared_mutex 读写锁，AddDict/ClearDict 实例私有隔离；单实例内"边改字库边查字"理论竞态按够用原则不动）。唯一实伤点：**图片缓存三连缺**——`g_pic_cache`/`g_pic_match_cache` 进程级全局 map 无上限、无淘汰、无清空手段（`FreePic` 只能逐张删），长跑/遍历大模板目录时缓存单调膨胀，且跨 op 实例共享、UnBindWindow/析构均不清。
+- **改动**：① 进程级条目上限 `g_pic_cache_max_entries`（默认 500，atomic）：`store_cached_pic` 达上限（且非刷新已有条目）时**整体清空重存**——简单可预期，不做 LRU；② 新增 `ClearPicCache()`（清空全部缓存）与 `SetPicCacheMax(count)`（`<=0` 表示不设上限）两个 API，COM `id(366)/id(367)`（不动 EnablePicCache 签名，vtable 兼容）+ Op 类 + C API + Python 绑定四层接线。
+- **测试**（`image_color_test.cpp` +2，均有反向验证判据）：`ClearPicCacheForcesReloadFromFile`——同名模板文件覆盖为未命中内容后 Clear 再 FindPic 必须返 -1（不清缓存则命中旧模板必挂）；`SetPicCacheMaxEvictsWholeCacheWhenFull`——上限 2 时第 3 次 LoadPic 触发清空，删 f1 源文件后 `GetPicSize(f1)` 必须返 0（无淘汰则纯走缓存返 1 必挂）。用例前后 ClearPicCache/恢复无上限，防进程级缓存跨用例污染。
+- **回归**：ImageColorTest 88/88；全量 307 用例唯一挂仍为本机幽灵键 VK 0x85 环境用例，基线一致。发布件已同步三处。
+
 ### 2026-09-28（键鼠拟人化盘点 + KeyPressStr 键间隔抖动，fix）
 
 - **背景**：键鼠功能完善性与拟人成熟度盘点。功能面结论：API ≈ 大漠全集 + 独有增强（5 键全 20 动作、dx 三通道掩码、PingHook 活性回环、UIPI 预检、SetMouseTrajectory/MovePath/DragPath）；对照大漠实际缺口仅 `EnableRealMouse`（真鼠标保护，多开后台场景用不上，暂缓）。拟人面结论：鼠标轨迹/点击节奏、键盘单击节奏均已达标，**唯一硬缺口 = `KeyPressStr` 键间固定间隔**（`OpInput.cpp` `::Delay(delay>0?delay:1)`）——固定间隔是机器打字的最强统计特征。

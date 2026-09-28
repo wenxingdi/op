@@ -306,6 +306,8 @@ interface IOpAutomation : IDispatch
 	[id(363)] HRESULT SetIme([in] hyper hwnd, [in] LONG enable, [out, retval] LONG* ret);
 	[id(364)] HRESULT GetFPS([out, retval] LONG* ret);
 	[id(365)] HRESULT DownCpu([in] LONG type, [in] LONG rate, [out, retval] LONG* ret);
+	[id(366)] HRESULT ClearPicCache([out, retval] LONG* ret);
+	[id(367)] HRESULT SetPicCacheMax([in] LONG max_count, [out, retval] LONG* ret);
 
 
 

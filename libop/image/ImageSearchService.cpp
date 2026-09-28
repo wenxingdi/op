@@ -4,6 +4,7 @@
 #include "../ocr/OcrService.h"
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <bitset>
 #include <cmath>
 #include <filesystem>
@@ -24,6 +25,9 @@ namespace {
 std::map<wstring, std::shared_ptr<Image>> g_pic_cache;
 std::map<wstring, std::shared_ptr<PicMatchTemplate>> g_pic_match_cache;
 std::shared_mutex g_pic_cache_mutex;
+// 图片缓存条目上限。达到上限（且不是刷新已有条目）时整体清空重存——
+// 简单可预期，不做 LRU；防止长跑/遍历大模板目录时缓存单调膨胀。
+std::atomic<long> g_pic_cache_max_entries{500};
 
 // SetDict 加载的是文件字库，放在进程级槽位中，多个 Op 对象可以直接复用。
 std::array<std::shared_ptr<Dictionary>, ImageSearchService::_max_dict> g_file_dicts;
@@ -126,6 +130,14 @@ bool store_cached_pic(const wstring &key, std::shared_ptr<Image> image, std::sha
         return false;
 
     std::unique_lock<std::shared_mutex> lock(g_pic_cache_mutex);
+    const long max_entries = g_pic_cache_max_entries.load(std::memory_order_relaxed);
+    // 达到上限（且不是刷新已有条目）时整体清空重存，防止长跑场景缓存单调膨胀。
+    // max_entries<=0 = 不设上限。
+    if (max_entries > 0 && g_pic_cache.find(key) == g_pic_cache.end() &&
+        static_cast<long>(g_pic_cache.size()) >= max_entries) {
+        g_pic_cache.clear();
+        g_pic_match_cache.clear();
+    }
     g_pic_cache[key] = std::move(image);
     g_pic_match_cache[key] = std::move(match);
     return true;
@@ -1027,6 +1039,18 @@ long ImageSearchService::FreePic(const wstring &files) {
         }
     }
     return loaded;
+}
+
+long ImageSearchService::clear_pic_cache() {
+    std::unique_lock<std::shared_mutex> lock(g_pic_cache_mutex);
+    g_pic_cache.clear();
+    g_pic_match_cache.clear();
+    return 1;
+}
+
+void ImageSearchService::set_pic_cache_max(long max_count) {
+    // max_count<=0 存 0，store_cached_pic 视 0 为不设上限。
+    g_pic_cache_max_entries.store(max_count > 0 ? max_count : 0, std::memory_order_relaxed);
 }
 
 long ImageSearchService::LoadMemPic(const wstring &file_name, void *data, long size) {
