@@ -223,6 +223,8 @@ Generated_Code/
 _UpgradeReport_Files/
 Backup*/
 !scripts/backup/
+# 备份产物（bundle 上百 MB）只留本地，不入库
+scripts/backup/*_stable/
 UpgradeLog*.XML
 UpgradeLog*.htm
 
