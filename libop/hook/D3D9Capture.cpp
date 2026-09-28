@@ -16,6 +16,34 @@ namespace op::hook {
 using ATL::CComPtr;
 using op::capture::FrameInfo;
 
+namespace {
+
+// H27: 原实现每帧 CreateTexture(D3DPOOL_SYSTEMMEM) + GetSurfaceLevel 建读回用纹理，
+// 开 MSAA 时还要再 CreateRenderTarget。帧率越高分配/释放越密，白付 D3D 资源开销并
+// 制造显存碎片（与 H10 给 D3D10/11 做的同一件事）。这里按 设备 + 尺寸/格式/采样数
+// 缓存复用，判据直接用 H10 建的 StagingCacheNeedsRebuild / StagingDescKey。
+//
+// **有意为之：只缓存 SYSTEMMEM 的 texture 和它的 surface，不缓存 MSAA 的 resolve 面。**
+// resolve 面必须是 D3DPOOL_DEFAULT（StretchRect 要求与后备缓冲同池），而 D3DPOOL_DEFAULT
+// 资源只要活着就阻止 IDirect3DDevice9::Reset —— 缓存它等于"截图代码让游戏无法切换分辨率/
+// 无法从全屏退到窗口"。SYSTEMMEM 面在 Reset 时由运行时自动处理且对象仍有效，缓存安全。
+// 所以 MSAA 场景（少数）仍每帧建 resolve 面，非 MSAA 场景（多数）做到零创建。
+//
+// leak-by-design：不做析构，避免进程卸载时在 loader lock 下释放 D3D 资源（与 H10/H15 同）。
+struct D3D9StagingCache {
+    CComPtr<IDirect3DDevice9> device;
+    CComPtr<IDirect3DTexture9> texture;
+    CComPtr<IDirect3DSurface9> texSurface;
+    StagingDescKey key;
+};
+
+D3D9StagingCache &d3d9_staging_cache() {
+    static D3D9StagingCache *cache = new D3D9StagingCache();
+    return *cache;
+}
+
+} // namespace
+
 class D3D9TextureLock {
   public:
     explicit D3D9TextureLock(IDirect3DTexture9 *texture) : texture_(texture) {
@@ -66,21 +94,34 @@ HRESULT dx9_capture(LPDIRECT3DDEVICE9 pDevice) {
         return hr;
     }
 
-    CComPtr<IDirect3DTexture9> pTex;
-    CComPtr<IDirect3DSurface9> pTexSurface;
-    hr = pDevice->CreateTexture(surface_Desc.Width, surface_Desc.Height, 1, 0, surface_Desc.Format,
-                                D3DPOOL_SYSTEMMEM, // 必须为这个
-                                &pTex, NULL);
-    if (hr < 0) {
-        setlog("dx9 CreateTexture failed hr=%X, disable capture", hr);
-        DisplayHook::set_capture_enabled(false);
-        return hr;
-    }
-    hr = pTex->GetSurfaceLevel(0, &pTexSurface);
-    if (hr < 0) {
-        setlog("dx9 GetSurfaceLevel failed hr=%X, disable capture", hr);
-        DisplayHook::set_capture_enabled(false);
-        return hr;
+    // H27: 按 设备 + 尺寸/格式/采样数 复用读回纹理（详见 D3D9StagingCache 注释）。
+    // 注意 StagingDescKey::format 的类型是 DXGI_FORMAT（D3D10/11/12 共用），而这里是
+    // D3DFORMAT —— 两套枚举值域不同。此处只把它当**不透明标签**用：判据只关心"格式变没变"，
+    // static_cast 是一一映射（同一 D3DFORMAT 恒得同一个数值），所以判据成立。
+    D3D9StagingCache &cache = d3d9_staging_cache();
+    const StagingDescKey want{static_cast<DXGI_FORMAT>(surface_Desc.Format), surface_Desc.Width,
+                              surface_Desc.Height, static_cast<UINT>(surface_Desc.MultiSampleType)};
+    if (StagingCacheNeedsRebuild(cache.texture.p != nullptr, cache.device.p != pDevice, cache.key, want)) {
+        cache.texture.Release();
+        cache.texSurface.Release();
+
+        hr = pDevice->CreateTexture(surface_Desc.Width, surface_Desc.Height, 1, 0, surface_Desc.Format,
+                                    D3DPOOL_SYSTEMMEM, // 必须为这个
+                                    &cache.texture, NULL);
+        if (FAILED(hr)) {
+            setlog("dx9 CreateTexture failed hr=%X, disable capture", hr);
+            DisplayHook::set_capture_enabled(false);
+            return hr;
+        }
+        hr = cache.texture->GetSurfaceLevel(0, &cache.texSurface);
+        if (FAILED(hr)) {
+            setlog("dx9 GetSurfaceLevel failed hr=%X, disable capture", hr);
+            DisplayHook::set_capture_enabled(false);
+            cache.texture.Release(); // 让下一帧从"无缓存"重来，而不是复用半成品
+            return hr;
+        }
+        cache.device = pDevice;
+        cache.key = want;
     }
     // H3: MSAA 后备缓冲不能直接 GetRenderTargetData（恒返 D3DERR_INVALIDCALL=8876086C），
     // 必须先把多重采样面 resolve 成单采样面。D3D10/11 一直有 SampleDesc.Count>1 分支，
@@ -109,7 +150,7 @@ HRESULT dx9_capture(LPDIRECT3DDEVICE9 pDevice) {
         copySource = pResolveSurface;
     }
 
-    hr = pDevice->GetRenderTargetData(copySource, pTexSurface);
+    hr = pDevice->GetRenderTargetData(copySource, cache.texSurface);
     if (FAILED(hr)) {
         setlog("dx9 GetRenderTargetData failed hr=%X msaa=%d, disable capture", hr,
                static_cast<int>(surface_Desc.MultiSampleType));
@@ -119,7 +160,7 @@ HRESULT dx9_capture(LPDIRECT3DDEVICE9 pDevice) {
 
     D3DLOCKED_RECT lockedRect = {};
 
-    D3D9TextureLock textureLock(pTex);
+    D3D9TextureLock textureLock(cache.texture);
     hr = textureLock.lock(&lockedRect);
     if (FAILED(hr)) {
         setlog("dx9 LockRect failed hr=%X, disable capture", hr);

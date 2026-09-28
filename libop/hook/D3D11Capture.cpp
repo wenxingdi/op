@@ -24,21 +24,8 @@ using op::capture::FrameInfo;
 
 namespace {
 
-std::span<std::byte> make_shared_frame_span(SharedMemory &mem, UINT width, UINT height) {
-    const auto pixelBytes = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
-    return {mem.data<std::byte>(), sizeof(FrameInfo) + pixelBytes};
-}
-
-void write_shared_frame(std::span<std::byte> sharedFrame, HWND hwnd, UINT width, UINT height, const void *source,
-                        int sourceRows, int sourceCols, int rowPitch, int format) {
-    // 使用 span 明确区分帧头和像素区，避免共享内存裸指针偏移散落在捕获逻辑里。
-    auto frameInfoBytes = sharedFrame.first(sizeof(FrameInfo));
-    auto pixelBytes = sharedFrame.subspan(sizeof(FrameInfo));
-
-    reinterpret_cast<FrameInfo *>(frameInfoBytes.data())->format(hwnd, width, height);
-    CopyImageData(reinterpret_cast<char *>(pixelBytes.data()), static_cast<const char *>(source), sourceRows,
-                  sourceCols, rowPitch, format);
-}
+// make_shared_frame_span / write_shared_frame 已搬到 SharedFrame.h
+// —— 原先这里与 D3D10Capture.cpp 各存一份逐字相同的副本。
 
 // H10: 原实现每帧都 GetImmediateContext + CreateTexture2D 建 staging（开 MSAA 时还多建
 // 一张 resolve）。帧率越高分配/释放越密，白付 D3D 资源开销并制造显存碎片。

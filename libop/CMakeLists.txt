@@ -1,5 +1,18 @@
 cmake_minimum_required(VERSION 3.10)
 
+# libop 的源码使用 C++20 设施：std::span 分布在 hook/SharedFrame.h、hook/D3D10Capture.cpp、
+# hook/D3D11Capture.cpp、capture/backends/GdiCapture.cpp、capture/backends/HookCapture.cpp、
+# capture/sources/MemoryImageSource.cpp 等。
+#
+# 根 CMakeLists 只设了 CMAKE_CXX_STANDARD 17 —— 此前 libop 能拿到 /std:c++20，靠的是依赖链
+# （OpenCV 等）带进来的 cxx_std_20 compile feature 把它顶上去。这份依赖很脆：生成器或策略
+# 一变（实测 CMake 4.3 重新生成后）就会真的落在 -std:c++17 上，表现为
+#   warning STL4038: The contents of <span> are available only with C++20 or later.
+#   error C2039: "span": 不是 "std" 的成员
+# 源码看着完全正常、却整片编不过。此处显式声明，不再依赖传播。
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 set(OP_HAS_OPENCV FALSE)
 set(OP_OPENCV_INCLUDE_DIR "")
 set(OP_OPENCV_LIB_DIR "")

@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
 
+# 测试目标必须与 libop 用同一档 C++ 标准。
+# 起因：hook/SharedFrame.h 本轮由 HookCapture.cpp 抽成 header-only、并被测试直接 include，
+# 而它用了 std::span。libop 侧编译时带 /std:c++20（随依赖链传播），本目录的测试目标没有，
+# 于是出现 "C2039: span 不是 std 的成员" —— 库编得过去、测试编不过。
+# 测试与库不同标准是长期隐患：库能用的设施测试用不了，这类头文件就永远无法进回归。
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(OP_GTEST_STATIC_TRIPLET "x64-windows-static")
 else()
@@ -151,6 +159,10 @@ set(OP_TEST_SOURCES
   # H14/H20：注入侧导出护栏与"每会话一次"诊断开关都是纯函数（ExportGuard.h / HookDiagnostics.h
   # 均为 header-only），直接编入即可，无需链 op_com 的导出。
   "hook_export_guard_test.cpp"
+  # 共享帧读/写链路（SharedFrame.h 为 header-only 纯函数）。这些实现原先住在
+  # HookCapture.cpp 的匿名命名空间里，而该文件依赖 blackbone 编不进测试进程，
+  # 于是「撕裂帧判据 + 共享内存容量判据」长期零覆盖 —— 本轮搬到 SharedFrame.h 后可测。
+  "shared_frame_test.cpp"
   "algorithm_test.cpp"
   "../libop/base/Utils.cpp"
   "../libop/base/Environment.cpp"

@@ -3,6 +3,19 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（共享帧链路可测性重构 + 18 条纯函数单测 + D3D9 staging 缓存 + 测试 C++ 标准对齐，fix）
+
+- **背景**：批 3 后的独立复扫指出，hook 捕获的**最终出口**（6 条写入路径把帧写进同一份共享内存 → 宿主用同一个函数校验读取）长期零单测 —— 因为它的实现住在 `HookCapture.cpp` 的匿名命名空间里，而该文件依赖 blackbone、编不进测试进程。于是「撕裂帧 / 半写帧」的唯一防线改错了没有任何用例会报。本轮把它变成可测的。
+- **可测试性重构**：`HookFrameView` / `isHookFrameReady` / `makeHookFrameView` / `hookFrameRow` 从 `HookCapture.cpp` 的匿名命名空间搬进 `libop/hook/SharedFrame.h`（header-only、零 blackbone 依赖）；`make_shared_frame_span` / `write_shared_frame` 从 `D3D10Capture.cpp` 与 `D3D11Capture.cpp` 各一份**逐字重复**的副本收敛到同一处。纯搬运，行为未变。
+- **H27 D3D9 staging 缓存**（`libop/hook/D3D9Capture.cpp`）：`dx9_capture` 原先每帧 `CreateTexture(D3DPOOL_SYSTEMMEM)` + `GetSurfaceLevel`，MSAA 时再 `CreateRenderTarget`。改为按 设备 + 尺寸/格式/采样数 复用，判据直接复用 H10 建的 `StagingCacheNeedsRebuild` / `StagingDescKey`。
+  - **有意为之：只缓存 SYSTEMMEM 的 texture 与它的 surface，不缓存 MSAA 的 resolve 面。** resolve 面必须是 `D3DPOOL_DEFAULT`（`StretchRect` 要求与后备缓冲同池），而 `D3DPOOL_DEFAULT` 资源只要活着就阻止 `IDirect3DDevice9::Reset` —— 缓存它等于"截图代码让游戏无法切分辨率 / 无法从全屏退到窗口"。SYSTEMMEM 面在 Reset 时由运行时自动处理且对象仍有效，缓存安全。于是非 MSAA（多数）做到零创建，MSAA（少数）仍每帧建 resolve 面。
+  - `StagingDescKey::format` 的类型是 `DXGI_FORMAT`（D3D10/11/12 共用），而 D3D9 用 `D3DFORMAT` —— 两套枚举值域不同。此处当**不透明标签**用（判据只关心"格式变没变"，`static_cast` 是一一映射），代码注释里已写明。
+- **新增 18 条纯函数用例**（`tests/shared_frame_test.cpp`，已编入 `tests/CMakeLists.txt`）：帧尺寸与两条溢出保护、共享内存容量边界（按映射真实大小反推：恰好放得下通过、多一行拒绝）、帧可读性三重校验（校验和失配 / hwnd 不匹配 / 宽高为 0）、校验和幂等与五字段敏感性、行寻址偏移、写入侧帧头自洽 + 像素透传、sRGB 归一化透传。
+- **测试 C++ 标准对齐（本轮最大的坑）**：根 `CMakeLists.txt` 只写 `CMAKE_CXX_STANDARD 17`，libop 长期能编 `std::span` 靠的是依赖链（OpenCV 等）带进来的 `cxx_std_20` compile feature 把它顶上去。重新生成后（实测 CMake 4.3）这份传播失效、真的落在 `-std:c++17`，表现为 `warning STL4038: The contents of <span> are available only with C++20 or later.` + `error C2039: "span": 不是 "std" 的成员` —— 源码看着完全正常却整片编不过。已在 `libop/CMakeLists.txt` 与 `tests/CMakeLists.txt` 顶部显式 `set(CMAKE_CXX_STANDARD 20)` + `CMAKE_CXX_STANDARD_REQUIRED ON`，不再依赖传播。
+- **反向验证（一次构建改错四处，全部精确命中）**：① `isHookFrameReady` 去掉校验和自洽检查 → `RejectsTornFrameWithMismatchedChecksum` FAIL，**同 suite 其余 4 条仍 PASS**；② `hookFrameRow` 漏掉行项 → `ReturnsRequestedWindow` FAIL；③ D3D9 缓存判据恒假（永不重建）→ **两条 D3D9 真机用例 FAIL**；④ 删掉 `RequiredSharedFrameBytes` 的第一条溢出保护 → `RejectsWidthTimesHeightOverflow` FAIL（`Which is: 28` vs `0`），**同 suite `RejectsPixelBytesOverflowAgainstSizeT` 仍 PASS**。
+- **反向验证暴露并修掉一个"假通过"用例**：`RejectsWidthTimesHeightOverflow` 原先用 `UINT64_MAX × 2` —— 乘积回绕成 `max-1`（仍然很大），会被**第二条**保护（像素字节数 vs size_t）兜住，于是"第一条被删掉"根本测不出来。改用 `(1<<63) × 2`：乘积回绕成 0，第二条拦不住，只有第一条能拦。**教训：两条保护覆盖同一输入时，用例测不出其中任一条。**
+- **回归**：全量 **357 = 354 PASS / 2 SKIP / 1 FAILED**（上基线 339 = 336/2/1，新增 18 条全绿）。2 SKIP = FurMark 环境项 + D3D10 记录项；1 FAILED = 幽灵键 `VK 0x85` 环境项。D3D9 两条真机用例（含 MSAA）确认 H27 无回归。
+
 ### 2026-09-28（hook 层补遗：D3D11 设备重建静默错帧 + OpenGL API 指针缓存，fix）
 
 - **背景**：批 3 闭环后另做一轮**独立热路径扫描**（不沿用台账结论），确认台账 26 条确已闭环，但台账外还有 5 项，其中 1 条是会造成静默错帧的真 bug。本批修 2 项，其余按"够用"原则登记（见文末）。

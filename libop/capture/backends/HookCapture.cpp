@@ -72,37 +72,18 @@ bool set_remote_dll_search_dir(blackbone::Process &proc, const wchar_t *dir) {
     }
 }
 
-struct HookFrameView {
-    FrameInfo *info = nullptr;
-    std::span<std::byte> pixels;
-};
-
-bool isHookFrameReady(const FrameInfo &info, HWND hwnd) {
-    FrameInfo expected = info;
-    const auto chk = expected.chk;
-    expected.fmtChk();
-    return chk == expected.chk && info.hwnd == reinterpret_cast<unsigned __int64>(hwnd) && info.width > 0 &&
-           info.height > 0;
-}
-
-HookFrameView makeHookFrameView(op::SharedMemory &sharedMemory, int width, int height) {
-    auto *base = sharedMemory.data<std::byte>();
-    auto *info = reinterpret_cast<FrameInfo *>(base);
-    const auto pixelBytes = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
-
-    // 使用 span 表达像素区，后续行拷贝不再直接散落裸指针偏移。
-    return {info, {base + sizeof(FrameInfo), pixelBytes}};
-}
-
-std::span<const std::byte> hookFrameRow(std::span<const std::byte> pixels, int srcWidth, int row, int x, int width) {
-    const auto offset = (static_cast<size_t>(row) * static_cast<size_t>(srcWidth) + static_cast<size_t>(x)) * 4;
-    const auto bytes = static_cast<size_t>(width) * 4;
-    return pixels.subspan(offset, bytes);
-}
+// HookFrameView / isHookFrameReady / makeHookFrameView / hookFrameRow 已搬到
+// ../../hook/SharedFrame.h —— 它们原本定义在这里的匿名命名空间，而本文件依赖 blackbone
+// 编不进测试进程，导致帧校验这条链路长期零单测。搬走是纯搬运，语义未变。
 
 } // namespace
 
 namespace op::capture {
+
+// 帧读校验辅助现住在 hook/SharedFrame.h（header-only 纯函数，可被测试直接覆盖）。
+using op::hook::hookFrameRow;
+using op::hook::isHookFrameReady;
+using op::hook::makeHookFrameView;
 
 HookCapture::HookCapture() : ICaptureBackend(), m_opPath(RuntimeEnvironment::getBasePath()) {
 }
