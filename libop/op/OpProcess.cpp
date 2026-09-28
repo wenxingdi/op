@@ -36,12 +36,20 @@ void op::Op::InjectDll(const wchar_t *process_name, const wchar_t *dll_name, lon
     long pid = 0;
     GetWindowProcessId(hwnd, &pid);
     internal::set_result(ret, 0L);
-    if (DllInjector::EnablePrivilege(TRUE)) {
-        long error_code = 0;
-        internal::set_result(ret, DllInjector::InjectDll(pid, dll_name, error_code));
-    } else {
-        setlog("EnablePrivilege false erro_code=%08X ", ::GetLastError());
+    if (!DllInjector::EnablePrivilege(TRUE)) {
+        setlog("InjectDll false: EnablePrivilege false erro_code=%08X", ::GetLastError());
+        return;
     }
+    long error_code = 0;
+    const long injected = DllInjector::InjectDll(pid, dll_name, error_code);
+    // DllInjector 用 1 表示成功、**-1~-7 表示各类失败**，而对外（C API / COM / Python / 大漠）的
+    // 约定是「0=失败、非 0=成功」。直接透传会把 -1 判成成功 ⇒ inject_dll 永远无法上报失败，
+    // 因此必须在这里归一化为 0/1；失败原因落 __op.log（set_show_error_msg(2) 可见）。
+    if (injected <= 0) {
+        setlog("InjectDll false: pid=%d dll=%s injector_ret=%d error_code=%08X", pid,
+               _ws2string(dll_name ? dll_name : L"").c_str(), injected, static_cast<unsigned>(error_code));
+    }
+    internal::set_result(ret, injected > 0 ? 1L : 0L);
 }
 
 void op::Op::EnumProcess(const wchar_t *name, std::wstring &retstring) {

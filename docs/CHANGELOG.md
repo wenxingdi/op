@@ -3,6 +3,17 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（fix：`inject_dll` 永远无法上报失败 —— 真机全量测阶段 3 暴露的缺陷 ①，已修）
+
+- **症状**：`inject_dll(process, dll)` 在**任何**失败情况下都返回 True。实测 `inject_dll("no_such_process_xyz.exe", minhook.x64.dll)` → True、`inject_dll("python.exe", <不存在的 dll>)` → True。调用方完全无法判断注入是否成功。
+- **根因**：`libop/op/OpProcess.cpp:41` 把 `DllInjector::InjectDll()` 的返回值**直接透传**给 `set_result`。而 `DllInjector::InjectDll`（`libop/window/DllInjector.cpp:85`）用 **1=成功、-1~-7=各类失败**（OpenProcess 失败 / VirtualAllocEx 失败 / WriteProcessMemory 失败 / 无 LoadLibraryW / 无远线程 / 等待超时 / LoadLibrary 返回 0）；对外（C API / COM / Python / 大漠）的约定却是「**0=失败、非 0=成功**」，`_ok()` 里的 `if value:` 于是把 **-1 判成成功**。唯一能返回 0 的路径只剩 `EnablePrivilege` 失败。
+- **修法**：在 `op::Op::InjectDll` 里归一化为 `injected > 0 ? 1 : 0`；失败时把 `injector_ret` 与 `error_code` 落 `__op.log`（`set_show_error_msg(2)` 可见），不再静默。结构改成早返回（原 `if(EnablePrivilege)` 包体。）
+- **同族排查**：脚本扫了 libop 全部 `return -<数字>` 的函数 —— `FindPic`/`FindStr`/`GdiCapture::BindEx` 的负值都在 service 层被 `if (ret < 0) return 0` 拦掉，**只有 InjectDll 这一条漏出**。
+- **测试**：新增 `tests/process_inject_test.cpp`（4 条，已挂 `tests/CMakeLists.txt`）。核心不变式 `NeverLeaksNegativeErrorCode`（返回值必须 ∈ {0,1}）+ 两条反向（进程不存在 / dll 不存在 → 0）+ 一条正向（往**本进程**注入已加载模块 → 1；先 `OpenProcess(PROCESS_ALL_ACCESS)` 探权，受限环境 SKIP 以免污染基线）。
+- **反向验证已做**：把修复改回透传后重建，3 条用例如期 FAIL 且**报出具体负码**（`-1` / `-7`），正向仍 PASS ⇒ 用例有判别力；改回修复后 4/4 全绿。
+- **回归**：全量 **373 = 371 PASS / 2 SKIP / 0 FAILED**（基线 369，+4 条新增，无新增失败）。发布件同步 **18 处**副本，逐处 sha1 校验通过（`op_c_api_x64.dll`=`5e077551d1e8`、`op_x64.dll`=`1767b4766aaf`）。
+- **真机复验**：修复后 `inject_dll` 的错误上报在蜀门窗口上按约定返回 0/1（不再是"永远 True"）。
+
 ### 2026-09-28（蜀门真机全量功能测试 · 阶段 3 + 2 个真缺陷，无代码改动）
 
 - **性质**：纯测试与归档，**未改任何源码**。报告 `docs/2026-09/蜀门真机全量测试_20260928.md` 第 6 节；原始产物 `workbench/probes/shumen_fulltest_20260928/report_phase3.md`。

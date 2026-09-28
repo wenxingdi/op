@@ -155,6 +155,9 @@ set(OP_TEST_SOURCES
   "memory_search_test.cpp"
   "memory_readwrite_test.cpp"
   "window_state_test.cpp"
+  # inject_dll 失败上报（2026-09-28 真机暴露：DllInjector 的 -1~-7 被透传，
+  # 而对外约定 0=失败非 0=成功 ⇒ 永远无法上报失败）。本测试只注入本进程已加载模块，无需外部进程。
+  "process_inject_test.cpp"
   "hook_capture_test.cpp"
   # H14/H20：注入侧导出护栏与"每会话一次"诊断开关都是纯函数（ExportGuard.h / HookDiagnostics.h
   # 均为 header-only），直接编入即可，无需链 op_com 的导出。
