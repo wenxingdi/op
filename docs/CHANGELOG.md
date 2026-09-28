@@ -3,7 +3,22 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
-### 2026-09-28（蜀门真机全量功能测试 —— 归档轮，无代码改动）
+### 2026-09-28（蜀门真机全量功能测试 · 阶段 3 + 2 个真缺陷，无代码改动）
+
+- **性质**：纯测试与归档，**未改任何源码**。报告 `docs/2026-09/蜀门真机全量测试_20260928.md` 第 6 节；原始产物 `workbench/probes/shumen_fulltest_20260928/report_phase3.md`。
+- **手法（把"需要用户配合"变成"可自主验证"）**：用 Python + ctypes 自建 Win32 窗口当靶子，WndProc 把收到的鼠标/键盘消息**记下来** → "点击有没有到达窗口"变成可直接读消息表；靶子**故意不激活**再绑 `mouse="windows"` → 直接证明后台消息投递；另建 3 个窗口测 `layout_windows`；靶子画**黑底白字 `AB12`**（Consolas 48px）→ 字库闭环做在自己的图上，`extract_word_rects` 稳定切 4 块。
+- **结果 = 84 PASS / 3 FAIL / 4 NOTE**（3 FAIL 全部归因于下面 2 个真缺陷）：
+  - **后台鼠标 12 项全部到达未激活窗口**：`left_click`/`left_double_click`/`right`/`middle`/`xbutton1,2` → 对应 `WM_*BUTTON*`；`wheel`/`wheel_up`/`wheel_down`→`WM_MOUSEWHEEL`；`hwheel`→`WM_MOUSEHWHEEL`；`drag_path`→ down/up 配对；`move_path` 通过。
+  - **前台真实输入**：`key_down(0x41)` → `get_key_state(0x41)==1` → `key_up` → `==0`（按键**真的按下去**了，非返回值自证）；`key_press`/`key_press_str`/`key_*_char` 使前台窗口收到 `WM_KEYDOWN/CHAR`；**反向验证**：不打按键时消息表为空；`wait_key(VK_F12,60ms)` 55ms 快速超时（不挂死）；`send_string`/`send_string_ime` 可用。
+  - **`layout_windows`**：GRID 2 列把 3 窗口摆到 `(100,100)/(532,100)/(100,466)`；反向：非法 hwnd 串 `"0"` 与非法 `layout_type=9` 均 False。
+  - **字库完整闭环 21 项全绿**：`extract_word_rects(_ex)` → `get_words_no_dict` → `fetch_words` → `get_word_preview`（点阵图）→ `check_word_dict`(`0,1,x,26,31,353,44`) → `normalize_word_dict` → `rename_word_dict` → `add_dict` 逐条 → `get_dict_count`=4 → `get_dict(0,0)` → `save_dict` → `find_str`(单串 + 多串 `"x|zzz"`) → `find_str_ex` → `fetch_words_by_rects` → `fetch_words_ex` → `set_mem_dict` → `clear_dict`+`set_dict` 回读 → `use_dict`/`get_now_dict`；反向 `check_word_dict("garbage")`→`0,0,invalid`。
+  - 工具坑（已固化）：`CreateFontW` 是 **14 参**，argtypes 少写一个时 ctypes 会在 WndProc 回调里抛异常 → 回调返 0 → **窗口安静地不画字**，最后表现成"字库功能全 FAIL"。故脚本加了自检：手写解析 BMP 数白像素（不依赖 PIL），实测 `亮像素=1564 / 唯一色 48` 通过后才继续。
+- **🔴 缺陷 ①（待修）：`inject_dll` 永远无法上报失败** —— `libop/op/OpProcess.cpp:41` 把 `DllInjector::InjectDll(pid, dll, error_code)` 的返回值直接 `set_result`，而该函数失败时返回 **-1~-7**（`DllInjector.cpp:85` 起），C API / Python / 大漠约定却是「0=失败、非 0=成功」，`_ok()` 的 `if value:` 把 **-1 判成成功** → 唯一返 0 的路径只剩 `EnablePrivilege` 失败。实测 `inject_dll("no_such_process_xyz.exe", minhook.x64.dll)` → **True**、`inject_dll("python.exe", <不存在的 dll>)` → **True**（`error_code` 亦被 `op::Op::InjectDll` 丢弃）。最小修法：`set_result(ret, inject_ret > 0 ? 1 : 0)`。
+- **🔴 缺陷 ②（待修）：`run_app(cmd, mode=1)` 裸文件名必失败** —— `libop/window/WindowProcess.cpp:314-328`，`mode==1` 用 `pos = cmd.find(".exe")` 反推工作目录，往前找不到 `\` 或 `/` 时 `pos` 不变 → `curr_dir = cmd.substr(0, pos)` 把 `"notepad.exe"` 截成 **`"notepad"`** 当 `lpCurrentDirectory` 传给 `CreateProcessW` → **ERROR_DIRECTORY(267)**（`__op.log` 实测）。实测矩阵：`("notepad.exe",1)`→pid 0 ❌ / `("notepad.exe",0)`→32120 ✅ / `(全路径,1)`→38300 ✅ / `("%windir%\system32\calc.exe",1)`→0（期望行为，`CreateProcessWW` 不展开环境变量）。最小修法：`pos` 落在分隔符上（或 `cmd.find_first_of("\\/") != npos`）才设 `curr_dir`，否则传 `nullptr` 继承当前目录。
+- **"需要用户配合"清单从 21 项压到 4 类**：只剩蜀门窗口 `set_window_state(ACTIVATE/MINIMIZE/MINIMIZE_NO_ACTIVATE/RESTORE/HIDE/SHOW)`、游戏内真实点击（需用户指定安全坐标），以及两项需素材的（真实中文多字字库端到端 OCR、模板匹配完整组合）。
+- **另记一条 filter 语义**：`enum_window_by_process` 必须给 `TOP_LEVEL(8)`/`VISIBLE(16)` 一类（实测 `filter=8` 命中），用 `TITLE(1)` + 空标题拿不到结果 —— 不是缺陷，是 filter 位语义。
+
+### 2026-09-28（蜀门真机全量功能测试 —— 阶段 1/2 + hook，无代码改动）
 
 - **性质**：纯测试与归档，**未改任何源码**。报告 `docs/2026-09/蜀门真机全量测试_20260928.md`；原始产物 `workbench/probes/shumen_fulltest_20260928/`（`report_phase1.md` / `report_phase2.md` / `report_diag2.md` + 截图 28 张）。
 - **范围拍板（用户当日指令）**：① 32 位 dll 先隔离、主用 64 位；② hook 与后台绑定用蜀门窗口做全量测试；③ 其余功能（OpenCV 自截图、键鼠等）一并测、截图自行落盘。
