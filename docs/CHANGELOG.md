@@ -3,6 +3,21 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（hook 显示捕获真机底座：D3D9/D3D11/OpenGL 首次进入回归，并修复解绑崩溃，test+fix）
+
+- **背景**：`tests/` 里所有窗口载体都是纯 GDI（`FillRect`），没有真实交换链，于是 `DisplayHook` 装的 `Present` / `EndScene` / `wglSwapBuffers` detour 在回归里**从未被真正触发过** —— D3D9/10/11/12 + OpenGL 五条通道长期"零真机闭环"（`libop/hook/` 128KB / 28 文件，专测为零）。
+- **新增载体** `scripts/dx_carrier.cpp` + `scripts/build_dx_carrier.py`：独立进程、真交换链、**四象限纯色画面**（左上红/右上绿/左下蓝/右下白）。用四象限而非单色：单色测不出红蓝互换与原点偏移，四象限同时覆盖全黑 / 红蓝互换 / 错位 / 尺寸错。D3D11 走 `CPU 填像素 → UpdateSubresource → CopyResource`（零 shader，像素完全可控），D3D9 走 SYSTEMMEM 纹理 + `UpdateTexture` + `StretchRect`，OpenGL 走 `scissor + Clear`。参数：`--msaa N`、`--solid RRGGBB`（反向验证）、`--report FILE`（就绪后把 hwnd 写文件供测试轮询 —— 用文件而非管道，避免进程未就绪时读端阻塞）。
+- **新增用例** `tests/hook_capture_test.cpp`（7 条）：走 op **真实跨进程路径**（`HookCapture::BindEx` → `GetWindowThreadProcessId` → blackbone 注入 → 远程 `SetDisplayHook`），与 OPTool 绑 BlueStacks 同一条链路。每条都断言**像素内容**，因为捕获失败是静默的（bind 返回 1、尺寸与字节数全正常，只是内容全黑）。
+- **实测矩阵**（载体 × display 模式）：d3d11×`dx.d3d11` 通过、d3d9×`dx.d3d9` 通过、opengl×`opengl` 通过、opengl×`opengl.std`/`opengl.fi` 通过、d3d11×`dx2` 通过（对照）;d3d11×`dx` 取不到帧、d3d11×`dx.d3d10` 绑定被拒、opengl×`opengl.nox` 绑定被拒（Nox 专用通道）。
+- **三条判据/结论**：
+  - **`dx`（`RDT_DX_DEFAULT`）与 `RDT_DX_D3D9` 在 `locate_render_method` 中是同一分支**，只 hook `EndScene`；绑 D3D11 应用时 `BindWindow` 返回 1 却**一帧都取不到**（日志 `target produced no present frame`）。已固化为 `LegacyDxAliasDoesNotCaptureD3D11Application`，行为一变即 FAIL。
+  - **`opengl.std`（hook `glBegin`）/ `opengl.fi`（hook `glFinish`）依赖应用真的调用对应 GL 函数**。载体原先只调 `glScissor+glClear`，这两条通道全黑 —— 是**载体局限**而非 op 缺陷；补一对空 `glBegin/glEnd` 与一次 `glFinish`（不改变任何像素，只让 hook 点可触发）后两条均通过。
+  - **载体必须开 DPI 感知**：本机系统 150% 缩放，不感知时 Windows 会虚拟化放大窗口（400×300 → 600×450 物理像素），而 op 全程按物理像素工作，两边尺寸语义对不上。
+- **修复 `HookCapture::UnBindEx` 解绑崩溃（本轮新发现，P1）**：原实现 `proc.modules().GetMainModule()->type` 未判空，且整段（Attach / 模块枚举 / 远程 RPC）无 try/catch。BlackBone RPC 抛异常时，经 C API 调用由 `call_int` 兜住（日志 `unknown exception escaped to C boundary in call_int`，所以此前一直未被察觉），而**直接链接 libop 的宿主则异常穿透成访问违例** —— gtest 走 C++ 直连 op，稳定复现 SEH 0xc0000005 于 `UnBindWindow`。已加：`GetMainModule()` 判空（`BindEx:131` 同款写法一并加）、`release_remote_display_hook` 与 `UnBindEx` 全段 try/catch + 日志。**与 `InputHookClient.cpp`（`GetMainModule()->type` 未判空、5 个 RPC 无 try/catch）属同一模式，后者仍待修**。
+- **反向验证**：① `--solid FF0000` 令四象限判据必须报 ≥3 处不符（用例 `SolidCarrierMustBreakQuadrantExpectation`；若报 0 处即判据失去鉴别力，立即 FAIL）；② 修 UnBindEx 前 6 条用例全部 SEH 崩溃、修复后全绿（修复前后对照即反向验证）；③ 载体侧既有证据：不加 `glBegin/glFinish` 时 `opengl.std`/`fi` 全黑。
+- **回归**：`HookCaptureTest` 7 条 = **6 PASS / 1 SKIP**（SKIP 为本机 kiero `locate<D3D10>` 失败，记录事实不作失败）；全量 **326 用例 = 322 PASS / 2 SKIP / 2 FAILED**（上一基线 319 = 317/1/1）。2 SKIP = FurMark 环境项 + 上述 D3D10 记录项；2 FAILED = 本机幽灵键 VK 0x85（与基线一致）+ `CaptureModeTest.DownCpuAddsDelayAfterEachCapture`（阈值 150ms，实测 171/157ms，**单独复跑 3/3 通过**，判定为负载抖动而非本次引入；该用例阈值过紧，建议后续改成相对比较）。
+- **注意**：载体源码入库（`scripts/`），探针与中间产物不入库（`/workbench/` 已忽略）。`dx_carrier` 作为 CMake 目标与 `op_test` 生成到同一目录，测试按 exe 同目录查找（也可用环境变量 `OP_DX_CARRIER_EXE` 指定）；无 GPU / 建不出设备的环境会自动 SKIP。
+
 ### 2026-09-28（OpenCV 真实素材补齐：前台模式截屏自动生成，5 个 SKIP 用例转 PASS，test）
 
 - **背景**：上一轮遗留的 5 个用例（`MatchTemplateOnRealPhotoSample` / `AllMatchingMethodsWorkOnRealImageAssets` / `AllMatchingMethodsWorkOnGameSceneAssets` / `HardRealImageCasesExposeMatchingBoundaries` / `MatchTemplateOnConfiguredRealImage`）一直 SKIP，因为两张素材表期待 ≥1200px 宽的真实大图。**改为不找素材，用前台模式截屏现生成**。

@@ -27,9 +27,19 @@ constexpr DWORD kHookFramePollIntervalMs = 10;
 
 void release_remote_display_hook(blackbone::Process &proc, const std::wstring &dllname) {
     using release_display_hook_t = long(__stdcall *)(void);
-    auto release = blackbone::MakeRemoteFunction<release_display_hook_t>(proc, dllname, "ReleaseDisplayHook");
-    if (release) {
-        release();
+    // BlackBone 的 RPC 在目标异常/退出时会抛异常，且"执行成功但取结果抛异常"是已知形态
+    // （见 set_remote_dll_search_dir 注释）。解绑路径原本没有任何护栏：
+    // 经 C API 调用时由 call_int 兜住（日志里的 "unknown exception escaped to C boundary"），
+    // 直接链接 libop 的宿主（如 op_test 真机用例）则异常穿透成访问违例。
+    try {
+        auto release = blackbone::MakeRemoteFunction<release_display_hook_t>(proc, dllname, "ReleaseDisplayHook");
+        if (release) {
+            release();
+        }
+    } catch (const std::exception &e) {
+        setlog("release_remote_display_hook exception: %s", e.what());
+    } catch (...) {
+        setlog("release_remote_display_hook unknown exception.");
     }
 }
 
@@ -127,9 +137,17 @@ long HookCapture::BindEx(HWND hwnd, long render_type) {
 
         hr = proc.Attach(id);
 
-        if (NT_SUCCESS(hr)) {
-            BOOL is64 = proc.modules().GetMainModule()->type == blackbone::eModType::mt_mod64;
-            wstring dllname = op::hook::ResolveHookModuleName(is64 != FALSE);
+    if (NT_SUCCESS(hr)) {
+        // 与 UnBindEx 同款护栏：GetMainModule() 在受保护进程 / PEB 读取失败时返回 nullptr，
+        // 原先直接解引用 -> 访问违例。
+        auto main_module = proc.modules().GetMainModule();
+        if (!main_module) {
+            setlog(L"BindEx GetMainModule null. pid=%d hwnd=%p", id, _hwnd);
+            proc.Detach();
+            return 0;
+        }
+        BOOL is64 = main_module->type == blackbone::eModType::mt_mod64;
+        wstring dllname = op::hook::ResolveHookModuleName(is64 != FALSE);
 
             bool injected = false;
             // 判断是否已经注入
@@ -177,7 +195,7 @@ long HookCapture::BindEx(HWND hwnd, long render_type) {
                 setlog(L"Inject false.");
             }
         } else {
-            setlog(L"attach false. pid=%d hwnd=%d hr=0x%X", id, _hwnd, hr);
+            setlog(L"attach false. pid=%d hwnd=%p hr=0x%X", id, _hwnd, hr);
         }
 
         proc.Detach();
@@ -198,36 +216,40 @@ long HookCapture::UnBindEx() {
     // setlog("bkdo::UnBindEx()");
     if (_render_type == RDT_GL_NOX)
         return UnBindNox();
-    DWORD id;
+    DWORD id = 0;
     ::GetWindowThreadProcessId(_hwnd, &id);
 
-    // attach 进程s
     blackbone::Process proc;
-    NTSTATUS hr;
-    // setlog("bkdo::Attach");
-    hr = proc.Attach(id);
-
-    if (NT_SUCCESS(hr)) {
-        BOOL is64 = proc.modules().GetMainModule()->type == blackbone::eModType::mt_mod64;
-        wstring dllname = op::hook::ResolveHookModuleName(is64 != FALSE);
-        // setlog(L"bkdo::dllname=%s",dllname);
-        using my_func_t = long(__stdcall *)(void);
-        auto pUnXHook = blackbone::MakeRemoteFunction<my_func_t>(proc, dllname, "ReleaseDisplayHook");
-        if (pUnXHook) {
-            // setlog(L"bkdo::pUnXHook");
-            pUnXHook();
-            // BOOL fret = ::FreeLibrary((HMODULE)proc.modules().GetModule(dllname)->baseAddress);
-            // if (!fret)setlog("fret=%d", fret);
-            /*proc.modules().RemoveManualModule(dllname,
-                is64 ? blackbone::eModType::mt_mod64 : blackbone::eModType::mt_mod32);*/
+    // 整个解绑过程跑在护栏里：Attach / 模块枚举 / 远程 RPC 任一步都可能抛。
+    // 此前异常会穿透调用方（C API 有 call_int 兜底，C++ 直连宿主直接崩）。
+    try {
+        const NTSTATUS hr = proc.Attach(id);
+        if (NT_SUCCESS(hr)) {
+            // GetMainModule() 在目标 PEB 读取失败时返回 nullptr（受保护进程等），
+            // 原先直接解引用 -> 访问违例。与 InputHookClient.cpp 的同类写法一起列为待修项。
+            auto main_module = proc.modules().GetMainModule();
+            if (!main_module) {
+                setlog(L"UnBindEx GetMainModule null. pid=%d hwnd=%p", id, _hwnd);
+            } else {
+                const BOOL is64 = main_module->type == blackbone::eModType::mt_mod64;
+                wstring dllname = op::hook::ResolveHookModuleName(is64 != FALSE);
+                using my_func_t = long(__stdcall *)(void);
+                auto pUnXHook = blackbone::MakeRemoteFunction<my_func_t>(proc, dllname, "ReleaseDisplayHook");
+                if (pUnXHook) {
+                    pUnXHook();
+                } else {
+                    setlog(L"get unhook ptr false.");
+                }
+            }
         } else {
-            setlog(L"get unhook ptr false.");
+            setlog("blackbone attach false in UnBindEx,errcode:%X,pid=%d,hwnd=%p", hr, id, _hwnd);
         }
-    } else {
-        setlog("blackbone::MakeRemoteFunction false,errcode:%X,pid=%d,hwnd=%d", hr, id, _hwnd);
+        proc.Detach();
+    } catch (const std::exception &e) {
+        setlog("UnBindEx exception: %s", e.what());
+    } catch (...) {
+        setlog("UnBindEx unknown exception.");
     }
-    // setlog(L"bkdo::Detach");
-    proc.Detach();
     // bind_release();
     return 1;
 }

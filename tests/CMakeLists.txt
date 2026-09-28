@@ -147,6 +147,7 @@ set(OP_TEST_SOURCES
   "memory_search_test.cpp"
   "memory_readwrite_test.cpp"
   "window_state_test.cpp"
+  "hook_capture_test.cpp"
   "algorithm_test.cpp"
   "../libop/base/Utils.cpp"
   "../libop/base/Environment.cpp"
@@ -205,6 +206,16 @@ if(OP_HAS_OPENCV_SOURCES)
   target_include_directories(op_test PRIVATE ${OP_OPENCV_INCLUDE_DIR})
   target_link_libraries(op_test PRIVATE ${OP_OPENCV_LIBS})
 endif()
+
+# 图形捕获真机载体（独立进程）：真 D3D9 / D3D11 / OpenGL 交换链 + 四象限纯色画面。
+# tests/ 里其余窗口载体都是纯 GDI（FillRect），DisplayHook 的 Present / EndScene /
+# wglSwapBuffers detour 从未被真正触发过；本目标为 hook_capture_test.cpp 提供可复现的渲染目标。
+add_executable(dx_carrier "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/dx_carrier.cpp")
+target_compile_definitions(dx_carrier PRIVATE _UNICODE UNICODE)
+target_link_libraries(dx_carrier PRIVATE d3d9.lib d3d11.lib dxgi.lib opengl32.lib user32.lib gdi32.lib)
+# 与 op_test 生成到同一目录，测试侧运行时按 exe 同目录查找（不做编译期路径传递：
+# 窄字符串宏无法构造 std::wstring，反斜杠路径还会被当成转义序列）。
+add_dependencies(op_test dx_carrier)
 
 add_test(NAME op_test COMMAND op_test)
 set_tests_properties(op_test
