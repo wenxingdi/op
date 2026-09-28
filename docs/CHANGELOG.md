@@ -3,6 +3,23 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-29（COM 出参挂回归网 + 真机阶段 5 + OPTool 补齐 11 个 API）
+
+- **COM late-binding 出参有了回归网**：`libop/com/ComVariant.h`（header-only，从 `OpAutomation.cpp`
+  匿名命名空间抽出的 `InLong`/`OutLong`/`SetOutValue`/`RunCvRetOnly`）+ `tests/com_variant_test.cpp` **15 条**。
+  COM 是易语言/VBScript/PowerShell 的真实入口，09-19 两个 late-binding 出参 bug 都出在
+  「`VT_BYREF|VT_I4` 要写穿包装 / `VT_BYREF|VT_VARIANT` 要解一层」，原先这些判据住在依赖 ATL 的 cpp 里测不到。
+  反向验证：`OutLong` 改成覆写包装 → 如期 FAIL。
+- **真机阶段 5（蜀门 `hwnd=41487740`，1360x768）**：37 PASS / 0 FAIL（`docs/2026-09/阶段5真机与OPTool同步_20260929.md`）。
+  覆盖此前没在真实游戏上跑过的 `set_window_state` 14 步（Win32 状态独立校验）、真机裁块当模板的找图闭环、
+  图片缓存开关前后一致性、OpenCV 含 rot、`ocr_auto` 多区域。
+- **两次"我调用错了"的坑（判据）**：① `cv_match_template` 用 `method=0`（SQDIFF **未归一化**）时
+  `threshold` 无意义 → 必 MISS；要用 `*_NORMED`（默认即是）。已知 rot 与非 rot 在未归一化方法上行为不一致，按够用原则记录不改。
+  ② `set_window_state(7)` 是 `SW_SHOW`，**不解除最小化**（大漠语义），解除要用 `flag=12`（`SW_RESTORE`）—— 测试已反向钉住。
+- **OPTool 补齐 11 个 API**（`Common/OpSoft.Algorithm.cs` + `OpSoft.OpenCv.cs`，分部类补，不动自动生成的 `OpSoft.cs`）。
+  验证不只是编译：C# 端到端自检 **19 PASS / 0 FAIL**，`OPTestTool.sln` 0 错误，`GuiSmoke` EXIT=0（443 OK）。
+- **回归**：全量 **399 = 397 PASS / 2 SKIP / 0 FAILED**（384 + 15）。
+
 ### 2026-09-28（出口层返回值契约收口：普查结论 + 契约网补漏，无行为改动）
 
 - **普查结论：出口层已无"负错误码泄漏"遗留。** 双向对撞扫了一遍——正向扫 `libop/op/*.cpp` 的 **319 处 `internal::set_result`**（对透传型 expr 回溯被调方有无 `return -N`），反向扫全库 **73 处 `return -N`**（反推所属函数再看是否被 op 层透传）。两边只报出 `FindPic` / `FindStr` 两个透传点，互为印证。
