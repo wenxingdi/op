@@ -106,6 +106,16 @@ long jittered_delay_ms(long base_ms, long percent);
 bool DelayJitter(long base_ms, long percent = 40);
 // 进程级一次性播种 rand()：本次调用完成播种返回 true，已被（本进程任一线程）播种返回 false。
 // rand() 默认种子固定会让"随机"轨迹/落点跨进程跑出完全相同的序列，多开同脚本等于明文自动化。
+// 注：MSVC 的 rand()/srand() 种子是线程级的，本函数只播种调用线程；内部随机已统一改走
+// rand_range/rand_unit_signed（thread_local 引擎），此函数仅为兼容保留。
 bool SeedProcessRandom();
+
+// 线程级随机工具（thread_local mt19937，random_device 播种）。MSVC 的 rand()/srand() 种子是
+// 线程级的：SeedProcessRandom 只能播种调用它的线程，宿主 worker 线程里 rand() 序列仍是默认
+// 种子 1 → 轨迹/落点可复现。内部所有随机统一走这两个函数，跨线程序列天然不同。
+// [lo, hi] 闭区间均匀整数；hi <= lo 时返回 lo。
+long rand_range(long lo, long hi);
+// [-1.0, 1.0] 均匀浮点。
+double rand_unit_signed();
 
 #endif // OP_BASE_UTILS_H_

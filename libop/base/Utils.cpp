@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <random>
 #include <shlwapi.h>
 #include <sstream>
 #include <utility>
@@ -311,6 +312,28 @@ bool Delay(long mis) {
     return true;
 }
 
+// 线程级随机引擎：每个线程首次调用时用 random_device 播种。MSVC 的 rand()/srand() 种子是
+// 线程级的，SeedProcessRandom 只能覆盖调用线程；宿主在 worker 线程跑轨迹时 rand() 序列仍是
+// 默认种子 → 可复现。内部随机统一走 rand_range/rand_unit_signed。
+namespace {
+std::mt19937 &thread_rng() {
+    thread_local std::mt19937 rng{std::random_device{}()};
+    return rng;
+}
+} // namespace
+
+long rand_range(long lo, long hi) {
+    if (hi <= lo)
+        return lo;
+    std::uniform_int_distribution<long> dist(lo, hi);
+    return dist(thread_rng());
+}
+
+double rand_unit_signed() {
+    std::uniform_real_distribution<double> dist(-1.0, 1.0);
+    return dist(thread_rng());
+}
+
 // 随机延时。旧实现 mis_min + rand() % mis_max 会溢出上界:
 // Delays(100, 200) 实际产生 100~299。正确区间应为 [mis_min, mis_max]。
 bool Delays(long mis_min, long mis_max) {
@@ -319,7 +342,7 @@ bool Delays(long mis_min, long mis_max) {
     if (mis_max < mis_min)
         std::swap(mis_min, mis_max);
     const long span = mis_max - mis_min + 1;
-    const long mis = mis_min + (span > 0 ? rand() % span : 0);
+    const long mis = mis_min + (span > 0 ? rand_range(0, span - 1) : 0);
     return Delay(mis);
 }
 
@@ -331,7 +354,7 @@ long jittered_delay_ms(long base_ms, long percent) {
     const long span = base_ms * percent / 100;
     const long lo = (std::max)(1L, base_ms - span);
     const long hi = base_ms + span;
-    return lo + (hi > lo ? rand() % (hi - lo + 1) : 0);
+    return rand_range(lo, hi);
 }
 
 bool DelayJitter(long base_ms, long percent) {

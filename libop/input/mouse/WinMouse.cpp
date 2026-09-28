@@ -35,14 +35,14 @@ double smoothstep(double t) {
 }
 
 double random_signed_unit() {
-    return (static_cast<double>(rand()) / static_cast<double>(RAND_MAX)) * 2.0 - 1.0;
+    return rand_unit_signed();
 }
 
 int random_offset(int value) {
     if (value == 0)
         return 0;
     const int span = value == INT_MIN ? INT_MAX : std::abs(value);
-    const int offset = rand() % span;
+    const int offset = rand_range(0, span - 1);
     return value > 0 ? offset : -offset;
 }
 
@@ -189,8 +189,8 @@ long run_mouse_path(const std::vector<POINT> &path, int duration,
             // 时间轴拟真：每步 ±30% 抖动 + 5% 概率微停 20~60ms。
             // 等步长是机器移动的最强统计特征，真人速度曲线必有波动与偶发停顿。
             int step_delay = jittered_delay_ms(delay, 30);
-            if (rand() % 100 < 5)
-                step_delay += 20 + rand() % 41;
+            if (rand_range(0, 99) < 5)
+                step_delay += rand_range(20, 60);
             ::Delay(step_delay);
         }
     }

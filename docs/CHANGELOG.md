@@ -3,6 +3,15 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（拟人化随机源换 thread_local mt19937：修 worker 线程轨迹序列可复现，fix）
+
+- **背景**：拟人化盘点发现随机源隐患。旧实现轨迹/落点/微停顿全走 MSVC `rand()`，虽有 `SeedProcessRandom()`（tick^pid^addr，原子 CAS 进程级一次）兜底，但 **MSVC 的 `rand()/srand()` 种子是线程级的**——播种只覆盖 OpContext 构造线程；宿主在 worker 线程跑脚本时，该线程的 `rand()` 仍是默认种子 1 → 两个 worker 线程跑出**完全相同**的"随机"轨迹/落点序列（多开同脚本可复现，反检测软肋）。此问题即 2026-09-09 模块排查 O3 项；另 `OpRuntime.Rng()`（进程级 mt19937）只服务随机数 API，未接入轨迹链——好引擎与坏引擎并存。
+- **修法**（`base/Utils` 新增 `rand_range(lo,hi)` / `rand_unit_signed()`，thread_local mt19937 + random_device 播种，每线程首调时初始化）：替换全部 6 处 `rand()` 调用点——`WinMouse.cpp` 4 处（`random_signed_unit`/`random_offset`/轨迹微停顿 2 处）+ `Utils.cpp` 2 处（`Delays`/`jittered_delay_ms`）。分布语义不变（闭区间均匀/±percent 抖动），接口零改动。`SeedProcessRandom` 仅为兼容保留（内部已无 `rand()` 调用点）。
+- **反向验证**（`workbench/rand_reverse_check.cpp` 一次性探针）：独立程序复现旧实现——主线程 `srand` 后两个 worker 线程裸 `rand()` 取 8 值，实测输出**恒等序列**（41,18467,6334,... 默认种子特征）→ 证明新用例在旧实现下必然 FAIL，判别力成立。
+- **测试**（`utils_test.cpp` +3）：`RandRangeDiffersAcrossWorkerThreads`（两个 worker 线程序列必须不同，旧实现恒等必 FAIL）、`RandRangeBoundsAndVariation`（闭区间界/单点/hi≤lo 退化/样本多变）、`RandUnitSignedBoundsAndVariation`（值域 [-1,1] + 多变）。
+- **回归**：全量 304 用例 297 过 6 跳 1 挂；唯一挂的 `MouseKeyTest.WaitKeyScanAllWithWaitFindsKey` 经探针（`workbench/async_key_probe.cpp`）证实为**本机环境幽灵按键**——零 op 代码参与时 `GetAsyncKeyState(0x85)` 即报告按下（未分配保留 VK），WaitKey 全键扫描序 1..254 先撞上它；该用例链路不含任何随机，与本改动无关。
+- **发布件**：op_x64.dll / op_c_api_x64.dll 已同步三处（`bin/x64`、`bindings/python/op/bin/x64`、`OPTool/Common/Dll`）。
+
 ### 2026-09-23（绑定防护：UIPI 完整性预检 + dx 钩子活性回环，fix）
 
 - **背景**：BlueStacks 键鼠"绑定返 1 但点击无效"排查中发现两类静默假成功都需要在绑定期拦截——① 目标进程以管理员运行而宿主不是（UIPI 吞跨进程输入，API 照常返 1）；② dx 注入/SetInputHook 返 1 但钩子实际不应答（权限边界、残留态）。注：BlueStacks 本案经实测双方均为 High 完整性，最终根因是**目标侧拒绝合成按钮消息**（windows/dx 的 SendMessage 点击被 Android 输入管线忽略，仅 WM_MOUSEMOVE 悬停有视觉响应；物理光标在场/物理键垫底/dx 进程内发消息均无效，normal 真输入有效）——此类目标侧行为插件层无法强制，防护①②解决的是权限类假成功。

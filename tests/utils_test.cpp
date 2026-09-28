@@ -10,6 +10,7 @@
 #include <iterator>
 #include <set>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace std;
@@ -107,6 +108,52 @@ TEST(UtilsTest, SeedProcessRandomSeedsAtMostOnce) {
     const bool first = SeedProcessRandom();
     const bool second = SeedProcessRandom();
     EXPECT_FALSE(first && second);
+}
+
+// rand() 线程级种子回归（2026-09-28）：MSVC 的 rand()/srand() 种子是线程级的，
+// SeedProcessRandom 只能播种调用线程；宿主 worker 线程里旧实现 rand() 仍是默认种子 1，
+// 两个 worker 线程跑出完全相同的"随机"序列（可复现）。
+// 判别特征（关键）：两个不同 worker 线程的序列必须不同——旧实现恒等必然 FAIL，
+// 新实现各线程 random_device 独立播种，撞序列概率可忽略。
+TEST(UtilsTest, RandRangeDiffersAcrossWorkerThreads) {
+    const auto fill = [](std::vector<long> &out) {
+        for (int i = 0; i < 8; ++i)
+            out.push_back(rand_range(0, 1000000));
+    };
+    std::vector<long> seq_a, seq_b;
+    std::thread t1([&] { fill(seq_a); });
+    std::thread t2([&] { fill(seq_b); });
+    t1.join();
+    t2.join();
+    ASSERT_EQ(seq_a.size(), 8u);
+    ASSERT_EQ(seq_b.size(), 8u);
+    EXPECT_NE(seq_a, seq_b) << "两个 worker 线程序列相同 = 随机可复现（线程级种子未生效）";
+}
+
+// rand_range 闭区间界 + 退化区间 + 样本多变（可判别"恒定返回 lo"的退化实现）
+TEST(UtilsTest, RandRangeBoundsAndVariation) {
+    EXPECT_EQ(rand_range(5, 5), 5);   // 单点区间
+    EXPECT_EQ(rand_range(7, 3), 7);   // hi<=lo 退化返回 lo
+    std::set<long> samples;
+    for (int i = 0; i < 500; ++i) {
+        const long v = rand_range(10, 20);
+        EXPECT_GE(v, 10);
+        EXPECT_LE(v, 20);
+        samples.insert(v);
+    }
+    EXPECT_GT(samples.size(), 1u);
+}
+
+// rand_unit_signed 值域 [-1,1] 且多变（可判别"恒 0"或"越界"的错误实现）
+TEST(UtilsTest, RandUnitSignedBoundsAndVariation) {
+    std::set<long> quant;
+    for (int i = 0; i < 500; ++i) {
+        const double v = rand_unit_signed();
+        EXPECT_GE(v, -1.0);
+        EXPECT_LT(v, 1.0);
+        quant.insert(static_cast<long>(v * 1e9));
+    }
+    EXPECT_GT(quant.size(), 1u);
 }
 
 // B1 回归：setlog(宽字符版) 旧实现把「已格式化完成的文本」再当 format 回调窄字符版，
