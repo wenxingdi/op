@@ -5,6 +5,10 @@
 
 #include "../base/AutomationModes.h"
 #include "../base/Utils.h"
+// late-binding 出参封送的纯函数（InLong/OutLong/SetOutValue/RunCvRetOnly）住在
+// ComVariant.h（header-only）里 —— 测试链接不进本文件（依赖 ATL/COM 运行时），
+// 抽出去才能给「VT_BYREF|VT_I4 要写穿、VT_BYREF|VT_VARIANT 要解一层」挂回归网。
+#include "ComVariant.h"
 #include <cstdint>
 #include <exception>
 #include <filesystem>
@@ -12,15 +16,12 @@
 // OpAutomation
 using std::wstring;
 
-namespace {
+using op::com::InLong;
+using op::com::OutLong;
+using op::com::RunCvRetOnly;
+using op::com::SetOutValue;
 
-template <typename Target, typename Value>
-HRESULT SetOutValue(Target *target, Value value) {
-    if (!target)
-        return E_POINTER;
-    *target = static_cast<Target>(value);
-    return S_OK;
-}
+namespace {
 
 HRESULT CopyOutBstr(BSTR *target, const std::wstring &value) {
     if (!target)
@@ -28,60 +29,6 @@ HRESULT CopyOutBstr(BSTR *target, const std::wstring &value) {
     *target = nullptr;
     CComBSTR out(value.c_str());
     return out.CopyTo(target);
-}
-
-template <typename Callback>
-HRESULT RunCvRetOnly(LONG *ret, Callback &&callback) {
-    if (!ret)
-        return E_POINTER;
-
-    SetOutValue(ret, 0L);
-    callback(ret);
-    return S_OK;
-}
-
-// ---- VARIANT LONG in/out helpers (IDispatch late-binding adaptation) ----
-// Dynamic dispatch clients (PowerShell [ref]) pass VT_BYREF|VT_I4 wrappers:
-// oleaut hands the server the wrapper VARIANT itself, so the value must be
-// written through the byref pointer instead of overwriting the wrapper.
-// Standard VT_BYREF|VT_VARIANT args are dereferenced one level.
-LONG InLong(const VARIANT *v) {
-    if (!v)
-        return 0;
-    if (v->vt == (VT_BYREF | VT_I4))
-        return v->plVal ? *v->plVal : 0;
-    if (v->vt == (VT_BYREF | VT_VARIANT) && v->pvarVal) {
-        const VARIANT &inner = *v->pvarVal;
-        if (inner.vt == VT_I4 || inner.vt == VT_INT)
-            return inner.lVal;
-        if (inner.vt == (VT_BYREF | VT_I4))
-            return inner.plVal ? *inner.plVal : 0;
-        return 0;
-    }
-    if (v->vt & VT_BYREF)
-        return 0;
-    return v->lVal;
-}
-
-void OutLong(VARIANT *v, LONG value) {
-    if (!v)
-        return;
-    if (v->vt == (VT_BYREF | VT_I4)) { // PowerShell [ref] wrapper: write through
-        if (v->plVal)
-            *v->plVal = value;
-        return;
-    }
-    if (v->vt == (VT_BYREF | VT_VARIANT)) { // byref VARIANT: write the inner
-        if (v->pvarVal) {
-            v->pvarVal->vt = VT_I4;
-            v->pvarVal->lVal = value;
-        }
-        return;
-    }
-    if (v->vt & VT_BYREF) // unsupported byref payload (BYREF|BSTR etc.): leave untouched
-        return;
-    v->vt = VT_I4;
-    v->lVal = value;
 }
 
 } // namespace

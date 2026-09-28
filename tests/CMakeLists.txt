@@ -179,6 +179,11 @@ set(OP_TEST_SOURCES
   # 一旦某 API 忘了 null 检查 / 异常护栏 / 把内部负错误码透出去，回归网抓不到。
   # 本文件由 scripts/gen_c_api_null_handle_test.py 从 include/op_c_api.h 生成，勿手改。
   "c_api_null_handle_test.cpp"
+  # COM late-binding 出参封送（ComVariant.h，header-only）。COM 是易语言/VBScript/PowerShell
+  # 的真实入口，09-19 连续两个 late-binding 出参 bug 都出在「VT_BYREF|VT_I4 要写穿、
+  # VT_BYREF|VT_VARIANT 要解一层」上，而这些判据原先住在 OpAutomation.cpp 的匿名命名空间
+  # （依赖 ATL，测试链不进去）→ 长期零覆盖。抽出后可直接编入。
+  "com_variant_test.cpp"
   "../libop/base/Utils.cpp"
   "../libop/base/Environment.cpp"
   "../libop/window/WindowLayout.cpp"
