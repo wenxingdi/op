@@ -1907,7 +1907,7 @@ TEST(OpenCvTest, HardRealImageCasesExposeMatchingBoundaries) {
             return opcv::MatchTemplateScale(
                 scale_source,
                 L"hard_scale",
-                {0, 0, scale_source.width, scale_source.height},
+                {0, 380, 480, 280},
                 {},
                 0.98,
                 scale_small,
@@ -1947,7 +1947,7 @@ TEST(OpenCvTest, HardRealImageCasesExposeMatchingBoundaries) {
             return opcv::MatchTemplateScale(
                 scale_source,
                 L"hard_scale",
-                {820, 300, 360, 260},
+                {1420, 680, 400, 300},
                 {},
                 0.98,
                 scale_auto_large,
@@ -1956,7 +1956,7 @@ TEST(OpenCvTest, HardRealImageCasesExposeMatchingBoundaries) {
         },
         scale_auto_large_ok);
     ASSERT_TRUE(scale_auto_large_ok);
-    ExpectNearRect(scale_auto_large, cv::Rect(947, 396, 120, 120), 2);
+    ExpectNearRect(scale_auto_large, cv::Rect(1560, 760, 120, 120), 2);
     RecordProperty("hard_scale_auto_large_elapsed_ms", scale_auto_large_elapsed_ms);
     RecordProperty("hard_scale_auto_large_score", scale_auto_large.score);
 

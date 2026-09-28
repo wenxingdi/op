@@ -3,6 +3,24 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（OpenCV 真实素材补齐：前台模式截屏自动生成，5 个 SKIP 用例转 PASS，test）
+
+- **背景**：上一轮遗留的 5 个用例（`MatchTemplateOnRealPhotoSample` / `AllMatchingMethodsWorkOnRealImageAssets` / `AllMatchingMethodsWorkOnGameSceneAssets` / `HardRealImageCasesExposeMatchingBoundaries` / `MatchTemplateOnConfiguredRealImage`）一直 SKIP，因为两张素材表期待 ≥1200px 宽的真实大图。**改为不找素材，用前台模式截屏现生成**。
+- **新增采集链路**（`workbench/`，按惯例不入库）：
+  - `op_foreground_capture.py`：ctypes 直调 `op_c_api_x64.dll` 的 `OpCreate`/`OpSetPath`/`OpCapture`。**不做任何绑定**——`BindingSession::check_bind` 在未显式绑定时会 `BindWindow(GetDesktopWindow(), "normal","normal","normal")`，这就是"前台模式"路径，实测 2560×1440 整屏 `ret=1` 落盘 14.7MB BMP。
+  - `make_screen_assets.py`：截屏 → 自动挑互不重叠的高纹理块（std + 拉普拉斯方差加权）→ 按各用例**期望 rect** 把块贴到画布 → **回读落盘文件再裁模板**（JPEG 有损，直接拿内存裁会与 source 像素不一致）→ 用 FFT 版 `TM_CCOEFF_NORMED` 自检（最佳位置 == 期望 rect、次佳独立峰值 < 0.90、重复图案用例校验峰数 ≥ 期望数）。21 个块 + 19 张 source + 19 个模板，自检 16/16。
+  - `bmp_tool.py`：零依赖 BMP→PNG（沙箱内无 numpy/PIL 时的兜底；本次实际用隔离 venv + numpy/Pillow）。
+- **素材构造三条硬判据**（都是实测踩出来的）：
+  - **默认 method 是 `TM_SQDIFF_NORMED`，它在平坦背景上会虚假高分**：`R = Σ(T-I)²/sqrt(ΣT²·ΣI²)`，当背景是常量且其值与模板均值接近时分母被抵消。occlusion 用例最初就是这么挂的——期望"遮挡后必须不匹配"，实测却在**背景**位置 (315,204) 拿到 similarity 0.9528。对策：该 source 用"高亮灰 patch + 暗底 + 同色遮挡"，把背景均值与模板均值拉开（`SHAPE_LIKE_PATCHES`）。
+  - **`ShapeMatchTemplate` 走 `toShapeMask` → Otsu(`RETR_EXTERNAL`) 取最大轮廓**，任意纹理块会被二值化成碎块（实测最大轮廓只剩 19×19，`game_shape` 返回 (464,171,19,19)）。`alphaToMask` 要求**存在 alpha==0 的像素**才走 alpha 分支，所以给模板加 4px 透明边即可让形状轮廓精确等于内部实心区（`crop_alpha`）。
+  - **`MatchTemplateScale` 自动档位表** = `{1.0,0.75,1.25,0.90,1.10,0.60,1.50,0.50,1.75,2.0}`（按 ROI 尺寸过滤掉装不下的档位）；`1.35` 只在显式指定时生效。
+- **断言重定标（tests/opencv_test.cpp，2 处，均为素材重设计后的几何冲突）**：
+  - `HardRealImageCases` 的 `scale_small`（auto 全图 → 期望 (90,450,72,72)）：全图 auto 会同时看到 0.75× 与 1.25× 两处、分数都在 1.0 附近**平手**，期望位置不确定 → ROI 收窄为 `{0,380,480,280}`（只含 0.75× 那处）。
+  - 同用例的 `scale_auto_large`：原 ROI `{820,300,360,260}` + 期望 (947,396,120,120) 与 `scale_large` 的期望 (940,390,130,130) **在同一像素区几乎完全重叠**——同一个矩形不可能同时是 1.35× 和 1.25× 两个图案，数学上无解 → ROI 改 `{1420,680,400,300}`、期望改 (1560,760,120,120)。
+- **反向验证 2 项（均用脚本开关一键复现，避免手改素材）**：① `--reverse scale`（第三处改 1.30× 非档位）→ `scale_auto_large_ok` 立即 FAIL；② `--reverse occlusion`（取消遮挡）→ `occlusion_ok` 立即 FAIL。另有素材侧既有证据：去掉 shape 模板的 alpha 边时 `real_shape` / `game_shape` 双双 FAIL。验证后恢复并复跑全绿。
+- **回归**：OpenCvTest **30/30 全过、0 SKIP**（此前 25 过 / 5 跳）；全量 319 用例 **317 PASS / 1 SKIP / 1 FAILED**，SKIP 由 6 降至 1（余 `IntegrationTest.BindUnbindFurMarkIfPresent`，需 FurMark 环境），FAILED 仍为本机幽灵键 VK 0x85 的环境用例，与基线一致。
+- **注意**：素材不入库（`assets/` 与 `/workbench/` 均在 .gitignore），**其他环境 clone 后这 5 个用例仍会 SKIP**，需先跑一次 `python workbench/make_screen_assets.py --recapture` 现生成。
+
 ### 2026-09-28（OpenCV：修未归一化匹配方法的分数语义 + 新增旋转多角度匹配 + 真实素材用例，feat/fix）
 
 - **背景**：OpenCV 模块盘点收敛出 3 个明确问题，本条目全部落地。
