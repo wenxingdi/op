@@ -157,6 +157,10 @@ set(OP_TEST_SOURCES
   "window_state_test.cpp"
   # inject_dll 失败上报（2026-09-28 真机暴露：DllInjector 的 -1~-7 被透传，
   # 而对外约定 0=失败非 0=成功 ⇒ 永远无法上报失败）。本测试只注入本进程已加载模块，无需外部进程。
+  # run_app(mode=1) 工作目录推导（2026-09-28 真机暴露：裸文件名被截成目录 →
+  # CreateProcessW ERROR_DIRECTORY(267) ⇒ mode=1 必失败）。RunAppPath.h 为 header-only
+  # 纯函数，边界用例零副作用；另 2 条端到端真起 notepad 并在收尾 taskkill。
+  "run_app_path_test.cpp"
   "process_inject_test.cpp"
   "hook_capture_test.cpp"
   # H14/H20：注入侧导出护栏与"每会话一次"诊断开关都是纯函数（ExportGuard.h / HookDiagnostics.h

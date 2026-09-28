@@ -1,6 +1,7 @@
 #include "WindowService.h"
 
 #include "../base/Utils.h"
+#include "RunAppPath.h"
 #include "base/WindowsHandle.h"
 
 #include <Tlhelp32.h>
@@ -312,21 +313,12 @@ long WindowService::RunApp(const std::wstring &cmd, long mode, DWORD *pid) {
     int bret;
     std::wstring curr_dir;
     if (mode == 1) {
-        // find
-        size_t pos;
-        pos = cmd.find(L".exe");
-        if (pos != std::wstring::npos && pos != 0) {
-            for (int i = static_cast<int>(pos) - 1; i >= 1; --i) {
-                if (cmd[i] == L'\\' || cmd[i] == L'/') {
-                    pos = i;
-                    break;
-                }
-            }
-            if (pos > 0) {
-                curr_dir = cmd.substr(0, pos);
-            }
-        }
-        // setlog(curr_dir.c_str());
+        // 工作目录 = 可执行文件所在目录。裸文件名（如 "notepad.exe"）无法确定目录，
+        // 必须返回空 → 下面传 nullptr（子进程继承当前目录）；旧实现会把 "notepad.exe"
+        // 截成 "notepad" 当目录，CreateProcessW 报 ERROR_DIRECTORY(267) ⇒ mode=1 必失败。
+        curr_dir = op::runapp::ExtractAppDirectory(cmd);
+        if (curr_dir.empty())
+            setlog(L"RunApp: mode=1 but no directory in cmd=%s, inherit current directory", cmd.c_str());
     }
     bret = ::CreateProcessW(nullptr,      //// 应用程序名称
                             cmdptr.get(), // 命令行字符串

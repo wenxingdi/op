@@ -3,6 +3,25 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（fix：`run_app(cmd, mode=1)` 裸文件名必失败 —— 真机全量测阶段 3 暴露的缺陷 ②，已修）
+
+- **症状**：`run_app("notepad.exe", 1)` 恒返回 pid=0；而 `mode=0` 或传全路径的 `mode=1` 都正常。失败原因只落在 `__op.log`，宿主侧看不到任何区别。
+- **根因**：`libop/window/WindowProcess.cpp:314-328`。`mode==1` 时先 `pos = cmd.find(".exe")`，再**向前**找 `\` / `/`；**找不到时 `pos` 保持不变** → `curr_dir = cmd.substr(0, pos)` 把 `"notepad.exe"` 截成 **`"notepad"`** 当 `lpCurrentDirectory` 传给 `CreateProcessW` → ERROR_DIRECTORY(267)。
+- **修法**：目录推导抽成 header-only 纯函数 `libop/window/RunAppPath.h`（`op::runapp::ExtractAppDirectory`，零 Windows 依赖 → 可编进测试）。**返回空串 = 无法确定 = 调用方传 `nullptr`**（子进程继承当前目录）。顺带修掉两个次生问题：循环条件 `i >= 1` 漏掉索引 0 的分隔符（`\notepad.exe`）；`C:\a.exe` 得到 `C:`（C 盘**当前目录**而非根）→ 补成 `C:\`。
+- **测试**：新增 `tests/run_app_path_test.cpp`（9 条 = 7 边界 + 2 端到端真起 notepad，收尾 taskkill）。反向验证：改回"找不到分隔符就不重置 pos" → **3 条如期 FAIL**（含端到端 pid=0）。
+- **回归**：全量 **382 = 380 PASS / 2 SKIP / 0 FAILED**（基线 373 + 9 新增，无新增失败）。发布件同步 21 处，逐处 sha1 通过（`op_c_api_x64.dll=7363be458ee1` / `op_x64.dll=908a5260745a`）。
+- **修复后实测**：`run_app("notepad.exe", 1)` → pid=13000 且存活。
+
+### 2026-09-28（判据补充：一次误判与回滚 —— `find_pic` 的 `-1` 不是缺陷）
+
+同族排查（扫出口层负错误码）时把 `OpFindPic` 的 4 条 `-1` 路径按"布尔契约"改成了 0，**这是错的**：
+`FindPic` 走**大漠索引语义**（返回命中的图片序号，`-1=未找到`），既有测试
+`ImageColorTest.FindPicReturnsMinusOneWhenTemplateIsMissing` 明确钉住（连 `OpFindPic(nullptr)` 都断言 -1）。
+改成 0 会让"未找到"与"命中第 0 张图"无法区分。已**回滚**为原行为，仅加澄清注释。
+
+> **判据**：改出口层返回值前先判断它是**布尔**还是**索引/计数**。布尔 → 内部 `-N` 是私有错误码，
+> 必须归一化到 0/1；索引/计数 → `-1` 往往是对外契约值，有测试钉着，不能按布尔改。
+
 ### 2026-09-28（fix：`inject_dll` 永远无法上报失败 —— 真机全量测阶段 3 暴露的缺陷 ①，已修）
 
 - **症状**：`inject_dll(process, dll)` 在**任何**失败情况下都返回 True。实测 `inject_dll("no_such_process_xyz.exe", minhook.x64.dll)` → True、`inject_dll("python.exe", <不存在的 dll>)` → True。调用方完全无法判断注入是否成功。

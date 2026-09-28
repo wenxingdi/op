@@ -875,6 +875,8 @@ int OP_CALL OpFindPic(op_handle handle, int x1, int y1, int x2, int y2, const wc
                       const wchar_t *delta_color, double sim, int dir, int *x, int *y) {
     out_int(x, -1);
     out_int(y, -1);
+    // FindPic 走**大漠索引语义**：返回值是命中的图片序号（-1=未找到），不是布尔。
+    // 故这里的 -1 是对外契约值（既有测试钉住），**不是**内部错误码泄漏，勿归一为 0。
     if (!handle)
         return -1;
 

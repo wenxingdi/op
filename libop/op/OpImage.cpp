@@ -127,6 +127,9 @@ void op::Op::FindPic(long x1, long y1, long x2, long y2, const wchar_t *files, c
 
     long found_x = -1;
     long found_y = -1;
+    // 注意：FindPic 是**大漠索引语义**（返回命中的图片序号，-1=未找到），不是布尔契约。
+    // 因此初值必须是 -1L（=未找到），**不要**按「0=失败」改成 0 —— 那会让"未找到"和
+    // "命中第 0 张图"无法区分。既有测试 ImageColorTest.FindPicReturnsMinusOneWhenTemplateIsMissing 钉住此语义。
     internal::set_result(ret, -1L);
     internal::set_result(x, found_x);
     internal::set_result(y, found_y);
