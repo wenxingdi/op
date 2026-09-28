@@ -113,9 +113,13 @@ void dx11_capture(IDXGISwapChain *swapchain) {
     textDesc.MiscFlags = 0;
 
     // H10: 复用缓存，仅当 设备/尺寸/格式/采样数 变化时重建（见 D3D11StagingCache 注释）。
+    // N1: 设备变化必须**连带失效 context**（判据与理由见 StagingCacheNeedsRebuild 注释）。
     D3D11StagingCache &cache = staging_cache();
     const StagingDescKey want{textDesc.Format, textDesc.Width, textDesc.Height, desc.SampleDesc.Count};
-    if (!cache.staging || cache.device.p != device.p || !cache.key.matches(want)) {
+    if (StagingCacheNeedsRebuild(cache.staging.p != nullptr, cache.device.p != device.p, cache.key, want)) {
+        // 这一行是 N1 的核心：context 与 staging/resolve 同属"绑在某个设备上"的资源，
+        // 设备换了却只重建纹理，就会用已销毁设备的 context 去 CopyResource，静默写错帧。
+        cache.context.Release();
         cache.staging.Release();
         cache.resolve.Release();
         hr = device->CreateTexture2D(&textDesc, nullptr, &cache.staging);

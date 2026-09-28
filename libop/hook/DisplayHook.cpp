@@ -30,6 +30,15 @@ std::wstring DisplayHook::mutex_name;
 std::atomic<void *> DisplayHook::old_address{nullptr};
 void *DisplayHook::hook_target;
 bool DisplayHook::is_hooked = false;
+
+// is_capture 的**内存序是有正确性意义的，不可降级为 relaxed**。
+//
+// setup() 的发布顺序是"先写绑定态（render_hwnd / shared_res_name / mutex_name，都是普通
+// 变量与 std::wstring），最后 set_capture_enabled(true)"；而 detour 侧是"先读
+// capture_enabled()，再读这些绑定态"。默认 seq_cst 在这个组合里恰好构成 release/acquire
+// 配对：任何看到 true 的渲染线程都一定能看到先前写入的名字与窗口句柄。
+// 若谁把它"优化"成 relaxed，detour 就可能读到半写的 std::wstring（并发读写 = UB，
+// 典型表现是无规律的崩溃或花屏），且这种问题极难复现。
 static std::atomic<int> is_capture{0};
 
 namespace {

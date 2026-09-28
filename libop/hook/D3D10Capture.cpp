@@ -123,9 +123,11 @@ void dx10_capture(IDXGISwapChain *pswapchain) {
     textDesc.CPUAccessFlags = D3D10_CPU_ACCESS_READ;
 
     // H10: 复用缓存，仅当 设备/尺寸/格式/采样数 变化时重建（见 D3D10StagingCache 注释）。
+    // N1: 与 D3D11 共用同一判据（D3D10 每帧现取 device 当即时上下文，缓存里没有独立
+    // context，所以不存在 D3D11 那个"旧 context 操作新纹理"的坑；但设备换了仍必须重建纹理）。
     D3D10StagingCache &cache = staging_cache();
     const StagingDescKey want{textDesc.Format, textDesc.Width, textDesc.Height, desc.SampleDesc.Count};
-    if (!cache.staging || cache.device.p != pdevices.p || !cache.key.matches(want)) {
+    if (StagingCacheNeedsRebuild(cache.staging.p != nullptr, cache.device.p != pdevices.p, cache.key, want)) {
         cache.staging.Release();
         cache.resolve.Release();
         hr = pdevices->CreateTexture2D(&textDesc, nullptr, &cache.staging);

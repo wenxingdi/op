@@ -3,6 +3,19 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（hook 层补遗：D3D11 设备重建静默错帧 + OpenGL API 指针缓存，fix）
+
+- **背景**：批 3 闭环后另做一轮**独立热路径扫描**（不沿用台账结论），确认台账 26 条确已闭环，但台账外还有 5 项，其中 1 条是会造成静默错帧的真 bug。本批修 2 项，其余按"够用"原则登记（见文末）。
+- **N1（H10 漏掉的一维）D3D11 设备重建后静默错帧**：`D3D11StagingCache` 的重建分支只 `Release` staging/resolve，**不 Release `context`**。设备被重建（驱动 TDR 恢复、切换独显/核显、独占全屏重建 D3D 栈）后，缓存里的旧 context 绑的是已销毁的设备，用它 `CopyResource` 新设备的纹理属于跨设备调用 —— 而 `ID3D11DeviceContext::CopyResource` / `ResolveSubresource` 返回 **void**，失败既无返回值也无日志，随后 `Map` 照样成功，于是把**未初始化的 staging 当帧写进共享内存**。又因缓存是进程级 static 且无复位入口，**重新绑定也救不回来，必须重启目标进程**。
+  - 修：复用判据抽成 `StagingCacheNeedsRebuild(has_staging, device_changed, cached, want)`（`libop/hook/DxCaptureCommon.h`），**设备变化独立于 key** —— 换设备时交换链描述常常一字未变（分辨率/格式都没变），只看 key 会误判为可复用；重建分支补 `cache.context.Release()`（`D3D11Capture.cpp`）。
+  - 顺便对齐 D3D10：它每帧现取 device 当即时上下文、缓存里没有独立 context，确认无此问题，但同样换用新判据。
+- **N2 OpenGL API 指针每帧重解析**：`gl_capture` / `egl_capture` 原先每帧 3× `ResolveApi`（内部 `GetModuleHandleA` + `GetProcAddress`）。而 `gl_hkglBegin` 挂在 `glBegin` 上 —— immediate mode 渲染一帧可命中该 detour **数千次**，等于每帧上万次系统查询。
+  - 修：新增 `CachedResolveApi`（`libop/hook/ApiResolver.h`），gl / egl 各 3 个 atomic 槽（`OpenGLCapture.cpp`）。**关键语义：解析失败不得当终值缓存** —— 目标进程可能尚未加载 opengl32.dll / libglesv2.dll，原实现靠每帧重试恰好兜住这一点，改缓存后必须显式保留（失败返回 null 且下次重试）。
+- **新增 2 条用例**：`HookCaptureStagingKeyTest.DeviceChangeForcesRebuildEvenIfDescIsIdentical`（描述全同但设备变化必须重建）、`HookApiResolveCacheTest.CachesOnlyOnSuccessAndRetriesAfterFailure`（成功只解析一次 + 失败后仍重试）。
+- **反向验证**：一次构建**叠加三个错法**（`StagingCacheNeedsRebuild` 去掉 `device_changed` + `CachedResolveApi` 删缓存命中短路 + 失败即终值）→ **2/2 FAIL**；同 suite 的 `AnyFieldChangeInvalidatesCachedStaging` 仍 PASS（精确命中而非整体崩坏），N2 的三条断言各自报出未被短路；恢复后全绿。
+- **隐性约束固化**：`DisplayHook` 的绑定态发布顺序（先写 `render_hwnd`/`shared_res_name`，最后 `set_capture_enabled(true)`）依赖 `is_capture` 的 **seq_cst** 内存序构成 release/acquire 配对。这是**碰巧成立**的，代码里此前零说明 —— 谁把它"优化"成 relaxed 就是并发读写 `std::wstring` 的 UB。已在 `DisplayHook.cpp` 加注释固化。
+- **登记未做（按"够用"原则，均不影响正确性）**：N3（5 个后端每帧 `SharedMemory::open` + `ProcessMutex::open`，每帧 2~3 次内核对象操作）、H27（`dx9_capture` 每帧 `CreateTexture` + `GetSurfaceLevel`，MSAA 时再加 `CreateRenderTarget`）、N4（D3D12 每帧 `CreateCommandList`，可缓存 + Reset）。
+
 ### 2026-09-28（hook 层批 3：D3D9 MSAA resolve + 注入侧导出护栏 + P3 卫生项，fix）
 
 - **背景**：`docs/2026-09/hook与出口层复查_20260928.md` 的批 3 —— H3（D3D9 MSAA）+ H14（C API 异常覆盖，先做普查）+ H16 + H17~H26 卫生项。本批是**最后一次**收尾，其间 H14 的台账描述被普查推翻。

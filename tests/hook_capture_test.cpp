@@ -18,9 +18,11 @@
 #include "../libop/hook/DisplayHook.h"   // CopyImageData 声明在此
 #include "../libop/hook/DetourGuard.h"   // H2: detour 在途计数
 #include "../libop/hook/DxCaptureCommon.h"
+#include "../libop/hook/ApiResolver.h"   // N2: CachedResolveApi
 
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <thread>
@@ -518,6 +520,75 @@ TEST(HookCaptureStagingKeyTest, AnyFieldChangeInvalidatesCachedStaging) {
     EXPECT_FALSE(base.matches(StagingDescKey{DXGI_FORMAT_B8G8R8A8_UNORM, 1920, 720, 1})) << "宽变化必须失效";
     EXPECT_FALSE(base.matches(StagingDescKey{DXGI_FORMAT_B8G8R8A8_UNORM, 1280, 1080, 1})) << "高变化必须失效";
     EXPECT_FALSE(base.matches(StagingDescKey{DXGI_FORMAT_B8G8R8A8_UNORM, 1280, 720, 4})) << "采样数变化必须失效";
+}
+
+// ------------------------------------------------ N1 设备重建必须连带重建缓存
+//
+// 这是 H10 之后新发现的一条：光看交换链描述（尺寸/格式/采样数）不足以决定"能不能复用"。
+// D3D11 的缓存里还有 ID3D11DeviceContext —— 设备被重建（驱动 TDR 恢复、切换显卡、独占全屏
+// 重建 D3D 栈）后，旧 context 绑的是已销毁的设备，用它 CopyResource 新设备的纹理属于跨设备
+// 调用；而 CopyResource / ResolveSubresource 返回 **void**，失败既无返回值也无日志，
+// 随后 Map 照样成功 —— 于是未初始化的 staging 被当帧写出去：静默错帧。
+// 关键在于：换设备时交换链描述常常一字未变（分辨率没变、格式没变），只看 key 会误判为可复用。
+//
+// 反向验证：把 StagingCacheNeedsRebuild 里的 device_changed 去掉，第 3 条断言立即 FAIL。
+TEST(HookCaptureStagingKeyTest, DeviceChangeForcesRebuildEvenIfDescIsIdentical) {
+    using op::hook::StagingCacheNeedsRebuild;
+    using op::hook::StagingDescKey;
+
+    const StagingDescKey key{DXGI_FORMAT_B8G8R8A8_UNORM, 1280, 720, 1};
+
+    // 还没有纹理：必须建。
+    EXPECT_TRUE(StagingCacheNeedsRebuild(false, false, key, key)) << "无 staging 时必须新建";
+
+    // 描述全同且设备未变：必须复用，否则缓存等于没生效（每帧重建，H10 白改）。
+    EXPECT_FALSE(StagingCacheNeedsRebuild(true, false, key, key)) << "描述与设备全同时应复用";
+
+    // 描述全同、但设备换了：必须重建（N1 的核心，也是原实现漏掉的那一维）。
+    EXPECT_TRUE(StagingCacheNeedsRebuild(true, true, key, key)) << "设备变化必须连带失效缓存（含 context）";
+
+    // 描述变化：H10 的原有判据不能被 N1 的改动带丢。
+    EXPECT_TRUE(StagingCacheNeedsRebuild(true, false, key,
+                                         StagingDescKey{DXGI_FORMAT_B8G8R8A8_UNORM, 1920, 720, 1}))
+        << "宽变化必须失效";
+}
+
+// ------------------------------------------------ N2 API 指针缓存的两条语义
+//
+// 缓存必须同时满足：① 解析成功后再不重复解析（否则缓存白加）；
+// ② 解析失败**不得**当终值记下（目标进程可能尚未加载 opengl32.dll / libglesv2.dll，
+//   原实现靠每帧重试兜住这一点，改成缓存后必须显式保留该语义，否则捕获永久失效）。
+//
+// 反向验证：删掉 CachedResolveApi 的命中短路 -> 第 1 组 calls==1 断言 FAIL；
+//           让失败也成终值（once_flag 语义）-> 第 2 组"重试后能拿到地址"断言 FAIL。
+TEST(HookApiResolveCacheTest, CachesOnlyOnSuccessAndRetriesAfterFailure) {
+    // ① 成功一次即缓存：后续调用不再触达 resolver。
+    {
+        std::atomic<void *> slot{nullptr};
+        int calls = 0;
+        auto resolve = [&calls]() -> void * {
+            ++calls;
+            return reinterpret_cast<void *>(static_cast<uintptr_t>(0x1234));
+        };
+        EXPECT_EQ(CachedResolveApi(slot, resolve), reinterpret_cast<void *>(static_cast<uintptr_t>(0x1234)));
+        EXPECT_EQ(CachedResolveApi(slot, resolve), reinterpret_cast<void *>(static_cast<uintptr_t>(0x1234)));
+        EXPECT_EQ(calls, 1) << "命中缓存后不应再解析（否则每帧 GetProcAddress 的开销原样保留）";
+    }
+
+    // ② 失败不落缓存：下一次调用仍会重试，成功即能拿到地址。
+    {
+        std::atomic<void *> slot{nullptr};
+        int calls = 0;
+        auto flaky = [&calls]() -> void * {
+            ++calls;
+            // 首次模拟"dll 尚未加载"返回 null，第二次才解析得到。
+            return calls == 1 ? nullptr : reinterpret_cast<void *>(static_cast<uintptr_t>(0x5678));
+        };
+        EXPECT_EQ(CachedResolveApi(slot, flaky), nullptr) << "首次解析失败应如实返回 null";
+        EXPECT_EQ(CachedResolveApi(slot, flaky), reinterpret_cast<void *>(static_cast<uintptr_t>(0x5678)))
+            << "解析失败不得当终值缓存，否则目标进程延迟加载该 dll 后本通道永久失效";
+        EXPECT_EQ(calls, 2) << "失败后必须重试";
+    }
 }
 
 } // namespace

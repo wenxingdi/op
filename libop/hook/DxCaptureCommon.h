@@ -60,4 +60,23 @@ struct StagingDescKey {
     }
 };
 
+// N1: staging 缓存是否需要重建。
+//
+// 判据不能只看描述（key）：**设备换了必须连带重建整套缓存**，哪怕尺寸/格式/采样数一字未变。
+// 为什么：D3D11 的缓存里除了 staging/resolve 纹理还有 ID3D11DeviceContext。设备被重建
+// （驱动 TDR 恢复、切换独显/核显、独占全屏重建 D3D 栈）之后，旧 context 绑的是已销毁的设备，
+// 用它去 CopyResource 新设备的纹理属于跨设备调用；而 ID3D11DeviceContext::CopyResource /
+// ResolveSubresource 返回 **void** —— 失败既无返回值也无日志，随后 Map 照样成功，
+// 于是把未初始化的 staging 当帧写进共享内存：静默错帧。更糟的是缓存是进程级 static，
+// 重新绑定不会清它，必须重启目标进程才能恢复。
+//
+// 注意 device_changed 必须**独立于 key**：换设备时交换链描述常常一字未变（分辨率没变、
+// 格式没变），只看 key 会误判为"可复用"。
+//
+// 反向验证：把 device_changed 从判断里去掉，StagingCacheRebuildTest 立即 FAIL。
+inline bool StagingCacheNeedsRebuild(bool has_staging, bool device_changed, const StagingDescKey &cached,
+                                     const StagingDescKey &want) {
+    return !has_staging || device_changed || !cached.matches(want);
+}
+
 } // namespace op::hook
