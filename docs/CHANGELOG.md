@@ -3,6 +3,21 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（蜀门真机全量功能测试 —— 归档轮，无代码改动）
+
+- **性质**：纯测试与归档，**未改任何源码**。报告 `docs/2026-09/蜀门真机全量测试_20260928.md`；原始产物 `workbench/probes/shumen_fulltest_20260928/`（`report_phase1.md` / `report_phase2.md` / `report_diag2.md` + 截图 28 张）。
+- **范围拍板（用户当日指令）**：① 32 位 dll 先隔离、主用 64 位；② hook 与后台绑定用蜀门窗口做全量测试；③ 其余功能（OpenCV 自截图、键鼠等）一并测、截图自行落盘。
+- **阶段 1（非注入功能）= 139 PASS / 0 FAIL / 7 INFO**：基础（`version`=0.4.8.3）、窗口/进程、**7 种非注入绑定模式**（`normal`/`normal.dxgi`/`normal.wgc`/`normal.auto`/`gdi`/`gdi2`/`dx2` 全部 bind→is_bind→get_bind_window→capture 通过；`gdi`/`gdi2`/`dx2` 唯一色 3.3 万+ = 真实画面，`normal` 系唯一色 ~960/亮度 249 = 桌面 DC 覆盖层）、截图（含 `capture(0,0,0,0)`→False 正确拒绝）、图色（用截图实测颜色闭环）、图片缓存/找图（`set_display_input("pic:")` 锁静态输入 → 坐标确定性）、**OpenCV 36 个导出**（版本 5.0.0）、A\*、剪贴板。
+- **阶段 2（改状态、逐项还原）= 115 PASS / 0 FAIL / 0 EXC / 21 SKIP**：窗口操作 8 类全改→校验→还原；鼠标移动像素级精确；**内存跨位数（x64 宿主 → i386 目标）读写实测可用**（可写页 `write_int`/`write_data` 写回读一致）；OCR 走内置 ONNX 引擎；**字库单条字形正向闭环打通**（`fetch_words` → 逐条 `add_dict` → `save_dict` → 清空 → `set_dict` 回读 → `find_str` 命中）。
+- **首轮 9 FAIL + 2 EXC 全部定性为「我的调用/判定错」，无一条真缺陷**，并逐条补反向验证：
+  - 签名类 4 条：`set_mouse_delay` / `set_keypad_delay` 首参是**字符串枚举**（传 int 返 False）；`set_mouse_trajectory` 是 6 参。非法 type 反向验证返 False。
+  - 判定类 6 条：`get_window(PARENT=0)`→0（顶层无父）、`get_window(CHILD=1)`→0（该窗口**子窗口数 0**，用有 20 个子窗口的窗口对照证明 CHILD 路径有效）、`find_str_ex`→`''`（= 未命中，与 `find_str` 的 `(-1,-1,-1)` 同语义）、`fetch_words`→`''`（源码要求 `rects.size()==words.size()`）、`save_dict`→False（字库为空）、`autoocr_line` 全窗口→`''`（单行快模式误用；换单行区域返 `'池'`）。
+  - `move_r` 相对位移偏差 = **系统指针加速**（倍率随幅度非线性 1.60→3.87，注册表 `MouseSpeed=1`）；`MoveTo` 走 `MOUSEEVENTF_ABSOLUTE` 像素级精确 → 使用约定：精确落点用 `move_to`，`move_r` 只当"大致挪一下"。
+- **新增 4 条语义发现（非缺陷，易踩）**：① **`add_dict` 只吃单条 `$..$..$` 字形**，而 `fetch_words` 输出是**多行** → 整段喂进去必然 False（按 `$` 切分后段数错 → unknown），要逐条加或走文件；② **`set_ocr_engine` 忽略 `engine`/`dll` 参数**（`OnnxOcrEngine::init` 内 `(void)engine; (void)dllName;`），传不存在路径**仍返 True**，唯一拒绝路径 = `http*`/`tesseract`/`paddle` 别名（HTTP 后端未编译）；③ **本地字库优先级高于 AI 引擎**（`if (!dict) → AI else → 本地字库`）→ 字库 0 有残留会让后续测试整体换口径，测 AI 路径前必须 `clear_dict(0)`（本轮就踩到一次：D 段装完字库后 E 段全返 `'xxxx'`）；④ `write_int(0x400000)` 恒 False 是因该页为 PE **只读**镜像页（同址 `read_int` 正常），**不是跨位数不支持**。
+- **hook 真机（64 位载体）= 7 PASS / 1 SKIP**：32 位蜀门的 `dx`/`opengl` 需注入 x86 dll 而手上那份是危险的上游预编译件（已隔离）→ 按拍板改走**同源 64 位载体** `dx_carrier.exe`。`HookCaptureTest.*` 8 条：D3D9/D3D11/OpenGL 像素级断言 + 反向验证用例（故意错期望必须 FAIL）+ 钉行为的 `LegacyDxAlias...` 全 PASS；1 SKIP = 本机 kiero `locate<D3D10>` 失败（记录事实）。全量基线仍 **369 = 366 PASS / 2 SKIP / 1 FAILED**（1 FAILED = 本机幽灵键 VK 0x85 环境项）。
+- **工具**：新增工作区启动器 `run_optest.py` —— Git Bash 下 `PATH=...:$PATH ./op_test.exe` 的 PATH 转换**不可靠**（报 `op_c_api_x64.dll: cannot open shared object file`），改为 Python 显式拼 Windows 风格 PATH + 指定 cwd=仓库根，稳定且输出可重定向。
+- **遗留（需人工确认时机 / 素材，用户配合后另起一轮）**：窗口 `ACTIVATE/MINIMIZE/HIDE`、`layout_windows`、鼠标 15 项点击/滚轮/拖拽、键盘 `key_*`/`wait_key`、`run_app`/`win_exec`/`inject_dll`；以及需素材的真实字库完整闭环与模板匹配完整组合。
+
 ### 2026-09-28（32 位目标 hook 导出名解析 —— 修复「所有注入类显示模式在 32 位游戏上绑定失败」，fix）
 
 - **背景（真机实测暴露）**：用户提供蜀门游戏窗口句柄（`60035600` = `0x03941210`，`D:\Program Files (x86)\shumen\classic\client.exe`，**i386 + D3D9**，无任何反外挂特征模块）。实测 `dx` / `dx.d3d9` / `dx.d3d11` / `opengl` 绑定**全部失败**，日志：
