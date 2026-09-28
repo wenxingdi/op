@@ -311,6 +311,7 @@ def _bind(dll: ctypes.WinDLL) -> ctypes.WinDLL:
         ("OpCvFeatureMatchTemplate", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
         ("OpCvEdgeMatchTemplate", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
         ("OpCvShapeMatchTemplate", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
+        ("OpCvMatchTemplateRot", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_wchar_p, c_double, c_int, c_int]),
         ("OpSetOcrEngine", c_int, [op_handle, c_wchar_p, c_wchar_p, c_wchar_p]),
         ("OpSetYoloEngine", c_int, [op_handle, c_wchar_p, c_wchar_p, c_wchar_p]),
         ("OpYoloDetect", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_double, c_double]),

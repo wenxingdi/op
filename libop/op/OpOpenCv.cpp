@@ -885,3 +885,38 @@ void op::Op::CvShapeMatchTemplate(long x, long y, long width, long height, const
     retjson = opcv::bridge::BuildMatchJson(match, ok);
     internal::set_result(ret, ok ? 1L : 0L);
 }
+
+void op::Op::CvMatchTemplateRot(long x, long y, long width, long height, const wchar_t *template_name,
+                                const wchar_t *angles, double threshold, long method, long color_mode,
+                                std::wstring &retjson, long *ret) {
+    retjson = L"{\"ok\":0}";
+    internal::set_result(ret, 0L);
+    if (template_name == nullptr) {
+        return;
+    }
+
+    std::vector<double> angle_values;
+    if (!opcv::bridge::ParseAngleList(angles, angle_values)) {
+        return;
+    }
+
+    opcv::ImageHandle source;
+    opcv::Region region;
+    int origin_x = 0;
+    int origin_y = 0;
+    if (!opcv::bridge::CaptureRegion(m_context->bkproc, m_context->image_proc, x, y, width, height, source, region,
+                                     origin_x, origin_y)) {
+        return;
+    }
+
+    opcv::MatchResult match;
+    double best_angle = 0.0;
+    const bool ok = opcv::MatchTemplateRotated(source, template_name, region, angle_values, threshold, match, best_angle,
+                                               method, opcv::bridge::ParseColorMode(color_mode));
+    if (ok) {
+        match.x += origin_x;
+        match.y += origin_y;
+    }
+    retjson = opcv::bridge::BuildRotatedMatchJson(match, best_angle, ok);
+    internal::set_result(ret, ok ? 1L : 0L);
+}

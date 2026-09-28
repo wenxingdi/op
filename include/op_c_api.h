@@ -305,6 +305,9 @@ OP_C_API const wchar_t *OP_CALL OpCvEdgeMatchTemplate(op_handle handle, int x, i
                                                      const wchar_t *template_name, double threshold);
 OP_C_API const wchar_t *OP_CALL OpCvShapeMatchTemplate(op_handle handle, int x, int y, int width, int height,
                                                       const wchar_t *template_name, double threshold);
+OP_C_API const wchar_t *OP_CALL OpCvMatchTemplateRot(op_handle handle, int x, int y, int width, int height,
+                                                     const wchar_t *template_name, const wchar_t *angles,
+                                                     double threshold, int method, int color_mode);
 
 // OCR
 OP_C_API int OP_CALL OpSetOcrEngine(op_handle handle, const wchar_t *path_of_engine, const wchar_t *dll_name,

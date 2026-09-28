@@ -24,6 +24,18 @@ std::wstring BuildMatchJson(const MatchResult &match, bool ok) {
     return oss.str();
 }
 
+std::wstring BuildRotatedMatchJson(const MatchResult &match, double angle, bool ok) {
+    if (!ok) {
+        return L"{\"ok\":0}";
+    }
+
+    std::wostringstream oss;
+    oss << L"{\"ok\":1,\"x\":" << match.x << L",\"y\":" << match.y << L",\"width\":" << match.width
+        << L",\"height\":" << match.height << L",\"score\":" << op::internal::json::FormatDouble(match.score)
+        << L",\"angle\":" << op::internal::json::FormatDouble(angle) << L"}";
+    return oss.str();
+}
+
 std::wstring BuildNamedMatchJson(const NamedMatchResult &match, bool ok) {
     if (!ok) {
         return L"{\"ok\":0}";
@@ -87,6 +99,33 @@ bool ParseScaleList(const wchar_t *text, std::vector<double> &scales) {
         }
     }
     return true;
+}
+
+// 解析角度列表 "0|15|-15|30"；空串返回默认角度集（覆盖常见的小幅旋转场景）。
+// 单项解析失败返回 false；越界项（|angle| > 180）被忽略；全部无效时返回 false。
+bool ParseAngleList(const wchar_t *text, std::vector<double> &angles) {
+    angles.clear();
+    if (text == nullptr || text[0] == L'\0') {
+        angles = {0.0, 15.0, -15.0, 30.0, -30.0};
+        return true;
+    }
+
+    std::vector<std::wstring> parts;
+    split(text, parts, L"|");
+    for (const auto &part : parts) {
+        if (part.empty()) {
+            continue;
+        }
+        try {
+            const double angle = std::stod(part);
+            if (angle >= -180.0 && angle <= 180.0) {
+                angles.push_back(angle);
+            }
+        } catch (...) {
+            return false;
+        }
+    }
+    return !angles.empty();
 }
 
 bool CaptureRegion(

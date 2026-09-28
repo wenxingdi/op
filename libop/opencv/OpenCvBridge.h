@@ -12,11 +12,13 @@ namespace opcv::bridge {
 MatchColorMode ParseColorMode(long color_mode);
 
 std::wstring BuildMatchJson(const MatchResult &match, bool ok);
+std::wstring BuildRotatedMatchJson(const MatchResult &match, double angle, bool ok);
 std::wstring BuildNamedMatchJson(const NamedMatchResult &match, bool ok);
 std::wstring BuildAllMatchesJson(const std::vector<NamedMatchResult> &matches, bool ok);
 
 bool ParseTemplateNames(const wchar_t *text, std::vector<std::wstring> &names);
 bool ParseScaleList(const wchar_t *text, std::vector<double> &scales);
+bool ParseAngleList(const wchar_t *text, std::vector<double> &angles);
 
 bool CaptureRegion(
     op::binding::BindingSession &binding_session,

@@ -1268,6 +1268,16 @@ const wchar_t *OP_CALL OpCvShapeMatchTemplate(op_handle handle, int x, int y, in
     });
 }
 
+const wchar_t *OP_CALL OpCvMatchTemplateRot(op_handle handle, int x, int y, int width, int height,
+                                            const wchar_t *template_name, const wchar_t *angles, double threshold,
+                                            int method, int color_mode) {
+    return call_json_string(handle, kJsonFailure, [&](op::Op &op, std::wstring &json) {
+        long ret = 0;
+        op.CvMatchTemplateRot(x, y, width, height, safe_text(template_name), safe_text(angles), threshold, method,
+                              color_mode, json, &ret);
+    });
+}
+
 // OCR
 
 int OP_CALL OpSetOcrEngine(op_handle handle, const wchar_t *path_of_engine, const wchar_t *dll_name,

@@ -521,6 +521,9 @@ class ATL_NO_VTABLE OpAutomation
     (LONG x, LONG y, LONG width, LONG height, BSTR template_name, DOUBLE threshold, BSTR *retjson, LONG *ret);
     STDMETHOD(CvShapeMatchTemplate)
     (LONG x, LONG y, LONG width, LONG height, BSTR template_name, DOUBLE threshold, BSTR *retjson, LONG *ret);
+    STDMETHOD(CvMatchTemplateRot)
+    (LONG x, LONG y, LONG width, LONG height, BSTR template_name, BSTR angles, DOUBLE threshold, LONG method,
+     LONG color_mode, BSTR *retjson, LONG *ret);
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(OpAutomation), OpAutomation)

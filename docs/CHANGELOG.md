@@ -3,6 +3,17 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（OpenCV：修未归一化匹配方法的分数语义 + 新增旋转多角度匹配 + 真实素材用例，feat/fix）
+
+- **背景**：OpenCV 模块盘点收敛出 3 个明确问题，本条目全部落地。
+- **修复：`TM_CCORR(2)` / `TM_CCOEFF(4)` 的分数与阈值语义失效**（真 bug）。旧行为：`convertMatchScoreToSimilarity` 对除 SQDIFF 系外的一切 method 直接返回原始分数且不 clamp，而 `TM_CCORR`/`TM_CCOEFF` 的原始分数**未归一化、值域无界**（实测 5×10⁶ 量级），与 0-1 的 threshold 比较必然通过 → **全图假命中且不报错**。修复：新增 `normalizeMatchMethod`，把这两个 method 自动升级为对应归一化版本（`CCORR→CCORR_NORMED`、`CCOEFF→CCOEFF_NORMED`），分数统一 `clamp` 到 [0,1]；映射点设在 5 个公开匹配入口（`MatchTemplate`×2 / `MatchTemplateScale` / `MatchAnyTemplate` / `MatchAllTemplates`），下游全部受益。`CCORR_NORMED`/`CCOEFF_NORMED`（OpenCV 自身已归一到 [-1,1]）与默认 `SQDIFF_NORMED` 行为不变。
+- **新增：旋转/多角度模板匹配 `CvMatchTemplateRot`**（COM `id(376)` + Op 类 + C API `OpCvMatchTemplateRot` + Python `cv_match_template_rot` 四层接线）。参数 `angles` 形如 `"0|15|-15"`（空串走默认 `{0,15,-15,30,-30}`），输出 JSON 额外带命中角度 `angle`。实现 `MatchTemplateRotated`：逐角度 `warpAffine` 旋转模板并把画布扩到容纳完整内容（`rotateExpanded`），**按 method 分流填充策略**——不支持 mask 的 method（如默认 `SQDIFF_NORMED`）用 `BORDER_REPLICATE` 边缘延展填角；支持 mask 的 method（`SQDIFF`/`CCORR_NORMED`）用黑填充 + 同步旋转的 mask 屏蔽填充区；新增 `matchMethodSupportsMask` 判定，避免向不支持 mask 的 method 传 mask（OpenCV 会触发断言异常）。旋转后装不进搜索区的角度自动跳过，取全局最高分。底层新增 `OpenCvHelpers::normalizeMatchMethod`、匿名命名空间的 `rotateExpanded`/`makeSolidMask`/`matchMethodSupportsMask`、`OpenCvBridge::{ParseAngleList, BuildRotatedMatchJson}`。
+- **真实素材**：`workbench/make_bs_assets.py` 从 BlueStacks 截图（440×741）自动挑选“全图唯一”的 64×64 纹理区（判据：自匹配峰值 ≥0.995、屏蔽峰值邻域后次佳 ≤0.90、灰度 std ≥12），产出 `assets/opencv_bluestacks_source.png` + 4 个模板 + 1 个干扰模板（`assets/` 在 .gitignore，素材不入库）。
+- **测试**（opencv_test.cpp +3）：① `CorrMethodsNormalizeScoreToUnitRange`——不相关组合下所有候选分数必须 ∈[0,1] 且不得达 0.99 阈值；② `MatchTemplateRotatedFindsRotatedTemplate`——模板旋转 90° 贴回源图，按 {0,45,90,135} 搜索必须命中 90° 且位置正确，含两条反向判据（空 angles 返 false；**只给 0 度必须不命中**，证明命中确实来自旋转扫描），并覆盖支持 mask 的 method 分支；③ `BlueStacksScreenshotTemplateMatching`——真实截图 4 个模板在 `SQDIFF_NORMED`/`CCORR_NORMED` 下均须命中裁剪位置（位置用“全局最优”判定：阈值内相邻等价点会让扫描式 API 返回先扫到的那个），干扰模板在去均值 `CCOEFF_NORMED` 下不得达 0.95。
+- **反向验证**：临时把 `normalizeMatchMethod` 退化为恒等并去掉 clamp 重建，`CorrMethodsNormalizeScoreToUnitRange` 立即 FAIL（实测 `candidate.score` = 5,485,481 vs 期望 ≤1.0），证明用例对旧实现有判别力；随后恢复并复跑全绿。
+- **回归**：OpenCvTest 30 用例（25 过 / 5 跳过，均为遗留真实素材表缺素材）；全量唯一挂仍为本机幽灵键 VK 0x85 环境用例，基线一致。发布件三处已同步。
+- **已知遗留（记录不做）**：① `RealPhotoTemplateCases`/`GameSceneTemplateCases` 两张表期待的是 ≥1200px 宽的真实游戏大图（含重复 coin 图案与指定区域布局），现有 BlueStacks 截图 440×741 不满足，5 个用例仍 SKIP；② 代码中存在“带 mask 模板 + 不支持 mask 的 method 会把 mask 直传 `cv::matchTemplate`”的既有隐患（不在本轮改动路径上，新代码已用 `matchMethodSupportsMask` 规避），待后续按需收紧。
+
 ### 2026-09-28（算法域扩展：障碍位图 A* + 路径工具 8 API，feat）
 
 - **背景**：综合功能盘点发现 `AStarFindPath` 的障碍输入为字符串列表，对像素级大地图（如 gmaj 2515x5189 ≈ 1300 万格）不可用；规划 P0+P1 七项游戏常用算法并对齐落地。

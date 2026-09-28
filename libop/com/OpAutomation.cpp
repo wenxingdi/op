@@ -1862,3 +1862,10 @@ STDMETHODIMP OpAutomation::CvShapeMatchTemplate(LONG x, LONG y, LONG width, LONG
     return CopyOutBstr(retjson, s);
 }
 
+STDMETHODIMP OpAutomation::CvMatchTemplateRot(LONG x, LONG y, LONG width, LONG height, BSTR template_name, BSTR angles,
+                                             DOUBLE threshold, LONG method, LONG color_mode, BSTR *retjson, LONG *ret) {
+    wstring s;
+    obj.CvMatchTemplateRot(x, y, width, height, template_name, angles, threshold, method, color_mode, s, ret);
+    return CopyOutBstr(retjson, s);
+}
+

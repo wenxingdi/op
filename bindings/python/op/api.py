@@ -1148,6 +1148,32 @@ class Op:
             int(color_mode),
         )
 
+    def cv_match_template_rot(
+        self,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        template_name: str,
+        angles: str = "",
+        threshold: float = 0.9,
+        method: constants.MatchMethod | int = constants.MatchMethod.SQDIFF_NORMED,
+        color_mode: constants.MatchColor | int = constants.MatchColor.GRAY,
+    ) -> str:
+        """多角度模板匹配。angles 形如「0|15|-15」，空串走默认角度集；返回 JSON，额外含命中角度 angle。"""
+        return self._call_string(
+            "OpCvMatchTemplateRot",
+            int(x),
+            int(y),
+            int(width),
+            int(height),
+            template_name,
+            angles,
+            float(threshold),
+            int(method),
+            int(color_mode),
+        )
+
     def cv_match_any_template(
         self,
         x: int,

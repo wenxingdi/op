@@ -28,6 +28,7 @@ bool prepareMaskInput(
     cv::Mat &norm_mask);
 
 bool isSupportedMatchMethod(int method);
+int normalizeMatchMethod(int method);
 double convertMatchScoreToSimilarity(int method, float raw_score);
 
 bool collectTemplateMatches(

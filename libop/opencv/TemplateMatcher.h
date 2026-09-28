@@ -258,6 +258,12 @@ bool MatchTemplateScale(const ImageHandle &source, const std::wstring &template_
                         const std::vector<double> &scales, double threshold, MatchResult &result, int method = 1,
                         MatchColorMode color_mode = MatchColorMode::Gray);
 
+// 在多个旋转角度下匹配模板，返回全局最高分及命中角度（best_angle，单位度）。
+// angles 为空返回 false；旋转后装不进搜索区的角度会被跳过；无法命中时返回 false。
+bool MatchTemplateRotated(const ImageHandle &source, const std::wstring &template_name, const Region &region,
+                          const std::vector<double> &angles, double threshold, MatchResult &result, double &best_angle,
+                          int method = 1, MatchColorMode color_mode = MatchColorMode::Gray);
+
 // 在指定区域内寻找任意一个命中的模板。
 // 说明：
 // - 非条带模式：先对每个模板串行做金字塔预筛（首个确定命中即返回）；

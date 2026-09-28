@@ -14,6 +14,8 @@
 #include <numeric>
 #include <vector>
 
+#include <opencv2/calib3d.hpp>
+#include <opencv2/geometry.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
@@ -3023,6 +3025,191 @@ TEST(OpenCvBenchmark, DISABLED_MatchingHotPaths) {
                 opcv::MatchColorMode::Color);
         });
     ExpectNearRect(hard_auto_scale_match, cv::Rect(90, 450, 72, 72), 1);
+
+    opcv::RemoveAllTemplates();
+}
+
+// 反向验证：修复前 TM_CCORR / TM_CCOEFF 的原始分数未经归一化（值域无界），
+// 与 0-1 的 threshold 比较必然通过，于是任何图像组合都会被判成“命中”。
+// 修复后分数收敛到 [0, 1]，不相关的组合必须被拒绝。
+TEST(OpenCvTest, CorrMethodsNormalizeScoreToUnitRange) {
+    cv::Mat source(72, 72, CV_8UC1);
+    for (int y = 0; y < source.rows; ++y) {
+        for (int x = 0; x < source.cols; ++x) {
+            source.at<uchar>(y, x) = static_cast<uchar>((x * 7 + y * 13 + (x * y) % 11) % 256);
+        }
+    }
+
+    // 与 source 结构无关的伪随机模板。
+    cv::Mat templ(18, 18, CV_8UC1);
+    for (int y = 0; y < templ.rows; ++y) {
+        for (int x = 0; x < templ.cols; ++x) {
+            templ.at<uchar>(y, x) = static_cast<uchar>((x * 131 + y * 197 + 41) % 256);
+        }
+    }
+
+    const opcv::ImageHandle source_image = ImageFromMat(source);
+    const opcv::ImageHandle templ_image = ImageFromMat(templ);
+
+    for (const int method : {cv::TM_CCORR, cv::TM_CCOEFF}) {
+        std::vector<opcv::MatchCandidate> candidates;
+        ASSERT_TRUE(opcv::MatchTemplate(source_image, templ_image, {0, 0, source.cols, source.rows}, candidates, method,
+                                        opcv::MatchColorMode::Gray));
+        ASSERT_FALSE(candidates.empty());
+
+        double max_score = 0.0;
+        for (const auto &candidate : candidates) {
+            // 旧实现的 raw 分数可达数万，下面两条区间断言直接证伪。
+            EXPECT_GE(candidate.score, 0.0);
+            EXPECT_LE(candidate.score, 1.0);
+            max_score = std::max(max_score, candidate.score);
+        }
+
+        opcv::MatchResult best;
+        ASSERT_TRUE(opcv::GetBestMatch(candidates, templ.cols, templ.rows, best));
+        // 不相关组合归一化后达不到 0.99；旧实现下 raw 恒大于阈值，必然误判为命中。
+        EXPECT_FALSE(opcv::IsMatchAboveThreshold(best, 0.99))
+            << "method=" << method << " max_score=" << max_score;
+    }
+}
+
+// 旋转匹配：模板旋转 90° 后贴进源图，按 {0, 45, 90, 135} 度搜索，应命中 90° 且位置正确。
+// 正方形模板旋转 90° 时画布尺寸不变、不产生填充，可与实现产物逐像素对齐。
+TEST(OpenCvTest, MatchTemplateRotatedFindsRotatedTemplate) {
+    cv::Mat templ(40, 40, CV_8UC1);
+    for (int y = 0; y < templ.rows; ++y) {
+        for (int x = 0; x < templ.cols; ++x) {
+            const int stripe = ((x + y) / 5) % 2 == 0 ? 230 : 30;
+            const int blob = (x > 24 && x < 34 && y > 8 && y < 16) ? 120 : 0;
+            templ.at<uchar>(y, x) = static_cast<uchar>(std::min(255, stripe + blob / 2));
+        }
+    }
+
+    cv::Mat source(180, 180, CV_8UC1, cv::Scalar(80));
+    const double truth_angle = 90.0;
+    const cv::Point truth_origin(58, 72);
+
+    const cv::Mat rotation =
+        cv::getRotationMatrix2D(cv::Point2f(templ.cols / 2.0f, templ.rows / 2.0f), truth_angle, 1.0);
+    cv::Mat rotated;
+    cv::warpAffine(templ, rotated, rotation, templ.size(), cv::INTER_LINEAR, cv::BORDER_REPLICATE, cv::Scalar(0));
+    rotated.copyTo(source(cv::Rect(truth_origin.x, truth_origin.y, rotated.cols, rotated.rows)));
+
+    const std::filesystem::path template_path = std::filesystem::temp_directory_path() / L"op_cv_rotated_template.png";
+    ASSERT_TRUE(WritePngFile(template_path.wstring(), templ));
+
+    opcv::RemoveAllTemplates();
+    ASSERT_TRUE(opcv::LoadTemplate(L"rot_probe", template_path.wstring()));
+
+    const opcv::ImageHandle source_image = ImageFromMat(source);
+    const std::vector<double> angles = {0.0, 45.0, 90.0, 135.0};
+    const opcv::Region full_region{0, 0, source.cols, source.rows};
+
+    opcv::MatchResult match;
+    double best_angle = 0.0;
+    ASSERT_TRUE(opcv::MatchTemplateRotated(source_image, L"rot_probe", full_region, angles, 0.90, match, best_angle,
+                                           cv::TM_SQDIFF_NORMED, opcv::MatchColorMode::Gray));
+    EXPECT_NEAR(best_angle, truth_angle, 0.5);
+    ExpectNearRect(match, cv::Rect(truth_origin.x, truth_origin.y, templ.cols, templ.rows), 2);
+
+    // 空角度列表属于参数错误，直接返回 false。
+    opcv::MatchResult empty_match;
+    double empty_angle = 0.0;
+    EXPECT_FALSE(opcv::MatchTemplateRotated(source_image, L"rot_probe", full_region, {}, 0.90, empty_match,
+                                            empty_angle, cv::TM_SQDIFF_NORMED, opcv::MatchColorMode::Gray));
+
+    // 反向验证：只给 0 度时不应命中——证明上面的命中确实来自旋转扫描，而非某种退化行为。
+    opcv::MatchResult zero_only_match;
+    double zero_only_angle = 0.0;
+    EXPECT_FALSE(opcv::MatchTemplateRotated(source_image, L"rot_probe", full_region, {0.0}, 0.90, zero_only_match,
+                                            zero_only_angle, cv::TM_SQDIFF_NORMED, opcv::MatchColorMode::Gray));
+
+    // 支持 mask 的 method（CCORR_NORMED）走“黑填充 + 旋转 mask”分支，同样应命中同一角度。
+    opcv::MatchResult masked_match;
+    double masked_angle = 0.0;
+    ASSERT_TRUE(opcv::MatchTemplateRotated(source_image, L"rot_probe", full_region, angles, 0.90, masked_match,
+                                           masked_angle, cv::TM_CCORR_NORMED, opcv::MatchColorMode::Gray));
+    EXPECT_NEAR(masked_angle, truth_angle, 0.5);
+
+    opcv::RemoveAllTemplates();
+    std::filesystem::remove(template_path);
+}
+
+// 真实素材验证：用 BlueStacks 截图裁出的 4 个模板，验证真实画面下的定位能力。
+// 素材由 workbench/make_bs_assets.py 生成；选点已离线校验全图唯一（峰值 1.0、次佳 < 0.90）。
+TEST(OpenCvTest, BlueStacksScreenshotTemplateMatching) {
+    struct AssetCase {
+        const wchar_t *template_file;
+        cv::Rect rect;
+    };
+    const std::vector<AssetCase> cases = {
+        {L"opencv_bluestacks_t0_template.png", cv::Rect(352, 0, 64, 64)},
+        {L"opencv_bluestacks_t1_template.png", cv::Rect(368, 200, 64, 64)},
+        {L"opencv_bluestacks_t2_template.png", cv::Rect(8, 208, 64, 64)},
+        {L"opencv_bluestacks_t3_template.png", cv::Rect(136, 216, 64, 64)},
+    };
+
+    const std::wstring source_path = FindDemoAsset(L"opencv_bluestacks_source.png");
+    if (source_path.empty()) {
+        GTEST_SKIP() << "BlueStacks screenshot assets are not available.";
+    }
+
+    opcv::ImageHandle source;
+    ASSERT_TRUE(opcv::LoadImageFromFile(source_path, source));
+
+    opcv::RemoveAllTemplates();
+    int index = 0;
+    for (const auto &item : cases) {
+        const std::wstring template_path = FindDemoAsset(item.template_file);
+        ASSERT_FALSE(template_path.empty());
+
+        const std::wstring name = L"bs_t" + std::to_wstring(index++);
+        ASSERT_TRUE(opcv::LoadTemplate(name, template_path));
+
+        // 命中判定：默认 SQDIFF_NORMED + 彩色必须能命中。
+        opcv::MatchResult match;
+        bool ok = false;
+        MeasureMilliseconds(
+            [&]() {
+                return opcv::MatchTemplate(source, name, {0, 0, source.width, source.height}, 0.97, match,
+                                           opcv::SearchDirection::LeftToRight, opcv::StripMode::None,
+                                           cv::TM_SQDIFF_NORMED, opcv::MatchColorMode::Color);
+            },
+            ok);
+        ASSERT_TRUE(ok);
+
+        // 精确位置用“全局最优”判定：阈值内存在相邻等价点时，扫描式 API 会返回先扫到的那个。
+        opcv::ImageHandle template_image;
+        ASSERT_TRUE(opcv::LoadImageFromFile(template_path, template_image));
+        for (const int method : {cv::TM_SQDIFF_NORMED, cv::TM_CCORR_NORMED}) {
+            std::vector<opcv::MatchCandidate> candidates;
+            ASSERT_TRUE(opcv::MatchTemplate(source, template_image, {0, 0, source.width, source.height}, candidates,
+                                            method, opcv::MatchColorMode::Color));
+            opcv::MatchResult best;
+            ASSERT_TRUE(opcv::GetBestMatch(candidates, template_image.width, template_image.height, best));
+            ExpectNearRect(best, item.rect, 1);
+            EXPECT_GE(best.score, 0.97);
+            EXPECT_LE(best.score, 1.0);
+        }
+    }
+
+    // 干扰模板（来自另一张截图）不得误命中。
+    // 注意两点：① 必须用去均值的 CCOEFF_NORMED——CCORR_NORMED 不扣均值，两个“都很亮的 UI 区域”也会得高分；
+    // ② 两张 BlueStacks 截图取自同一游戏界面，图案本就相关（实测 CCOEFF_NORMED 峰值 0.92），故门槛取 0.95。
+    const std::wstring distractor_path = FindDemoAsset(L"opencv_bluestacks_distractor.png");
+    if (!distractor_path.empty()) {
+        ASSERT_TRUE(opcv::LoadTemplate(L"bs_distractor", distractor_path));
+        opcv::MatchResult distractor_match;
+        bool distractor_ok = false;
+        MeasureMilliseconds(
+            [&]() {
+                return opcv::MatchTemplate(source, L"bs_distractor", {0, 0, source.width, source.height}, 0.95,
+                                           distractor_match, opcv::SearchDirection::LeftToRight, opcv::StripMode::None,
+                                           cv::TM_CCOEFF_NORMED, opcv::MatchColorMode::Color);
+            },
+            distractor_ok);
+        EXPECT_FALSE(distractor_ok);
+    }
 
     opcv::RemoveAllTemplates();
 }

@@ -494,6 +494,10 @@ class OP_API Op {
     void CvFindContours(_In_ const wchar_t *src_file, _In_ double min_area, _Out_ std::wstring &retjson, _Out_ long *ret);
     void CvPreprocessPipeline(_In_ const wchar_t *src_file, _In_ const wchar_t *dst_file, _In_ const wchar_t *pipeline,
                               _Out_ long *ret);
+    // 多角度模板匹配：angles 形如 "0|15|-15"（空串走默认角度集）；retjson 额外带命中角度 angle。
+    void CvMatchTemplateRot(_In_ long x, _In_ long y, _In_ long width, _In_ long height, _In_ const wchar_t *template_name,
+                            _In_ const wchar_t *angles, _In_ double threshold, _In_ long method, _In_ long color_mode,
+                            _Out_ std::wstring &retjson, _Out_ long *ret);
     void CvCrop(_In_ const wchar_t *src_file, _In_ long x, _In_ long y, _In_ long width, _In_ long height,
                 _In_ const wchar_t *dst_file, _Out_ long *ret);
     void CvResize(_In_ const wchar_t *src_file, _In_ long width, _In_ long height, _In_ const wchar_t *dst_file,

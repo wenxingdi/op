@@ -394,6 +394,59 @@ opcv::Region rectToRegion(const cv::Rect &rect) {
     return region;
 }
 
+// OpenCV 的 matchTemplate 仅对 TM_SQDIFF / TM_CCORR_NORMED 支持 mask，
+// 其余 method 传入 mask 会触发断言异常，调用前必须判定。
+bool matchMethodSupportsMask(int method) {
+    return method == cv::TM_SQDIFF || method == cv::TM_CCORR_NORMED;
+}
+
+// 生成与给定图像同尺寸的单通道全 255 mask（255 = 全部参与匹配）。
+opcv::ImageHandle makeSolidMask(const opcv::ImageHandle &like) {
+    opcv::ImageHandle mask;
+    if (like.width <= 0 || like.height <= 0) {
+        return mask;
+    }
+    mask.width = like.width;
+    mask.height = like.height;
+    mask.channels = 1;
+    mask.bytes.assign(static_cast<size_t>(like.width) * static_cast<size_t>(like.height), 255);
+    return mask;
+}
+
+// 绕图像中心旋转 angle 度，画布扩到能容纳完整旋转结果，避免内容被裁掉。
+// border_mode = BORDER_CONSTANT 时填充 0（配合 mask 屏蔽填充区）；BORDER_REPLICATE 用于无 mask 场景，
+// 用边缘像素延展填角，比纯黑填充更接近真实画面、不会把分数拉低。
+bool rotateExpanded(const opcv::ImageHandle &source, double angle, int border_mode, opcv::ImageHandle &output) {
+    output = {};
+    if (std::abs(angle) < 1e-6) {
+        output = source;
+        return true;
+    }
+
+    const cv::Mat src = createMatView(source);
+    if (src.empty()) {
+        return false;
+    }
+
+    const double rad = angle * CV_PI / 180.0;
+    const double cos_a = std::abs(std::cos(rad));
+    const double sin_a = std::abs(std::sin(rad));
+    const int new_w = static_cast<int>(std::ceil(src.cols * cos_a + src.rows * sin_a));
+    const int new_h = static_cast<int>(std::ceil(src.cols * sin_a + src.rows * cos_a));
+    if (new_w <= 0 || new_h <= 0) {
+        return false;
+    }
+
+    cv::Mat rotation = cv::getRotationMatrix2D(cv::Point2f(src.cols / 2.0f, src.rows / 2.0f), angle, 1.0);
+    rotation.at<double>(0, 2) += (new_w - src.cols) / 2.0;
+    rotation.at<double>(1, 2) += (new_h - src.rows) / 2.0;
+
+    cv::Mat rotated;
+    cv::warpAffine(src, rotated, rotation, cv::Size(new_w, new_h), cv::INTER_LINEAR, border_mode, cv::Scalar(0));
+    output = createImageFromMat(rotated);
+    return !output.bytes.empty();
+}
+
 bool resizeForPyramid(const opcv::ImageHandle &source, int width, int height, opcv::ImageHandle &output) {
     const cv::Mat source_mat = createMatView(source);
     if (source_mat.empty() || width <= 0 || height <= 0) {
@@ -2314,7 +2367,7 @@ bool MatchTemplate(
     std::vector<MatchCandidate> &matches,
     int method,
     MatchColorMode color_mode) {
-    return collectRegionCandidates(source, templ, nullptr, region, method, color_mode, matches);
+    return collectRegionCandidates(source, templ, nullptr, region, normalizeMatchMethod(method), color_mode, matches);
 }
 
 // 从候选结果中选出分数最高的匹配项。
@@ -2458,6 +2511,9 @@ bool MatchTemplate(
     const SearchDirection normalized_dir = normalizeSearchDirection(dir);
     const StripMode normalized_strip_mode = normalizeStripMode(strip_mode);
 
+    // 非归一化的 CCORR/CCOEFF 原始分数无界，统一升级为归一化版本，避免阈值恒通过导致全图假命中。
+    method = normalizeMatchMethod(method);
+
     // gray 模式先裁 ROI 再转灰度：为小区域匹配时避免整图转换+复制的开销。
     // 裁剪后坐标系原点即 ROI 左上角，结果出函数前须加回 origin 偏移。
     const opcv::ImageHandle *search_source = &source;
@@ -2572,6 +2628,7 @@ bool MatchTemplateScale(
     int method,
     MatchColorMode color_mode) {
     result = {};
+    method = normalizeMatchMethod(method);
 
     const cv::Rect roi = clampRegion(region, source);
     if (roi.width <= 0 || roi.height <= 0) {
@@ -2645,6 +2702,117 @@ bool MatchTemplateScale(
     return true;
 }
 
+// 在多个旋转角度下匹配模板，返回全局最高分及其命中的角度。
+// 说明：旋转会把模板画布扩到能容纳完整内容；method 不支持 mask 时（如默认 TM_SQDIFF_NORMED）
+// 用边缘复制填角，支持 mask 的 method（TM_SQDIFF / TM_CCORR_NORMED）用黑填充 + 旋转 mask 屏蔽填充区。
+bool MatchTemplateRotated(
+    const ImageHandle &source,
+    const std::wstring &template_name,
+    const Region &region,
+    const std::vector<double> &angles,
+    double threshold,
+    MatchResult &result,
+    double &best_angle,
+    int method,
+    MatchColorMode color_mode) {
+    result = {};
+    best_angle = 0.0;
+    method = normalizeMatchMethod(method);
+    if (angles.empty()) {
+        return false;
+    }
+
+    // gray 模式先裁 ROI 再转灰度，与 MatchTemplate 保持一致；裁剪后原点即 ROI 左上角，出函数前须加回。
+    const opcv::ImageHandle *search_source = &source;
+    opcv::Region search_region = region;
+    opcv::ImageHandle gray_source;
+    int origin_x = 0;
+    int origin_y = 0;
+    if (color_mode == MatchColorMode::Gray) {
+        const cv::Rect gray_roi = clampRegion(region, source);
+        if (gray_roi.width <= 0 || gray_roi.height <= 0) {
+            return false;
+        }
+        opcv::ImageHandle roi_image;
+        if (!crop(source, rectToRegion(gray_roi), roi_image) || !toGray(roi_image, gray_source)) {
+            return false;
+        }
+        search_source = &gray_source;
+        search_region = opcv::Region{0, 0, gray_roi.width, gray_roi.height};
+        origin_x = gray_roi.x;
+        origin_y = gray_roi.y;
+    }
+
+    const cv::Rect roi = clampRegion(search_region, *search_source);
+    if (roi.width <= 0 || roi.height <= 0) {
+        return false;
+    }
+    const cv::Mat source_mat = createMatView(*search_source);
+    if (source_mat.empty()) {
+        return false;
+    }
+    const opcv::ImageHandle roi_source = createImageFromMat(source_mat(roi).clone());
+
+    TemplateSnapshot snapshot;
+    if (!getTemplateSnapshot(template_name, color_mode, snapshot)) {
+        return false;
+    }
+
+    const bool use_mask = matchMethodSupportsMask(method);
+    const int border_mode = use_mask ? cv::BORDER_CONSTANT : cv::BORDER_REPLICATE;
+    const opcv::Region roi_region{0, 0, roi.width, roi.height};
+
+    bool found = false;
+    MatchResult best;
+    double best_angle_value = 0.0;
+    for (const double angle : angles) {
+        opcv::ImageHandle rotated_templ;
+        if (!rotateExpanded(snapshot.templ, angle, border_mode, rotated_templ)) {
+            continue;
+        }
+        // 旋转后模板可能已经装不进搜索区，该角度直接跳过。
+        if (rotated_templ.width > roi.width || rotated_templ.height > roi.height) {
+            continue;
+        }
+
+        opcv::ImageHandle rotated_mask;
+        const opcv::ImageHandle *mask_ptr = nullptr;
+        if (use_mask) {
+            const opcv::ImageHandle mask_source = snapshot.has_mask ? snapshot.mask : makeSolidMask(snapshot.templ);
+            if (mask_source.bytes.empty() || !rotateExpanded(mask_source, angle, cv::BORDER_CONSTANT, rotated_mask) ||
+                rotated_mask.width != rotated_templ.width || rotated_mask.height != rotated_templ.height) {
+                continue;
+            }
+            mask_ptr = &rotated_mask;
+        }
+
+        std::vector<MatchCandidate> candidates;
+        if (!collectRegionCandidates(roi_source, rotated_templ, mask_ptr, roi_region, method, color_mode, candidates)) {
+            continue;
+        }
+
+        MatchResult candidate;
+        if (!getBestMatch(candidates, rotated_templ.width, rotated_templ.height, candidate)) {
+            continue;
+        }
+        if (!found || candidate.score > best.score) {
+            best = candidate;
+            best_angle_value = angle;
+            found = true;
+        }
+    }
+
+    if (!found) {
+        return false;
+    }
+
+    best.x += origin_x + roi.x;
+    best.y += origin_y + roi.y;
+    result = best;
+    best_angle = best_angle_value;
+    return isMatchAboveThreshold(result, threshold);
+}
+
 // 在指定区域内搜索多个模板，并返回任意一个率先命中的结果。
 // 非条带模式先串行做金字塔预筛，必要时回退到模板间并行直搜；条带模式按“模板 × 条带”并行。
 bool MatchAnyTemplate(
@@ -2658,6 +2826,7 @@ bool MatchAnyTemplate(
     int method,
     MatchColorMode color_mode) {
     result = {};
+    method = normalizeMatchMethod(method);
     const SearchDirection normalized_dir = normalizeSearchDirection(dir);
     const StripMode normalized_strip_mode = normalizeStripMode(strip_mode);
     if (template_names.empty()) {
@@ -2776,6 +2945,7 @@ bool MatchAllTemplates(
     StripMode strip_mode,
     int method,
     MatchColorMode color_mode) {
+    method = normalizeMatchMethod(method);
     const SearchDirection normalized_dir = normalizeSearchDirection(dir);
     const StripMode normalized_strip_mode = normalizeStripMode(strip_mode);
     // gray 模式先裁 ROI 再转灰度，避免整图转换开销；裁剪后坐标系原点为 ROI 左上角，

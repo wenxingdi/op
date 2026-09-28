@@ -180,11 +180,26 @@ bool isSupportedMatchMethod(int method) {
     return method >= cv::TM_SQDIFF && method <= cv::TM_CCOEFF_NORMED;
 }
 
-double convertMatchScoreToSimilarity(int method, float raw_score) {
-    if (method == cv::TM_SQDIFF || method == cv::TM_SQDIFF_NORMED) {
-        return 1.0 - static_cast<double>(raw_score);
+// TM_CCORR / TM_CCOEFF 的原始分数未经归一化（值域无界），若直接与 0-1 的 threshold 比较，
+// 会出现“几乎所有位置都达标”的假命中。这里统一升级为对应的归一化版本，使分数落在 [-1, 1]，
+// 阈值语义与 SQDIFF 系保持一致。其余方法原样返回（幂等）。
+int normalizeMatchMethod(int method) {
+    if (method == cv::TM_CCORR) {
+        return cv::TM_CCORR_NORMED;
     }
-    return static_cast<double>(raw_score);
+    if (method == cv::TM_CCOEFF) {
+        return cv::TM_CCOEFF_NORMED;
+    }
+    return method;
+}
+
+double convertMatchScoreToSimilarity(int method, float raw_score) {
+    const double score = (method == cv::TM_SQDIFF || method == cv::TM_SQDIFF_NORMED)
+                             ? 1.0 - static_cast<double>(raw_score)
+                             : static_cast<double>(raw_score);
+    // 统一收敛到 [0, 1]：CCORR_NORMED / CCOEFF_NORMED 可能返回负值（反相关），
+    // 未归一化的 SQDIFF 也可能让 1-raw 落到负区间。
+    return std::clamp(score, 0.0, 1.0);
 }
 
 bool collectTemplateMatches(
