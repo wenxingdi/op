@@ -52,15 +52,21 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
     HRESULT hr;
 
     // D3D12 当前实现沿用原逻辑：本次 present 发起 GPU 拷贝，下次调用读取上一帧 readback。
+    // 本函数所有失败路径统一：setlog 留证 + 关闭捕获。原先只 return，导致每帧重复
+    // 付 CreateCommandQueue/Fence/Resource 等昂贵操作，且失败原因完全不可见。
     Microsoft::WRL::ComPtr<IDXGISwapChain3> swapChain3;
     hr = swapChain->QueryInterface(__uuidof(IDXGISwapChain3), &swapChain3);
     if (FAILED(hr)) {
+        setlog("d3d12 QueryInterface<IDXGISwapChain3> hr=%X", hr);
+        DisplayHook::set_capture_enabled(false);
         return;
     }
 
     Microsoft::WRL::ComPtr<ID3D12Device> device;
     hr = swapChain->GetDevice(__uuidof(ID3D12Device), &device);
     if (FAILED(hr)) {
+        setlog("d3d12 swapchain->GetDevice hr=%X", hr);
+        DisplayHook::set_capture_enabled(false);
         return;
     }
 
@@ -71,10 +77,14 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
         queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
         hr = device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&copyQueue_));
         if (FAILED(hr)) {
+            setlog("d3d12 CreateCommandQueue hr=%X", hr);
+            DisplayHook::set_capture_enabled(false);
             return;
         }
         hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence_));
         if (FAILED(hr)) {
+            setlog("d3d12 CreateFence hr=%X", hr);
+            DisplayHook::set_capture_enabled(false);
             return;
         }
     }
@@ -92,10 +102,22 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
     Microsoft::WRL::ComPtr<ID3D12Resource> resource;
     hr = swapChain->GetBuffer(swapChain3->GetCurrentBackBufferIndex(), __uuidof(ID3D12Resource), &resource);
     if (FAILED(hr)) {
+        setlog("d3d12 swapchain->GetBuffer hr=%X", hr);
+        DisplayHook::set_capture_enabled(false);
         return;
     }
 
     D3D12_RESOURCE_DESC desc = resource->GetDesc();
+
+    // 像素格式必须取自交换链真实格式：原实现硬编码 int fmt = IBF_R8G8B8A8，而 D3D12 交换链
+    // 常见 B8G8R8A8 -> CopyImageData 走 RGBA 分支把 B/R 互换 -> 红蓝互换且全程静默。
+    // 未支持格式（HDR/10bit/浮点）与 D3D10/11 同款处理：停捕获并留证，不猜格式。
+    const int fmt = GetImageBufferFormat(desc.Format);
+    if (fmt == IBF_UNSUPPORTED) {
+        setlog("d3d12 unsupported swapchain format=%d, disable capture", static_cast<int>(desc.Format));
+        DisplayHook::set_capture_enabled(false);
+        return;
+    }
 
     UINT64 sizeInBytes;
     D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
@@ -118,6 +140,8 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
         if (readbackData_ == nullptr) {
             hr = readbackResource_->Map(0, nullptr, &readbackData_);
             if (FAILED(hr)) {
+                setlog("d3d12 readbackResource_->Map hr=%X", hr);
+                DisplayHook::set_capture_enabled(false);
                 return;
             }
         }
@@ -129,7 +153,6 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
         SharedMemory mem;
         ProcessMutex mutex;
         static int cnt = 10;
-        int fmt = IBF_R8G8B8A8;
         if (mem.open(DisplayHook::shared_res_name) && mutex.open(DisplayHook::mutex_name)) {
             mutex.lock();
             uchar *pshare = mem.data<byte>();
@@ -151,7 +174,7 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
         }
         static bool first = true;
         if (first) {
-            int tf = IBF_R8G8B8A8;
+            int tf = static_cast<int>(desc.Format);
 
             setlog("textDesc.Format= %d,fmt=%d textDesc.Height=%d\n textDesc.Width=%d\n  mapSubres.DepthPitch=%d\n "
                    "mapSubres.RowPitch=%d\n",
@@ -173,11 +196,15 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
         hr = device->CreateCommittedResource(&readbackHeapDesc, D3D12_HEAP_FLAG_NONE, &readbackResourceDesc,
                                              D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&readbackResource_));
         if (FAILED(hr)) {
+            setlog("d3d12 CreateCommittedResource(readback) hr=%X", hr);
+            DisplayHook::set_capture_enabled(false);
             return;
         }
 
         hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator_));
         if (FAILED(hr)) {
+            setlog("d3d12 CreateCommandAllocator(first) hr=%X", hr);
+            DisplayHook::set_capture_enabled(false);
             return;
         }
     }
@@ -186,11 +213,15 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
     if (!commandAllocator_) {
         hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator_));
         if (FAILED(hr)) {
+            setlog("d3d12 CreateCommandAllocator(rebuild) hr=%X", hr);
+            DisplayHook::set_capture_enabled(false);
             return;
         }
     }
     hr = commandAllocator_->Reset();
     if (FAILED(hr)) {
+        setlog("d3d12 commandAllocator_->Reset hr=%X", hr);
+        DisplayHook::set_capture_enabled(false);
         return;
     }
 
@@ -198,6 +229,8 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
     hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator_.Get(), nullptr,
                                    IID_PPV_ARGS(&copyCommandList));
     if (FAILED(hr)) {
+        setlog("d3d12 CreateCommandList hr=%X", hr);
+        DisplayHook::set_capture_enabled(false);
         return;
     }
 

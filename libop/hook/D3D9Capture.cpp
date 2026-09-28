@@ -7,6 +7,7 @@
 #include "../ipc/ProcessMutex.h"
 #include "../ipc/SharedMemory.h"
 #include "../base/AutomationModes.h"
+#include "../base/Utils.h"
 #include <atlbase.h>
 
 namespace op::hook {
@@ -45,16 +46,25 @@ class D3D9TextureLock {
 };
 
 HRESULT dx9_capture(LPDIRECT3DDEVICE9 pDevice) {
+    // 失败路径统一：setlog 留证 + 关闭捕获。原实现只 return，既不关捕获也无日志，
+    // 于是每帧重复付 GetBackBuffer/CreateTexture 的代价，失败原因完全不可见——
+    // 典型如 MSAA 后备缓冲下 GetRenderTargetData 恒返 INVALIDCALL（见下）。
     HRESULT hr = NULL;
     CComPtr<IDirect3DSurface9> pSurface;
     hr = pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &pSurface);
-    if (FAILED(hr))
+    if (FAILED(hr)) {
+        setlog("dx9 GetBackBuffer failed hr=%X, disable capture", hr);
+        DisplayHook::set_capture_enabled(false);
         return hr;
+    }
 
     D3DSURFACE_DESC surface_Desc;
     hr = pSurface->GetDesc(&surface_Desc);
-    if (FAILED(hr))
+    if (FAILED(hr)) {
+        setlog("dx9 surface->GetDesc failed hr=%X, disable capture", hr);
+        DisplayHook::set_capture_enabled(false);
         return hr;
+    }
 
     CComPtr<IDirect3DTexture9> pTex;
     CComPtr<IDirect3DSurface9> pTexSurface;
@@ -62,21 +72,35 @@ HRESULT dx9_capture(LPDIRECT3DDEVICE9 pDevice) {
                                 D3DPOOL_SYSTEMMEM, // 必须为这个
                                 &pTex, NULL);
     if (hr < 0) {
+        setlog("dx9 CreateTexture failed hr=%X, disable capture", hr);
+        DisplayHook::set_capture_enabled(false);
         return hr;
     }
     hr = pTex->GetSurfaceLevel(0, &pTexSurface);
-    if (hr < 0)
+    if (hr < 0) {
+        setlog("dx9 GetSurfaceLevel failed hr=%X, disable capture", hr);
+        DisplayHook::set_capture_enabled(false);
         return hr;
+    }
     hr = pDevice->GetRenderTargetData(pSurface, pTexSurface);
-    if (FAILED(hr))
+    if (FAILED(hr)) {
+        // D3DERR_INVALIDCALL(8876086C) 通常意味着后备缓冲开了 MSAA：D3D10/11 都有
+        // SampleDesc.Count>1 -> resolve 的分支，D3D9 没有（未修，需真机 MSAA 目标验证）。
+        // 至少让它在日志里现形，而不是"截不到图但什么也不说"。
+        setlog("dx9 GetRenderTargetData failed hr=%X (MSAA backbuffer unsupported?), disable capture", hr);
+        DisplayHook::set_capture_enabled(false);
         return hr;
+    }
 
     D3DLOCKED_RECT lockedRect = {};
 
     D3D9TextureLock textureLock(pTex);
     hr = textureLock.lock(&lockedRect);
-    if (FAILED(hr))
+    if (FAILED(hr)) {
+        setlog("dx9 LockRect failed hr=%X, disable capture", hr);
+        DisplayHook::set_capture_enabled(false);
         return hr;
+    }
     // 取像素
     SharedMemory mem;
     ProcessMutex mutex;

@@ -128,7 +128,14 @@ void dx11_capture(IDXGISwapChain *swapchain) {
         DisplayHook::set_capture_enabled(false);
         return;
     }
-    int fmt = GetImageBufferFormat(textDesc.Format);
+    const int fmt = GetImageBufferFormat(textDesc.Format);
+    if (fmt == IBF_UNSUPPORTED) {
+        // HDR(R10G10B10A2) / ScRGB(R16G16B16A16_FLOAT) 等未支持格式：停捕获并留下证据。
+        // 曾经这里是静默降级成 RGBA8，颜色全错但 ret/尺寸/字节数都正常，只能目视发现。
+        setlog("unsupported swapchain format=%d, disable capture", static_cast<int>(textDesc.Format));
+        DisplayHook::set_capture_enabled(false);
+        return;
+    }
 
     SharedMemory mem;
     ProcessMutex mutex;

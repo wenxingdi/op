@@ -39,6 +39,9 @@ class D3D11TextureMap {
 };
 
 DXGI_FORMAT NormalizeDxgiFormat(DXGI_FORMAT format);
+// 返回 IBF_B8G8R8A8 / IBF_R8G8B8A8，或 IBF_UNSUPPORTED（HDR/10bit/浮点等未列入白名单的格式）。
+// 调用方必须显式处理 IBF_UNSUPPORTED：记日志 + DisplayHook::set_capture_enabled(false)，
+// 不要退回默认值继续捕获——那会产生"尺寸颜色都对不上但谁也不报错"的静默错帧。
 int GetImageBufferFormat(DXGI_FORMAT format);
 
 } // namespace op::hook

@@ -14,6 +14,11 @@
 
 #include "test_support.h"
 
+#include "../libop/base/AutomationModes.h"
+#include "../libop/hook/DisplayHook.h"   // CopyImageData 声明在此
+#include "../libop/hook/DxCaptureCommon.h"
+
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -358,6 +363,50 @@ TEST_F(HookCaptureTest, D3D10ChannelEitherBindsOrReportsLocateFailure) {
     EXPECT_EQ(outcome.mismatch, 0) << "dx.d3d10 绑定成功但画面不正确";
     if (outcome.mismatch != 0)
         ReportOutcome(outcome);
+}
+
+// ------------------------------------------------ 交换链格式白名单（纯函数，无需载体）
+//
+// 这一组用例针对的是最隐蔽的一类故障：**静默错色**。
+// 捕获侧若把读不懂的交换链格式（HDR / 10bit / 浮点）默认当成 R8G8B8A8，像素会照常写入、
+// 尺寸与字节数全正常、Capture 也返回成功，只有颜色是错的 —— 只有人眼看着才发现。
+//
+// 反向验证：把 DxCaptureCommon.cpp 的 GetImageBufferFormat 改回"default: return IBF_R8G8B8A8"，
+// 下面第一条用例立即 FAIL；把 CopyImageData 开头的 IBF_UNSUPPORTED 早退删掉，第二条立即 FAIL。
+TEST(HookCaptureFormatTest, UnknownSwapChainFormatIsNotSilentlyTreatedAsRgba8) {
+    using op::hook::GetImageBufferFormat;
+
+    // 已知可读的两族格式必须精确区分 —— 若两者被映射成同一个值，BGRA 交换链会红蓝互换。
+    EXPECT_EQ(GetImageBufferFormat(DXGI_FORMAT_B8G8R8A8_UNORM), IBF_B8G8R8A8);
+    EXPECT_EQ(GetImageBufferFormat(DXGI_FORMAT_B8G8R8X8_UNORM), IBF_B8G8R8A8);
+    EXPECT_EQ(GetImageBufferFormat(DXGI_FORMAT_B8G8R8A8_UNORM_SRGB), IBF_B8G8R8A8);
+    EXPECT_EQ(GetImageBufferFormat(DXGI_FORMAT_B8G8R8A8_TYPELESS), IBF_B8G8R8A8);
+    EXPECT_EQ(GetImageBufferFormat(DXGI_FORMAT_R8G8B8A8_UNORM), IBF_R8G8B8A8);
+    EXPECT_EQ(GetImageBufferFormat(DXGI_FORMAT_R8G8B8A8_UNORM_SRGB), IBF_R8G8B8A8);
+    EXPECT_NE(GetImageBufferFormat(DXGI_FORMAT_B8G8R8A8_UNORM), GetImageBufferFormat(DXGI_FORMAT_R8G8B8A8_UNORM));
+
+    // 未支持格式必须是显式哨兵，不能被猜成 RGBA8。
+    // R10G10B10A2 = HDR10 交换链（Win11 自动 HDR / 不少引擎默认后备缓冲）；
+    // R16G16B16A16_FLOAT = ScRGB HDR；R11G11B10_FLOAT = 常见的低带宽 HDR 后备缓冲。
+    // 三者都是 4 字节/像素，按 RGBA8 逐通道重排会得到完全错误的颜色而毫无报错。
+    EXPECT_EQ(GetImageBufferFormat(DXGI_FORMAT_R10G10B10A2_UNORM), IBF_UNSUPPORTED);
+    EXPECT_EQ(GetImageBufferFormat(DXGI_FORMAT_R16G16B16A16_FLOAT), IBF_UNSUPPORTED);
+    EXPECT_EQ(GetImageBufferFormat(DXGI_FORMAT_R11G11B10_FLOAT), IBF_UNSUPPORTED);
+    EXPECT_EQ(GetImageBufferFormat(DXGI_FORMAT_UNKNOWN), IBF_UNSUPPORTED);
+}
+
+// 兜底：即便调用方漏判，CopyImageData 也不许按错误字节布局涂共享内存。
+TEST(HookCaptureFormatTest, CopyImageDataRefusesUnsupportedFormat) {
+    unsigned char dst[16];
+    unsigned char src[16];
+    std::memset(dst, 0xAB, sizeof(dst));
+    std::memset(src, 0x11, sizeof(src));
+
+    op::hook::CopyImageData(reinterpret_cast<char *>(dst), reinterpret_cast<const char *>(src), 1, 4, 16,
+                            IBF_UNSUPPORTED);
+
+    for (size_t i = 0; i < sizeof(dst); ++i)
+        EXPECT_EQ(dst[i], 0xAB) << "未支持格式不应写入任何像素（第 " << i << " 字节被改写）";
 }
 
 } // namespace

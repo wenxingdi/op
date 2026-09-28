@@ -153,6 +153,9 @@ set(OP_TEST_SOURCES
   "../libop/base/Environment.cpp"
   "../libop/window/WindowLayout.cpp"
   "../libop/input/mouse/CursorShape.cpp"
+  # 交换链格式白名单是纯函数（GetImageBufferFormat / CopyImageData），但 op_com 是 SHARED
+  # 且只导出 op.def 里的符号，测试链接不到 -> 与 OpenCv 测试同一做法：直接编入本目标。
+  "../libop/hook/DxCaptureCommon.cpp"
   "${OP_COM_I_C}"
 )
 set_source_files_properties("${OP_COM_I_C}" PROPERTIES GENERATED TRUE)

@@ -80,6 +80,10 @@ enum INPUT_TYPE {
 constexpr int IBF_R8G8B8A8 = 0;
 constexpr int IBF_B8G8R8A8 = 1;
 constexpr int IBF_R8G8B8 = 2;
+// 交换链格式不在可读白名单内（HDR/10bit/浮点等）。
+// 绝不可当成 IBF_R8G8B8A8 处理：构造会按 4 字节 RGBA 重排，颜色静默错乱。
+// 捕获侧遇到本值应记日志并关闭捕获，而不是猜一个格式继续跑。
+constexpr int IBF_UNSUPPORTED = -1;
 
 // const size_t MAX_IMAGE_WIDTH = 1<<11;
 // const size_t SHARED_MEMORY_SIZE = 1080 * 1928 * 4;

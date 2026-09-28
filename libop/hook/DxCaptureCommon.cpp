@@ -6,6 +6,11 @@
 namespace op::hook {
 
 void CopyImageData(char *dst_, const char *src_, int rows_, int cols_, int rowPitch, int fmt_) {
+    // 未识别格式不该走到这里；真走到说明调用方漏判了。宁可不写，也不要按错误的
+    // 字节布局把像素涂进共享内存（那正是 HDR 交换链静默错色的成因）。
+    if (fmt_ == IBF_UNSUPPORTED) {
+        return;
+    }
     // assert(rowsPitch >= cols_ * 4);
     if (rowPitch == cols_ * (fmt_ == IBF_R8G8B8 ? 3 : 4)) {
         if (fmt_ == IBF_B8G8R8A8) {
@@ -84,12 +89,25 @@ DXGI_FORMAT NormalizeDxgiFormat(DXGI_FORMAT format) {
 }
 
 int GetImageBufferFormat(DXGI_FORMAT format) {
-    if (format == DXGI_FORMAT_B8G8R8A8_UNORM || format == DXGI_FORMAT_B8G8R8X8_UNORM ||
-        format == DXGI_FORMAT_B8G8R8A8_TYPELESS || format == DXGI_FORMAT_B8G8R8A8_UNORM_SRGB ||
-        format == DXGI_FORMAT_B8G8R8X8_TYPELESS || format == DXGI_FORMAT_B8G8R8X8_UNORM_SRGB) {
+    // 白名单：只对"读回后能按已知字节布局解释"的格式返回构造值。
+    // 未列出的格式一律返回 IBF_UNSUPPORTED —— 曾经的默认分支是 "return IBF_R8G8B8A8"，
+    // 会把 R10G10B10A2(HDR 常见) / R16G16B16A16_FLOAT(ScRGB) 按 4 字节 RGBA 逐通道重排，
+    // 颜色完全错乱且全程静默（Capture ret=1、尺寸字节数都正常）。调用方必须显式处理本值。
+    switch (format) {
+    case DXGI_FORMAT_B8G8R8A8_UNORM:
+    case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+    case DXGI_FORMAT_B8G8R8A8_TYPELESS:
+    case DXGI_FORMAT_B8G8R8X8_UNORM:
+    case DXGI_FORMAT_B8G8R8X8_UNORM_SRGB:
+    case DXGI_FORMAT_B8G8R8X8_TYPELESS:
         return IBF_B8G8R8A8;
+    case DXGI_FORMAT_R8G8B8A8_UNORM:
+    case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+    case DXGI_FORMAT_R8G8B8A8_TYPELESS:
+        return IBF_R8G8B8A8;
+    default:
+        return IBF_UNSUPPORTED;
     }
-    return IBF_R8G8B8A8;
 }
 
 } // namespace op::hook

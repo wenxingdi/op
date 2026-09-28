@@ -3,6 +3,20 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（hook 层批 1：交换链格式白名单化 + RPC 护栏 + 失败统一停捕获 + 计数原子化，fix）
+
+- **背景**：`docs/2026-09/hook与出口层复查_20260928.md` 只读扫描出的 26 条分级发现中，**批 1（无真机依赖、可直接修）共 6 组**。本条目全部落地，另加 2 条不依赖真机的判别力用例。
+- **H1 未知 DXGI 格式不再静默降级**（`hook/DxCaptureCommon.cpp`）：`GetImageBufferFormat` 原本"只认 BGRA 家族、其余一律返 `IBF_R8G8B8A8`"，会把 `R10G10B10A2`（HDR10 交换链；Win11 自动 HDR 与不少引擎的默认后备缓冲）、`R16G16B16A16_FLOAT`（ScRGB HDR）、`R11G11B10_FLOAT` 这些**同为 4 字节/像素**的格式按 RGBA8 逐通道重排 —— 颜色完全错乱，而 `Capture ret=1`、尺寸与字节数全正常，只能目视发现。现改为显式白名单：未列出的格式返回新增哨兵 `IBF_UNSUPPORTED`（`base/AutomationModes.h` 增加该常量并注明"绝不可当 IBF_R8G8B8A8 处理"）。三个调用方（D3D10/11/12）统一处理：`setlog` 记下真实格式值 + `set_capture_enabled(false)` —— **宁可停捕获，也不猜格式**。`CopyImageData` 另加兜底：`fmt == IBF_UNSUPPORTED` 时直接返回、不写任何像素（防调用方漏判时按错误布局涂共享内存）。
+- **H6 D3D12 像素格式不再硬编码**（`hook/D3D12Capture.cpp`）：原 `int fmt = IBF_R8G8B8A8;` 完全不读交换链格式，而 D3D12 交换链常见 `B8G8R8A8` → `CopyImageData` 走 RGBA 分支交换 B/R → **红蓝互换且静默**。现改为 `GetImageBufferFormat(desc.Format)`，与 D3D10/11 统一；诊断日志里的 `tf` 也改为真实格式值（原先打印的是常量，等于没打印）。
+- **H4/H5 InputHookClient 判空与异常护栏**（`hook/InputHookClient.cpp`）：① `resolve_hook_dll` 的 `proc.modules().GetMainModule()->type` 未判空 —— 受保护进程 / PEB 读取受限时返回空，直接解引用即宿主访问违例；现判空后回退按宿主自身位数解析并记日志。② 5 个 RPC 函数（`call_set_input_hook` / `call_release_input_hook` / `call_set_input_lock` / `call_set_input_attr` / `call_cursor_shape`）全部补 try/catch，与既有的 `call_ping_hook` 对齐（原实现只有 `call_ping_hook` 有护栏，其余 BlackBone RPC 抛异常会直穿宿主）。其中 `call_release_input_hook` 用 **-1 表示"RPC 抛异常"**，供 `UnBind` 保留绑定条目重试 —— 把异常处理收敛到 RPC 层，决策语义留在 `UnBind`。
+- **H7/H8/H9 失败路径统一"停捕获"**：`D3D9Capture`（6 处）、`egl_capture`（GLES API 解析失败）、`D3D12Capture`（11 处）原先只 `return`，既不关捕获也无日志 → 每帧重复付昂贵操作（D3D9 的 `GetBackBuffer`+`CreateTexture`、D3D12 的 `CreateCommandQueue/Fence/Resource`、GLES 的 4 次 API 解析），且失败原因完全不可见。现全部对齐 D3D10/11：`setlog` + `set_capture_enabled(false)`。**顺带让 H3 现形**：D3D9 开 MSAA 时 `GetRenderTargetData` 恒返 `D3DERR_INVALIDCALL`，日志现在会明确提示 `(MSAA backbuffer unsupported?)` —— 不再是"截不到图但什么也不说"。
+- **H12 ref_count 原子化**（`hook/HookExport.cpp`）：三个裸 `int` 计数改为 `std::atomic<int>` + 新增 `g_exportMutex`，把"判断计数 + 装/拆 hook + 计数增减"整体串行化 —— 原先并发绑定/解绑可让模块在仍被使用时被 `FreeLibraryAndExitThread` 卸载（或永不卸载而泄漏）。`release_module_if_idle` 的所有调用点都放在临界区**之外**：`FreeLibraryAndExitThread` 会终止调用线程，持锁调用会让锁永不释放、其他线程死锁。
+- **H13 pid 复用**（`hook/InputHookClient.cpp`）：`Bind` 原先在 `call_set_input_hook` 成功**之后**再取一次 `GetWindowThreadProcessId` 来缓存 pid；若窗口恰好在这中间销毁会取到 0，解绑时 `call_release_input_hook(0)` 直接返回 → 远端 Hook 永久残留。现由 `call_set_input_hook` 通过新增出参 `out_pid` 透出内部已取得的 pid，并删除因此不再使用的 `pid_of_window`。
+- **新增用例** `tests/hook_capture_test.cpp`（+2，纯函数、不依赖载体与真机）：`HookCaptureFormatTest.UnknownSwapChainFormatIsNotSilentlyTreatedAsRgba8` 断言 BGRA/RGBA8 两族必须精确区分、HDR/10bit/浮点格式必须是 `IBF_UNSUPPORTED`；`CopyImageDataRefusesUnsupportedFormat` 断言未支持格式下目标缓冲一字节都不许被改写。`tests/CMakeLists.txt` 把 `../libop/hook/DxCaptureCommon.cpp` 编入 op_test —— `op_com` 是 SHARED 且只导出 `op.def` 里的符号，测试链接不到这两个函数（与 OpenCv 测试编入 `TemplateMatcher.cpp` 同一做法）。
+- **反向验证**：把 `GetImageBufferFormat` 的 default 分支退回 `return IBF_R8G8B8A8` 并删掉 `CopyImageData` 的 `IBF_UNSUPPORTED` 早退后重建，两条用例立即 FAIL（实测格式判定返 `0` 而非期望 `-1`；目标缓冲被源数据改写为 `0x11`）；恢复后复跑 2/2 PASS。
+- **回归**：`HookCapture*` 9 条 = **8 PASS / 1 SKIP**（7 条真机用例全绿 —— D3D11 / D3D9 / OpenGL 三条捕获通道在批 1 改动后行为不变；SKIP 仍为本机 kiero `locate<D3D10>` 记录项）。全量 **328 用例 = 325 PASS / 2 SKIP / 1 FAILED**（上一基线 326 = 322/2/2）。2 SKIP = FurMark 环境项 + 上述 D3D10 记录项；唯一 FAILED 为本机幽灵键 VK 0x85（与基线一致）。上一轮出现过的 `CaptureModeTest.DownCpuAddsDelayAfterEachCapture` 本轮通过，确认其为负载抖动。
+- **注意（未覆盖范围）**：H1/H6 的**新分支**（未支持格式 → 停捕获）现有载体无法触发 —— `dx_carrier` 只开 `B8G8R8A8`。纯函数用例只证明"格式判定与早退逻辑正确"，**不证明真 HDR 交换链下会停捕获**。要覆盖需给载体加 `--format` 并构造 `R10G10B10A2` 交换链；D3D12 侧本机 `D3D12CreateDevice` 各 feature level 全失败，H6 无法真机验证。
+
 ### 2026-09-28（hook 显示捕获真机底座：D3D9/D3D11/OpenGL 首次进入回归，并修复解绑崩溃，test+fix）
 
 - **背景**：`tests/` 里所有窗口载体都是纯 GDI（`FillRect`），没有真实交换链，于是 `DisplayHook` 装的 `Present` / `EndScene` / `wglSwapBuffers` detour 在回归里**从未被真正触发过** —— D3D9/10/11/12 + OpenGL 五条通道长期"零真机闭环"（`libop/hook/` 128KB / 28 文件，专测为零）。

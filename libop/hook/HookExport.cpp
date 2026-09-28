@@ -3,18 +3,26 @@
 #include "../base/Utils.h"
 #include "DisplayHook.h"
 #include "InputHook.h"
+#include <atomic>
+#include <mutex>
 
 using op::hook::DisplayHook;
 using op::hook::InputHook;
 
 namespace {
 
-int g_ref_count = 0;
-int g_display_ref_count = 0;
-int g_input_ref_count = 0;
+// 这三组计数会被来自宿主不同线程的导出并发读写。裸 int 时代，"判断计数 + 装/拆 hook +
+// 计数增减" 之间没有任何同步：并发绑定/解绑可能让模块在仍被使用时被 FreeLibraryAndExitThread
+// 卸载，或反之永不卸载（泄漏）。这里用互斥体把整个临界区串行化，计数用 atomic 保证可见性。
+std::mutex g_exportMutex;
+std::atomic<int> g_ref_count{0};
+std::atomic<int> g_display_ref_count{0};
+std::atomic<int> g_input_ref_count{0};
 
+// 注意：FreeLibraryAndExitThread 会终止调用线程，绝不能在持有 g_exportMutex 时调用
+// （锁永不释放 -> 其他线程死锁）。所有调用点都在临界区之外。
 void release_module_if_idle() {
-    if (g_ref_count == 0) {
+    if (g_ref_count.load() == 0) {
         ::FreeLibraryAndExitThread(static_cast<HMODULE>(RuntimeEnvironment::getInstance()), 0);
     }
 }
@@ -24,6 +32,7 @@ void release_module_if_idle() {
 long __stdcall SetDisplayHook(HWND hwnd_, int render_type_) {
     int ret = 0;
     RuntimeEnvironment::m_showErrorMsg = 2;
+    std::lock_guard<std::mutex> lock(g_exportMutex);
     if (!DisplayHook::is_hooked) {
         ret = DisplayHook::setup(hwnd_, render_type_);
         DisplayHook::is_hooked = ret == 1;
@@ -57,11 +66,14 @@ long __stdcall SetDisplayHook(HWND hwnd_, int render_type_) {
 
 long __stdcall ReleaseDisplayHook() {
     int ret = 0;
-    if (DisplayHook::is_hooked && g_display_ref_count > 0 && --g_display_ref_count == 0) {
-        DisplayHook::is_hooked = false;
-        ret = DisplayHook::release();
-        if (g_ref_count > 0)
-            g_ref_count--;
+    {
+        std::lock_guard<std::mutex> lock(g_exportMutex);
+        if (DisplayHook::is_hooked && g_display_ref_count > 0 && --g_display_ref_count == 0) {
+            DisplayHook::is_hooked = false;
+            ret = DisplayHook::release();
+            if (g_ref_count > 0)
+                g_ref_count--;
+        }
     }
 
     release_module_if_idle();
@@ -71,6 +83,7 @@ long __stdcall ReleaseDisplayHook() {
 
 long __stdcall SetInputHook(HWND hwnd_, int) {
     int ret = 0;
+    std::lock_guard<std::mutex> lock(g_exportMutex);
     if (!InputHook::is_hooked) {
         ret = InputHook::setup(hwnd_);
         InputHook::is_hooked = ret == 1;
@@ -101,13 +114,21 @@ long __stdcall SetInputHook(HWND hwnd_, int) {
 }
 
 long __stdcall ReleaseInputHook() {
-    if (InputHook::is_hooked && g_input_ref_count > 0 && --g_input_ref_count == 0) {
-        InputHook::release();
-        InputHook::is_hooked = false;
-        if (g_ref_count > 0)
-            g_ref_count--;
-        release_module_if_idle();
+    bool became_idle = false;
+    {
+        std::lock_guard<std::mutex> lock(g_exportMutex);
+        if (InputHook::is_hooked && g_input_ref_count > 0 && --g_input_ref_count == 0) {
+            InputHook::release();
+            InputHook::is_hooked = false;
+            if (g_ref_count > 0)
+                g_ref_count--;
+            became_idle = true;
+        }
     }
+
+    if (became_idle)
+        release_module_if_idle();
+
     return 1;
 }
 

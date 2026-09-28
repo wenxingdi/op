@@ -91,6 +91,9 @@ long egl_capture() {
     auto pglGetIntegerv = (glGetIntegerv_t)ResolveApi("libglesv2.dll", "glGetIntegerv");
     auto pglReadPixels = (glReadPixels_t)ResolveApi("libglesv2.dll", "glReadPixels");
     if (!pglPixelStorei || !pglReadBuffer || !pglGetIntegerv || !pglReadPixels) {
+        // 与 gl_capture 对齐：解析失败即停捕获，否则每帧重复解析这 4 个 API。
+        setlog("egl resolve libglesv2 APIs failed, disable capture");
+        DisplayHook::set_capture_enabled(false);
 #if DEBUG_HOOK
         setlog(L"egl !mem.open(DisplayHook::%s)&&mutex.open(DisplayHook::%s)",
                DisplayHook::shared_res_name.c_str(), DisplayHook::mutex_name.c_str());

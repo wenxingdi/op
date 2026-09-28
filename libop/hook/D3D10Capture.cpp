@@ -143,7 +143,13 @@ void dx10_capture(IDXGISwapChain *pswapchain) {
         return;
     }
 
-    int fmt = GetImageBufferFormat(textDesc.Format);
+    const int fmt = GetImageBufferFormat(textDesc.Format);
+    if (fmt == IBF_UNSUPPORTED) {
+        // 与 D3D11 同款：未支持格式停捕获而非静默按 RGBA8 涂色（HDR/10bit 交换链）。
+        setlog("unsupported swapchain format=%d, disable capture", static_cast<int>(textDesc.Format));
+        DisplayHook::set_capture_enabled(false);
+        return;
+    }
 
     SharedMemory mem;
     ProcessMutex mutex;
