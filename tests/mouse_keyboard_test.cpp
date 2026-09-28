@@ -421,6 +421,30 @@ TEST(MouseKeyTest, WindowsModeKeyPressStrSupportsUnicodeFallback) {
     EXPECT_EQ(unbind_ret, 1);
 }
 
+// 键间隔拟真抖动回归（2026-09-28）：KeyPressStr 旧实现键间固定 ::Delay(delay)——固定间隔
+// 是机器打字最强的统计特征。判别特征：多轮总耗时（4 键 3 间隔，delay=150 → 新实现每间隔
+// [90,210]ms）的极差必须显著超过调度噪声。旧实现 3 个间隔各恒为 150ms，极差仅来自
+// Sleep 调度抖动（一般 <60ms）；新实现 3×[90,210] 的极差数学期望 >150ms，阈值 80ms 下
+// 新实现通过的置信度极高、旧实现基本必挂。
+TEST(MouseKeyTest, KeyPressStrIntervalJitters) {
+    op::Op op;
+    long long min_ms = -1, max_ms = -1;
+    for (int i = 0; i < 15; ++i) {
+        long ret = 0;
+        const auto start = std::chrono::steady_clock::now();
+        op.KeyPressStr(L"....", 150, &ret);
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - start).count();
+        ASSERT_EQ(ret, 1) << "第 " << i << " 轮打字失败";
+        if (min_ms < 0 || elapsed < min_ms)
+            min_ms = elapsed;
+        if (max_ms < 0 || elapsed > max_ms)
+            max_ms = elapsed;
+    }
+    EXPECT_GT(max_ms - min_ms, 80) << "总耗时极差 " << (max_ms - min_ms)
+                                   << "ms 过小 = 键间隔仍为固定值，无拟真抖动";
+}
+
 TEST(MouseKeyTest, WindowsModeMouseReturnAndWheel) {
     op::Op op;
     MouseEventWindow window;

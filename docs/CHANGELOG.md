@@ -3,6 +3,13 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（键鼠拟人化盘点 + KeyPressStr 键间隔抖动，fix）
+
+- **背景**：键鼠功能完善性与拟人成熟度盘点。功能面结论：API ≈ 大漠全集 + 独有增强（5 键全 20 动作、dx 三通道掩码、PingHook 活性回环、UIPI 预检、SetMouseTrajectory/MovePath/DragPath）；对照大漠实际缺口仅 `EnableRealMouse`（真鼠标保护，多开后台场景用不上，暂缓）。拟人面结论：鼠标轨迹/点击节奏、键盘单击节奏均已达标，**唯一硬缺口 = `KeyPressStr` 键间固定间隔**（`OpInput.cpp` `::Delay(delay>0?delay:1)`）——固定间隔是机器打字的最强统计特征。
+- **修法**：键间隔 `::Delay` → `DelayJitter`（±40% 抖动、下限 1ms），与鼠标点击节奏（send_input_click/button_click）对齐，一行改动。
+- **测试**：`MouseKeyTest.KeyPressStrIntervalJitters`——15 轮打 4 键串（delay=150，3 间隔 [90,210]ms），断言总耗时极差 >80ms（旧实现固定 450ms 仅剩调度噪声 <60ms，必挂；新实现数学期望 >150ms）。
+- **回归**：全量 305 用例 298 过 6 跳 1 挂（挂的仍为本机幽灵键 VK 0x85 环境用例，见上条）。发布件已同步三处。
+
 ### 2026-09-28（拟人化随机源换 thread_local mt19937：修 worker 线程轨迹序列可复现，fix）
 
 - **背景**：拟人化盘点发现随机源隐患。旧实现轨迹/落点/微停顿全走 MSVC `rand()`，虽有 `SeedProcessRandom()`（tick^pid^addr，原子 CAS 进程级一次）兜底，但 **MSVC 的 `rand()/srand()` 种子是线程级的**——播种只覆盖 OpContext 构造线程；宿主在 worker 线程跑脚本时，该线程的 `rand()` 仍是默认种子 1 → 两个 worker 线程跑出**完全相同**的"随机"轨迹/落点序列（多开同脚本可复现，反检测软肋）。此问题即 2026-09-09 模块排查 O3 项；另 `OpRuntime.Rng()`（进程级 mt19937）只服务随机数 API，未接入轨迹链——好引擎与坏引擎并存。

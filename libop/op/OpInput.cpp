@@ -379,6 +379,8 @@ void op::Op::KeyPressStr(const wchar_t *key_str, long delay, long *ret) {
         internal::set_result(ret, key_ret);
         if (key_ret == 0)
             return;
-        ::Delay(delay > 0 ? delay : 1);
+        // 键间隔拟真抖动（±40%，下限 1ms）：固定间隔是机器打字的最强统计特征，
+        // 与鼠标点击节奏（send_input_click/button_click 的 DelayJitter）对齐。
+        DelayJitter(delay > 0 ? delay : 1);
     }
 }
