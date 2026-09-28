@@ -4,6 +4,7 @@
 #include "D3D12Capture.h"
 
 #include "DisplayHook.h"
+#include "DetourGuard.h"
 #include "DxCaptureCommon.h"
 #include "SharedFrame.h"
 #include <directx/d3dx12.h>
@@ -19,9 +20,21 @@ namespace op::hook {
 
 using op::capture::FrameInfo;
 
+namespace {
+
+// H11: 等围栏的 CPU 侧上限。GPU hang / 驱动 TDR 时，INFINITE 等待会把游戏主线程
+// （Present 内部）永久钉死 —— 表现是"游戏卡住不动"。正常一帧拷贝在毫秒级，
+// 200ms 已远超合理值；超时只跳过本帧读回，不影响后续帧。
+constexpr DWORD kFenceWaitTimeoutMs = 200;
+
+} // namespace
+
 D3D12Capture *D3D12Capture::Get() {
-    static D3D12Capture hook;
-    return &hook;
+    // H15: 原实现是函数级 static 对象，进程卸载（DllMain / loader lock）时会析构并
+    // Release 一批 COM 对象，与 17574a0 修的 ORT 静态析构同类风险。
+    // 改 leak-by-design：进程即将退出，泄漏无实际代价（与 OCR/YOLO 一致）。
+    static D3D12Capture *hook = new D3D12Capture();
+    return hook;
 }
 
 D3D12Capture::D3D12Capture() {
@@ -90,11 +103,25 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
     }
 
     // 等待上一帧提交的 GPU 拷贝完成，再读 readback（防读到半写帧）。
+    // H11: 这里必须是有界等待。INFINITE 在 GPU hang / 驱动 TDR 时会把游戏主线程
+    // （Present 内）永久钉死 —— 用户侧表现就是"游戏卡死"。超时放弃本帧读回即可，
+    // 下一帧继续等，不会丢 hook 也不会读到半写帧。
     if (fenceValue_ > 0 && fence_) {
         if (fence_->GetCompletedValue() < fenceValue_) {
             if (fenceEvent_) {
                 fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
-                ::WaitForSingleObject(fenceEvent_, INFINITE);
+                const DWORD wait = ::WaitForSingleObject(fenceEvent_, kFenceWaitTimeoutMs);
+                if (wait != WAIT_OBJECT_0) {
+                    if (!fenceTimeoutLogged_) {
+                        setlog("d3d12 fence wait timeout(%lums) completed=%llu expect=%llu, skip readback",
+                               static_cast<unsigned long>(kFenceWaitTimeoutMs),
+                               static_cast<unsigned long long>(fence_->GetCompletedValue()),
+                               static_cast<unsigned long long>(fenceValue_));
+                        fenceTimeoutLogged_ = true;
+                    }
+                    return;
+                }
+                fenceTimeoutLogged_ = false;
             }
         }
     }
@@ -253,11 +280,13 @@ void dx12_capture(IDXGISwapChain *swapChain) {
 }
 
 HRESULT __stdcall dx12_hkPresent(IDXGISwapChain *thiz, UINT SyncInterval, UINT Flags) {
+    // H2: 覆盖下方跳板调用，release 靠该计数确认跳板可安全释放。
+    DetourScope guard;
     typedef long(__stdcall * Present_t)(IDXGISwapChain * pswapchain, UINT x1, UINT x2);
     // DXGI_PRESENT_TEST 不提交真实帧，D3D12 路径也保持和 D3D10/11 一致。
     if (DisplayHook::capture_enabled() && !(Flags & DXGI_PRESENT_TEST))
         dx12_capture(thiz);
-    return ((Present_t)DisplayHook::old_address)(thiz, SyncInterval, Flags);
+    return ((Present_t)DisplayHook::old_address.load(std::memory_order_acquire))(thiz, SyncInterval, Flags);
 }
 
 } // namespace op::hook

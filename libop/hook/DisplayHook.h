@@ -2,6 +2,7 @@
 #ifndef OP_HOOK_DISPLAY_HOOK_H_
 #define OP_HOOK_DISPLAY_HOOK_H_
 #include "../base/AutomationModes.h"
+#include <atomic>
 #include <string>
 
 namespace op::hook {
@@ -14,7 +15,8 @@ class DisplayHook {
     /*name of ...*/
     static std::wstring shared_res_name;
     static std::wstring mutex_name;
-    static void *old_address;
+    /*H2: detour 在解绑瞬间仍可能读它，故用原子量并配合 DetourGuard 的排空等待*/
+    static std::atomic<void *> old_address;
     static void *hook_target;
     static bool is_hooked;
     //

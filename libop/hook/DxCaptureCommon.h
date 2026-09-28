@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Windows.h>
 #include <d3d11.h>
 #include <dxgiformat.h>
 
@@ -43,5 +44,20 @@ DXGI_FORMAT NormalizeDxgiFormat(DXGI_FORMAT format);
 // 调用方必须显式处理 IBF_UNSUPPORTED：记日志 + DisplayHook::set_capture_enabled(false)，
 // 不要退回默认值继续捕获——那会产生"尺寸颜色都对不上但谁也不报错"的静默错帧。
 int GetImageBufferFormat(DXGI_FORMAT format);
+
+// H10: staging 纹理的复用判据。设备相同的前提下，这四项任一变化都必须重建。
+// 其中"尺寸不变但格式变了"最容易漏（HDR 开关、sRGB 切换）：复用旧格式的 staging
+// 会让 CopyResource 失败或产出错色帧，而且全程静默。
+struct StagingDescKey {
+    DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+    UINT width = 0;
+    UINT height = 0;
+    UINT sampleCount = 0;
+
+    bool matches(const StagingDescKey &other) const {
+        return format == other.format && width == other.width && height == other.height &&
+               sampleCount == other.sampleCount;
+    }
+};
 
 } // namespace op::hook

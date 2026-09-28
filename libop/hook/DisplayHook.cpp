@@ -4,6 +4,7 @@
 #include "D3D11Capture.h"
 #include "D3D12Capture.h"
 #include "D3D9Capture.h"
+#include "DetourGuard.h"
 #include "MinHook.h"
 #include "MinHookRuntime.h"
 #include "OpenGLCapture.h"
@@ -26,7 +27,7 @@ HWND DisplayHook::render_hwnd = NULL;
 int DisplayHook::render_type = 0;
 std::wstring DisplayHook::shared_res_name;
 std::wstring DisplayHook::mutex_name;
-void *DisplayHook::old_address;
+std::atomic<void *> DisplayHook::old_address{nullptr};
 void *DisplayHook::hook_target;
 bool DisplayHook::is_hooked = false;
 static std::atomic<int> is_capture{0};
@@ -35,6 +36,10 @@ namespace {
 
 constexpr int kPresentIndex = 8;
 constexpr int kD3D9EndSceneIndex = 42;
+
+// H2: MH_RemoveHook 会释放 trampoline，拆钩前等在途 detour 退出的上限。
+// 正常一帧的 capture+Present 在毫秒级，500ms 已是极宽裕；超时只留证不阻塞拆钩。
+constexpr int kDetourDrainTimeoutMs = 500;
 
 template <typename T> void *method_at(const std::vector<T> &methods, size_t index) {
     return index < methods.size() ? reinterpret_cast<void *>(methods[index]) : nullptr;
@@ -126,7 +131,7 @@ int DisplayHook::setup(HWND hwnd_, int render_type_) {
     DisplayHook::mutex_name = MakeOpMutexName(hwnd_);
 
     render_type = render_type_;
-    old_address = nullptr;
+    old_address.store(nullptr);
     hook_target = nullptr;
 
     void *address = nullptr;
@@ -142,7 +147,9 @@ int DisplayHook::setup(HWND hwnd_, int render_type_) {
         return 0;
     }
 
-    const MH_STATUS create_status = MH_CreateHook(hook_target, address, &old_address);
+    // MinHook 把 trampoline 写进出参；先收进局部量再发布到 atomic，避免其它线程读到半值。
+    void *trampoline = nullptr;
+    const MH_STATUS create_status = MH_CreateHook(hook_target, address, &trampoline);
     const MH_STATUS enable_status = create_status == MH_OK ? MH_EnableHook(hook_target) : MH_UNKNOWN;
     if (create_status != MH_OK || enable_status != MH_OK) {
         setlog("DisplayHook setup MinHook failed hwnd=%p render_type=%d target=%p detour=%p create=%d enable=%d",
@@ -152,23 +159,33 @@ int DisplayHook::setup(HWND hwnd_, int render_type_) {
             MH_RemoveHook(hook_target);
         }
         ReleaseMinHook();
-        old_address = nullptr;
+        old_address.store(nullptr);
         hook_target = nullptr;
         return 0;
     }
+    old_address.store(trampoline);
 
     set_capture_enabled(true);
     return is_capture.load();
 }
 
 int DisplayHook::release() {
+    // H2: 拆除顺序是本函数唯一的正确性要点，不可调整。
+    // 1) 先停捕获 —— 此后新进入的 detour 立即空转，不再碰共享内存。
     set_capture_enabled(false);
     if (hook_target) {
+        // 2) 恢复目标函数原入口（新调用不再进 detour）；MinHook 内部会冻结/解冻其它线程。
         MH_DisableHook(hook_target);
+        // 3) 等在途 detour 退出。第 2 步只保证"新调用不再进入"，已经进到 detour 里、
+        //    还没执行跳板调用的线程要等它走完；否则第 4 步释放的 trampoline 正在被它使用。
+        if (!DetourGuard::wait_idle(kDetourDrainTimeoutMs)) {
+            setlog("DisplayHook release: %d detour(s) still in flight after %dms, remove hook anyway",
+                   DetourGuard::inflight(), kDetourDrainTimeoutMs);
+        }
         MH_RemoveHook(hook_target);
         ReleaseMinHook();
     }
-    old_address = nullptr;
+    old_address.store(nullptr);
     hook_target = nullptr;
     render_hwnd = NULL;
     render_type = 0;

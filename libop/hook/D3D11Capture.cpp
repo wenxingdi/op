@@ -1,6 +1,7 @@
 #include "D3D11Capture.h"
 
 #include "DisplayHook.h"
+#include "DetourGuard.h"
 #include "DxCaptureCommon.h"
 #include "SharedFrame.h"
 #include "../capture/FrameInfo.h"
@@ -38,16 +39,30 @@ void write_shared_frame(std::span<std::byte> sharedFrame, HWND hwnd, UINT width,
                   sourceCols, rowPitch, format);
 }
 
+// H10: 原实现每帧都 GetImmediateContext + CreateTexture2D 建 staging（开 MSAA 时还多建
+// 一张 resolve）。帧率越高分配/释放越密，白付 D3D 资源开销并制造显存碎片。
+// 这里按 设备 + 尺寸/格式/采样数 缓存复用；leak-by-design 不做析构，避免进程卸载时
+// 在 loader lock 下释放 D3D 资源（与 H15 同一取舍）。
+struct D3D11StagingCache {
+    CComPtr<ID3D11Device> device;
+    CComPtr<ID3D11DeviceContext> context;
+    CComPtr<ID3D11Texture2D> staging;
+    CComPtr<ID3D11Texture2D> resolve;
+    StagingDescKey key;
+};
+
+D3D11StagingCache &staging_cache() {
+    static D3D11StagingCache *cache = new D3D11StagingCache();
+    return *cache;
+}
+
 } // namespace
 
 void dx11_capture(IDXGISwapChain *swapchain) {
     HRESULT hr = 0;
     CComPtr<IDXGIResource> backbufferptr;
     CComPtr<ID3D11Resource> backbuffer;
-    CComPtr<ID3D11Texture2D> resolvedTexture;
-    CComPtr<ID3D11Texture2D> textDst;
     CComPtr<ID3D11Device> device;
-    CComPtr<ID3D11DeviceContext> context;
 
     hr = swapchain->GetBuffer(0, __uuidof(IDXGIResource), reinterpret_cast<void **>(&backbufferptr.p));
     if (hr < 0) {
@@ -86,42 +101,56 @@ void dx11_capture(IDXGISwapChain *swapchain) {
     textDesc.BindFlags = 0;
     textDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
     textDesc.MiscFlags = 0;
-    hr = device->CreateTexture2D(&textDesc, nullptr, &textDst);
-    if (hr < 0) {
-        setlog("device->CreateTexture2D,error code=%d", hr);
-        DisplayHook::set_capture_enabled(false);
-        return;
+
+    // H10: 复用缓存，仅当 设备/尺寸/格式/采样数 变化时重建（见 D3D11StagingCache 注释）。
+    D3D11StagingCache &cache = staging_cache();
+    const StagingDescKey want{textDesc.Format, textDesc.Width, textDesc.Height, desc.SampleDesc.Count};
+    if (!cache.staging || cache.device.p != device.p || !cache.key.matches(want)) {
+        cache.staging.Release();
+        cache.resolve.Release();
+        hr = device->CreateTexture2D(&textDesc, nullptr, &cache.staging);
+        if (hr < 0) {
+            setlog("device->CreateTexture2D,error code=%d", hr);
+            DisplayHook::set_capture_enabled(false);
+            return;
+        }
+        if (desc.SampleDesc.Count > 1) {
+            // MSAA 后备缓冲需要先 resolve 成单采样纹理，否则 CopyResource 到 staging 会失败。
+            D3D11_TEXTURE2D_DESC resolveDesc = textDesc;
+            resolveDesc.Usage = D3D11_USAGE_DEFAULT;
+            resolveDesc.BindFlags = 0;
+            resolveDesc.CPUAccessFlags = 0;
+            resolveDesc.MiscFlags = 0;
+            hr = device->CreateTexture2D(&resolveDesc, nullptr, &cache.resolve);
+            if (hr < 0) {
+                setlog("device->CreateTexture2D resolved,error code=%d", hr);
+                DisplayHook::set_capture_enabled(false);
+                return;
+            }
+        }
+        cache.device = device;
+        cache.key = want;
     }
-    device->GetImmediateContext(&context);
-    if (!context) {
-        setlog("!context");
-        DisplayHook::set_capture_enabled(false);
-        return;
+    if (!cache.context) {
+        device->GetImmediateContext(&cache.context);
+        if (!cache.context) {
+            setlog("!context");
+            DisplayHook::set_capture_enabled(false);
+            return;
+        }
     }
 
     ID3D11Resource *copySource = backbuffer;
     if (desc.SampleDesc.Count > 1) {
-        // MSAA 后备缓冲需要先 resolve 成单采样纹理，否则 CopyResource 到 staging 会失败。
-        D3D11_TEXTURE2D_DESC resolveDesc = textDesc;
-        resolveDesc.Usage = D3D11_USAGE_DEFAULT;
-        resolveDesc.BindFlags = 0;
-        resolveDesc.CPUAccessFlags = 0;
-        resolveDesc.MiscFlags = 0;
-        hr = device->CreateTexture2D(&resolveDesc, nullptr, &resolvedTexture);
-        if (hr < 0) {
-            setlog("device->CreateTexture2D resolved,error code=%d", hr);
-            DisplayHook::set_capture_enabled(false);
-            return;
-        }
-        context->ResolveSubresource(resolvedTexture, 0, backbuffer, 0, textDesc.Format);
-        copySource = resolvedTexture;
+        cache.context->ResolveSubresource(cache.resolve, 0, backbuffer, 0, textDesc.Format);
+        copySource = cache.resolve;
     }
 
-    context->CopyResource(textDst, copySource);
+    cache.context->CopyResource(cache.staging, copySource);
 
     D3D11_MAPPED_SUBRESOURCE mapSubres = {0, 0, 0};
 
-    D3D11TextureMap mappedTexture(context, textDst);
+    D3D11TextureMap mappedTexture(cache.context, cache.staging);
     hr = mappedTexture.map(&mapSubres);
     if (hr < 0) {
         setlog("context->Map error code=%d", hr);
@@ -170,11 +199,13 @@ void dx11_capture(IDXGISwapChain *swapchain) {
 }
 
 HRESULT __stdcall dx11_hkPresent(IDXGISwapChain *thiz, UINT SyncInterval, UINT Flags) {
+    // H2: 覆盖下方跳板调用，release 靠该计数确认跳板可安全释放。
+    DetourScope guard;
     typedef long(__stdcall * Present_t)(IDXGISwapChain * pswapchain, UINT x1, UINT x2);
     // DXGI_PRESENT_TEST 不提交真实帧，避免把测试调用当成截图帧处理。
     if (DisplayHook::capture_enabled() && !(Flags & DXGI_PRESENT_TEST))
         dx11_capture(thiz);
-    return ((Present_t)DisplayHook::old_address)(thiz, SyncInterval, Flags);
+    return ((Present_t)DisplayHook::old_address.load(std::memory_order_acquire))(thiz, SyncInterval, Flags);
 }
 
 } // namespace op::hook

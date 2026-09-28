@@ -1,6 +1,7 @@
 #include "D3D9Capture.h"
 
 #include "DisplayHook.h"
+#include "DetourGuard.h"
 #include "DxCaptureCommon.h"
 #include "SharedFrame.h"
 #include "../capture/FrameInfo.h"
@@ -123,8 +124,10 @@ HRESULT dx9_capture(LPDIRECT3DDEVICE9 pDevice) {
 }
 
 HRESULT STDMETHODCALLTYPE dx9_hkEndScene(IDirect3DDevice9 *thiz) {
+    // H2: 必须构造在最外层 —— 它要覆盖下面那次跳板调用，release 才敢释放 trampoline。
+    DetourScope guard;
     typedef long(__stdcall * EndScene)(LPDIRECT3DDEVICE9);
-    auto ret = ((EndScene)DisplayHook::old_address)(thiz);
+    auto ret = ((EndScene)DisplayHook::old_address.load(std::memory_order_acquire))(thiz);
     if (DisplayHook::capture_enabled())
         dx9_capture(thiz);
 

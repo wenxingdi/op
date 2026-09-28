@@ -3,6 +3,18 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（hook 层批 2：解绑排空竞态 + staging 缓存 + fence 超时 + 静态析构，fix）
+
+- **背景**：`docs/2026-09/hook与出口层复查_20260928.md` 的批 2（"需设计"组，台账建议顺序 H2 → H10 → H11 → H15）四条一次性落地；批 1 已解决"能静默出错"的部分，批 2 全是**崩溃 / 卡死 / 性能**类。
+- **H2 解绑与在途 detour 竞态**（新增 `hook/DetourGuard.h`；改 `hook/DisplayHook.h/.cpp` + 5 个 capture 文件）：`release()` 中的 `MH_RemoveHook` 会释放 detour 的 trampoline。若渲染线程已进入 detour、但还没执行到 `((Present_t)old_address)(...)`，就会在解冻后跳到**已释放内存** → 目标进程崩溃。`MH_DisableHook` 只能保证"新调用不再进入"，管不了已在里面的线程。新增 `DetourGuard`（在途计数 + `wait_idle(超时)`）与 RAII `DetourScope`，**6 个 detour 入口**（D3D9 `EndScene`、D3D10/11/12 `Present`、GL 的 `wglSwapBuffers` / `glBegin` / `glFinish` / `eglSwapBuffers`）都在函数体**最外层**持 scope，覆盖到跳板调用；`release()` 顺序固定为 **停捕获 → `MH_DisableHook` → 等在途归零（上限 500ms）→ `MH_RemoveHook`**，超时只 `setlog` 留证不阻塞拆钩（否则 hook 泄漏 + MinHook 引用计数失衡）。`DisplayHook::old_address` 同步改 `std::atomic<void *>` —— `MH_CreateHook` 的 `void **` 出参先收进局部量再发布，避免其它线程读到半值；detour 统一 `load(acquire)`。
+- **H10 staging 纹理每帧重建**（`hook/D3D11Capture.cpp` / `hook/D3D10Capture.cpp`）：原实现每帧 `GetImmediateContext` + `CreateTexture2D`（开 MSAA 时还多建一张 resolve 纹理），帧率越高分配/释放越密、显存碎片越多。改为按 **设备 + 尺寸/格式/采样数** 缓存复用，判据抽成 `StagingDescKey::matches`（`hook/DxCaptureCommon.h`）；缓存对象 `new` 出来不做析构（leak-by-design，与 H15 同取舍）。
+- **H11 D3D12 围栏无限等待**（`hook/D3D12Capture.cpp/.h`）：Present 内的 `WaitForSingleObject(fenceEvent_, INFINITE)` 在 GPU hang / 驱动 TDR 时会把游戏主线程永久钉死 —— 用户侧表现就是"游戏卡死"。改为 **200ms 有界等待**，超时则跳过本帧读回（避免读半写帧）、只留一次证据（`fenceTimeoutLogged_` 防刷屏），下一帧继续等。
+- **H15 D3D12 函数级 static 析构**（`hook/D3D12Capture.cpp`）：`Get()` 原是 `static D3D12Capture hook`，进程卸载（DllMain / loader lock）时会析构并 Release 一批 COM 对象，与 `17574a0` 修的 ORT 静态析构同类风险；改为 `static auto *hook = new D3D12Capture()`（leak-by-design，进程即将退出，泄漏无实际代价）。
+- **新增用例 2 条**（`tests/hook_capture_test.cpp`，纯函数/纯线程，不依赖载体与真机）：`HookCaptureDetourGuardTest.WaitIdleTracksInFlightDetoursAndTimesOut` 覆盖三条路径 —— 无在途立即返回（<50ms）、在途未退如实等满超时返 `false`、退出后立即返 `true`；`HookCaptureStagingKeyTest.AnyFieldChangeInvalidatesCachedStaging` 断言四字段任一变化都必须让缓存失效（尤其"尺寸不变但格式变"，是最容易漏、也最会静默错色的一种）。
+- **反向验证**（一次构建同时改错两处）：① `DetourGuard::leave()` 改空实现（计数只增不减）→ 等待永不排空；② `StagingDescKey::matches` 改为只比 `width`。重建后两条用例立即 FAIL，且 H10 的三条独立断言**各自报出、未被短路**（正是为了让 FAIL 能定位到具体哪一项）；恢复后 2/2 PASS。
+- **回归**：全量 **330 用例 = 326 PASS / 2 SKIP / 2 FAILED**（上一基线 328 = 325/2/1；+2 为本次新增用例）。2 FAILED = `MouseKeyTest.WaitKeyScanAllWithWaitFindsKey`（本机幽灵键 VK 0x85 环境项，基线一致）+ `CaptureModeTest.DownCpuAddsDelayAfterEachCapture` —— **判为环境抖动**：单跑 3/3 均超阈值，但超幅仅 5–22ms，且失败的两条断言都在"未降载基线"上（156–172ms 对阈值 150ms），而 `slowed_ms >= 150` 那条**通过** ⇒ 降载逻辑正确、只是机器整体慢 10%；该用例走 `gdi` 绑定 + `GetColor`，与本轮 D3D/hook 改动零交集，批 1 轮亦记录过同类抖动。
+- **未覆盖范围（明确记录）**：H2 的真机判据是"解绑瞬间恰有线程停在 detour 内"，`dx_carrier` 复现不了这个时序 —— 用例只证明计数/等待逻辑与 `release` 顺序正确；H10 的缓存复用、H11 的超时分支同样无真机用例（H11 需要造 GPU hang）。三者的执行正确性目前依赖既有 7 条真机捕获用例不回归（本轮全绿）。
+
 ### 2026-09-28（hook 层批 1：交换链格式白名单化 + RPC 护栏 + 失败统一停捕获 + 计数原子化，fix）
 
 - **背景**：`docs/2026-09/hook与出口层复查_20260928.md` 只读扫描出的 26 条分级发现中，**批 1（无真机依赖、可直接修）共 6 组**。本条目全部落地，另加 2 条不依赖真机的判别力用例。

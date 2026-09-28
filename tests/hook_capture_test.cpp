@@ -16,10 +16,14 @@
 
 #include "../libop/base/AutomationModes.h"
 #include "../libop/hook/DisplayHook.h"   // CopyImageData 声明在此
+#include "../libop/hook/DetourGuard.h"   // H2: detour 在途计数
 #include "../libop/hook/DxCaptureCommon.h"
 
+#include <atomic>
+#include <chrono>
 #include <cstring>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -407,6 +411,78 @@ TEST(HookCaptureFormatTest, CopyImageDataRefusesUnsupportedFormat) {
 
     for (size_t i = 0; i < sizeof(dst); ++i)
         EXPECT_EQ(dst[i], 0xAB) << "未支持格式不应写入任何像素（第 " << i << " 字节被改写）";
+}
+
+// ------------------------------------------------ H2 解绑与在途 detour 的排空判定
+//
+// 这一组用例针对的是：release() 里 MH_RemoveHook 会释放 trampoline，而此刻可能还有
+// 渲染线程卡在 detour 中、尚未走完对跳板的调用 —— 解冻后跳到已释放内存 = 目标进程崩溃。
+// 判据是"release 前必须等在途计数归零"，所以这里直接测计数与等待的三种路径。
+//
+// 反向验证：把 DetourGuard::leave() 改成空实现（计数只增不减），本用例立即 FAIL
+// （等待会一直超时）；把 wait_idle 改成恒返回 true，第 2 条断言立即 FAIL。
+TEST(HookCaptureDetourGuardTest, WaitIdleTracksInFlightDetoursAndTimesOut) {
+    using op::hook::DetourGuard;
+    using op::hook::DetourScope;
+
+    // 无在途：不该有任何等待。
+    ASSERT_EQ(DetourGuard::inflight(), 0);
+    const auto idleBegin = std::chrono::steady_clock::now();
+    EXPECT_TRUE(DetourGuard::wait_idle(1000));
+    const auto idleMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - idleBegin).count();
+    EXPECT_LT(idleMs, 50) << "无在途 detour 时不应自旋等待";
+
+    std::atomic<bool> mayLeave{false};
+    std::thread worker([&] {
+        DetourScope scope; // 进入即为"在途"，离开即排空
+        while (!mayLeave.load())
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    });
+
+    // 等 worker 真正登记进去，否则下面的"超时"会退化成"无在途立即返回"的假通过。
+    const auto enterBegin = std::chrono::steady_clock::now();
+    while (DetourGuard::inflight() == 0 && std::chrono::steady_clock::now() - enterBegin < std::chrono::seconds(2))
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    ASSERT_EQ(DetourGuard::inflight(), 1);
+
+    // 在途未退：必须等满超时并如实返回 false（证明计数真的参与了判定）。
+    const auto timeoutBegin = std::chrono::steady_clock::now();
+    EXPECT_FALSE(DetourGuard::wait_idle(120));
+    const auto timeoutMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - timeoutBegin).count();
+    EXPECT_GE(timeoutMs, 100) << "在途未退出时应等满超时才返回";
+
+    // 在途退出后：应立即返回 true。
+    mayLeave.store(true);
+    const auto drainBegin = std::chrono::steady_clock::now();
+    EXPECT_TRUE(DetourGuard::wait_idle(2000));
+    const auto drainMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - drainBegin).count();
+    EXPECT_LT(drainMs, 500) << "在途退出后应立即排空";
+
+    worker.join();
+    EXPECT_EQ(DetourGuard::inflight(), 0);
+}
+
+// ------------------------------------------------ H10 staging 纹理复用判据
+//
+// 每帧 CreateTexture2D 建 staging 是白付开销；缓存复用的正确性全压在"四项相等"上，
+// 漏任何一项都会复用错误的纹理（尺寸没变但格式变了 -> 静默错色，正是最难发现的一种）。
+//
+// 反向验证：把 StagingDescKey::matches 改成只比 width，后三条断言立即 FAIL。
+TEST(HookCaptureStagingKeyTest, AnyFieldChangeInvalidatesCachedStaging) {
+    using op::hook::StagingDescKey;
+
+    const StagingDescKey base{DXGI_FORMAT_B8G8R8A8_UNORM, 1280, 720, 1};
+
+    // 全等必须复用，否则缓存等于没生效（每帧重建，H10 白改）。
+    EXPECT_TRUE(base.matches(StagingDescKey{DXGI_FORMAT_B8G8R8A8_UNORM, 1280, 720, 1}));
+
+    EXPECT_FALSE(base.matches(StagingDescKey{DXGI_FORMAT_R8G8B8A8_UNORM, 1280, 720, 1})) << "格式变化必须失效";
+    EXPECT_FALSE(base.matches(StagingDescKey{DXGI_FORMAT_B8G8R8A8_UNORM, 1920, 720, 1})) << "宽变化必须失效";
+    EXPECT_FALSE(base.matches(StagingDescKey{DXGI_FORMAT_B8G8R8A8_UNORM, 1280, 1080, 1})) << "高变化必须失效";
+    EXPECT_FALSE(base.matches(StagingDescKey{DXGI_FORMAT_B8G8R8A8_UNORM, 1280, 720, 4})) << "采样数变化必须失效";
 }
 
 } // namespace

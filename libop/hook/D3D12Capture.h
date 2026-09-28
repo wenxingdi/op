@@ -32,6 +32,8 @@ class D3D12Capture final {
     Microsoft::WRL::ComPtr<ID3D12Fence> fence_;
     HANDLE fenceEvent_ = NULL;
     UINT64 fenceValue_ = 0;
+    /*H11: 围栏等待超时的日志只打一次，避免 GPU hang 时每帧刷日志*/
+    bool fenceTimeoutLogged_ = false;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> readbackResource_;
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator> commandAllocator_;

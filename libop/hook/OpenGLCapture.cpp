@@ -1,6 +1,7 @@
 #include "OpenGLCapture.h"
 
 #include "DisplayHook.h"
+#include "DetourGuard.h"
 #include "SharedFrame.h"
 #include "../capture/FrameInfo.h"
 #include "../hook/ApiResolver.h"
@@ -65,19 +66,22 @@ long gl_capture() {
 }
 
 void __stdcall gl_hkglBegin(GLenum mode) {
+    // H2: 覆盖下方跳板调用，release 靠该计数确认跳板可安全释放。
+    DetourScope guard;
     static DWORD t = 0;
     using glBegin_t = decltype(glBegin) *;
 
     if (DisplayHook::capture_enabled())
         gl_capture();
-    ((glBegin_t)DisplayHook::old_address)(mode);
+    ((glBegin_t)DisplayHook::old_address.load(std::memory_order_acquire))(mode);
 }
 
 void __stdcall gl_hkwglSwapBuffers(HDC hdc) {
+    DetourScope guard;
     using wglSwapBuffers_t = void(__stdcall *)(HDC hdc);
     if (DisplayHook::capture_enabled())
         gl_capture();
-    ((wglSwapBuffers_t)DisplayHook::old_address)(hdc);
+    ((wglSwapBuffers_t)DisplayHook::old_address.load(std::memory_order_acquire))(hdc);
 }
 
 long egl_capture() {
@@ -132,17 +136,19 @@ long egl_capture() {
 }
 
 unsigned int __stdcall gl_hkeglSwapBuffers(void *dpy, void *surface) {
+    DetourScope guard;
     using eglSwapBuffers_t = decltype(gl_hkeglSwapBuffers) *;
     if (DisplayHook::capture_enabled())
         egl_capture();
-    return ((eglSwapBuffers_t)DisplayHook::old_address)(dpy, surface);
+    return ((eglSwapBuffers_t)DisplayHook::old_address.load(std::memory_order_acquire))(dpy, surface);
 }
 
 void __stdcall gl_hkglFinish(void) {
+    DetourScope guard;
     using glFinish_t = decltype(glFinish) *;
     if (DisplayHook::capture_enabled())
         gl_capture();
-    ((glFinish_t)DisplayHook::old_address)();
+    ((glFinish_t)DisplayHook::old_address.load(std::memory_order_acquire))();
 }
 
 } // namespace op::hook
