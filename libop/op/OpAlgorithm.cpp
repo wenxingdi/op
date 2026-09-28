@@ -272,7 +272,11 @@ void op::Op::SimplifyPath(const wchar_t *path, double epsilon, std::wstring &out
     out = pathtools::points_to_string(simplified);
 }
 
-// 两点视线遮挡判定（世界坐标）：1=被挡 0=通 -1=未设置地图。
+// 两点视线遮挡判定（世界坐标）：**三态** 1=被挡 0=通 -1=未设置地图。
+// -1 不是"负错误码泄漏"：调用方按「非 0 = 走 A* 绕路」判定，-1 与 1 行为等价，
+// 且 -1 保留了"忘记 SetAStarMap"的可诊断信息。既有用例
+// AlgorithmTest.AStarBMUnreachableOrNoMapReturnsEmpty 钉住此值，**勿改为 0**
+// （改 0 会让未设图被误判为"畅通"，直线撞墙）。
 void op::Op::IsLineBlocked(long x1, long y1, long x2, long y2, long *ret) {
     if (!m_context->astar_map.valid()) {
         setlog(L"IsLineBlocked: 未设置障碍地图，请先 SetAStarMap/SetAStarMapData");

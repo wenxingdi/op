@@ -469,6 +469,9 @@ void op::Op::FindStr(long x1, long y1, long x2, long y2, const wchar_t *strs, co
     internal::set_result(rety, y);
     internal::set_result(ret, 0L);
     internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        // FindStr 与 FindPic 同为**大漠索引语义**：返回值是命中的字符串序号（-1=未找到），
+        // 不是布尔。这里的初值 0L 只是"未进入捕获区"时的兜底，命中路径仍由能力层给出 -1，
+        // **勿按「0=失败」归一**（否则"未找到"与"命中第 0 条串"无法区分）。
         internal::set_result(ret, m_context->image_proc.FindStr(strs, color, sim, x, y));
         internal::set_result(retx, x);
         internal::set_result(rety, y);

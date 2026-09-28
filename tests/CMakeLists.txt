@@ -175,6 +175,10 @@ set(OP_TEST_SOURCES
   # 绑定失败（实测蜀门 client.exe）。纯函数 + 真实 PE 产物双层判据。
   "hook_export_name_test.cpp"
   "algorithm_test.cpp"
+  # C API「null-handle 契约」冒烟：256 个导出里只有极少数进过 gtest，
+  # 一旦某 API 忘了 null 检查 / 异常护栏 / 把内部负错误码透出去，回归网抓不到。
+  # 本文件由 scripts/gen_c_api_null_handle_test.py 从 include/op_c_api.h 生成，勿手改。
+  "c_api_null_handle_test.cpp"
   "../libop/base/Utils.cpp"
   "../libop/base/Environment.cpp"
   "../libop/window/WindowLayout.cpp"

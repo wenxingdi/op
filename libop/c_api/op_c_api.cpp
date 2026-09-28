@@ -948,6 +948,9 @@ int OP_CALL OpSetDisplayInput(op_handle handle, const wchar_t *mode) {
 
 int OP_CALL OpRequestCaptureForTest(const wchar_t *mem_mode, int x1, int y1, int w, int h,
                                     unsigned char out_pixel[4]) {
+    // 测试专用钩子（不在大漠 API 面里）：负码是**设计意图** —— -2=参数非法、-1=显示模式
+    // 设置失败，调用方据此区分两种失败。既有用例 image_color_test 用 `< 0` 钉住，
+    // **勿按布尔契约归一为 0**。
     if (!mem_mode || !out_pixel)
         return -2;
     op::binding::BindingSession session;

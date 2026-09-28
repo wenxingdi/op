@@ -3,6 +3,26 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（出口层返回值契约收口：普查结论 + 契约网补漏，无行为改动）
+
+- **普查结论：出口层已无"负错误码泄漏"遗留。** 双向对撞扫了一遍——正向扫 `libop/op/*.cpp` 的 **319 处 `internal::set_result`**（对透传型 expr 回溯被调方有无 `return -N`），反向扫全库 **73 处 `return -N`**（反推所属函数再看是否被 op 层透传）。两边只报出 `FindPic` / `FindStr` 两个透传点，互为印证。
+- **对外的负值只剩 4 处，全是设计语义、全被既有测试钉住**（详见 `docs/2026-09/出口层契约收口_20260928.md`）：
+
+  | 出口点 | 值 | 语义 | 钉住的既有用例 |
+  |---|---|---|---|
+  | `FindPic` / `OpFindPic` | -1 | 大漠**索引**：命中图片序号 | `ImageColorTest.FindPicReturnsMinusOneWhenTemplateIsMissing` |
+  | `FindStr` | -1 | 大漠**索引**：命中字符串序号 | 同族（语义与 FindPic 一致） |
+  | `IsLineBlocked` | -1 | **三态** 1=被挡 / 0=通 / -1=未设地图 | `AlgorithmTest.AStarBMUnreachableOrNoMapReturnsEmpty` |
+  | `OpRequestCaptureForTest` | -1 / -2 | 测试钩子：-2 参数非法 / -1 模式设置失败 | `image_color_test.cpp:2694` 用 `< 0` 钉住 |
+
+- **`IsLineBlocked` 的"待拍板"收敛为保持 -1**（此前在"改 1 还是 0"上悬着）：调用方按「非 0 = 被挡 = 走 A\*」判定，-1 与 1 行为完全等价，且 -1 保留了"忘记 SetAStarMap"的诊断信息；改 0 会把未设图误判成畅通 → 直线撞墙。已在 `OpAlgorithm.cpp` 写死注释。
+- **新增三件防复发机制**（脚本均入库）：
+  1. `scripts/return_contract_survey.py` —— 双向普查（改出口层后跑一遍）
+  2. `scripts/gen_c_api_null_handle_test.py` → `tests/c_api_null_handle_test.cpp` —— **null-handle 契约冒烟**：256 个 C API 各挂一条回归（int → 0、`const wchar_t*` → 空串、JSON 型 → 含 `"ok":0`、索引语义 `OpFindPic` → -1）。补的是 `复查覆盖总览` 记的"211 个 C API 从未进 gtest"缺口
+  3. `scripts/check_cmake_sources.py` —— CMake 显式源清单门禁（防新增 .cpp 忘登记 = 静默不编译），当前 70 + 23 个源文件 MISSING 0 / STALE 0
+- **反向验证**：把 `OpGetID` 改成 `if (!handle) return 1;`（故意违反契约）→ `CApiNullHandle.AllHandleFunctionsReturnFailure` 如期 **FAIL**；还原后 PASS。
+- **回归**：全量 **384 = 382 PASS / 2 SKIP / 0 FAILED**（基线 382 + 2 条新增，无新增失败）。
+
 ### 2026-09-28（fix：`run_app(cmd, mode=1)` 裸文件名必失败 —— 真机全量测阶段 3 暴露的缺陷 ②，已修）
 
 - **症状**：`run_app("notepad.exe", 1)` 恒返回 pid=0；而 `mode=0` 或传全路径的 `mode=1` 都正常。失败原因只落在 `__op.log`，宿主侧看不到任何区别。
