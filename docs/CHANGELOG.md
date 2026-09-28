@@ -3,6 +3,23 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（算法域扩展：障碍位图 A* + 路径工具 8 API，feat）
+
+- **背景**：综合功能盘点发现 `AStarFindPath` 的障碍输入为字符串列表，对像素级大地图（如 gmaj 2515x5189 ≈ 1300 万格）不可用；规划 P0+P1 七项游戏常用算法并对齐落地。
+- **新增 8 API**（COM id(368-375) + Op 类 + C API + Python 绑定四层；`SetAStarMapData` 仅供 C API 内存入口）：
+  - `SetAStarMap(file, scale, offset_x, offset_y)`：设置会话障碍地图（32bpp BGRA 位图文件，亮度 (r+g+b)/3<128 = 障碍；scale 降采样块内任一障碍像素则整格障碍=保守策略；offset 支持负世界坐标；空文件名清空）。C API 另有 `OpSetAStarMapData` 内存版。状态存于 OpContext，供下列 API 共用。
+  - `AStarFindPathBM(bx,by,ex,ey)`：位图 A*，输出世界坐标路径（格中心：offset+grid*scale+scale/2），起点/终点落障碍或不可达返回空串。
+  - `AStarFindPathWay(points)`：多点途经寻路，逐段拼接衔接点去重，任一段不可达整体空串。
+  - `SmoothPathByLOS(path)`：贪心最远可见跳点拉直（Bresenham 网格 LOS），保留输入点精度，未设图原样返回。
+  - `SimplifyPath(path, epsilon)`：RDP 抽稀（显式栈防长路径递归爆栈），epsilon<=0 原样返回。
+  - `IsLineBlocked(x1,y1,x2,y2)`：1=被挡 0=通 -1=未设图。
+  - `FindNearestPathPoint(path,x,y,&idx,&nx,&ny)`：跟踪路径进度/卡住检测。
+  - `PointInPolygon(point, polygon)`：射线法 even-odd，支持凹多边形。
+  - 底层新增：`algorithm/PathTools.h`（AStarMapState/LOS/RDP/点串解析/多边形）、`AStar::set_map_grid`（障碍网格直读免展开墙点）。
+- **测试**（AlgorithmTest +12，均有反向验证判据）：绕墙路径逐点断言不落墙格（漏障碍必挂）、offset 负坐标换算、scale=2 降采样墙格保真、未设图返空/IsLineBlocked 返 -1、途经串联去重（衔接点恰出现一次）、LOS 拉直点数必减且每段与 IsLineBlocked 自洽、纯共线 RDP 只留首尾、最近点索引、凹多边形凹口内外、非法输入容错。**Python 端到端冒烟通过**（16x16 位图：A* 13 点绕墙 → LOS 拉直 3 点）。
+- **回归**：AlgorithmTest 29/29，全量 309 用例全过。发布件三处已同步。
+- **备注**：C API 字符串返回值指向共享缓冲（`handle->string_result`），跨调用传递必须先拷贝——测试曾踩此坑（返回指针未拷贝即作下一次调用入参，被 clear 掉变空串）；ctypes 的 c_wchar_p 转换与 COM BSTR 语义会即时拷贝，绑定层不受影响。
+
 ### 2026-09-28（内存盘点 + 图片缓存上限与清空 API，feat）
 
 - **背景**：内存维度盘点。基本面结论：RAII 全覆盖（PROJECT_REVIEW 判 🟢）、`screenData/screenDataBmp` 复用容量不涨、`mem:` 输入零拷贝、字库进程级共享（`g_file_dicts` 100 槽 shared_ptr + shared_mutex 读写锁，AddDict/ClearDict 实例私有隔离；单实例内"边改字库边查字"理论竞态按够用原则不动）。唯一实伤点：**图片缓存三连缺**——`g_pic_cache`/`g_pic_match_cache` 进程级全局 map 无上限、无淘汰、无清空手段（`FreePic` 只能逐张删），长跑/遍历大模板目录时缓存单调膨胀，且跨 op 实例共享、UnBindWindow/析构均不清。

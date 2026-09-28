@@ -308,6 +308,14 @@ interface IOpAutomation : IDispatch
 	[id(365)] HRESULT DownCpu([in] LONG type, [in] LONG rate, [out, retval] LONG* ret);
 	[id(366)] HRESULT ClearPicCache([out, retval] LONG* ret);
 	[id(367)] HRESULT SetPicCacheMax([in] LONG max_count, [out, retval] LONG* ret);
+	[id(368)] HRESULT SetAStarMap([in] BSTR bitmap_file, [in] LONG scale, [in] LONG offset_x, [in] LONG offset_y, [out, retval] LONG* ret);
+	[id(369)] HRESULT AStarFindPathBM([in] LONG beginX, [in] LONG beginY, [in] LONG endX, [in] LONG endY, [out, retval] BSTR* path);
+	[id(370)] HRESULT AStarFindPathWay([in] BSTR points, [out, retval] BSTR* path);
+	[id(371)] HRESULT SmoothPathByLOS([in] BSTR path, [out, retval] BSTR* retstr);
+	[id(372)] HRESULT SimplifyPath([in] BSTR path, [in] DOUBLE epsilon, [out, retval] BSTR* retstr);
+	[id(373)] HRESULT IsLineBlocked([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [out, retval] LONG* ret);
+	[id(374)] HRESULT FindNearestPathPoint([in] BSTR path, [in] LONG x, [in] LONG y, [in, out] VARIANT* index, [in, out] VARIANT* nx, [in, out] VARIANT* ny, [out, retval] LONG* ret);
+	[id(375)] HRESULT PointInPolygon([in] BSTR point, [in] BSTR polygon, [out, retval] LONG* ret);
 
 
 

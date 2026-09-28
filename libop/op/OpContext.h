@@ -2,6 +2,7 @@
 #ifndef OP_OP_CONTEXT_H_
 #define OP_OP_CONTEXT_H_
 
+#include "algorithm/PathTools.h"
 #include "binding/BindingSession.h"
 #include "image/ImageSearchService.h"
 #include "window/WindowService.h"
@@ -27,6 +28,9 @@ struct OpContext {
     std::map<std::wstring, long> vkmap;
     std::vector<unsigned char> screenData;
     std::vector<unsigned char> screenDataBmp;
+    // 寻路障碍位图会话状态（SetAStarMap / OpSetAStarMapData 设置，供 AStarFindPathBM/
+    // AStarFindPathWay/SmoothPathByLOS/IsLineBlocked 共用）
+    op::pathtools::AStarMapState astar_map;
     std::wstring opPath;
     long screen_data_mode = 0;
     int id = 0;

@@ -47,6 +47,17 @@ OP_C_API int OP_CALL OpInjectDll(op_handle handle, const wchar_t *process_name, 
 OP_C_API int OP_CALL OpEnablePicCache(op_handle handle, int enable);
 OP_C_API int OP_CALL OpClearPicCache(op_handle handle);
 OP_C_API int OP_CALL OpSetPicCacheMax(op_handle handle, int max_count);
+OP_C_API int OP_CALL OpSetAStarMap(op_handle handle, const wchar_t *bitmap_file, int scale, int offset_x, int offset_y);
+OP_C_API int OP_CALL OpSetAStarMapData(op_handle handle, int width, int height, const unsigned char *bgra_data,
+                                       int size, int scale, int offset_x, int offset_y);
+OP_C_API const wchar_t *OP_CALL OpAStarFindPathBM(op_handle handle, int begin_x, int begin_y, int end_x, int end_y);
+OP_C_API const wchar_t *OP_CALL OpAStarFindPathWay(op_handle handle, const wchar_t *points);
+OP_C_API const wchar_t *OP_CALL OpSmoothPathByLOS(op_handle handle, const wchar_t *path);
+OP_C_API const wchar_t *OP_CALL OpSimplifyPath(op_handle handle, const wchar_t *path, double epsilon);
+OP_C_API int OP_CALL OpIsLineBlocked(op_handle handle, int x1, int y1, int x2, int y2);
+OP_C_API int OP_CALL OpFindNearestPathPoint(op_handle handle, const wchar_t *path, int x, int y, int *index, int *nx,
+                                            int *ny);
+OP_C_API int OP_CALL OpPointInPolygon(op_handle handle, const wchar_t *point, const wchar_t *polygon);
 OP_C_API int OP_CALL OpCapturePre(op_handle handle, const wchar_t *file_name);
 OP_C_API int OP_CALL OpSetScreenDataMode(op_handle handle, int mode);
 

@@ -191,6 +191,65 @@ STDMETHODIMP OpAutomation::SetPicCacheMax(LONG max_count, LONG *ret) {
     return S_OK;
 }
 
+STDMETHODIMP OpAutomation::SetAStarMap(BSTR bitmap_file, LONG scale, LONG offset_x, LONG offset_y, LONG *ret) {
+    obj.SetAStarMap(bitmap_file, scale, offset_x, offset_y, ret);
+
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::AStarFindPathBM(LONG beginX, LONG beginY, LONG endX, LONG endY, BSTR *path) {
+    wstring s;
+    obj.AStarFindPathBM(beginX, beginY, endX, endY, s);
+
+    return CopyOutBstr(path, s);
+}
+
+STDMETHODIMP OpAutomation::AStarFindPathWay(BSTR points, BSTR *path) {
+    wstring s;
+    obj.AStarFindPathWay(points, s);
+
+    return CopyOutBstr(path, s);
+}
+
+STDMETHODIMP OpAutomation::SmoothPathByLOS(BSTR path, BSTR *retstr) {
+    wstring s;
+    obj.SmoothPathByLOS(path, s);
+
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::SimplifyPath(BSTR path, DOUBLE epsilon, BSTR *retstr) {
+    wstring s;
+    obj.SimplifyPath(path, epsilon, s);
+
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::IsLineBlocked(LONG x1, LONG y1, LONG x2, LONG y2, LONG *ret) {
+    obj.IsLineBlocked(x1, y1, x2, y2, ret);
+
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::FindNearestPathPoint(BSTR path, LONG x, LONG y, VARIANT *index, VARIANT *nx, VARIANT *ny,
+                                                LONG *ret) {
+    if (!index || !nx || !ny || !ret)
+        return E_POINTER;
+    LONG vindex = 0, vnx = 0, vny = 0;
+    obj.FindNearestPathPoint(path, x, y, &vindex, &vnx, &vny, ret);
+    OutLong(index, vindex);
+    OutLong(nx, vnx);
+    OutLong(ny, vny);
+
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::PointInPolygon(BSTR point, BSTR polygon, LONG *ret) {
+    obj.PointInPolygon(point, polygon, ret);
+
+    return S_OK;
+}
+
 STDMETHODIMP OpAutomation::CapturePre(BSTR file, LONG *ret) {
 
     obj.CapturePre(file, ret);

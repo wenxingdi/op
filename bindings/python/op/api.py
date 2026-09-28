@@ -205,6 +205,54 @@ class Op:
     def find_nearest_pos(self, all_pos: str, pos_type: constants.NearestPosType | int, x: int, y: int) -> str:
         return self._call_string("OpFindNearestPos", all_pos, int(pos_type), int(x), int(y))
 
+    def set_astar_map(self, bitmap_file: str | Path, scale: int, offset_x: int, offset_y: int) -> bool:
+        """设置寻路障碍地图（位图文件，黑=障碍）。scale 降采样倍率，offset 为位图原点世界坐标；空文件名清空。"""
+        return self._call_ok("OpSetAStarMap", str(bitmap_file), int(scale), int(offset_x), int(offset_y))
+
+    def set_astar_map_data(
+        self, width: int, height: int, bgra_data, scale: int, offset_x: int, offset_y: int
+    ) -> bool:
+        """内存版障碍地图：32bpp BGRA top-down 字节缓冲（ctypes/bytes 均可），大小自动取缓冲长度。"""
+        size = len(bgra_data) if hasattr(bgra_data, "__len__") else ctypes.sizeof(bgra_data)
+        return self._call_ok(
+            "OpSetAStarMapData", int(width), int(height), bgra_data, int(size), int(scale), int(offset_x),
+            int(offset_y)
+        )
+
+    def a_star_find_path_bm(self, begin_x: int, begin_y: int, end_x: int, end_y: int) -> str:
+        """障碍位图 A*：对已设置地图寻路，返回世界坐标路径，不可达/未设图返回空串。"""
+        return self._call_string("OpAStarFindPathBM", int(begin_x), int(begin_y), int(end_x), int(end_y))
+
+    def a_star_find_path_way(self, points: str) -> str:
+        """多点途经寻路："x,y|x,y|..." 首点为起点，任一段不可达返回空串。"""
+        return self._call_string("OpAStarFindPathWay", points)
+
+    def smooth_path_by_los(self, path: str) -> str:
+        """视线拉直（需已设置障碍地图），未设图原样返回。"""
+        return self._call_string("OpSmoothPathByLOS", path)
+
+    def simplify_path(self, path: str, epsilon: float) -> str:
+        """RDP 路径抽稀，epsilon 为最大垂直偏差（世界坐标单位）。"""
+        return self._call_string("OpSimplifyPath", path, float(epsilon))
+
+    def is_line_blocked(self, x1: int, y1: int, x2: int, y2: int) -> int:
+        """两点视线遮挡判定：1=被挡 0=通 -1=未设置地图。"""
+        return self._call_int("OpIsLineBlocked", int(x1), int(y1), int(x2), int(y2))
+
+    def find_nearest_path_point(self, path: str, x: int, y: int) -> tuple[int, int, int] | None:
+        """点到路径最近点，返回 (index, nx, ny)；path 非法返回 None。"""
+        index = ctypes.c_int(0)
+        nx = ctypes.c_int(0)
+        ny = ctypes.c_int(0)
+        ret = self._dll.OpFindNearestPathPoint(self._handle, path, int(x), int(y), ctypes.byref(index),
+                                               ctypes.byref(nx), ctypes.byref(ny))
+        self._ok(ret, "OpFindNearestPathPoint")
+        return (index.value, nx.value, ny.value) if ret == 1 else None
+
+    def point_in_polygon(self, point: str, polygon: str) -> bool:
+        """点在多边形内判定（射线法）：point="x,y"，polygon="x,y|x,y|..."（>=3 顶点）。"""
+        return self._call_ok("OpPointInPolygon", point, polygon)
+
     # Window and process
     def enum_window(
         self,

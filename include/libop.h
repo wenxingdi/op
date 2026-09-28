@@ -129,6 +129,27 @@ class OP_API Op {
     // 从坐标列表中查找距离指定坐标最近的点。all_pos: type=1 时 "x,y|x,y"；否则 "name,x,y|..."（name 不含空格/逗号）。
     // 返回 "x,y"（type=1）或 "name,x,y"；列表无有效项返回空串；等距时取先出现的。
     void FindNearestPos(_In_ const wchar_t *all_pos, _In_ long type, _In_ long x, _In_ long y, _Out_ std::wstring &ret);
+    // 设置寻路障碍地图（位图文件，黑=障碍：亮度 (r+g+b)/3<128）。scale 降采样倍率（块内任一障碍像素则整格障碍）。
+    // offset_x/offset_y：位图 (0,0) 对应的世界坐标（支持负值）。file 为空串清空地图。
+    void SetAStarMap(_In_ const wchar_t *bitmap_file, _In_ long scale, _In_ long offset_x, _In_ long offset_y, _Out_ long *ret);
+    // 内存版障碍地图（32bpp BGRA top-down）。C API 专用。
+    void SetAStarMapData(_In_ long width, _In_ long height, _In_ void *bgra_data, _In_ long size, _In_ long scale,
+                         _In_ long offset_x, _In_ long offset_y, _Out_ long *ret);
+    // 障碍位图 A*：对已设置地图寻路，输出世界坐标路径 "x,y|x,y"（起点→终点，格中心），不可达/未设图返回空串。
+    void AStarFindPathBM(_In_ long beginX, _In_ long beginY, _In_ long endX, _In_ long endY, _Out_ std::wstring &ret);
+    // 多点途经寻路："x,y|x,y|..." 首点为起点，逐段寻路拼接（衔接点去重）；任一段不可达整体返回空串。
+    void AStarFindPathWay(_In_ const wchar_t *points, _Out_ std::wstring &ret);
+    // 视线拉直：贪心合并可直视的相邻路径点（需已设置障碍地图），路径更自然；未设图原样返回。
+    void SmoothPathByLOS(_In_ const wchar_t *path, _Out_ std::wstring &ret);
+    // RDP 路径抽稀：epsilon 为最大垂直偏差（世界坐标单位），<=0 原样返回。
+    void SimplifyPath(_In_ const wchar_t *path, _In_ double epsilon, _Out_ std::wstring &ret);
+    // 两点视线遮挡判定（世界坐标，需已设置障碍地图）：1=被挡 0=通 -1=未设置地图。
+    void IsLineBlocked(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _Out_ long *ret);
+    // 点到路径最近点：输出 0 基索引与最近点坐标；path 非法/为空返回 0。
+    void FindNearestPathPoint(_In_ const wchar_t *path, _In_ long x, _In_ long y, _Out_ long *index, _Out_ long *nx,
+                              _Out_ long *ny, _Out_ long *ret);
+    // 点在多边形内判定（射线法）。point="x,y"；polygon="x,y|x,y|..."（>=3 顶点）：1=在内 0=在外/非法。
+    void PointInPolygon(_In_ const wchar_t *point, _In_ const wchar_t *polygon, _Out_ long *ret);
     //--------------------windows api------------------------------
     // 根据指定条件,枚举系统中符合条件的窗口
     void EnumWindow(_In_ LONG_PTR parent, _In_ const wchar_t *title, _In_ const wchar_t *class_name, _In_ long filter,

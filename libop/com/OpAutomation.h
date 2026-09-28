@@ -83,6 +83,14 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(EnablePicCache)(LONG enable, LONG *ret);
     STDMETHOD(ClearPicCache)(LONG *ret);
     STDMETHOD(SetPicCacheMax)(LONG max_count, LONG *ret);
+    STDMETHOD(SetAStarMap)(BSTR bitmap_file, LONG scale, LONG offset_x, LONG offset_y, LONG *ret);
+    STDMETHOD(AStarFindPathBM)(LONG beginX, LONG beginY, LONG endX, LONG endY, BSTR *path);
+    STDMETHOD(AStarFindPathWay)(BSTR points, BSTR *path);
+    STDMETHOD(SmoothPathByLOS)(BSTR path, BSTR *retstr);
+    STDMETHOD(SimplifyPath)(BSTR path, DOUBLE epsilon, BSTR *retstr);
+    STDMETHOD(IsLineBlocked)(LONG x1, LONG y1, LONG x2, LONG y2, LONG *ret);
+    STDMETHOD(FindNearestPathPoint)(BSTR path, LONG x, LONG y, VARIANT *index, VARIANT *nx, VARIANT *ny, LONG *ret);
+    STDMETHOD(PointInPolygon)(BSTR point, BSTR polygon, LONG *ret);
     // 取上次操作的图色区域，保存为file(24位位图)
     STDMETHOD(CapturePre)(BSTR file_name, LONG *ret);
     // 设置屏幕数据模式，0:从上到下(默认),1:从下到上

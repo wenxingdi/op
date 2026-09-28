@@ -45,6 +45,20 @@ class AStar {
         return true;
     }
 
+    // 从降采样障碍网格直接建图（1=墙），免展开墙点 vector。尺寸上限同 set_map。
+    bool set_map_grid(int w, int h, const std::vector<uint8_t> &blocked) {
+        _mapSize = {w, h};
+        const size_t cells = static_cast<size_t>(w) * static_cast<size_t>(h);
+        if (w <= 0 || h <= 0 || cells == 0 || cells > kMaxCells || blocked.size() != cells) {
+            _walls.clear();
+            return false;
+        }
+        _walls.resize(cells);
+        for (size_t i = 0; i < cells; ++i)
+            _walls[i] = blocked[i] != 0;
+        return true;
+    }
+
     // 保持现有输出顺序：终点 -> 起点。
     void findpath(int beginX, int beginY, int endX, int endY, std::list<Vec2i> &path) {
         path.clear();

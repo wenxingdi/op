@@ -245,6 +245,63 @@ int OP_CALL OpSetPicCacheMax(op_handle handle, int max_count) {
     return call_ret(handle, [&](op::Op &op, long *ret) { op.SetPicCacheMax(max_count, ret); });
 }
 
+int OP_CALL OpSetAStarMap(op_handle handle, const wchar_t *bitmap_file, int scale, int offset_x, int offset_y) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.SetAStarMap(safe_text(bitmap_file), scale, offset_x, offset_y, ret);
+    });
+}
+
+int OP_CALL OpSetAStarMapData(op_handle handle, int width, int height, const unsigned char *bgra_data, int size,
+                              int scale, int offset_x, int offset_y) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.SetAStarMapData(width, height, const_cast<unsigned char *>(bgra_data), size, scale, offset_x, offset_y, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpAStarFindPathBM(op_handle handle, int begin_x, int begin_y, int end_x, int end_y) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.AStarFindPathBM(begin_x, begin_y, end_x, end_y, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpAStarFindPathWay(op_handle handle, const wchar_t *points) {
+    return call_string(handle,
+                       [&](op::Op &op, std::wstring &ret) { op.AStarFindPathWay(safe_text(points), ret); });
+}
+
+const wchar_t *OP_CALL OpSmoothPathByLOS(op_handle handle, const wchar_t *path) {
+    return call_string(handle,
+                       [&](op::Op &op, std::wstring &ret) { op.SmoothPathByLOS(safe_text(path), ret); });
+}
+
+const wchar_t *OP_CALL OpSimplifyPath(op_handle handle, const wchar_t *path, double epsilon) {
+    return call_string(handle,
+                       [&](op::Op &op, std::wstring &ret) { op.SimplifyPath(safe_text(path), epsilon, ret); });
+}
+
+int OP_CALL OpIsLineBlocked(op_handle handle, int x1, int y1, int x2, int y2) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.IsLineBlocked(x1, y1, x2, y2, ret); });
+}
+
+int OP_CALL OpFindNearestPathPoint(op_handle handle, const wchar_t *path, int x, int y, int *index, int *nx, int *ny) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        long lindex = 0, lnx = 0, lny = 0;
+        op.FindNearestPathPoint(safe_text(path), x, y, &lindex, &lnx, &lny, ret);
+        if (index)
+            *index = static_cast<int>(lindex);
+        if (nx)
+            *nx = static_cast<int>(lnx);
+        if (ny)
+            *ny = static_cast<int>(lny);
+    });
+}
+
+int OP_CALL OpPointInPolygon(op_handle handle, const wchar_t *point, const wchar_t *polygon) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.PointInPolygon(safe_text(point), safe_text(polygon), ret);
+    });
+}
+
 int OP_CALL OpCapturePre(op_handle handle, const wchar_t *file_name) {
     return call_ret(handle, [&](op::Op &op, long *ret) { op.CapturePre(safe_text(file_name), ret); });
 }
