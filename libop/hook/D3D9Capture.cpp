@@ -48,9 +48,8 @@ class D3D9TextureLock {
 
 HRESULT dx9_capture(LPDIRECT3DDEVICE9 pDevice) {
     // 失败路径统一：setlog 留证 + 关闭捕获。原实现只 return，既不关捕获也无日志，
-    // 于是每帧重复付 GetBackBuffer/CreateTexture 的代价，失败原因完全不可见——
-    // 典型如 MSAA 后备缓冲下 GetRenderTargetData 恒返 INVALIDCALL（见下）。
-    HRESULT hr = NULL;
+    // 于是每帧重复付 GetBackBuffer/CreateTexture 的代价，失败原因完全不可见。
+    HRESULT hr = S_OK;
     CComPtr<IDirect3DSurface9> pSurface;
     hr = pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &pSurface);
     if (FAILED(hr)) {
@@ -83,12 +82,37 @@ HRESULT dx9_capture(LPDIRECT3DDEVICE9 pDevice) {
         DisplayHook::set_capture_enabled(false);
         return hr;
     }
-    hr = pDevice->GetRenderTargetData(pSurface, pTexSurface);
+    // H3: MSAA 后备缓冲不能直接 GetRenderTargetData（恒返 D3DERR_INVALIDCALL=8876086C），
+    // 必须先把多重采样面 resolve 成单采样面。D3D10/11 一直有 SampleDesc.Count>1 分支，
+    // D3D9 缺失 —— 表现是"绑得上、一帧也截不到"，且旧代码连日志都没有。
+    // 这里补上：StretchRect 到同尺寸同格式的非 MSAA RenderTarget（D3DPOOL_DEFAULT，
+    // 与后备缓冲同池，StretchRect 才允许），再对结果取 RenderTargetData。
+    // 调用时机是原 EndScene 已返回之后，不在 Begin/EndScene 之间，StretchRect 合法。
+    IDirect3DSurface9 *copySource = pSurface;
+    CComPtr<IDirect3DSurface9> pResolveSurface;
+    if (surface_Desc.MultiSampleType != D3DMULTISAMPLE_NONE) {
+        hr = pDevice->CreateRenderTarget(surface_Desc.Width, surface_Desc.Height, surface_Desc.Format,
+                                         D3DMULTISAMPLE_NONE, 0, FALSE, &pResolveSurface, NULL);
+        if (FAILED(hr)) {
+            setlog("dx9 CreateRenderTarget(resolve) failed hr=%X msaa=%d, disable capture", hr,
+                   static_cast<int>(surface_Desc.MultiSampleType));
+            DisplayHook::set_capture_enabled(false);
+            return hr;
+        }
+        hr = pDevice->StretchRect(pSurface, NULL, pResolveSurface, NULL, D3DTEXF_NONE);
+        if (FAILED(hr)) {
+            setlog("dx9 StretchRect(msaa resolve) failed hr=%X msaa=%d, disable capture", hr,
+                   static_cast<int>(surface_Desc.MultiSampleType));
+            DisplayHook::set_capture_enabled(false);
+            return hr;
+        }
+        copySource = pResolveSurface;
+    }
+
+    hr = pDevice->GetRenderTargetData(copySource, pTexSurface);
     if (FAILED(hr)) {
-        // D3DERR_INVALIDCALL(8876086C) 通常意味着后备缓冲开了 MSAA：D3D10/11 都有
-        // SampleDesc.Count>1 -> resolve 的分支，D3D9 没有（未修，需真机 MSAA 目标验证）。
-        // 至少让它在日志里现形，而不是"截不到图但什么也不说"。
-        setlog("dx9 GetRenderTargetData failed hr=%X (MSAA backbuffer unsupported?), disable capture", hr);
+        setlog("dx9 GetRenderTargetData failed hr=%X msaa=%d, disable capture", hr,
+               static_cast<int>(surface_Desc.MultiSampleType));
         DisplayHook::set_capture_enabled(false);
         return hr;
     }

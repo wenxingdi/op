@@ -20,19 +20,16 @@ using op::capture::FrameInfo;
 long gl_capture() {
     using glPixelStorei_t = decltype(glPixelStorei) *;
     using glReadBuffer_t = decltype(glReadBuffer) *;
-    using glGetIntegerv_t = decltype(glGetIntegerv) *;
     using glReadPixels_t = decltype(glReadPixels) *;
 
+    // H21: 这里原来还解析了一个 pglGetIntegerv，但全程零调用 —— 只参与"解析失败就停捕获"
+    // 的判断，等于凭白多一个可能让捕获静默停掉的失败点。删掉。
     auto pglPixelStorei = (glPixelStorei_t)ResolveApi("opengl32.dll", "glPixelStorei");
     auto pglReadBuffer = (glReadBuffer_t)ResolveApi("opengl32.dll", "glReadBuffer");
-    auto pglGetIntegerv = (glGetIntegerv_t)ResolveApi("opengl32.dll", "glGetIntegerv");
     auto pglReadPixels = (glReadPixels_t)ResolveApi("opengl32.dll", "glReadPixels");
-    if (!pglPixelStorei || !pglReadBuffer || !pglGetIntegerv || !pglReadPixels) {
+    if (!pglPixelStorei || !pglReadBuffer || !pglReadPixels) {
+        setlog("gl resolve opengl32 APIs failed, disable capture");
         DisplayHook::set_capture_enabled(false);
-#if DEBUG_HOOK
-        setlog("error.!pglPixelStorei || !pglReadBuffer || !pglGetIntegerv || !pglReadPixels");
-#endif // DEBUG_HOOK
-
         return 0;
     }
     RECT rc;
@@ -68,7 +65,6 @@ long gl_capture() {
 void __stdcall gl_hkglBegin(GLenum mode) {
     // H2: 覆盖下方跳板调用，release 靠该计数确认跳板可安全释放。
     DetourScope guard;
-    static DWORD t = 0;
     using glBegin_t = decltype(glBegin) *;
 
     if (DisplayHook::capture_enabled())
@@ -87,14 +83,13 @@ void __stdcall gl_hkwglSwapBuffers(HDC hdc) {
 long egl_capture() {
     using glPixelStorei_t = decltype(glPixelStorei) *;
     using glReadBuffer_t = decltype(glReadBuffer) *;
-    using glGetIntegerv_t = decltype(glGetIntegerv) *;
     using glReadPixels_t = decltype(glReadPixels) *;
 
+    // H21: 同 gl_capture —— pglGetIntegerv 解析了但零调用，已删。
     auto pglPixelStorei = (glPixelStorei_t)ResolveApi("libglesv2.dll", "glPixelStorei");
     auto pglReadBuffer = (glReadBuffer_t)ResolveApi("libglesv2.dll", "glReadBuffer");
-    auto pglGetIntegerv = (glGetIntegerv_t)ResolveApi("libglesv2.dll", "glGetIntegerv");
     auto pglReadPixels = (glReadPixels_t)ResolveApi("libglesv2.dll", "glReadPixels");
-    if (!pglPixelStorei || !pglReadBuffer || !pglGetIntegerv || !pglReadPixels) {
+    if (!pglPixelStorei || !pglReadBuffer || !pglReadPixels) {
         // 与 gl_capture 对齐：解析失败即停捕获，否则每帧重复解析这 4 个 API。
         setlog("egl resolve libglesv2 APIs failed, disable capture");
         DisplayHook::set_capture_enabled(false);

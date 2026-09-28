@@ -3,6 +3,7 @@
 #include "DisplayHook.h"
 #include "DetourGuard.h"
 #include "DxCaptureCommon.h"
+#include "HookDiagnostics.h"
 #include "SharedFrame.h"
 #include "../capture/FrameInfo.h"
 #include "../ipc/ProcessMutex.h"
@@ -56,7 +57,16 @@ D3D11StagingCache &staging_cache() {
     return *cache;
 }
 
+// H20: 原先是函数内 static bool first，活到进程结束 —— 第二次 Bind 起就不再打印首帧格式诊断，
+// 排查"换了游戏/换了交换链格式后行为变了"时手里没有任何证据。
+// 改为显式对象 + 由 DisplayHook::release() 每次拆钩时复位。
+OncePerSession g_firstFrame;
+
 } // namespace
+
+void dx11_reset_diagnostics() {
+    g_firstFrame.reset();
+}
 
 void dx11_capture(IDXGISwapChain *swapchain) {
     HRESULT hr = 0;
@@ -168,7 +178,6 @@ void dx11_capture(IDXGISwapChain *swapchain) {
 
     SharedMemory mem;
     ProcessMutex mutex;
-    static int cnt = 10;
     if (mem.open(DisplayHook::shared_res_name) && mutex.open(DisplayHook::mutex_name)) {
         mutex.lock();
         if (SharedFrameHasCapacity(mem, textDesc.Width, textDesc.Height)) {
@@ -187,14 +196,10 @@ void dx11_capture(IDXGISwapChain *swapchain) {
                DisplayHook::mutex_name.c_str());
 #endif // DEBUG_HOOK
     }
-    static bool first = true;
-    if (first) {
-        int tf = textDesc.Format;
-
-        setlog("textDesc.Format= %d,fmt=%d textDesc.Height=%d\n textDesc.Width=%d\n  mapSubres.DepthPitch=%d\n "
-               "mapSubres.RowPitch=%d\n",
-               tf, fmt, textDesc.Height, textDesc.Width, mapSubres.DepthPitch, mapSubres.RowPitch);
-        first = false;
+    if (g_firstFrame.consume()) {
+        setlog("d3d11 first frame: format=%d fmt=%d height=%u width=%u depthPitch=%u rowPitch=%u",
+               static_cast<int>(textDesc.Format), fmt, textDesc.Height, textDesc.Width, mapSubres.DepthPitch,
+               mapSubres.RowPitch);
     }
 }
 

@@ -306,7 +306,12 @@ long UnBind(HWND hwnd) {
     const DWORD pid = it->second.pid;
     const long ret = call_release_input_hook(pid);
     if (ret == -1) {
-        setlog(L"input hook release RPC exception, keep bind ref for retry. hwnd=%p pid=%d", hwnd, pid);
+        // H25: 上面已经把 refs 减到 0 才发的 RPC，这里必须**回滚**，
+        // 否则条目留在 refs<=0（继续重试 UnBind 会一路减到负数，计数语义脏），
+        // 更实际的危害是：期间若有 Bind，`entry.refs > 0` 判为假 -> 再注入一次，
+        // 而远端旧 Hook 还挂在目标进程里。回滚后重试 UnBind 仍能正常走到释放分支。
+        ++it->second.refs;
+        setlog(L"input hook release RPC exception, rollback bind ref for retry. hwnd=%p pid=%d", hwnd, pid);
         return 0;
     }
     g_bind_refs.erase(it);

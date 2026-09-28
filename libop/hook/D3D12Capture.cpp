@@ -6,6 +6,7 @@
 #include "DisplayHook.h"
 #include "DetourGuard.h"
 #include "DxCaptureCommon.h"
+#include "HookDiagnostics.h"
 #include "SharedFrame.h"
 #include <directx/d3dx12.h>
 #include "../capture/FrameInfo.h"
@@ -27,7 +28,15 @@ namespace {
 // 200ms 已远超合理值；超时只跳过本帧读回，不影响后续帧。
 constexpr DWORD kFenceWaitTimeoutMs = 200;
 
+// H20: 原先是函数内 static bool first，活到进程结束 —— 第二次 Bind 起不再打印首帧诊断。
+// 改为显式对象 + 由 DisplayHook::release() 每次拆钩时复位（与 D3D11 侧一致）。
+OncePerSession g_firstFrame;
+
 } // namespace
+
+void dx12_reset_diagnostics() {
+    g_firstFrame.reset();
+}
 
 D3D12Capture *D3D12Capture::Get() {
     // H15: 原实现是函数级 static 对象，进程卸载（DllMain / loader lock）时会析构并
@@ -48,19 +57,10 @@ D3D12Capture::~D3D12Capture() {
     }
 }
 
-HRESULT D3D12Capture::CaptureFrames(HWND windowHandleToCapture, std::wstring_view folderToSaveFrames, int maxFrames) {
-    if (windowHandleToCapture_ != NULL) {
-        return HRESULT_FROM_WIN32(ERROR_BUSY);
-    }
-    windowHandleToCapture_ = windowHandleToCapture;
-    folderToSaveFrames_ = std::wstring(folderToSaveFrames);
-    if (folderToSaveFrames_.size() && *folderToSaveFrames_.rbegin() != '\\' && *folderToSaveFrames_.rbegin() != '/') {
-        folderToSaveFrames_ += '\\';
-    }
-    maxFrames_ = maxFrames;
-    return S_OK;
-}
-
+// H18: 原 CaptureFrames(存盘若干帧) 是从 kiero 示例带过来的残留逻辑 —— 全项目零调用点，
+// 它带的 frameIndex_/maxFrames_/windowHandleToCapture_/folderToSaveFrames_ 同样零使用，
+// 却在 CaptureFrame 末尾留了一段 `if (frameIndex_ >= maxFrames_) windowHandleToCapture_ = NULL;`
+// 的死分支，读起来像是"截够帧数就停"的真逻辑。整段删除。
 void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
     HRESULT hr;
 
@@ -179,7 +179,6 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
 
         SharedMemory mem;
         ProcessMutex mutex;
-        static int cnt = 10;
         if (mem.open(DisplayHook::shared_res_name) && mutex.open(DisplayHook::mutex_name)) {
             mutex.lock();
             uchar *pshare = mem.data<byte>();
@@ -199,17 +198,9 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
                    DisplayHook::mutex_name.c_str());
 #endif // DEBUG_HOOK
         }
-        static bool first = true;
-        if (first) {
-            int tf = static_cast<int>(desc.Format);
-
-            setlog("textDesc.Format= %d,fmt=%d textDesc.Height=%d\n textDesc.Width=%d\n  mapSubres.DepthPitch=%d\n "
-                   "mapSubres.RowPitch=%d\n",
-                   tf, fmt, frameHeight, frameWidth, 0, frameRowPitch);
-            first = false;
-        }
-        if (frameIndex_ >= maxFrames_) {
-            windowHandleToCapture_ = NULL;
+        if (g_firstFrame.consume()) {
+            setlog("d3d12 first frame: format=%d fmt=%d height=%u width=%u rowPitch=%u", static_cast<int>(desc.Format),
+                   fmt, frameHeight, frameWidth, frameRowPitch);
         }
 
     } else {

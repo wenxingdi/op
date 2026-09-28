@@ -427,10 +427,19 @@ int main(int argc, char **argv) {
     unsigned char *pixels = nullptr;
     bool ok = false;
 
+    // 实际生效的采样数：D3D9 在设备不支持时会回退成无 MSAA，必须回报**生效值**
+    // 而不是请求值——否则测试侧会误以为跑的是 MSAA 通道，得到一个恒真的假用例。
+    // D3D11 不支持时 CreateDeviceAndSwapChain 直接失败（Init 返 false），不会静默回退。
+    int effective_msaa = 0;
+
     if (strcmp(backend, "d3d9") == 0) {
         ok = c9.Init(g_hwnd, g_width, g_height, msaa);
+        if (ok)
+            effective_msaa = c9.msaa;
     } else if (strcmp(backend, "d3d11") == 0 || strcmp(backend, "d3d10") == 0) {
         ok = c11.Init(g_hwnd, g_width, g_height, driver, msaa);
+        if (ok)
+            effective_msaa = msaa > 1 ? msaa : 0;
         if (ok) {
             pixels = static_cast<unsigned char *>(malloc(static_cast<size_t>(g_width) * g_height * 4));
             if (pixels) {
@@ -453,7 +462,7 @@ int main(int argc, char **argv) {
         return 4;
     }
 
-    printf("[carrier] backend=%s driver=%s msaa=%d\n", backend, driver, msaa);
+    printf("[carrier] backend=%s driver=%s msaa=%d\n", backend, driver, effective_msaa);
     printf("[carrier] hwnd=0x%llX pid=%lu size=%dx%d\n",
            static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(g_hwnd)),
            GetCurrentProcessId(), g_width, g_height);
@@ -465,9 +474,9 @@ int main(int argc, char **argv) {
     if (report_path) {
         FILE *fp = fopen(report_path, "wb");
         if (fp) {
-            fprintf(fp, "hwnd=0x%llX\npid=%lu\nsize=%dx%d\nREADY\n",
+            fprintf(fp, "hwnd=0x%llX\npid=%lu\nsize=%dx%d\nbackend=%s\nmsaa=%d\nREADY\n",
                     static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(g_hwnd)),
-                    GetCurrentProcessId(), g_width, g_height);
+                    GetCurrentProcessId(), g_width, g_height, backend, effective_msaa);
             fclose(fp);
         }
     }

@@ -148,6 +148,9 @@ set(OP_TEST_SOURCES
   "memory_readwrite_test.cpp"
   "window_state_test.cpp"
   "hook_capture_test.cpp"
+  # H14/H20：注入侧导出护栏与"每会话一次"诊断开关都是纯函数（ExportGuard.h / HookDiagnostics.h
+  # 均为 header-only），直接编入即可，无需链 op_com 的导出。
+  "hook_export_guard_test.cpp"
   "algorithm_test.cpp"
   "../libop/base/Utils.cpp"
   "../libop/base/Environment.cpp"

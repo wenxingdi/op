@@ -33,7 +33,10 @@ endif()
 if(NOT _op_opencv_root STREQUAL "")
   file(TO_CMAKE_PATH "${_op_opencv_root}" _op_opencv_root)
   set(OP_OPENCV_INCLUDE_DIR "${_op_opencv_root}/include")
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  # H26: CMAKE_SIZEOF_VOID_P 在部分生成器/早期 configure 阶段尚未定义，裸比较会走 else
+  # 分支被误判成 x86 -> 选到不存在的 x86 OpenCV 库目录（报错信息还是"找不到库"，很难回到这里）。
+  # 与根 CMakeLists.txt 同款加 DEFINED 保护。
+  if(DEFINED CMAKE_SIZEOF_VOID_P AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(_op_opencv_arch_dir "x64")
   else()
     set(_op_opencv_arch_dir "x86")

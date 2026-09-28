@@ -126,11 +126,10 @@ int locate_render_method(int render_type, void **target, void **detour) {
 } // namespace
 
 int DisplayHook::setup(HWND hwnd_, int render_type_) {
-    DisplayHook::render_hwnd = hwnd_;
-    DisplayHook::shared_res_name = MakeOpSharedResourceName(hwnd_);
-    DisplayHook::mutex_name = MakeOpMutexName(hwnd_);
-
-    render_type = render_type_;
+    // H23: 全部"绑定态"字段（目标窗口 / 共享资源名 / render_type）推迟到钩子**真正装上之后**
+    // 才发布。原实现一进函数就改写 render_hwnd/shared_res_name/mutex_name，locate 失败返回 0 时
+    // 这些字段已指向新窗口 —— 调用方虽拿到失败，进程里却留着半套脏状态，之后所有日志与诊断
+    // 都会指着一个从未被 Hook 的窗口。
     old_address.store(nullptr);
     hook_target = nullptr;
 
@@ -138,32 +137,50 @@ int DisplayHook::setup(HWND hwnd_, int render_type_) {
     if (!locate_render_method(render_type_, &hook_target, &address)) {
         setlog("DisplayHook setup locate failed hwnd=%p render_type=%d target=%p detour=%p", hwnd_, render_type_,
                hook_target, address);
+        hook_target = nullptr;
         return 0;
     }
 
     if (!AcquireMinHook()) {
         setlog("DisplayHook setup AcquireMinHook failed hwnd=%p render_type=%d target=%p detour=%p", hwnd_, render_type_,
                hook_target, address);
+        hook_target = nullptr;
         return 0;
     }
 
     // MinHook 把 trampoline 写进出参；先收进局部量再发布到 atomic，避免其它线程读到半值。
     void *trampoline = nullptr;
     const MH_STATUS create_status = MH_CreateHook(hook_target, address, &trampoline);
-    const MH_STATUS enable_status = create_status == MH_OK ? MH_EnableHook(hook_target) : MH_UNKNOWN;
-    if (create_status != MH_OK || enable_status != MH_OK) {
-        setlog("DisplayHook setup MinHook failed hwnd=%p render_type=%d target=%p detour=%p create=%d enable=%d",
-               hwnd_, render_type_, hook_target, address, create_status, enable_status);
-        if (create_status == MH_OK) {
-            MH_DisableHook(hook_target);
-            MH_RemoveHook(hook_target);
-        }
+    if (create_status != MH_OK) {
+        setlog("DisplayHook setup MH_CreateHook failed hwnd=%p render_type=%d target=%p detour=%p create=%d", hwnd_,
+               render_type_, hook_target, address, create_status);
+        ReleaseMinHook();
+        hook_target = nullptr;
+        return 0;
+    }
+
+    // H2b（setup 侧的同类竞态）: 必须**先发布 trampoline 再启用**。
+    // 原实现是 MH_EnableHook 成功之后才 store —— 而目标进程的渲染线程随时可能命中新装的
+    // detour；在那几纳秒里 detour 读到的 old_address 还是 nullptr，于是跳板调用变成
+    // "调空指针"。顺序反过来就没有这个窗口：没启用前没人会进 detour。
+    old_address.store(trampoline);
+    const MH_STATUS enable_status = MH_EnableHook(hook_target);
+    if (enable_status != MH_OK) {
+        setlog("DisplayHook setup MH_EnableHook failed hwnd=%p render_type=%d target=%p detour=%p enable=%d", hwnd_,
+               render_type_, hook_target, address, enable_status);
+        MH_DisableHook(hook_target);
+        MH_RemoveHook(hook_target);
         ReleaseMinHook();
         old_address.store(nullptr);
         hook_target = nullptr;
         return 0;
     }
-    old_address.store(trampoline);
+
+    // 钩子已生效，此刻才发布绑定态。
+    DisplayHook::render_hwnd = hwnd_;
+    DisplayHook::shared_res_name = MakeOpSharedResourceName(hwnd_);
+    DisplayHook::mutex_name = MakeOpMutexName(hwnd_);
+    render_type = render_type_;
 
     set_capture_enabled(true);
     return is_capture.load();
@@ -187,8 +204,15 @@ int DisplayHook::release() {
     }
     old_address.store(nullptr);
     hook_target = nullptr;
+    // H24: 原实现只清 render_hwnd/render_type，把两个资源名留着。下一次 setup 固然会覆盖，
+    // 但两次绑定之间任何读它们的地方（日志、诊断、占位释放）都会拿到上一个窗口的名字。
+    shared_res_name.clear();
+    mutex_name.clear();
     render_hwnd = NULL;
     render_type = 0;
+    // H20: 让下一次绑定重新打印一次首帧格式诊断，而不是永远沉默。
+    dx11_reset_diagnostics();
+    dx12_reset_diagnostics();
     return 1;
 }
 

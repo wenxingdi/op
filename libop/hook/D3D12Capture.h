@@ -6,18 +6,19 @@
 #include <directx/d3d12.h>
 #include <dxgi1_6.h>
 #include <string>
-#include <string_view>
 #include <wrl/client.h>
 
 namespace op::hook {
 
 HRESULT __stdcall dx12_hkPresent(IDXGISwapChain *thiz, UINT SyncInterval, UINT Flags);
 
+// H20: 复位"首帧诊断已打印"标志，由 DisplayHook::release() 每次拆钩时调用。
+void dx12_reset_diagnostics();
+
 class D3D12Capture final {
   public:
     static D3D12Capture *Get();
 
-    HRESULT CaptureFrames(HWND windowHandleToCapture, std::wstring_view folderToSaveFrames, int maxFrames);
     void CaptureFrame(IDXGISwapChain *swapChain);
 
   private:
@@ -43,11 +44,6 @@ class D3D12Capture final {
     UINT readbackDataPitch_ = 0;
 
     void *readbackData_ = nullptr;
-
-    HWND windowHandleToCapture_ = NULL;
-    std::wstring folderToSaveFrames_;
-    int frameIndex_ = 0;
-    int maxFrames_ = 0;
 };
 
 } // namespace op::hook

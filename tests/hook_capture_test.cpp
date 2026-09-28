@@ -144,6 +144,7 @@ class CarrierProcess {
             error_ = L"载体未在 15s 内就绪";
             return false;
         }
+        report_ = content;
 
         const size_t pos = content.find(L"hwnd=0x");
         if (pos == std::wstring::npos) {
@@ -176,18 +177,34 @@ class CarrierProcess {
 
     HWND hwnd() const { return hwnd_; }
     const std::wstring &error() const { return error_; }
+    // 载体回报原文（含 backend= / msaa= 等实际生效参数）。用例靠它确认"跑的是不是 MSAA 通道"，
+    // 否则载体回退成无 MSAA 时用例会恒真通过。
+    const std::wstring &report() const { return report_; }
 
   private:
     PROCESS_INFORMATION process_ = {};
     HWND hwnd_ = nullptr;
     std::wstring report_path_;
+    std::wstring report_;
     std::wstring error_;
 };
+
+// 从载体的 "key=value" 回报里取整数（找不到返回 fallback）。
+int ReportIntField(const std::wstring &report, const wchar_t *key, int fallback) {
+    const std::wstring needle = std::wstring(key) + L"=";
+    const size_t pos = report.find(needle);
+    if (pos == std::wstring::npos)
+        return fallback;
+    const size_t begin = pos + needle.size();
+    const size_t end = report.find_first_of(L"\r\n", begin);
+    return _wtoi(report.substr(begin, end - begin).c_str());
+}
 
 struct CaptureOutcome {
     bool carrier_ok = false;
     bool bound = false;
     long bind_ret = 0;
+    int carrier_msaa = 0;              // 载体**实际生效**的采样数（回退成无 MSAA 时为 0）
     std::vector<std::wstring> lines;   // 每个象限一行诊断
     int mismatch = 0;
     std::wstring note;
@@ -213,6 +230,7 @@ class HookCaptureTest : public ::testing::Test {
             return outcome;
         }
         outcome.carrier_ok = true;
+        outcome.carrier_msaa = ReportIntField(carrier.report(), L"msaa", 0);
         Trace("carrier ready");
 
         op::Op op;
@@ -285,13 +303,30 @@ TEST_F(HookCaptureTest, Dx11SwapChainIsCapturedWithQuadrantPixels) {
 
 // D3D9 应用 + dx.d3d9：hook IDirect3DDevice9::EndScene。
 // 与 D3D11 分列两条用例，因为 op 侧走的是完全不同的 detour 与取帧实现
-// （D3D9 缺 MSAA resolve 分支，是本轮扫描里的 H3）。
+// （D3D9 走 GetRenderTargetData，且 H3 补了 MSAA resolve 分支）。
 TEST_F(HookCaptureTest, Dx9EndSceneIsCapturedWithQuadrantPixels) {
     const CaptureOutcome outcome = Capture(L"d3d9", L"dx.d3d9");
     if (!outcome.carrier_ok)
         GTEST_SKIP() << "载体不可用：" << outcome.note;
     ASSERT_TRUE(outcome.bound) << outcome.note;
     EXPECT_EQ(outcome.mismatch, 0) << "D3D9 通道取到的画面不正确";
+    if (outcome.mismatch != 0)
+        ReportOutcome(outcome);
+}
+
+// H3 真机判据：MSAA 后备缓冲必须先 resolve 再读回。
+// 修复前 dx9_capture 直接对多重采样面 GetRenderTargetData -> 恒返 D3DERR_INVALIDCALL
+// -> 一帧都截不到（mismatch=4）。反向验证：去掉 D3D9Capture.cpp 里的 resolve 分支后本用例必须 FAIL。
+// 载体回报 msaa=0 时说明本机/该后端不支持 MSAA -> SKIP，避免用例退化成恒真的假通过。
+TEST_F(HookCaptureTest, Dx9MsaaBackbufferIsResolvedAndCaptured) {
+    const CaptureOutcome outcome = Capture(L"d3d9", L"dx.d3d9", L"--msaa 4");
+    if (!outcome.carrier_ok)
+        GTEST_SKIP() << "载体不可用：" << outcome.note;
+    if (outcome.carrier_msaa < 4)
+        GTEST_SKIP() << "本机 d3d9 未生效 MSAA（载体回退，回报 msaa=" << outcome.carrier_msaa
+                     << "），无法验证 resolve 分支";
+    ASSERT_TRUE(outcome.bound) << outcome.note;
+    EXPECT_EQ(outcome.mismatch, 0) << "MSAA 后备缓冲下未正确 resolve（疑似直接读多重采样面）";
     if (outcome.mismatch != 0)
         ReportOutcome(outcome);
 }
