@@ -3,6 +3,7 @@
 #include "../base/Utils.h"
 #include "../base/Environment.h"
 #include "HookModule.h"
+#include "HookRemoteCall.h"
 #include "BlackBone/Process/Process.h"
 #include "BlackBone/Process/RPC/RemoteFunction.hpp"
 #include <mutex>
@@ -71,7 +72,7 @@ long call_set_input_hook(HWND hwnd, int mode, DWORD *out_pid) {
 
         if (injected) {
             using set_input_hook_t = long(__stdcall *)(HWND, int);
-            auto remote = blackbone::MakeRemoteFunction<set_input_hook_t>(proc, dll_name, "SetInputHook");
+            auto remote = op::hook::MakeHookRemoteFunction<set_input_hook_t>(proc, dll_name, "SetInputHook");
             if (remote) {
                 auto call_ret = remote(hwnd, mode);
                 ret = call_ret.result();
@@ -109,7 +110,7 @@ long call_release_input_hook(DWORD pid) {
 
         const std::wstring dll_name = resolve_hook_dll(proc);
         using release_input_hook_t = long(__stdcall *)();
-        auto remote = blackbone::MakeRemoteFunction<release_input_hook_t>(proc, dll_name, "ReleaseInputHook");
+        auto remote = op::hook::MakeHookRemoteFunction<release_input_hook_t>(proc, dll_name, "ReleaseInputHook");
         if (remote) {
             auto call_ret = remote();
             ret = call_ret.result();
@@ -142,7 +143,7 @@ long call_set_input_lock(HWND hwnd, int lock) {
 
         const std::wstring dll_name = resolve_hook_dll(proc);
         using set_input_lock_t = long(__stdcall *)(int);
-        auto remote = blackbone::MakeRemoteFunction<set_input_lock_t>(proc, dll_name, "SetInputLock");
+        auto remote = op::hook::MakeHookRemoteFunction<set_input_lock_t>(proc, dll_name, "SetInputLock");
         if (remote) {
             auto call_ret = remote(lock);
             ret = call_ret.result();
@@ -175,7 +176,7 @@ long call_set_input_attr(HWND hwnd, int attrs) {
 
         const std::wstring dll_name = resolve_hook_dll(proc);
         using set_input_attr_t = long(__stdcall *)(int);
-        auto remote = blackbone::MakeRemoteFunction<set_input_attr_t>(proc, dll_name, "SetInputAttr");
+        auto remote = op::hook::MakeHookRemoteFunction<set_input_attr_t>(proc, dll_name, "SetInputAttr");
         if (remote) {
             auto call_ret = remote(attrs);
             ret = call_ret.result();
@@ -208,7 +209,7 @@ long call_ping_hook(HWND hwnd) {
 
         const std::wstring dll_name = resolve_hook_dll(proc);
         using ping_t = unsigned long(__stdcall *)();
-        auto remote = blackbone::MakeRemoteFunction<ping_t>(proc, dll_name, "GetInputCursorShapeHashLow");
+        auto remote = op::hook::MakeHookRemoteFunction<ping_t>(proc, dll_name, "GetInputCursorShapeHashLow");
         if (remote) {
             remote(); // 只验证可调用性，返回值无意义
             ret = 1;
@@ -236,10 +237,10 @@ bool call_cursor_shape(HWND hwnd, unsigned long long &hash, unsigned long long &
 
         const std::wstring dll_name = resolve_hook_dll(proc);
         using cursor_part_t = unsigned long(__stdcall *)();
-        auto hash_low = blackbone::MakeRemoteFunction<cursor_part_t>(proc, dll_name, "GetInputCursorShapeHashLow");
-        auto hash_high = blackbone::MakeRemoteFunction<cursor_part_t>(proc, dll_name, "GetInputCursorShapeHashHigh");
-        auto meta_low = blackbone::MakeRemoteFunction<cursor_part_t>(proc, dll_name, "GetInputCursorShapeMetaLow");
-        auto meta_high = blackbone::MakeRemoteFunction<cursor_part_t>(proc, dll_name, "GetInputCursorShapeMetaHigh");
+        auto hash_low = op::hook::MakeHookRemoteFunction<cursor_part_t>(proc, dll_name, "GetInputCursorShapeHashLow");
+        auto hash_high = op::hook::MakeHookRemoteFunction<cursor_part_t>(proc, dll_name, "GetInputCursorShapeHashHigh");
+        auto meta_low = op::hook::MakeHookRemoteFunction<cursor_part_t>(proc, dll_name, "GetInputCursorShapeMetaLow");
+        auto meta_high = op::hook::MakeHookRemoteFunction<cursor_part_t>(proc, dll_name, "GetInputCursorShapeMetaHigh");
         if (!hash_low || !hash_high || !meta_low || !meta_high) {
             proc.Detach();
             return false;

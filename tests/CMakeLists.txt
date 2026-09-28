@@ -163,6 +163,10 @@ set(OP_TEST_SOURCES
   # HookCapture.cpp 的匿名命名空间里，而该文件依赖 blackbone 编不进测试进程，
   # 于是「撕裂帧判据 + 共享内存容量判据」长期零覆盖 —— 本轮搬到 SharedFrame.h 后可测。
   "shared_frame_test.cpp"
+  # 32 位 hook 导出名解析（HookExportName.h）。32 位 dll 的 __stdcall 导出名带 `_Name@N`
+  # 修饰，而 blackbone 的 GetExport 只做精确名匹配 -> 32 位目标上所有依赖注入的显示模式
+  # 绑定失败（实测蜀门 client.exe）。纯函数 + 真实 PE 产物双层判据。
+  "hook_export_name_test.cpp"
   "algorithm_test.cpp"
   "../libop/base/Utils.cpp"
   "../libop/base/Environment.cpp"

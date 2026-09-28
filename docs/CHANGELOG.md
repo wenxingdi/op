@@ -3,6 +3,26 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-28（32 位目标 hook 导出名解析 —— 修复「所有注入类显示模式在 32 位游戏上绑定失败」，fix）
+
+- **背景（真机实测暴露）**：用户提供蜀门游戏窗口句柄（`60035600` = `0x03941210`，`D:\Program Files (x86)\shumen\classic\client.exe`，**i386 + D3D9**，无任何反外挂特征模块）。实测 `dx` / `dx.d3d9` / `dx.d3d11` / `opengl` 绑定**全部失败**，日志：
+  `remote function 'SetDisplayHook' not found in op_c_api_x86.dll`；而不注入的 `normal` / `gdi` 正常。日志里**没有** `Inject false`/`attach false` —— 说明注入本身成功，断的只是**远程函数名解析**。
+- **根因**：`DLL_API` 展开为 `extern "C" __declspec(dllexport)`。`extern "C"` 只去掉 C++ 名字修饰，**不去掉 `__stdcall` 的 `_Name@<参数字节数>` 修饰**（x64 无此问题，所以只在 32 位目标暴露）。而 blackbone 的 `MakeRemoteFunction(proc, mod, name)` → `ProcessModules::GetExport` 是**精确名/序数**匹配，不做任何修饰处理。`libop/CMakeLists.txt` 只给 COM 目标挂了 `/DEF:com/op.def`，**C API / hook 目标没有 `.def`** → 32 位导出名必然被修饰（`dumpbin -exports` 实测 `_SetDisplayHook@8` / `_ReleaseDisplayHook@0` / `_SetInputHook@8` / `_SetInputLock@4`）。
+- **修法（新增 2 个头，改 2 个 cpp，14 处调用点）**：
+  - `libop/hook/HookExportName.h`（**零 blackbone 依赖**，纯 std + `setlog`，可直接进单测）：`IsStdcallDecoratedExportName`（判 `_plain@<十进制>`）、`PickRemoteExportName`（**未修饰名优先** > 修饰名 > 原样返回）、`ReadExportNames`（自写 PE32/PE32+ 导出表解析，无第三方依赖）、`ResolveRemoteExportName`（按 **dll 路径**缓存整张导出表 —— 一次绑定要解析 2~11 个名字，而 op 的 dll 是 10~30MB 量级，逐个名字重读会造成几百毫秒抖动）。
+  - `libop/hook/HookRemoteCall.h`（blackbone 接线层）：`MakeHookRemoteFunction<T>(proc, dll_name, plain_name)`，按 `RuntimeEnvironment::getBasePath() + "\\" + dll_name` 定位本地文件读导出表后建远程函数对象。
+  - `HookCapture.cpp` 5 处 + `InputHookClient.cpp` 9 处共 **14 处**统一改走该封装；`kernel32.dll` 那处（`SetDllDirectoryW`）**刻意保持原样** —— 系统模块不在 `m_opPath` 下且无需解析。
+- **语义要点**：① 名字解析**失败不落终值**（读不到文件时返回原名且不写缓存），避免一次瞬时失败让整个进程后续都用不到正确名字；② 解析结果改写时打**一条**日志（缓存未命中才打，因为这段会被 ping / 光标轮询反复调用）；③ 自写 PE 解析里 `@` 位置检查与「后缀纯数字」检查**各挡不同误判，都不能省**（见下反向验证）。
+- **新增 12 条用例**（`tests/hook_export_name_test.cpp`）：命名边界 22 组输入（真实 x86 形态 / 缺下划线 / 大小写 / 同前缀兄弟导出 / 只是前缀 / 无参数字节数 / 数字后带字符 / 空 plain 等）、优先级与回退 6 条、真实 PE 产物端到端（解析 `op_c_api_x64.dll` 断言含 `OpBindWindow` 且**不含** `_OpBindWindow@24` —— 这正是 x64 一直正常的原因；找不到产物则 SKIP）、失败语义（文件不存在 / 非 PE / 空名）。
+- **反向验证（分两轮，第二轮才有判别力）**：第一轮同时改错三处（去掉 `@` 检查 + 反转 `Pick` 优先级 + 「文件不存在」报成功）→ 3 条 FAIL，**但 `StdcallDecorationBoundaries` 竟然 PASS**。原因：去掉 `@` 检查后 `_SetInputHookEx@8` 仍被后续「后缀纯数字」检查拦住，而用例里**缺了「无 `@` 但 plain 后是纯数字」这一形状**（`_Foo12`）—— 只有它才真正依赖 `@` 位置检查。补上该形状后第二轮只去掉 `@` 检查 → **恰好那两条 FAIL 并报出名字**，其余 11 条仍 PASS。**教训：「多条件防护」的用例必须覆盖每一条检查各自独有的输入形状，否则删掉某一条也测不出来（同 REFERENCE「用例必须能区分对错实现」）。**
+- **回归**：全量 **369 = 366 PASS / 2 SKIP / 1 FAILED**（上基线 357 = 354/2/1，新增 12 条全绿）。2 SKIP 与 1 FAILED（幽灵键 `VK 0x85`）均为既有环境项，**0 新增失败**。发布件 **18 处**副本同步并逐处校验 sha1（`op_c_api_x64.dll`=`35684d94a22b`、`op_x64.dll`=`9cfe5e5ce032`）；`backup/`、`COP/`、`PPOCR_v6_ncnn/` 三处按约定不动。
+- **真机结论（修复生效 + 一处挂账）**：
+  - ✅ 解析链**已被真机证实生效** —— 宿主日志打出 `hook export name resolved: SetDisplayHook -> _SetDisplayHook@8`，且游戏进程内的 `__op.log` 出现了 `DisplayHook setup ...` 记录，证明远程调用**真的执行到了目标进程内**（修复前连这一步都到不了）。
+  - ⚠️ 但**现有 `op_c_api_x86.dll` 挂不住蜀门**：游戏内日志 `DisplayHook setup locate failed hwnd=03941210 render_type=0 target=00000000 detour=00000000`（D3D9 定位失败 → 返回 0），**随后目标进程以 `0xc0000005`（ACCESS_VIOLATION，WER 类型 BEX、故障模块 unknown、偏移 0）崩溃**，转储落 `%LOCALAPPDATA%\CrashDumps\client.exe.8944.dmp`（52.9MB）。「偏移 0 + 模块 unknown」= **调用了空函数指针**。
+  - **定性**：该 x86 dll 是 **2026-09-14 的上游预编译件**（7.8MB / 214 个导出，而本仓库 x64 构建是 27.8MB / 256 个导出），**早于本仓库全部 hook 加固** —— 包括 `c4420ae`(09-16)「DX 注入致 0xC0000005 崩溃——延迟加载失败钩子兜底」与 `9c0fa75`(09-28) 的 H2b「`setup` 先发布 trampoline 再 `MH_EnableHook`（原顺序有调空指针窗口）」。崩溃落在这些已修缺陷的形态内，**不属本轮改动引入**。
+  - 🔴 **必须登记的行为变化（安全影响）**：本修复之前，32 位目标会**干净地失败**（解析不到名字 → 不注入、不调用）；修复之后宿主会**真的调用**那份旧 x86 dll 的 hook 代码 —— 即「干净失败」变成了「真的跑起来然后崩目标进程」。**在自建 x86（含本仓库全部加固）之前，不应再用这份旧 x86 dll 绑定任何真实 32 位游戏。**
+  - **挂账（需自建 x86，属独立批次）**：`build.py` 原生支持 `-a x86`（`Win32` + `vcvarsall x86`）与 `--deps-arch both`，但 OpenCV **不是可选项**（无 `OP_ENABLE_OPENCV` 开关，CMake 硬要求 `build/_deps/opencv/install/<gen>-<arch>`），而 `_deps/BlackBone/build/` 与 `_deps/opencv/install/` 目前**都只有 x64** → 首次 x86 需源码构建 OpenCV x86，耗时较长。临时缓解手段：把旧 `op_c_api_x86.dll` 从各发布目录移出（缺文件时绑定会干净失败），或直接接受 32 位目标暂不可用。
+
 ### 2026-09-28（共享帧链路可测性重构 + 18 条纯函数单测 + D3D9 staging 缓存 + 测试 C++ 标准对齐，fix）
 
 - **背景**：批 3 后的独立复扫指出，hook 捕获的**最终出口**（6 条写入路径把帧写进同一份共享内存 → 宿主用同一个函数校验读取）长期零单测 —— 因为它的实现住在 `HookCapture.cpp` 的匿名命名空间里，而该文件依赖 blackbone、编不进测试进程。于是「撕裂帧 / 半写帧」的唯一防线改错了没有任何用例会报。本轮把它变成可测的。

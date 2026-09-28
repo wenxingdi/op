@@ -6,6 +6,7 @@
 #include "../../base/Environment.h"
 #include "../../base/Utils.h"
 #include "../../hook/HookModule.h"
+#include "../../hook/HookRemoteCall.h"
 #include "../../hook/SharedFrame.h"
 #include "BlackBone/Process/Process.h"
 #include "BlackBone/Process/RPC/RemoteFunction.hpp"
@@ -32,7 +33,7 @@ void release_remote_display_hook(blackbone::Process &proc, const std::wstring &d
     // 经 C API 调用时由 call_int 兜住（日志里的 "unknown exception escaped to C boundary"），
     // 直接链接 libop 的宿主（如 op_test 真机用例）则异常穿透成访问违例。
     try {
-        auto release = blackbone::MakeRemoteFunction<release_display_hook_t>(proc, dllname, "ReleaseDisplayHook");
+        auto release = op::hook::MakeHookRemoteFunction<release_display_hook_t>(proc, dllname, "ReleaseDisplayHook");
         if (release) {
             release();
         }
@@ -159,7 +160,7 @@ long HookCapture::BindEx(HWND hwnd, long render_type) {
             if (injected) {
                 // setlog("before MakeRemoteFunction");
                 using my_func_t = long(__stdcall *)(HWND, int);
-                auto pSetXHook = blackbone::MakeRemoteFunction<my_func_t>(proc, dllname, "SetDisplayHook");
+                auto pSetXHook = op::hook::MakeHookRemoteFunction<my_func_t>(proc, dllname, "SetDisplayHook");
                 if (pSetXHook) {
                     // setlog("after MakeRemoteFunction");
                     auto cret = pSetXHook(hwnd, render_type);
@@ -215,7 +216,7 @@ long HookCapture::UnBindEx() {
                 const BOOL is64 = main_module->type == blackbone::eModType::mt_mod64;
                 wstring dllname = op::hook::ResolveHookModuleName(is64 != FALSE);
                 using my_func_t = long(__stdcall *)(void);
-                auto pUnXHook = blackbone::MakeRemoteFunction<my_func_t>(proc, dllname, "ReleaseDisplayHook");
+                auto pUnXHook = op::hook::MakeHookRemoteFunction<my_func_t>(proc, dllname, "ReleaseDisplayHook");
                 if (pUnXHook) {
                     pUnXHook();
                 } else {
@@ -299,7 +300,7 @@ long HookCapture::BindNox(HWND hwnd, long render_type) {
         }
         if (injected) {
             using my_func_t = long(__stdcall *)(HWND, int);
-            auto pSetXHook = blackbone::MakeRemoteFunction<my_func_t>(proc, dllname, "SetDisplayHook");
+            auto pSetXHook = op::hook::MakeHookRemoteFunction<my_func_t>(proc, dllname, "SetDisplayHook");
             if (pSetXHook) {
                 auto cret = pSetXHook(hwnd, render_type);
                 bind_ret = cret.result();
@@ -333,7 +334,7 @@ long HookCapture::UnBindNox() {
     if (NT_SUCCESS(hr)) {
 
         using my_func_t = long(__stdcall *)(void);
-        auto pUnXHook = blackbone::MakeRemoteFunction<my_func_t>(proc, dllname, "ReleaseDisplayHook");
+        auto pUnXHook = op::hook::MakeHookRemoteFunction<my_func_t>(proc, dllname, "ReleaseDisplayHook");
         if (pUnXHook) {
             pUnXHook();
 
