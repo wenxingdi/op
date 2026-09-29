@@ -32,11 +32,18 @@ SDK_BASES = [
 ]
 
 
-def find_cl() -> str | None:
+def find_cl(arch: str = "x64") -> str | None:
+    """定位 MSVC 编译器。
+
+    arch="x64" -> bin/Hostx64/x64/cl.exe
+    arch="x86" -> bin/Hostx64/x86/cl.exe（x64 宿主上的交叉编译器，产出 32 位目标码）
+    两者都在 Hostx64 下，同目录自带 link.exe，无需 vcvars 批处理。
+    """
     for base in VS_BASES:
         if not os.path.isdir(base):
             continue
-        hits = glob.glob(os.path.join(base, "**", "VC", "Tools", "MSVC", "*", "bin", "Hostx64", "x64", "cl.exe"),
+        hits = glob.glob(os.path.join(base, "**", "VC", "Tools", "MSVC", "*",
+                                      "bin", "Hostx64", arch, "cl.exe"),
                          recursive=True)
         if hits:
             return sorted(hits)[-1]

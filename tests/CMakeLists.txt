@@ -250,7 +250,7 @@ endif()
 # wglSwapBuffers detour 从未被真正触发过；本目标为 hook_capture_test.cpp 提供可复现的渲染目标。
 add_executable(dx_carrier "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/dx_carrier.cpp")
 target_compile_definitions(dx_carrier PRIVATE _UNICODE UNICODE)
-target_link_libraries(dx_carrier PRIVATE d3d9.lib d3d11.lib dxgi.lib opengl32.lib user32.lib gdi32.lib)
+target_link_libraries(dx_carrier PRIVATE d3d9.lib d3d11.lib dxgi.lib dinput8.lib dxguid.lib opengl32.lib user32.lib gdi32.lib)
 # 与 op_test 生成到同一目录，测试侧运行时按 exe 同目录查找（不做编译期路径传递：
 # 窄字符串宏无法构造 std::wstring，反斜杠路径还会被当成转义序列）。
 add_dependencies(op_test dx_carrier)

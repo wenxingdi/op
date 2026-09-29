@@ -3,6 +3,44 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-29（dx 靶子体系：x86 受控载体 + DirectInput 闭环 + 屏保路线验证）
+
+- **动机**：hook 注入要求 dll 位数匹配**目标进程**；32 位 dx 通道此前只能拿真实游戏当靶子
+  （状态不可控、`dinput8` 未加载时 input 侧必然失败），x86 图形验证被游戏可用性绑架。
+- **`build_dx_carrier.py --arch x86`（新增能力）**：`build_dx_target.py:find_cl(arch)` 支持
+  `bin/Hostx64/{x64,x86}/cl.exe` 交叉编译（该目录自带 link.exe，**无需 vcvars**）；
+  x86 走 `/MT` 静态 CRT 免 x86 运行库依赖。产物 `workbench/probes/dx_carrier_x86.exe`
+  （PE Machine 已核 = 0x14C）。构建：`python scripts/build_dx_carrier.py --arch x86`。
+- **载体新增 `--dinput`**：加载 dinput8 + 创建 `SysMouse`/`SysKeyboard` 设备，
+  每帧 `GetDeviceState`/`Poll`（hook 必须被真的调用过才算可用）。默认**关闭**，不改变既有用例
+  的可绑定预期；`--report` 增 `dinput=` 字段。`tests/CMakeLists.txt` 补 `dinput8.lib dxguid.lib`。
+- **32 位 dx 端到端验证（全程不依赖游戏）**：
+
+  | 靶子 | 模式 | bind | 像素校验 |
+  |---|---|---|---|
+  | `dx_carrier_x86 --backend d3d9` | `dx/windows/windows` | 1 | 四象限 TL=FF0000 TR=00FF00 BL=0000FF BR=FFFFFF ✅ |
+  | `dx_carrier_x86 --backend d3d9 --dinput` | `dx/dx/dx` | 1 | 同上 ✅ |
+  | `dx_carrier_x86 --backend d3d11` | `dx.d3d11/windows/windows` | 1 | 同上 ✅ |
+  | `dx_carrier.exe --backend d3d9 --dinput`（x64 对照） | `dx/dx/dx` | 1 | 同上 ✅ |
+
+- **`dx/dx/dx` 返回 0 的闭环定性**：同一 x86 d3d9 载体，**无** `--dinput` → bind=0
+  （display `dx` 成功、input 无 DirectInput 设备可挂）；**加** `--dinput` → bind=1 + 像素精确。
+  唯一变量就是目标进程是否已加载 `dinput8.dll` ⇒ 反向确认蜀门「版本检查」界面
+  `SetInputHook` 返回 0 的定性成立，且**不是缺陷**。
+- **第三方靶子判定**：`AJ绑定测试工具Ex.exe`（x86，导入 d3d11）`dx.d3d11` bind=1、进程存活，
+  但连续 4 次 `OpGetScreenData` 全 ret=0 —— 它只把 d3d11/dxgi 当显卡探测用，窗口类
+  `VolWinForm` 是 GDI，**不产生 Present 帧**，不是合格 DXGI 靶子。x86 DXGI 通道由
+  `dx_carrier_x86 --backend d3d11` 取得干净证据。
+- **屏保路线验证通过（`workbench/_t_scr_probe.py`）**：`Bubbles.scr /p <hwnd>` 在宿主窗口内创建
+  `class=D3DSaverWndClass`（标题「气泡」）子窗口，屏保进程加载 `d3d9.dll`；op 绑该子窗口
+  `dx/windows/windows` **bind=1 + capture uniq=2015**（真实气泡画面）。⇒ 免安装的第三方
+  D3D9 渲染靶子可行。注：本机 `SysWOW64` 只有 `PhotoScreensaver.scr`/`scrnsave.scr`（均不导
+  `d3d9`），**32 位仍以自建载体为准**。
+- **回归**：`HookCapture*` 12 PASS / 1 SKIP（`D3D10Channel…` 环境项），与基线一致。
+- **遗留（新发现，本轮不改行为）**：`ResolveApi` 只做 `GetModuleHandleA`、**不 LoadLibrary** ⇒
+  目标进程尚未加载 `dinput8.dll` 时 op 直接放弃整个 input 绑定。理论上 op 可自行加载
+  dinput8 补齐该场景（游戏随后加载会复用同一模块、vtable 一致，hook 仍有效）——待决议。
+
 ### 2026-09-29（x86 hook 真机 P0 修复：跨位数 RPC 调用约定 + 句柄传参宽度）
 
 - **P0① 跨位数远程调用约定错误（cdecl stub 调 stdcall 函数）**：blackbone 的

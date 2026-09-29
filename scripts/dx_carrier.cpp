@@ -18,9 +18,12 @@
 //       dx_carrier.exe --backend d3d9  --msaa 4
 //       dx_carrier.exe --backend gl
 //       dx_carrier.exe --backend d3d11 --solid FF0000   # 单色（反向验证用）
+//       dx_carrier.exe --backend d3d9  --dinput         # 附带 DirectInput 设备（验 input hook）
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#define DIRECTINPUT_VERSION 0x0800
+#include <dinput.h>
 #include <d3d9.h>
 #include <d3d11.h>
 #include <dxgi.h>
@@ -32,6 +35,8 @@
 #pragma comment(lib, "d3d9.lib")
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dinput8.lib")
+#pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "opengl32.lib")
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "gdi32.lib")
@@ -356,11 +361,69 @@ struct CarrierGL {
     }
 };
 
+// ----------------------------------------------------------------- DirectInput
+
+// --dinput：加载 dinput8 并创建鼠标/键盘设备，模拟真实游戏。
+// 为什么需要：op 的 input hook（SetInputHook，mouse/keypad=dx）要拿到 IDirectInputDevice8W
+// 的 vtable 才能挂钩；这条链路要求**目标进程里已加载 dinput8.dll**。默认关闭，
+// 以免改变既有用例"可绑定/不可绑定"的预期。
+static IDirectInput8W *g_di = nullptr;
+static IDirectInputDevice8W *g_diMouse = nullptr;
+static IDirectInputDevice8W *g_diKeyboard = nullptr;
+
+static bool InitDinput(HWND hwnd) {
+    if (FAILED(DirectInput8Create(GetModuleHandleW(NULL), DIRECTINPUT_VERSION, IID_IDirectInput8W,
+                                  reinterpret_cast<void **>(&g_di), nullptr)))
+        return false;
+    if (SUCCEEDED(g_di->CreateDevice(GUID_SysMouse, &g_diMouse, nullptr))) {
+        g_diMouse->SetDataFormat(&c_dfDIMouse);
+        g_diMouse->SetCooperativeLevel(hwnd, DISCL_BACKGROUND | DISCL_NONEXCLUSIVE);
+        g_diMouse->Acquire();
+    }
+    if (SUCCEEDED(g_di->CreateDevice(GUID_SysKeyboard, &g_diKeyboard, nullptr))) {
+        g_diKeyboard->SetDataFormat(&c_dfDIKeyboard);
+        g_diKeyboard->SetCooperativeLevel(hwnd, DISCL_BACKGROUND | DISCL_NONEXCLUSIVE);
+        g_diKeyboard->Acquire();
+    }
+    return g_diMouse != nullptr || g_diKeyboard != nullptr;
+}
+
+// 每帧真的去读设备状态：hook 只有被调用过才算真的可用，光装上不算。
+static void PollDinput() {
+    if (g_diMouse) {
+        DIMOUSESTATE ms = {};
+        if (SUCCEEDED(g_diMouse->GetDeviceState(sizeof(ms), &ms)))
+            g_diMouse->Poll();
+    }
+    if (g_diKeyboard) {
+        char keys[256] = {};
+        if (SUCCEEDED(g_diKeyboard->GetDeviceState(sizeof(keys), keys)))
+            g_diKeyboard->Poll();
+    }
+}
+
+static void ShutdownDinput() {
+    if (g_diMouse) {
+        g_diMouse->Unacquire();
+        g_diMouse->Release();
+        g_diMouse = nullptr;
+    }
+    if (g_diKeyboard) {
+        g_diKeyboard->Unacquire();
+        g_diKeyboard->Release();
+        g_diKeyboard = nullptr;
+    }
+    if (g_di) {
+        g_di->Release();
+        g_di = nullptr;
+    }
+}
+
 // ----------------------------------------------------------------- main
 
 static void PrintUsage() {
     printf("usage: dx_carrier.exe --backend d3d9|d3d11|opengl|d3d12 [--solid RRGGBB] "
-           "[--msaa N] [--seconds N] [--w N] [--h N] [--report FILE]\n");
+           "[--dinput] [--msaa N] [--seconds N] [--w N] [--h N] [--report FILE]\n");
 }
 
 int main(int argc, char **argv) {
@@ -381,9 +444,12 @@ int main(int argc, char **argv) {
     const char *report_path = nullptr;
     int seconds = 15;
     int msaa = 0;
+    bool want_dinput = false;
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--backend") && i + 1 < argc)
             backend = argv[++i];
+        else if (!strcmp(argv[i], "--dinput"))
+            want_dinput = true;
         else if (!strcmp(argv[i], "--solid") && i + 1 < argc)
             solid = argv[++i];
         else if (!strcmp(argv[i], "--report") && i + 1 < argc)
@@ -418,6 +484,13 @@ int main(int argc, char **argv) {
     if (!CreateCarrierWindow()) {
         printf("[carrier] create window FAILED err=%lu\n", GetLastError());
         return 2;
+    }
+
+    bool dinput_ok = false;
+    if (want_dinput) {
+        dinput_ok = InitDinput(g_hwnd);
+        printf("[carrier] dinput=%d mouse=%d kb=%d\n", static_cast<int>(dinput_ok),
+               g_diMouse != nullptr, g_diKeyboard != nullptr);
     }
 
     CarrierD3D9 c9;
@@ -474,9 +547,10 @@ int main(int argc, char **argv) {
     if (report_path) {
         FILE *fp = fopen(report_path, "wb");
         if (fp) {
-            fprintf(fp, "hwnd=0x%llX\npid=%lu\nsize=%dx%d\nbackend=%s\nmsaa=%d\nREADY\n",
+            fprintf(fp, "hwnd=0x%llX\npid=%lu\nsize=%dx%d\nbackend=%s\nmsaa=%d\ndinput=%d\nREADY\n",
                     static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(g_hwnd)),
-                    GetCurrentProcessId(), g_width, g_height, backend, effective_msaa);
+                    GetCurrentProcessId(), g_width, g_height, backend, effective_msaa,
+                    static_cast<int>(dinput_ok));
             fclose(fp);
         }
     }
@@ -494,11 +568,16 @@ int main(int argc, char **argv) {
             c11.Frame();
         else
             cgl.Frame();
+        if (want_dinput)
+            PollDinput();
         Sleep(16);
     }
 
     printf("[carrier] exit after presenting %ld frames\n", static_cast<long>(g_frames));
     fflush(stdout);
+
+    if (want_dinput)
+        ShutdownDinput();
 
     if (strcmp(backend, "d3d9") == 0)
         c9.Shutdown();
