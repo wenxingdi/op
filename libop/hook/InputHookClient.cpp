@@ -71,13 +71,13 @@ long call_set_input_hook(HWND hwnd, int mode, DWORD *out_pid) {
         }
 
         if (injected) {
-            using set_input_hook_t = long(__stdcall *)(HWND, int);
-            auto remote = op::hook::MakeHookRemoteFunction<set_input_hook_t>(proc, dll_name, "SetInputHook");
-            if (remote) {
-                auto call_ret = remote(hwnd, mode);
-                ret = call_ret.result();
-            } else {
-                setlog(L"remote function 'SetInputHook' not found in %s.", dll_name.c_str());
+            // 句柄宽度按目标位数自动选择（P0②：见 HookRemoteCall.h 的 CallHookHwndIntFn 头注）。
+            auto call_ret = op::hook::CallHookHwndIntFn(proc, dll_name, "SetInputHook",
+                                                        reinterpret_cast<uintptr_t>(hwnd), mode);
+            ret = call_ret.result();
+            if (ret != 1) {
+                setlog(L"SetInputHook remote call failed. hwnd=%p mode=%d status=0x%X ret=%d", hwnd, mode,
+                       call_ret.status, (int)ret);
             }
         }
 

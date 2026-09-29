@@ -50,16 +50,29 @@ void release_remote_display_hook(blackbone::Process &proc, const std::wstring &d
 // 用法：注入前 SetDllDirectoryW(m_opPath)，LoadLibrary 完成依赖解析后传 nullptr 恢复。
 // 注意：AsmVariant 对 const wchar_t* 深拷贝到远端(dataPtr)，RPC 安全。
 bool set_remote_dll_search_dir(blackbone::Process &proc, const wchar_t *dir) {
-    using set_dll_dir_t = BOOL(__stdcall *)(const wchar_t *);
     try {
-        auto pSetDllDir = blackbone::MakeRemoteFunction<set_dll_dir_t>(proc, L"kernel32.dll", "SetDllDirectoryW");
-        if (!pSetDllDir) {
-            if (dir) {
+        if (dir) {
+            // 非空字符串：AsmVariant 对 const wchar_t* 深拷贝到远端(dataPtr)，跨进程安全。
+            using set_dll_dir_str_t = BOOL(__stdcall *)(const wchar_t *);
+            auto pSetDllDir =
+                op::hook::MakeSystemRemoteFunction<set_dll_dir_str_t>(proc, L"kernel32.dll", "SetDllDirectoryW");
+            if (!pSetDllDir) {
                 setlog(L"remote SetDllDirectoryW not resolvable.");
+                return false;
             }
+            return pSetDllDir(dir).result() != FALSE;
+        }
+        // 恢复：必须传**裸 4 字节立即数 0**，不能传 nullptr —— nullptr_t 在 x64 宿主上
+        // size=8，会被 PrepareCallAssembly 误判成 dataStruct（8 字节结构体按值压栈），
+        // 既传不成 NULL、取结果还会抛异常（既有 "remote SetDllDirectoryW exception"
+        // 噪音的根因，见 HookRemoteCall.h 的 P0② 说明）。以 uint32_t 形参即得 imm 0。
+        using set_dll_dir_null_t = BOOL(__stdcall *)(uint32_t);
+        auto pReset =
+            op::hook::MakeSystemRemoteFunction<set_dll_dir_null_t>(proc, L"kernel32.dll", "SetDllDirectoryW");
+        if (!pReset) {
             return false;
         }
-        return pSetDllDir(dir).result() != FALSE;
+        return pReset(0u).result() != FALSE;
     } catch (const std::exception &e) {
         if (dir) {
             setlog(L"remote SetDllDirectoryW exception: %S (dir may still have taken effect)", e.what());
@@ -158,20 +171,14 @@ long HookCapture::BindEx(HWND hwnd, long render_type) {
                 }
             }
             if (injected) {
-                // setlog("before MakeRemoteFunction");
-                using my_func_t = long(__stdcall *)(HWND, int);
-                auto pSetXHook = op::hook::MakeHookRemoteFunction<my_func_t>(proc, dllname, "SetDisplayHook");
-                if (pSetXHook) {
-                    // setlog("after MakeRemoteFunction");
-                    auto cret = pSetXHook(hwnd, render_type);
-                    // setlog("after pSetXHook");
-                    bind_ret = cret.result();
-                    // setlog("after result");
-                    if (bind_ret != 1) {
-                        release_remote_display_hook(proc, dllname);
-                    }
-                } else {
-                    setlog(L"remote function 'SetDisplayHook' not found in %s.", dllname.c_str());
+                // 句柄宽度按目标位数自动选择（P0② 根因与修法见 HookRemoteCall.h 头注）。
+                auto cret = op::hook::CallHookHwndIntFn(proc, dllname, "SetDisplayHook",
+                                                        reinterpret_cast<uintptr_t>(hwnd), render_type);
+                bind_ret = cret.result();
+                if (bind_ret != 1) {
+                    setlog(L"SetDisplayHook remote call failed. hwnd=%p render_type=%d status=0x%X ret=%d",
+                           hwnd, render_type, cret.status, (int)bind_ret);
+                    release_remote_display_hook(proc, dllname);
                 }
             } else {
                 setlog(L"Inject false.");

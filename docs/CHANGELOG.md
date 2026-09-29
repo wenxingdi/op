@@ -3,6 +3,45 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-29（x86 hook 真机 P0 修复：跨位数 RPC 调用约定 + 句柄传参宽度）
+
+- **P0① 跨位数远程调用约定错误（cdecl stub 调 stdcall 函数）**：blackbone 的
+  `RemoteFunction<R(__stdcall*)(...)>` 特化只在 `USE32`（32 位 blackbone 构建）下编译
+  （RemoteFunction.hpp 原注：“Under AMD64 these will be same declarations as __cdecl”）——
+  x64 宿主上 `__stdcall` 被归一化，落进 `__cdecl` 特化 → `RemoteFunctionBase<cc_cdecl>` →
+  跨 WoW64 时 AsmHelper32 生成 **cdecl stub 调 stdcall 导出** → 每参 4 字节栈漂移。
+  修复：绕过特化体系，统一 `RemoteFunctionBase<cc_stdcall, R, Args...>`
+  （`libop/hook/HookRemoteCall.h`；x64 目标 AsmHelper64 忽略约定，行为不变）。
+  同源症状一并消除：`SetDllDirectoryW` 跨 Wow64「取结果抛 unknown exception」的既有噪音。
+- **P0② 跨位数句柄传参宽度（真正致崩的那一条）**：`AsmVariant` 依**宿主**
+  `sizeof(T)` 决定参数宽度——x64 宿主下 `sizeof(HWND)=8`，`PrepareCallAssembly` 对
+  「imm 且 size>4」的 x86 参数做 `imm → dataStruct` 转换（8 字节按值压栈）：
+  ① 后续参数整体串位（`render_type` 实际收到 struct 高 4 字节，**恒为 0**）；
+  ② 栈布局不符真实 32 位 ABI → 远程 stub 收尾踩坏栈 → 目标进程 0xC0000005。
+  修复：`CallHookHwndIntFn` 按目标位数选句柄宽度（32 位 → `uint32_t`，64 位 → `HWND`），
+  `HookCapture`/`InputHookClient` 两处调用点统一改走它。`SetDllDirectoryW(nullptr)`
+  恢复调用改传**裸 4 字节立即数 0**（nullptr_t 在 x64 宿主上同样 size=8 → 误走 dataStruct）。
+- **定位判据（可复用）**：注入侧 `setlog` 落**目标进程 cwd**，崩溃前最后一行就在那；
+  对照实验「kernel32 0 参 / 3 个 int / 注入 DLL 1 参均干净返回，只有带 HWND 的调用崩」
+  一步锁定句柄宽度；`ReleaseDisplayHook` 返回 `0xC000010A`(PROCESS_IS_TERMINATING)
+  说明目标已在上一 RPC 收尾期间死亡。
+- **验证**：32 位记事本 `SetDisplayHook` 修复前稳定 0xC0000005 → 修复后 3ms 干净返回；
+  蜀门真机 `bind_window(hwnd,"dx","windows","windows")` **ret=1**，
+  `OpGetScreenData` **ret=1 / 200×150 唯一色 13172**（真实游戏画面，非黑帧），
+  游戏进程存活——历史崩溃场景（自建 x86 hook 挂真实 32 位游戏）**彻底闭环**。
+- **全量回归（`workbench/run_optest.py`，cwd=仓库根）**：400 条 / 395 PASS / 2 SKIP / 3 FAILED。
+  3 条 FAILED 均经 A/B 判定非本轮回归：`MouseKeyTest.WaitKeyScanAllWithWaitFindsKey`（本机 VK133
+  幽灵按键环境项）、`WgcTest.NormalDxgiFirstCaptureAfterBindUsesFreshFrame`（DXGI 抓桌面合成，
+  前台被占即不复现；**改动前备份二进制同样失败**）、`CaptureModeTest.DownCpuAddsDelayAfterEachCapture`
+  （阈值仅 30ms 余量的已知抖动项，单跑 3/3 PASS）。A/B 工具：`workbench/_t_ab_run.py`。
+- **`dx/dx/dx` 绑定 ret=0 定性（非缺陷）**：目标进程未加载 `dinput8.dll`（判据
+  `workbench/_t_mods.py` 跨位数模块枚举：版本检查界面 `d3d9.dll` 已在、`dinput8.dll` 未在）→
+  `hook_dinput()` 无目标可挂 → 按 P1-9 诚实返回 0（RPC `status=0x0`，未崩溃）。待游戏进真实场景复验。
+- **发布件 x86 分发收口**：`build/_sync_release_b2.py` 按文件名分派两棵构建树并纳入 x86 四件套；
+  `workbench/sync_extra_copies.py` x86 源存在即补建。6 处主副本 + 2 处运行时目录 sha1 全一致。
+- **版本注**：`OpGetScreenData` 第 6 个出参是 **ret**（1=成功）不是 size；像素缓冲需按
+  请求宽高自行解读（w*h*4，BGRA 自上而下）。探针曾把它当 size 误判「capture 失败」。
+
 ### 2026-09-29（run_app 双启动链：exe 路径直启修复 + mode 语义扩展）
 
 - **RunAppPath.h 真 bug（第二次）：`end == n` 语义混叠**——`.exe` 恰在串尾时 end 命中后
