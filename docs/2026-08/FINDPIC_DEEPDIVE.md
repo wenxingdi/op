@@ -20,7 +20,7 @@ op::Op::FindPic(x1,y1,x2,y2, files, delta_color, sim, dir, *x,*y,*ret)
                       max_err_ct = (w*h - transparent_count) * (1 - sim)
                       按线程数分块 → 每块 for_each_scan_point(dir, …) 调 trans_match / real_match
                       按 dir 优先级选最优命中点
-  → 返回 pic_id（命中模板下标，0-based）或 -1；x,y = 命中左上角【绝对屏幕坐标】
+  → 返回 pic_id（命中模板下标，0-based）或 -1；x,y = 命中左上角【客户区坐标】
 ```
 
 坐标累加：`x = j + _x1 + _dx; y = i + _y1 + _dy`（`_dx/_dy` 为图源偏移，全屏搜索时均为 0）。
@@ -73,7 +73,7 @@ op::Op::FindPic(x1,y1,x2,y2, files, delta_color, sim, dir, *x,*y,*ret)
 
 ## 6. 坐标与并发
 
-- 返回坐标 = 绝对屏幕坐标（`_x1+_dx` 累加）。
+- 返回坐标 = **客户区坐标**（`_x1` 为捕获区域左上角，`_dx` 恒 0）。⚠️ 2026-09-29 真机验证修正：原写「绝对屏幕坐标」有误（平移受控窗口 +300px 返回坐标不变）。
 - **同 `Op` 实例不可并发 `FindPic`**：`_src/_gray/_sum` 工作缓冲非线程安全（类注释已声明）。
 - 全局模板缓存 `g_pic_cache` 用 `shared_mutex` 保护，可跨 `Op` 对象共享（见 `SharedPicCacheIsGlobalAcrossObjects` 测试）。缓存开关 `_enable_cache` 默认 = 1（`ImageSearchService` 构造里 `_enable_cache = 1`）。
 

@@ -732,7 +732,7 @@ PARAM_DOCS = {
     "OcrEx": {"et_str": "逐块结果串：<code>\"x,y,文字|x,y,文字|...\"</code>；免字库路径同 Ocr 语义（color 不参与）"},
     "AutoOcr": {"et_str": "免字库纯文本：按 color 颜色二值化（支持 <code>@背景色</code> 反白格式）后送内置引擎识别，非自动阈值"},
     "AutoOcrLine": {"et_str": "免字库纯文本（各行文本直接拼接，无分隔符无坐标）：水平投影按行切段后逐行识别；行切分阈值硬编码——行间隙>3px 切段、段高<5px 丢弃，ROI 行距过近或字高过小会被合并/丢弃"},
-    "AutoOcrEx": {"et_str": "自动阈值版逐块结果串（同 OcrEx 格式）"},
+    "AutoOcrEx": {"et_str": "结构化免字库结果串 <code>\"x1,y1,x2,y2,conf,text|...\"</code>，坐标为客户区坐标（相对绑定窗口客户区左上角），命中行数为返回值（非 OcrEx 格式）"},
     "OcrAuto": {
         "color": "本接口<b>不传颜色</b>（自动取区域主色做二值化）",
         "et_str": "免配色 OCR 纯文本",

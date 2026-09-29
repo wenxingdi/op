@@ -312,7 +312,7 @@ func (o *Op) AutoOcrLine(x1, y1, x2, y2 int, color string, sim float64) string {
 	return wcharString(ret)
 }
 
-// AutoOcrEx 结构化 AutoOcr：返回 "x1,y1,x2,y2,conf,text|..."（屏幕绝对坐标）与命中行数。
+// AutoOcrEx 结构化 AutoOcr：返回 "x1,y1,x2,y2,conf,text|..."（客户区坐标，相对绑定窗口客户区左上角）与命中行数。
 func (o *Op) AutoOcrEx(x1, y1, x2, y2 int, color string, sim float64) (string, int) {
 	if !o.valid() {
 		return "", 0

@@ -1520,7 +1520,8 @@ class Op:
     def autoocr_ex(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> tuple[str, int]:
         """结构化 AutoOcr，返回 ``(items, count)``。
 
-        ``items`` 格式 ``"x1,y1,x2,y2,conf,text|..."``，坐标为屏幕绝对坐标，
+        ``items`` 格式 ``"x1,y1,x2,y2,conf,text|..."``，坐标为**客户区坐标**（相对绑定窗口客户区左上角，与
+        :meth:`find_color` / :meth:`find_pic` 同口径；**不是**屏幕绝对坐标），
         ``conf`` 为置信度（0~1，两位小数）；``count`` 为命中行数。
         """
         return self._call_string_with_int(

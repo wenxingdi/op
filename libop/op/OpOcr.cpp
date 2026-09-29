@@ -448,7 +448,7 @@ void op::Op::AutoOcrLine(long x1, long y1, long x2, long y2, const wchar_t *colo
     });
     retstr = str;
 }
-// 结构化 AutoOcr：输出 "x1,y1,x2,y2,conf,text|..."（屏幕绝对坐标）
+// 结构化 AutoOcr：输出 "x1,y1,x2,y2,conf,text|..."（客户区坐标，相对绑定窗口客户区左上角）
 long op::Op::AutoOcrEx(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &retstr) {
     wstring str;
     const std::wstring color_text = color ? color : L"";

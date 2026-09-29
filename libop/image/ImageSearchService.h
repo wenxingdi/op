@@ -116,7 +116,7 @@ class ImageSearchService : public ImageSearchAlgorithms {
     // 适用于读出区/固定文本，比 det+rec 快。
     long autoocr_line(const wstring &color, double sim, std::wstring &out_str);
 
-    // 结构化 autoocr：输出 "x1,y1,x2,y2,conf,text|..."（bbox 已偏移为屏幕绝对坐标）。
+    // 结构化 autoocr：输出 "x1,y1,x2,y2,conf,text|..."（bbox 已偏移为客户区坐标，相对绑定窗口客户区左上角）。
     long autoocr_ex(const wstring &color, double sim, std::wstring &out_str);
 
     long OcrEx(const wstring &color, double sim, std::wstring &out_str);

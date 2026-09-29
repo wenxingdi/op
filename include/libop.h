@@ -654,7 +654,7 @@ class OP_API Op {
     // 行切分参数为硬编码阈值（OC6，暂不提供参数）：行间隙 >3px 切段、段高 <5px 视为噪点丢弃。
     void AutoOcrLine(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                      _In_ double sim, _Out_ std::wstring &ret_str);
-    // 结构化 AutoOcr：输出 "x1,y1,x2,y2,conf,text|..."（bbox 为屏幕绝对坐标），返回命中行数。
+    // 结构化 AutoOcr：输出 "x1,y1,x2,y2,conf,text|..."（bbox 为客户区坐标，相对绑定窗口客户区左上角），返回命中行数。
     long AutoOcrEx(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                    _In_ double sim, _Out_ std::wstring &ret_str);
     // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置

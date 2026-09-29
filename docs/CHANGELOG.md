@@ -3,6 +3,44 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-29（真机验收：颜色口径 = RGB、绑定坐标 = 客户区、免字库 OCR 颜色语义）
+
+- **颜色字节序定性（决定性实验）**：受控 Tk 目标（白底 `RED` #ff0000 / `BLUE` #0000ff）——
+  `color='ff0000'` 只出 `RED`、`'0000ff'` 只出 `BLUE`、`'ff0000|0000ff'` 出 `REDBLUE`
+  ⇒ **op 对外颜色 = `RRGGBB`（RGB 顺序）**，与 `Color.h:38-47` `swscanf("%02X%02X%02X",&r,&g,&b)` 一致。
+  内部 `color_t{b,g,r,alpha}` 是 BGRA **内存布局**，与对外口径分层，不矛盾。
+  ⚠ 用户侧取色器若输出 BGR（实测用户报 `1111e0` 为**红** → 其取色源为 BGR），**非对称色会红蓝错位、静默失效**
+  （对称色如 `33ee33` 两口径相同，不暴露问题）。
+- **绑定态坐标定性**：受控窗口整体平移 `+300/+200`，`autoocr_ex` / `find_color` 返回坐标**零位移**
+  ⇒ **绑定态坐标 = 客户区坐标**（非屏幕绝对）。代码依据：`RectConvert` 的「客户区→屏幕」偏移**整段被注释**、
+  只剩裁剪；`_dx/_dy` 全仓库仅构造置 0、无赋值点。**修正 8 处权威接口文档**：
+  `libop.h` / `op_c_api.h` / `ImageSearchService.{h,cpp}` / `OpOcr.cpp` / `op.idl` /
+  `bindings/python/op/api.py` / `bindings/go/ocr_windows.go`（`WindowState.cpp` 的 2 处讲 Win32
+  `GetWindowRect`，语义**正确保留**）；`gen_api_reference.py` 同步 → `api_reference.html` 重生成。
+- **免字库 OCR 颜色语义（修正一处长期误判）**：空串**不是**"恒不匹配"——
+  `str2colordfs` 对空串 `return 1` → `bgr2binarybk` 的 `bk_colors.empty()` 分支走「灰度 + 自动取背景色」
+  **反白**路径 ⇒ **仍能识别**（实测 `成都［258,-507]`，混入全角 `［`）。正确口径：
+  空串能识别但稍杂 / 给对色去噪最干净 / **给错色（区域内无该色）→ 前景空 → 空串**（看似"识别不了"，实为输入口径错）。
+- **字库路径对负号不可靠（真机实证）**：同帧同区域 —— 免字库 `autoocr_line` + 用户色 = `成都[258,-507]`
+  （**目视 6× 放大核对：负号确实存在且识别正确**）；而 `ocr_auto` / `ocr` / `ocr_from_file`
+  = `成都[258,507]` / `成都[258,3507]`（**负号丢失或错成 3**，多次跑还不太稳定）。
+  ⇒ **读游戏坐标必须用免字库 + 正确颜色**。
+- **六通道矩阵（含「截图前前台化」改进）**：`normal` 是桌面级捕获，被遮挡时会截到遮挡者 →
+  G1 改为每通道截图前先 `set_window_state(hwnd,1)` 前台化。效果：`normal` 唯一色数
+  **3314（截到遮挡者）→ 388402（真画面）**。六通道（32 位蜀门，DPI-aware 1360×768）：
+  `gdi`/`gdi2`/`normal`/`dx`/`dx·dx·dx` 均 bind=1 且 capture ret=1；`dx.d3d11` bind=1 但
+  **capture ret=0** —— 与预测一致（同一个 `Present` hook，但取图需 `ID3D11Resource`，
+  对 D3D9 游戏「绑得上、取不到帧」）。
+- **新增探针（5 个，入库）**：`_t_real_shumen.py`（6 组真机验收）、`_t_ocr_coord.py`（坐标决定性实验）、
+  `_t_color_order.py`（字节序决定性判定）、`_t_autoocr_color.py`（颜色必要性矩阵，可 `--rect/--color/--sim` 调参）、
+  `_t_color_bgr_rgb.py`（用户串 BGR/RGB 对照 + 区域像素构成 Top-12 + 放大图）。
+- **工具/判据修正**：`workbench/_bmp2png.py` 由「仅 32bpp」扩展为 **24/32bpp**（放大图落盘所需）；
+  `_t_real_shumen.py` G3 的 OCR 判据由「恒真 `isinstance(v,str)`」改为「**非空才 PASS**」
+  （原判据对 `count=0` 也判 PASS，无区分度）。
+- **报告**：`docs/2026-09/真机验收_免字库OCR颜色口径与坐标语义_20260929.md`。
+- **遗留**：G4 键鼠真机（`--input` 门控，会发真实输入，待批准）；`gl.*` 子模式（需 OpenGL 目标）；
+  x64 真 D3D10/D3D12 载体像素级验证。
+
 ### 2026-09-29（脚本与测试记录归档入库 + 备份链路两处修正）
 
 - **动机**：`build/` 与 `workbench/` 都在 .gitignore 内 → `_wb_build*.py`、全部探针脚本、

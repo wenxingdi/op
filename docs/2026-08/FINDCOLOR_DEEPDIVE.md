@@ -16,7 +16,9 @@ op::Op::FindColor(x1,y1,x2,y2, color, sim, dir, x, y)      // 门面带区域
                  └─ color_matches_prepared(_src.at, it)  → IN_RANGE
 ```
 
-返回的 `x = j + _x1 + _dx`、`y = i + _y1 + _dy` 是**绝对屏幕坐标**（与 FindPic 一致）。
+返回的 `x = j + _x1 + _dx`、`y = i + _y1 + _dy` 是**客户区坐标**（与 FindPic 一致；相对绑定窗口客户区左上角）。
+
+> ⚠️ **2026-09-29 真机验证修正**：原写「绝对屏幕坐标」有误 —— `_dx/_dy` 恒为 0（构造置 0 后无赋值点），`_x1/_y1` 由 `capture_region` 设为捕获区域左上角且**不加窗口原点偏移**（`BindingSession::RectConvert` 的偏移分支被注释）。平移受控窗口 +300px 实测返回坐标纹丝不动。
 
 ## 二、颜色串语法（str2colordfs，Service.cpp:747）
 

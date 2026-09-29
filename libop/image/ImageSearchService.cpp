@@ -906,7 +906,7 @@ long ImageSearchService::autoocr_ex(const wstring &color, double sim, wstring &o
         return ImageSearchAlgorithms::OcrEx(*dict, sim, out_str);
     }
 
-    // 2) 免字库：白字黑底 BGRA 缓冲 -> det+rec，bbox 偏移为屏幕绝对坐标
+    // 2) 免字库：白字黑底 BGRA 缓冲 -> det+rec，bbox 偏移为客户区坐标（_x1/_y1 由 capture_region 设为区域左上角，_dx/_dy 恒 0）
     int w = _binary.width, h = _binary.height;
     if (w <= 0 || h <= 0)
         return 0;
