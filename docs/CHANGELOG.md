@@ -3,6 +3,31 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-29（OpenCV 域 C API 导出层验证：36/36 全覆盖 + 抓到 `cv_edge_match_template` 伪命中缺陷）
+
+- **缺口定位**：`OpCv*` 共 36 个（COM / C API / Python 三层完全对齐），但既有 gtest `tests/opencv_test.cpp`
+  （30 用例全绿）**只直接调用了 3 个 `OpCv*`**，其余走 C++ 内部 `opcv::` API ⇒ **绕过了 C API 导出层**。
+  而导出层正是 Python 绑定 / OPlug / GMAJ / OPTool 的实际调用面。本轮在**导出层**做端到端验证。
+- **新增探针 `scripts/probes/_t_opencv_api.py`**（4 组）：V1 模板库 CRUD(9) / V2 文件型预处理(17) /
+  V3 JSON 返回型(2) / V4 捕获型匹配(8)。**36/36 全覆盖，PASS=109 FAIL=0 INFO=6**。
+- **方法**：自生成 ground-truth 合成图（红→灰 76 / 绿→灰 150 为 BT.601 精确值、`cv_crop_valid`
+  输出 360x280 = 预测包围盒、连通域恰好 3 个方块）⇒ 像素级判据；每步带反向验证。
+- ⚠ **缺陷（未修，待拍板）：`cv_edge_match_template` 恒返回搜索窗左上角，score 恒 1.0**
+  —— 单变量 A/B（只平移搜索窗，模板与画面不变）：`(0,0)→(0,0)`、`(120,90)→(120,90)`，与模板无关。
+  根因 `TemplateMatcher.cpp`：`TM_CCOEFF_NORMED` 在**平坦区（局部方差≈0）退化为 1.0**，
+  与真位置的 1.0 并列，而 `minMaxLoc` 并列取**行优先首个** ⇒ 永远落在窗左上。
+  建议修法：换 `TM_SQDIFF_NORMED`，或对 `match_result` 做方差掩膜剔除退化位置。
+- **语义记录（非缺陷）**：匹配类函数返回的是**首个超阈值命中**而非全局最优
+  （`th0.90→(298,238) score0.9074`，`th0.99→(300,238) score1.0`），与 gtest 用例名
+  `MatchTemplateReturnsFirstThresholdHit` 一致；调参须知。
+- **软项**：`cv_shape_match_template` 在多色合成图上恒 `ok:0` —— `toShapeMask` 走 OTSU 得到大色块
+  轮廓而非目标形状，属**适用性问题**（需 alpha 掩膜或干净前景），不判缺陷。
+- **自身判据缺陷修正（3 处，记录以免重犯）**：①BMP 解析只支持 24/32bpp，而 op 对单通道结果写
+  **8bpp+调色板 BMP** ⇒ 行尾越界，9 个 FAIL 全是解析器问题；②模板裁在纯色区中心 → 多解 → 命中
+  退化为搜索窗左上角（与真机 G3 `find_pic` 同一个坑），修法 = 裁到含颜色交界处 + 加**唯一性自检**；
+  ③靶子仍不够唯一（0.99 阈值下有第二个 score=0.990 位置）⇒ 加全画面唯一黑十字特征后才拿精确命中。
+- 报告：`docs/2026-09/验证_OpenCV域C_API导出层_20260929.md`。
+
 ### 2026-09-29（真机验收：键鼠通路闭环 + B 组 charset 白名单闭环）
 
 - **G4 键鼠真机（唯一需真实游戏窗口的项）**：`dx/dx/dx` 绑定蜀门（32 位）调用面全通
