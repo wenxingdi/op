@@ -85,6 +85,12 @@
 （45 份，896 KB）归档进 `docs/test-records/2026-09/`，随 git 入库，可直接下载复查。
 索引见 `docs/test-records/README.md`。日志类中间产物仍留在 `workbench/`（不入库）。
 
+## scripts/ —— 仓库级工具（入库）
+
+| 脚本 | 用途 |
+|---|---|
+| `push.py` | 推送 master 到 GitHub 并**硬校验**（远端 sha == 本地 sha）。绕开「默认 `credential.helper` 派生 GCM 子进程会静默崩掉 git」→ 内联 auth URL + `-c credential.helper=`，token 由 GCM exe 直取；推送成功后显式 `update-ref origin/master`（**内联 URL 推送不更新本地跟踪引用**，否则 `git bundle create --all` 会带上过期引用）；输出全程脱敏 |
+
 ## scripts/backup/ —— 备份与发布工具（入库）
 
 | 脚本 | 用途 |

@@ -16,6 +16,11 @@
   refresh 刷新了 commit/sha1 与 `post_backup_refresh` 字段，从 8344 → 8370 字节）。
   **硬校验 5/5 全等**（GitHub API `digest`(sha256) + `size`，三次重查；首次查询可能命缓存旧 digest）。
 - 注：`optool-repo.bundle` 未变（optool 仓库本轮无提交，`bundle_head == master` 走"跳过重打"分支）。
+- **`push.py` 入库 + 跟踪引用修正**：原推送脚本只在 `workbench/`（`.gitignore` 内，
+  **不在任何备份里**），迁入 `scripts/push.py`（用 `scripts/build/_root.py:repo_root()` 定位仓库）。
+  同时修一个长期隐患：**内联 auth URL 推送不会更新本地 `refs/remotes/origin/master`**
+  （git 视其为匿名 URL），实测本地跟踪引用停在 `5dc431f` 而 master 已到 `5e6eab0`
+  → `git bundle create --all` 会把这个**过期引用**打进冷备份。现推送成功后显式 `update-ref`。
 
 ### 2026-09-29（真机验收：颜色口径 = RGB、绑定坐标 = 客户区、免字库 OCR 颜色语义）
 
