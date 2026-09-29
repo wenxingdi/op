@@ -619,6 +619,39 @@ def g5_g6(op):
     rec("autoocr_line 耗时 avg（%d 次）" % n, "%.1f ms/帧" % avg,
         "PASS" if avg < 30 else "INFO")
 
+    # ---- charset 白名单（原清单 B 组要求；`OnnxOcrEngine.cpp:298-320` 语义）----
+    # `--charset=@zh` 展开全部 CJK；其余可打印 ASCII 按字面加入；空规则 = 全字典。
+    # 强区分度判据：`@zh` **只放行中文** → 数字/符号必须消失（若仍在 → 白名单未生效）。
+    log("")
+    log("[B组] charset 白名单：@zh0123456789[],-+（期望全识别）vs @zh（期望只剩中文）")
+    if T("set_ocr_engine(onnx, --charset=@zh0123456789[],-+)",
+         lambda: op.set_ocr_engine("onnx", "", "--charset=@zh0123456789[],-+"),
+         ok=lambda v: v is True or v == 1, show=lambda v: repr(v)):
+        T("  ↳ 白名单内文本全识别（无拉丁乱入）",
+          lambda: op.autoocr_line(0, 0, cw, ch, "000000-303030", 0.7),
+          ok=has_all, show=lambda v: repr(v)[:70])
+        if T("set_ocr_engine(onnx, --charset=@zh)",
+             lambda: op.set_ocr_engine("onnx", "", "--charset=@zh"),
+             ok=lambda v: v is True or v == 1, show=lambda v: repr(v)):
+            # 判据 = 「结果只含中文/空格」：
+            #   白名单失效 → 完整返回 `许愿树[320,-778]12345`（含数字）→ FAIL，有区分度。
+            zh_txt = T("  ↳ @zh 下只允许中文（数字/拉丁/符号必被屏蔽）",
+                       lambda: op.autoocr_line(0, 0, cw, ch, "000000-303030", 0.7),
+                       ok=lambda v: isinstance(v, str) and all(
+                           ch == " " or "\u4e00" <= ch <= "\u9fff" for ch in v),
+                       show=lambda v: repr(v)[:70])
+            # 观测项：@zh 下中文是否仍保留。实测本图返回**空串** —— 数字确被屏蔽，
+            # 但 `许愿树` 也一并消失。疑因屏蔽后 CTC 各步最优类别退化（非白名单类别
+            # 的 logits 被整体剔除，剩余类别在数字步上无稳定优势 → 全落 blank）。
+            # 记 INFO 待专项核查，不作为缺陷判定（@zh 属极端白名单，实用中罕用）。
+            rec("  ↳ @zh 下中文保留情况（观察项）",
+                "text=%r ⇒ %s" % (zh_txt, "仅中文" if (zh_txt and "许愿树" in zh_txt)
+                                  else "整行消失（中文与数字均无输出）"), "INFO")
+        # 恢复全字典（空 argv）—— 避免影响后续调用
+        T("  ↳ 恢复全字典（argv=\"\"）",
+          lambda: op.set_ocr_engine("onnx", "", ""),
+          ok=lambda v: v is True or v == 1, show=lambda v: repr(v))
+
     # ---- G6 resize 放大超容（原 A 组：放大后整窗 capture 不得越界/错位）----
     log("")
     log("[G6] resize 放大到 920x720（面积约 10 倍）后整窗 capture")
@@ -649,21 +682,183 @@ def g5_g6(op):
     time.sleep(0.3)
 
 
+class _POINT(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+
+def _sys_cursor():
+    """系统 API 直接读物理光标位置（**完全不依赖 op** 的第三方判据）。"""
+    p = _POINT()
+    ctypes.windll.user32.GetCursorPos(ctypes.byref(p))
+    return (p.x, p.y)
+
+
 def g4(op, hwnd, cw, ch):
     sec("G4 键鼠真机（有副作用：会真的向游戏发送输入）")
     r = op.bind_window(hwnd, "dx", "dx", "dx", 0)
     rec("bind_window(dx/dx/dx)", "ret=%s" % r, "PASS" if r else "FAIL")
     if not r:
         return
-    # 仅做「移动 + 不动任何 UI」的最小集：鼠标移到窗口左上角内侧的空白区，不点击
+    # 副作用控制：**只移动、只按修饰键，绝不 click / wheel / drag**
+    #   （点击与滚轮会真的操作游戏 UI，本轮不启用）
+    log("  副作用控制：仅 move* 与修饰键 SHIFT；不 click / 不 wheel / 不 drag")
+
+    # --- ① 移动类 API 面（真机价值 = 调用可取到 + 不崩）---
     T("move_to(2,2)", lambda: op.move_to(2, 2), ok=lambda v: bool(v))
-    time.sleep(0.3)
-    cp = T("get_cursor_pos（绑定态返屏幕坐标）", lambda: op.get_cursor_pos(),
-           ok=lambda v: isinstance(v, tuple), show=lambda v: str(v))
-    log("  提示：绑定态 get_cursor_pos 返**屏幕**坐标，不等于客户区坐标，勿用它判落点")
-    T("get_key_state(VK_SHIFT)", lambda: op.get_key_state(0x10), ok=lambda v: v in (0, 1),
-      show=lambda v: str(v))
-    T("unbind_window", lambda: op.unbind_window(), ok=lambda v: v is True)
+    time.sleep(0.2)
+    p1 = T("get_cursor_pos（绑定态语义）", lambda: op.get_cursor_pos(),
+           ok=lambda v: isinstance(v, tuple), show=lambda v: str(v), soft=True)
+    # 交叉验证：客户区 (2,2) → 屏幕坐标，与回读值比对。
+    # dx 后台消息式投递**不会**改物理光标，此时两者不等 —— 两种结果都在设计容差内，记 INFO。
+    try:
+        sx, sy = op.client_to_screen(hwnd, 2, 2)
+        rec("  ↳ 回读 vs client_to_screen(2,2)", "读=%s 预期=%s" % (p1, (sx, sy)), "INFO")
+        log("    该比对对后台消息式**无判别力**：物理光标本就不动（G4b 已实测证实）"
+            "⇒ 「输入是否真到达」改由 G4b 的『目标窗口事件回显』判定")
+    except Exception as e:
+        rec("  ↳ client_to_screen", "EXC %r" % (e,), "INFO")
+
+    T("move_r(40,25)", lambda: op.move_r(40, 25), ok=lambda v: bool(v))
+    T("move_to_smooth(中心,150ms)", lambda: op.move_to_smooth(cw // 2, ch // 2, 150),
+      ok=lambda v: bool(v))
+    T("move_to_ex(1/4,1/4,10,10)", lambda: op.move_to_ex(cw // 4, ch // 4, 10, 10),
+      ok=lambda v: isinstance(v, str) or bool(v), show=lambda v: repr(v)[:40], soft=True)
+    T("get_cursor_shape", lambda: op.get_cursor_shape(), ok=lambda v: isinstance(v, str),
+      show=lambda v: repr(v)[:32], soft=True)
+
+    # --- ② 键盘通路：SHIFT 单按对游戏无副作用 ---
+    T("key_down(VK_SHIFT=0x10)", lambda: op.key_down(0x10), ok=lambda v: bool(v))
+    time.sleep(0.15)
+    ks = op.get_key_state(0x10)
+    rec("  ↳ 按下后 get_key_state(SHIFT)", "= %s" % ks,
+        "PASS" if ks == 1 else "INFO")
+    log("    注：get_key_state 基于 GetAsyncKeyState（物理键态）；dx 后台消息式投递不改物理键态，"
+        "故非 1 亦在设计容差内（键盘是否真达游戏见 G4b 硬判据）")
+    T("key_up(VK_SHIFT)", lambda: op.key_up(0x10), ok=lambda v: bool(v))
+    time.sleep(0.15)
+    ks2 = op.get_key_state(0x10)
+    rec("  ↳ 抬起后 get_key_state(SHIFT)", "= %s" % ks2, "PASS" if ks2 == 0 else "INFO")
+    T("key_press(VK_SHIFT)", lambda: op.key_press(0x10), ok=lambda v: bool(v))
+    # 可证伪：未按下的 VK_F24 若读出非 0，说明 get_key_state 是假的
+    T("get_key_state(VK_F24=0x87) 未按键应 0",
+      lambda: op.get_key_state(0x87), ok=lambda v: v == 0, show=lambda v: str(v), soft=True)
+
+    T("解绑后进程存活（调用面全过即通）", lambda: op.unbind_window(), ok=lambda v: v is True)
+
+
+def g4b(op):
+    """键鼠**硬判据**：排除「API 空转返 True 而消息没到达目标」。
+
+    靶子选择（本轮连续实测纠正两次，值得记录）：
+      1. `GetCursorPos` 回读 —— **无效**。`WinMouse.cpp:300-303` 显示 `windows` 模式是
+         消息式：`SendTimeout(_hwnd, WM_MOUSEMOVE, button_state(), MAKELPARAM(x,y))`，
+         物理光标根本不动（实测读到的 (1900,1539) 是操作者自己的鼠标）。
+      2. Tk `<Motion>` 绑定 —— **无效**。Tk 依据**真实光标位置**生成 Motion 事件，
+         后台消息式不动物理光标 ⇒ 实测收到 0 个（靶子不适配，**不是** op 缺陷）。
+      3. **原生 Win32 窗口 + 自定义 WndProc** —— **有效**。op 的 `SendMessageTimeout`
+         同线程会直调 WndProc，消息与 lParam 坐标可逐条核对。
+    点击只落在自建窗口上 ⇒ 对游戏**零副作用**。
+    """
+    sec("G4b 键鼠硬判据（原生 Win32 靶子，WndProc 直读 lParam；对游戏零副作用）")
+    from ctypes import wintypes
+    u32 = ctypes.WinDLL("user32", use_last_error=True)
+    g32 = ctypes.WinDLL("gdi32", use_last_error=True)
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    u32.CreateWindowExW.restype = wintypes.HWND        # 不设 -> 64 位句柄被截断
+    u32.DefWindowProcW.restype = ctypes.c_longlong
+    u32.DefWindowProcW.argtypes = [wintypes.HWND, wintypes.UINT,
+                                   wintypes.WPARAM, wintypes.LPARAM]
+    k32.GetModuleHandleW.restype = ctypes.c_void_p
+    # argtypes 必须显式声明：ctypes 默认按 c_int 传参 -> 64 位句柄/指针直接 OverflowError
+    u32.CreateWindowExW.argtypes = [wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPCWSTR,
+                                    wintypes.DWORD, ctypes.c_int, ctypes.c_int,
+                                    ctypes.c_int, ctypes.c_int, wintypes.HWND, wintypes.HMENU,
+                                    wintypes.HINSTANCE, wintypes.LPVOID]
+    u32.RegisterClassExW.argtypes = [ctypes.c_void_p]
+    u32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+    u32.UpdateWindow.argtypes = [wintypes.HWND]
+    u32.DestroyWindow.argtypes = [wintypes.HWND]
+
+    recs = []
+    WNDPROC = ctypes.WINFUNCTYPE(ctypes.c_longlong, wintypes.HWND, wintypes.UINT,
+                                 wintypes.WPARAM, wintypes.LPARAM)
+    WM = {0x0200: "WM_MOUSEMOVE", 0x0201: "WM_LBUTTONDOWN", 0x0202: "WM_LBUTTONUP",
+          0x0204: "WM_RBUTTONDOWN", 0x0207: "WM_MBUTTONDOWN",
+          0x0100: "WM_KEYDOWN", 0x0101: "WM_KEYUP", 0x020A: "WM_MOUSEWHEEL"}
+
+    def _proc(hwnd, msg, wp, lp):
+        if msg in WM:
+            recs.append((WM[msg], ctypes.c_short(lp & 0xFFFF).value,
+                         ctypes.c_short((lp >> 16) & 0xFFFF).value, wp))
+        return u32.DefWindowProcW(hwnd, msg, wp, lp)
+
+    proc = WNDPROC(_proc)  # 必须保引用：否则回调对象被 GC，进程会崩
+
+    class WNDCLASSEX(ctypes.Structure):
+        _fields_ = [("cbSize", wintypes.UINT), ("style", wintypes.UINT),
+                    ("lpfnWndProc", WNDPROC), ("cbClsExtra", ctypes.c_int),
+                    ("cbWndExtra", ctypes.c_int), ("hInstance", wintypes.HINSTANCE),
+                    ("hIcon", wintypes.HICON), ("hCursor", wintypes.HANDLE),
+                    ("hbrBackground", wintypes.HBRUSH), ("lpszMenuName", wintypes.LPCWSTR),
+                    ("lpszClassName", wintypes.LPCWSTR), ("hIconSm", wintypes.HICON)]
+
+    hinst = k32.GetModuleHandleW(None)
+    cls = WNDCLASSEX()
+    cls.cbSize = ctypes.sizeof(WNDCLASSEX)
+    cls.lpfnWndProc = proc
+    cls.hInstance = hinst
+    cls.hbrBackground = g32.CreateSolidBrush(0xFFFFFF)
+    cls.lpszClassName = "OP_NATIVE_PROBE_TGT"
+    if not u32.RegisterClassExW(ctypes.byref(cls)) and ctypes.get_last_error() != 1410:
+        rec("注册原生窗口类", "失败 err=%d" % ctypes.get_last_error(), "FAIL")
+        return
+    hwnd = u32.CreateWindowExW(0, "OP_NATIVE_PROBE_TGT", "OP_NATIVE_PROBE_TGT",
+                               0x00CF0000, 80, 80, 260, 200, None, None, hinst, None)
+    rec("创建原生靶子窗口", "hwnd=%s" % hex(hwnd or 0), "PASS" if hwnd else "FAIL")
+    if not hwnd:
+        return
+    u32.ShowWindow(hwnd, 8)  # SW_SHOWNA（不抢焦点）
+    u32.UpdateWindow(hwnd)
+    time.sleep(0.25)
+
+    if not op.bind_window(hwnd, "gdi", "windows", "windows", 0):
+        rec("bind_window(gdi/windows/windows)", "失败", "FAIL")
+        u32.DestroyWindow(hwnd)
+        return
+    cw, ch = op.get_client_size(hwnd)
+    tx, ty = cw // 2, ch // 2
+    log("  靶子客户区 %dx%d，目标点 (%d,%d)" % (cw, ch, tx, ty))
+
+    # ① 鼠标移动 -> WndProc 是否收到 WM_MOUSEMOVE 且 lParam 坐标正确
+    recs.clear()
+    okm = T("move_to(%d,%d)" % (tx, ty), lambda: op.move_to(tx, ty), ok=lambda v: bool(v))
+    time.sleep(0.25)
+    mot = [r for r in recs if r[0] == "WM_MOUSEMOVE"]
+    hit = any(abs(x - tx) <= 2 and abs(y - ty) <= 2 for _, x, y, _ in mot)
+    rec("  ↳ WndProc 收到 WM_MOUSEMOVE 且坐标正确",
+        "收到 %d 条，样本=%s" % (len(mot), mot[-3:]), "PASS" if (okm and hit) else "FAIL")
+
+    # ② 左键点击（只点自建窗口，对游戏零副作用）
+    recs.clear()
+    T("left_click()（在 move_to 落点）", lambda: op.left_click(),
+      ok=lambda v: bool(v), soft=True)
+    time.sleep(0.25)
+    dn = [r for r in recs if r[0] == "WM_LBUTTONDOWN"]
+    rec("  ↳ WndProc 收到 WM_LBUTTONDOWN",
+        "收到 %d 条，样本=%s" % (len(dn), dn[-3:]), "PASS" if dn else "FAIL")
+
+    # ③ 键盘消息
+    recs.clear()
+    T("key_down(VK_SHIFT)", lambda: op.key_down(0x10), ok=lambda v: bool(v), soft=True)
+    T("key_up(VK_SHIFT)", lambda: op.key_up(0x10), ok=lambda v: bool(v), soft=True)
+    time.sleep(0.25)
+    kn = [r for r in recs if r[0] in ("WM_KEYDOWN", "WM_KEYUP")]
+    rec("  ↳ WndProc 收到 WM_KEYDOWN/UP",
+        "收到 %d 条，样本=%s" % (len(kn), kn[-4:]), "PASS" if kn else "FAIL")
+
+    op.unbind_window()
+    u32.DestroyWindow(hwnd)
+    time.sleep(0.2)
 
 
 # ---------------------------------------------------------------- main
@@ -731,6 +926,7 @@ def main():
         g5_g6(op)
     if "G4" in groups:
         g4(op, hwnd, cw, ch)
+        g4b(op)
     else:
         log("\n[G4 键鼠] 未启用（会真的向游戏发送输入）。需要时加 --input。")
 

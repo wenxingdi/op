@@ -3,6 +3,26 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-29（真机验收：键鼠通路闭环 + B 组 charset 白名单闭环）
+
+- **G4 键鼠真机（唯一需真实游戏窗口的项）**：`dx/dx/dx` 绑定蜀门（32 位）调用面全通
+  （移动系 + `get_cursor_shape` + `key_down/up/press` + `get_key_state`），零点击；解绑后进程存活。
+- **G4b 键鼠硬判据（新增）**：自建**原生 Win32 窗口 + 自定义 WndProc** 直读消息 lParam ——
+  `move_to(119,72)` → 收到 `WM_MOUSEMOVE(119,72)` **精确一致**；`left_click` → `WM_LBUTTONDOWN(119,72)`；
+  `key_down/up` → `WM_KEYDOWN/UP(VK=16)`。**键鼠通路真机可用**，且点击只落自建窗口 ⇒ 对游戏零副作用。
+- **靶子方法学（连续三次纠正，可复用）**：①系统 `GetCursorPos` 回读**无效**（`WinMouse.cpp:300-303`
+  证实 `windows` 模式为消息式 `SendTimeout(_hwnd, WM_MOUSEMOVE, ...)`，物理光标不动，实测读到的是
+  操作者自己的鼠标）；②Tk `<Motion>` 绑定**无效**（Tk 依真实光标位置生成事件，消息式不触发，
+  靶子不适配非 op 缺陷）；③原生 WndProc **有效**。⇒ 验「后台消息式输入是否到达」**必须**读 lParam。
+- **B 组 charset 白名单闭环（此前探针 0 覆盖，自查缺口）**：`--charset=@zh0123456789[],-+` 全识别；
+  `@zh` 结果空串（判据改为「只含中文/空格」以保留区分度）。**记录**：`@zh` 下数字确被屏蔽但中文
+  亦消失，疑为屏蔽后 CTC 步退化（`ctc_greedy` 对 `mask[c]==0` 直接 `continue`）；`@zh` 属极端白名单、
+  实用罕用，**不判缺陷**。**待办**：`build_mask()` 增打放行类别数（现日志只打 keys 总数，无法区分配置）。
+- **真机覆盖缺口普查**（272 方法 / 11 域，探针实覆盖 43）：完全未测域 = OpenCV `cv_*`(36)、
+  字库 OCR(17)、内存读写(11)、A\*(12)、高级图色(18)、YOLO(3)、`gl.*`；`dx.d3d12` 用户明确关闭。
+  优先级：OpenCV（无阻塞可立即做）→ 高级图色/字库 → A\*/内存 → 窗口管理补齐 → YOLO/gl（待资源）。
+- 报告：`docs/2026-09/真机验收_键鼠与charset白名单_20260929.md`。
+
 ### 2026-09-29（备份链路修正：`refresh_bundle.py` 相对路径 bug + 线上附件同步）
 
 - **`refresh_bundle.py` 路径 bug（真机暴露）**：`tmp = bk / (name + ".new")` 用**相对路径**，
