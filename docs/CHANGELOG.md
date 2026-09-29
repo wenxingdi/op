@@ -21,6 +21,10 @@
   同时修一个长期隐患：**内联 auth URL 推送不会更新本地 `refs/remotes/origin/master`**
   （git 视其为匿名 URL），实测本地跟踪引用停在 `5dc431f` 而 master 已到 `5e6eab0`
   → `git bundle create --all` 会把这个**过期引用**打进冷备份。现推送成功后显式 `update-ref`。
+- **`verify_assets.py`（新增）**：把「本地备份目录 vs 线上 Release 附件」的硬校验固化
+  （此前每轮都手写内联脚本，已重复 3 次）。判据 = asset `digest`(sha256) **且** `size`
+  对本地逐字节 sha256；**只认 digest/size，不认上传返回值与时间戳**；刚上传后 API 可能返回
+  缓存旧 digest → 内置 3 轮重试（间隔 8s）。本轮实测 **5/5 全等**。
 
 ### 2026-09-29（真机验收：颜色口径 = RGB、绑定坐标 = 客户区、免字库 OCR 颜色语义）
 

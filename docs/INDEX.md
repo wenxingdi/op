@@ -99,6 +99,7 @@
 | `release_assets.py` | 把备份目录上传为 GitHub Release 附件（幂等，已存在则跳过；中文名自动映射 ASCII） |
 | `replace_assets.py` | **替换**已发布 Release 上的指定附件（先 DELETE 再上传，用于补打 bundle 后刷新） |
 | `refresh_bundle.py` | 重打某备份目录的 `*-repo.bundle` 至最新 master，并同步 manifest / 恢复说明 |
+| `verify_assets.py` | **硬校验线上 Release 附件 == 本地备份文件**（asset `digest`(sha256) + `size` 对本地逐字节 sha256；刚上传后 API 可能返回缓存旧 digest，内置 3 轮重试） |
 | `create_repos.py` | 初始创建两仓库的辅助脚本 |
 
 ## workbench/ —— 中间产物隔离区（.gitignore 不入库）
