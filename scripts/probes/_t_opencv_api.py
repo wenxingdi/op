@@ -513,8 +513,14 @@ def v4(op):
         cv.create_line(40 + i, 200, 40 + i, 320, fill="#%02x%02x%02x" % (g, g, g))
     cv.create_rectangle(240, 200, 400, 320, fill="#0000ff", outline="")
     # 全画面**唯一**的高对比特征（黑十字）—— 模板必须裁在它上面。
-    # 实测教训：裁在「红块右下角（红/白交界）」时，白/绿交界处仍有 score=0.990039 的
-    # 近似候选 ⇒ threshold=0.99 下依旧歧义，命中漂到 (235,138)。
+    # 实测教训 1：裁在「红块右下角（红/白交界）」时，白/绿交界处仍有 score=0.990039 的
+    #   近似候选 ⇒ threshold=0.99 下依旧歧义，命中漂到 (235,138)。
+    # 实测教训 2：**黑十字必须先铺白底**。十字原本直接画在蓝块(灰度 29)上，
+    #   灰度差仅 29 < Canny(60,180) 的高阈值 180 ⇒ 模板边缘图**全零** ⇒
+    #   CCOEFF_NORMED 退化成「处处 1.0」、SQDIFF_NORMED 退化成「处处不命中」，
+    #   两种 method 都测不出真行为（我一度误判为函数缺陷）。铺白底后
+    #   黑(0)↔白(255) 梯度 255 ⇒ Canny 出真实边缘，edge/shape 匹配才可判定。
+    cv.create_rectangle(330 - 42, 260 - 42, 330 + 42, 260 + 42, fill="#ffffff", outline="")
     cv.create_line(330 - 24, 260, 330 + 24, 260, fill="#000000", width=9)
     cv.create_line(330, 260 - 24, 330, 260 + 24, fill="#000000", width=9)
     # 第二个唯一特征（黑圆环，落在灰阶渐变区）—— 供 t2 使用，使 any/all 双模板都有唯一解
@@ -686,10 +692,218 @@ def v4(op):
     time.sleep(0.2)
 
 
+# ------------------------------------------------------------------ V5 退化模板安全方向
+# 单变量 A/B：靶子画面与搜索窗完全不变，只换「模板是否退化」。
+#   · 模板裁自纯红块内部 ⇒ Canny 边缘图**全零**（退化）
+#   · 模板裁自黑十字（含 0↔255 梯度）⇒ 边缘图真实（对照）
+# 退化模板的正确行为 = **不命中**（安全方向）；
+# 若实现用 TM_CCOEFF_NORMED，退化时 raw 恒为 1.0 且 minMaxLoc 取行优先首个
+# ⇒ 伪命中：ok=1、score=1.0、命中点 == 搜索窗左上角（换窗就跟着动，与模板内容无关）。
+def v5(op):
+    _group[0] = "V5"
+    sec("V5 退化模板安全方向（cv_edge_match_template 伪命中反向验证）")
+    try:
+        import tkinter as tk
+    except Exception as e:
+        rec("tkinter 可用", repr(e), "SKIP")
+        return
+
+    root = tk.Tk()
+    root.title("OP_OPENCV_PROBE_TGT")
+    root.geometry("480x360+120+60")
+    cv = tk.Canvas(root, width=480, height=360, highlightthickness=0)
+    cv.pack(fill="both", expand=True)
+    cv.create_rectangle(0, 0, 480, 360, fill="#ffffff", outline="")
+    cv.create_rectangle(40, 40, 200, 160, fill="#ff0000", outline="")
+    cv.create_rectangle(240, 40, 400, 160, fill="#00ff00", outline="")
+    for i in range(160):
+        g = int(round(i * 255.0 / 159.0))
+        cv.create_line(40 + i, 200, 40 + i, 320, fill="#%02x%02x%02x" % (g, g, g))
+    cv.create_rectangle(240, 200, 400, 320, fill="#0000ff", outline="")
+    cv.create_rectangle(330 - 42, 260 - 42, 330 + 42, 260 + 42, fill="#ffffff", outline="")
+    cv.create_line(330 - 24, 260, 330 + 24, 260, fill="#000000", width=9)
+    cv.create_line(330, 260 - 24, 330, 260 + 24, fill="#000000", width=9)
+    root.update()
+    time.sleep(0.4)
+    root.update()
+
+    hwnd = op.find_window("", "OP_OPENCV_PROBE_TGT") or \
+        ctypes.windll.user32.FindWindowW(None, "OP_OPENCV_PROBE_TGT")
+    if not hwnd or not op.bind_window(hwnd, "gdi", "windows", "windows", 0):
+        rec("绑定自建靶子窗口", "hwnd=%s" % hex(hwnd or 0), "FAIL")
+        root.destroy()
+        return
+    cw, ch = op.get_client_size(hwnd)
+    shot = str(WORK / "v5_shot.bmp")
+    if not op.capture(0, 0, cw, ch, shot):
+        rec("capture", "失败", "FAIL")
+        op.unbind_window(); root.destroy(); return
+
+    op.cv_remove_all_templates()
+
+    # ---- 退化模板：纯红块内部（(40,40)-(200,160)），裁 (60,70,60,45) 完全落在块内 ----
+    flat = str(WORK / "v5_flat.bmp")
+    fx, fy, fw, fh = 60, 70, 60, 45
+    if not T("cv_crop 退化模板 纯红块内部(%d,%d,%d,%d)" % (fx, fy, fw, fh),
+             lambda: op.cv_crop(shot, fx, fy, fw, fh, flat), ok=lambda v: v is True):
+        op.unbind_window(); root.destroy(); return
+    fi = Img(flat)
+    uq = fi.unique_colors(cap=64)
+    rec("  ↳ 退化模板自检（必须 1 色 ⇒ Canny 全零）", "uniq=%d" % uq,
+        "PASS" if uq == 1 else "FAIL")
+    T("cv_load_template(flat)", lambda: op.cv_load_template("flat", flat), ok=lambda v: v is True)
+
+    def edge_call(ox, oy):
+        raw = op.cv_edge_match_template(ox, oy, cw - ox, ch - oy, "flat", 0.5)
+        try:
+            return json.loads(raw) if isinstance(raw, str) and raw.startswith("{") else None
+        except Exception:
+            return None
+
+    pseudo_seen = []
+    for ox, oy in ((0, 0), (120, 90)):
+        j = edge_call(ox, oy)
+        if j is None:
+            rec("退化模板 edge_match(窗左上=%d,%d)" % (ox, oy), "返回非 JSON", "FAIL")
+            continue
+        hit = j.get("ok") == 1
+        at_origin = (j.get("x") == ox and j.get("y") == oy)
+        if hit and at_origin:
+            pseudo_seen.append((ox, oy, j.get("score")))
+        rec("退化模板 edge_match 必须不命中(窗左上=%d,%d)" % (ox, oy),
+            "ok=%s x=%s y=%s score=%s%s" % (j.get("ok"), j.get("x"), j.get("y"), j.get("score"),
+                                             "  ⇒ **伪命中：命中点==窗左上**" if (hit and at_origin) else ""),
+            "FAIL" if hit else "PASS")
+
+    # ---- 对照：非退化模板（黑十字）在同一搜索窗下必须命中真位置 ----
+    tw, th = max(24, cw // 8), max(24, ch // 8)
+    tx = int(cw * 330 / 480.0) - tw // 2
+    ty = int(ch * 260 / 360.0) - th // 2
+    good_tpl = str(WORK / "v5_good.bmp")
+    op.cv_crop(shot, tx, ty, tw, th, good_tpl)
+    T("cv_load_template(good=黑十字)", lambda: op.cv_load_template("good", good_tpl), ok=lambda v: v is True)
+    for ox, oy in ((0, 0), (120, 90)):
+        raw = op.cv_edge_match_template(ox, oy, cw - ox, ch - oy, "good", 0.5)
+        try:
+            j = json.loads(raw)
+        except Exception:
+            j = None
+        if j is None:
+            rec("对照 非退化模板 edge_match(窗左上=%d,%d)" % (ox, oy), "返回非 JSON: %r" % raw, "FAIL")
+            continue
+        near = abs(j.get("x", -9999) - tx) <= 3 and abs(j.get("y", -9999) - ty) <= 3
+        rec("对照 非退化模板 必须命中真位置(窗左上=%d,%d)" % (ox, oy),
+            "ok=%s x=%s y=%s score=%s（真原点=(%d,%d)）" % (j.get("ok"), j.get("x"), j.get("y"),
+                                                       j.get("score"), tx, ty),
+            "PASS" if (j.get("ok") == 1 and near) else "FAIL")
+
+    rec("  ↳ 判定",
+        ("伪命中复现 %s ⇒ 实现仍在用退化会返回 1.0 的 method" % pseudo_seen) if pseudo_seen
+        else "退化模板一律不命中、非退化模板命中真位置 ⇒ **安全方向，判定通过**",
+        "FAIL" if pseudo_seen else "PASS")
+
+    op.cv_remove_all_templates()
+    op.unbind_window()
+    root.destroy()
+    time.sleep(0.2)
+
+
+# ------------------------------------------------------------------ V6 大面积平坦区
+# V4 的靶子每一处 60x45 窗口都含边缘（红块/绿块/渐变铺满），**碰巧没有退化窗口**，
+# 因此 CCOEFF_NORMED 的伪命中在 V4 上测不出来（我一度据此误判"已修复"）。
+# 真实游戏截图恰恰相反：天空/纯色 UI 背景 ⇒ 存在大量「局部方差=0」的窗口。
+# 本组靶子：480x360 纯白 + 右下角一个黑十字 ⇒ 左上角存在大量纯白（方差=0）窗口。
+#   · 无掩码的 CCOEFF_NORMED：退化窗口分母=0 ⇒ OpenCV 返回 1.0，与真位置并列，
+#     minMaxLoc 并列取行优先首个 ⇒ 命中 (0,0) score=1.0（伪命中）
+#   · 有掩码：退化位置被排除 ⇒ 命中真位置 (300,238)
+def v6(op):
+    _group[0] = "V6"
+    sec("V6 大面积平坦区（真实截图退化窗口 ⇒ CCOEFF_NORMED 伪命中）")
+    try:
+        import tkinter as tk
+    except Exception as e:
+        rec("tkinter 可用", repr(e), "SKIP")
+        return
+
+    root = tk.Tk()
+    root.title("OP_OPENCV_PROBE_FLAT")
+    root.geometry("480x360+120+60")
+    cv = tk.Canvas(root, width=480, height=360, highlightthickness=0)
+    cv.pack(fill="both", expand=True)
+    cv.create_rectangle(0, 0, 480, 360, fill="#ffffff", outline="")
+    # 唯一特征：黑十字（黑 0 ↔ 白 255，梯度满量程 ⇒ Canny 出真实边缘）
+    cv.create_line(330 - 24, 260, 330 + 24, 260, fill="#000000", width=9)
+    cv.create_line(330, 260 - 24, 330, 260 + 24, fill="#000000", width=9)
+    root.update()
+    time.sleep(0.4)
+    root.update()
+
+    hwnd = op.find_window("", "OP_OPENCV_PROBE_FLAT") or \
+        ctypes.windll.user32.FindWindowW(None, "OP_OPENCV_PROBE_FLAT")
+    if not hwnd or not op.bind_window(hwnd, "gdi", "windows", "windows", 0):
+        rec("绑定平坦靶子窗口", "hwnd=%s" % hex(hwnd or 0), "FAIL")
+        root.destroy()
+        return
+    cw, ch = op.get_client_size(hwnd)
+    shot = str(WORK / "v6_shot.bmp")
+    if not op.capture(0, 0, cw, ch, shot):
+        rec("capture", "失败", "FAIL")
+        op.unbind_window(); root.destroy(); return
+    im = Img(shot)
+    # 靶子自检：左上角 60x45 必须是纯白（方差=0）窗口，否则本组失去判别力
+    flat_ok, bad = im.region_all(0, 0, 60, 45, (255, 255, 255), tol=6)
+    rec("  ↳ 靶子自检：左上角存在纯白平坦窗",
+        "region_all(0,0,60,45,白)=%s %s（须为 True ⇒ 该窗口方差=0）" % (flat_ok, bad or ""),
+        "PASS" if flat_ok else "FAIL")
+
+    op.cv_remove_all_templates()
+    tw, th = 60, 45
+    tx = int(cw * 330 / 480.0) - tw // 2
+    ty = int(ch * 260 / 360.0) - th // 2
+    tpl = str(WORK / "v6_tpl.bmp")
+    if not T("cv_crop 模板(黑十字 %d,%d)" % (tx, ty),
+             lambda: op.cv_crop(shot, tx, ty, tw, th, tpl), ok=lambda v: v is True):
+        op.unbind_window(); root.destroy(); return
+    T("cv_load_template(t)", lambda: op.cv_load_template("t", tpl), ok=lambda v: v is True)
+
+    raw = op.cv_edge_match_template(0, 0, cw, ch, "t", 0.5)
+    try:
+        j = json.loads(raw)
+    except Exception:
+        j = None
+    if j is None:
+        rec("cv_edge_match_template(全窗)", "返回非 JSON: %r" % raw, "FAIL")
+    else:
+        x, y = j.get("x"), j.get("y")
+        near = abs((x or -9999) - tx) <= 3 and abs((y or -9999) - ty) <= 3
+        at00 = (x == 0 and y == 0)
+        rec("cv_edge_match_template 必须命中真位置(全窗搜索)",
+            "ok=%s x=%s y=%s score=%s（真原点=(%d,%d)）%s" %
+            (j.get("ok"), x, y, j.get("score"), tx, ty,
+             "  ⇒ **伪命中：落在搜索窗左上角的平坦区**" if at00 else ""),
+            "PASS" if (j.get("ok") == 1 and near) else "FAIL")
+
+    # 反向：搜索窗避开真位置（只含平坦区）⇒ 必须不命中
+    raw2 = op.cv_edge_match_template(0, 0, 200, 200, "t", 0.5)
+    try:
+        j2 = json.loads(raw2)
+    except Exception:
+        j2 = None
+    rec("反向：搜索窗只含平坦区 ⇒ 必须不命中",
+        ("ok=%s x=%s y=%s score=%s" % (j2.get("ok"), j2.get("x"), j2.get("y"), j2.get("score")))
+        if j2 else "返回非 JSON: %r" % raw2,
+        "PASS" if (j2 and j2.get("ok") == 0) else "FAIL")
+
+    op.cv_remove_all_templates()
+    op.unbind_window()
+    root.destroy()
+    time.sleep(0.2)
+
+
 # ------------------------------------------------------------------ main
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--groups", default="V1,V2,V3,V4")
+    ap.add_argument("--groups", default="V1,V2,V3,V4,V5,V6")
     a = ap.parse_args()
     groups = set(a.groups.replace(" ", "").split(","))
 
@@ -716,6 +930,10 @@ def main():
         v3(op, P)
     if "V4" in groups:
         v4(op)
+    if "V5" in groups:
+        v5(op)
+    if "V6" in groups:
+        v6(op)
 
     # ---- 汇总 ----
     n = {"PASS": 0, "FAIL": 0, "INFO": 0, "SKIP": 0}

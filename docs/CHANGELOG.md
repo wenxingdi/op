@@ -3,6 +3,55 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-30（修 `cv_edge_match_template` 伪命中 + 键鼠域/高级图色域 C API 端到端补全）
+
+- **fix: `cv_edge_match_template` 伪命中**（`libop/opencv/TemplateMatcher.cpp`）
+  现象：命中点恒等于**搜索窗左上角**、score 恒 1.0、与模板内容无关。
+  根因：`TM_CCOEFF_NORMED` 在**模板方差=0** 时分母为 0，OpenCV 把该位置写成 **1.0** ⇒
+  每个位置都是满分 ⇒ `minMaxLoc`（并列取行优先首个）落在窗左上。
+  典型触发：低对比度模板 ⇒ Canny 边缘图全零。
+  修法：新增 `runMatchTemplate()` 统一入口 —— 归一化相关法（CCOEFF/CCORR_NORMED）遇到
+  **退化模板**直接判"模板无信息 ⇒ 不命中"（安全方向）；SQDIFF 系不加此判据
+  （那里"平模板找平区域"是**合法**语义，raw=0 ⇒ 相似度 1.0）。4 处调用点全部收敛。
+  保留 CCOEFF_NORMED 本身：它对边缘图微小差异更宽容，gtest
+  `EdgeMatchTemplateFindsOutline`（6x6 小图）依赖这份容错 —— 中途试过换
+  `TM_SQDIFF_NORMED`，该用例立刻失败（相似度对边缘图差异过敏感）⇒ 回退换法，改为加判据。
+- **反向验证（决定性 A/B）**：同一靶子只换「模板是否退化」——
+  无判据版：退化模板 `ok=1 score=1.0`、命中点随搜索窗平移（`(0,0)`/`(120,90)`）；
+  加判据版：退化模板一律 `ok=0`，对照（黑十字非退化模板）仍精确命中 `(300,238)` score=1.0。
+  新增 V5（退化模板）/ V6（大面积平坦区，480x360 纯白 + 右下黑十字）两组常驻回归。
+  ⚠ V6 同时证伪了上一版判据：V4 靶子每个窗口都含边缘，**碰巧没有退化窗口**，
+  光跑 V4 会误判"已修复"。
+- **新增探针 `scripts/probes/_t_input_full.py`（键鼠域，74/74 PASS）**：
+  原生 Win32 靶子 + WndProc 直读消息（Windows 模式是消息式，`GetCursorPos`/Tk `<Motion>` 均无判别力）。
+  覆盖 W1 按键族 10（含 xbutton1/2 双击）/ W2 滚轮 4 / W3 轨迹与延时 7 / W4 键盘 5 / W5 lock_input。
+  语义定性（写进探针注释，勿再踩）：
+  · 双击序列 = `DOWN→UP→DBLCLK→UP`（Windows 标准序列，不是 DOWN×2）；
+  · 延时走 `DelayJitter(base, ±40%)` ⇒ 300ms 实测 255~311ms，判据必须用 A/B 差值而非绝对值；
+  · `lock_input` 只对 **dx 通道**生效（windows 模式恒 False，设计如此）且**只拦物理输入**，
+    op 自身合成输入照常送达（大漠同口径）。验锁定生效须注入物理层 `keybd_event`
+    （用 VK_F15，避免误触发应用）+ **必须跑消息泵**（物理输入是投递到队列的，
+    不像 `SendMessage` 同步直调 WndProc —— 漏了泵会让对照组也是 0，"锁定生效"成空洞结论）。
+- **新增探针 `scripts/probes/_t_advimg_api.py`（高级图色域，43/43 PASS）**：
+  A1 `find_multi_color/_ex` / A2 `find_color_block_ex(_s)` / A3 `find_line(_ex)(_ex_s)` /
+  A4 `find_pic_ex(_ex_s)` + 图片缓存池 / A5 `capture_pre`+`get_screen_data_bmp`。
+  语义定性：· 偏移色串格式 = **`dx|dy|颜色`，多段用英文逗号分隔**（写成 `dx,dy,color` 会被
+  **静默整段丢弃**，退化成"只找锚点色"，返回值仍是 1 —— 静默失败隐患，已记录）；
+  · `find_color_block*` 是**滑动窗口**语义（窗口 w×h 内匹配像素 ≥ count），
+  故命中坐标可以落在真值块**外上方**；要严格约束须取 `count = w*h`；
+  · `find_pic` 返回元组首元素是**命中的图片序号**（0 起，未找到 -1），不是成功标志；
+  · `find_line` 返回 `"角度,距离"`（霍夫参数，水平线 = `90,<y>`），不是端点。
+- **新增工具 `scripts/probes/coverage_gaps.py`**：以 `include/op_c_api.h` 导出面为主键，
+  自动统计"无任何端到端调用证据"的 API（排除自动生成的空句柄冒烟测试；
+  Python 侧靠 `bindings/python/op/api.py` 函数体里的 `"OpXxx"` 字面量建映射，
+  因为产品口径名 `autoocr_ex` 与 C 名 `OpAutoOcrEx` 不是简单蛇形转换）。
+  当前：**255 个导出，已覆盖 138，缺口 117**。
+- **回归**：全量 401 用例 = **398 PASS / 1 SKIP / 2 FAILED**。2 FAILED 判定非本轮引入：
+  ① `MouseKeyTest.WaitKeyScanAllWithWaitFindsKey` —— 本机幽灵键 VK 0x85 环境项（基线一致）；
+  ② `WgcTest.NormalDxgiMaximizeAfterBindCapturesClippedClientArea` —— 环境项：基线记录
+  （`docs/test-records/2026-09/_last_optest.txt`，399 PASS）该用例通过，而自基线以来
+  `libop/` **仅有注释改动**（32bf802），与本轮零交集；同组其余 9 条（含 maximize 类）全绿。
+
 ### 2026-09-29（OpenCV 域 C API 导出层验证：36/36 全覆盖 + 抓到 `cv_edge_match_template` 伪命中缺陷）
 
 - **缺口定位**：`OpCv*` 共 36 个（COM / C API / Python 三层完全对齐），但既有 gtest `tests/opencv_test.cpp`

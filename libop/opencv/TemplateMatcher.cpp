@@ -592,6 +592,39 @@ bool collectBestCandidates(
     return !results.empty();
 }
 
+// 归一化相关法（TM_CCORR_NORMED / TM_CCOEFF_NORMED）在**模板方差为 0** 时会退化：
+// 分母为 0，OpenCV 把该位置的分数写成 **1.0**（满分）⇒ 每个位置都是满分 ⇒
+// minMaxLoc（并列取行优先首个）/ 首个超阈值扫描都会命中**搜索窗左上角**，
+// score 恒 1.0，与模板内容完全无关 —— 伪命中。
+// 实测触发路径（2026-09-30，scripts/probes/_t_opencv_api.py V5/V6）：
+// cv_edge_match_template 传入低对比度模板 ⇒ Canny 边缘图全零 ⇒ 恒返回窗左上角 + 1.0。
+// 处理：退化时判"模板无信息 ⇒ 不命中"（安全方向）。
+// SQDIFF 系不加此判据：那里的平模板找平区域是**合法**语义（raw=0 ⇒ 相似度 1.0）。
+static bool isDegenerateCorrelationTemplate(const cv::Mat &templ) {
+    cv::Scalar mean;
+    cv::Scalar stddev;
+    cv::meanStdDev(templ, mean, stddev);
+    return stddev[0] <= 1e-6;
+}
+
+static bool runMatchTemplate(const cv::Mat &norm_source,
+                             const cv::Mat &norm_templ,
+                             cv::Mat &match_result,
+                             int method,
+                             const cv::Mat &norm_mask) {
+    if (method == cv::TM_CCORR_NORMED || method == cv::TM_CCOEFF_NORMED) {
+        if (isDegenerateCorrelationTemplate(norm_templ)) {
+            return false;
+        }
+    }
+    if (!norm_mask.empty()) {
+        cv::matchTemplate(norm_source, norm_templ, match_result, method, norm_mask);
+    } else {
+        cv::matchTemplate(norm_source, norm_templ, match_result, method);
+    }
+    return !match_result.empty();
+}
+
 bool collectPeakCandidates(
     const opcv::ImageHandle &source,
     const opcv::ImageHandle &templ,
@@ -641,10 +674,8 @@ bool collectPeakCandidates(
     }
 
     cv::Mat match_result;
-    if (!norm_mask.empty()) {
-        cv::matchTemplate(norm_source, norm_templ, match_result, method, norm_mask);
-    } else {
-        cv::matchTemplate(norm_source, norm_templ, match_result, method);
+    if (!runMatchTemplate(norm_source, norm_templ, match_result, method, norm_mask)) {
+        return false;
     }
     if (match_result.empty()) {
         return false;
@@ -1326,10 +1357,8 @@ bool findBestPreparedMatch(
     }
 
     cv::Mat match_result;
-    if (!norm_mask.empty()) {
-        cv::matchTemplate(norm_source, norm_templ, match_result, method, norm_mask);
-    } else {
-        cv::matchTemplate(norm_source, norm_templ, match_result, method);
+    if (!runMatchTemplate(norm_source, norm_templ, match_result, method, norm_mask)) {
+        return false;
     }
     if (match_result.empty()) {
         return false;
@@ -1632,10 +1661,8 @@ bool probeScaleCandidate(
     }
 
     cv::Mat match_result;
-    if (!norm_mask.empty()) {
-        cv::matchTemplate(norm_source, norm_templ, match_result, method, norm_mask);
-    } else {
-        cv::matchTemplate(norm_source, norm_templ, match_result, method);
+    if (!runMatchTemplate(norm_source, norm_templ, match_result, method, norm_mask)) {
+        return false;
     }
     if (match_result.empty()) {
         return false;
@@ -1757,10 +1784,8 @@ bool probeScaleCandidate(
     }
 
     cv::Mat match_result;
-    if (!norm_mask.empty()) {
-        cv::matchTemplate(norm_source, norm_templ, match_result, method, norm_mask);
-    } else {
-        cv::matchTemplate(norm_source, norm_templ, match_result, method);
+    if (!runMatchTemplate(norm_source, norm_templ, match_result, method, norm_mask)) {
+        return false;
     }
     if (match_result.empty()) {
         return false;
@@ -3156,6 +3181,11 @@ bool EdgeMatchTemplate(
         return false;
     }
 
+    // 保留 TM_CCOEFF_NORMED（对边缘图的细微差异更宽容：gtest
+    // EdgeMatchTemplateFindsOutline 的 6x6 小图正依赖这份容错，换成 SQDIFF_NORMED 会失败）。
+    // 它的退化风险（模板方差=0 ⇒ 每个位置都返回 1.0 ⇒ 恒命中搜索窗左上角）
+    // 已由 runMatchTemplate 的退化判据兜住：退化 ⇒ 不命中。
+    // 判据与证据见 scripts/probes/_t_opencv_api.py 的 V5（退化模板）/ V6（大面积平坦区）。
     return findBestPreparedMatch(source_edge, templ_edge, nullptr, region, threshold, result, cv::TM_CCOEFF_NORMED);
 }
 
