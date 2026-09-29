@@ -44,8 +44,11 @@
   唯一变量是目标进程是否已加载 `dinput8.dll`」的结论**不成立**。`dx_carrier`（x64/x86 同源）
   **静态导入** `DINPUT8.dll`（`pe_imports.py` 实测导入表：`DINPUT8.dll, GDI32.dll, KERNEL32.dll,
   OPENGL32.dll, USER32.dll, d3d11.dll, d3d9.dll`），"无 `--dinput`"时 dinput8 **本来就在**
-  进程里 —— "是否加载"根本不是那组实验的变量。历史那次 bind=0 的确切成因**不做断言**
-  （本轮未对当时那版 dll 做 A/B 隔离；最可能是它尚未含 P0② 句柄宽度修复）。
+  进程里 —— "是否加载"根本不是那组实验的变量。历史那次 bind=0 的确切成因**已定位**：
+  那组 A/B 的两侧**不是同一份二进制**（加 `--dinput` 特性时同步在 `dx_carrier.cpp` 里链了
+  `dinput8.lib`，PE 导入表自此多出 `DINPUT8.dll`），变量**从一开始就没被隔离** ——
+  加该特性**之前**的构建确实不导入 dinput8，bind=0 对它而言是真实结果。
+  教训升级：**A/B 两侧必须是同一份二进制**，否则"单变量"只是自我欺骗。
   **对蜀门的定性不受影响**：蜀门 `client.exe` 经 `_t_mods.py` 实测确实**没有**加载
   `dinput8.dll`，而 `ResolveApi` 只 `GetModuleHandleA` ⇒ `hook_dinput()` 失败 ⇒
   `InputHook::setup` 返回 0 这条链条本身成立 —— 且本轮已用按需加载把它消除（见下节）。
@@ -97,6 +100,19 @@
 - **已知取舍**：加载成功 ≠ 该通道一定能拦到东西。目标若根本不走这条 API（例如只用 Raw Input
   的游戏），hook 装上了也不会被调用 —— 所以每次按需加载都记 `loaded on demand` 日志，
   让"绑上了但一帧都没有"可被追溯，而不是又一次"谎报成功"。
+- **验证 C（x86 真机，蜀门，当晚补做）**：`workbench/_t_dx32_shumen.py` 在蜀门 `client.exe`
+  （32 位，停在「蜀门 | 当前游戏版本 Ver8.2.06」界面，绑前 `dinput8.dll` **未加载**）上
+  **`dx/dx/dx` bind ret=1 / is_bind=1**，`OpGetScreenData` ret=1 且唯一色 13935 / 13114（真画面）；
+  绑定后 `_t_mods.py` 实测目标进程 `dinput8.dll` **从「未加载」变为「已加载」**
+  ⇒ 按需加载在**跨位数 32 位目标**上生效的模块级硬证据，与历史「版本检查界面 bind=0」构成前后对照。
+- **⚠ 工具链同步盲区（当晚踩到，已修）**：`build/nmake-x64-Release/libop/` 是
+  `workbench/_t_dx32_*.py` / `_t_bind_any.py` / `_t_dx32_notepad.py` 的 `DLL_DIR`
+  （blackbone 只在该目录找 `op_c_api_x86.dll`），但它**原先不在任何同步脚本的 TARGETS 里** ——
+  x86 件停在旧版（15:24，不含按需加载），于是"x86 侧按需加载不生效"被误读为功能问题
+  （实测症状：蜀门 `dx/dx/dx` 一直 bind=0，而同一时刻 `build/ninja-x86-Release/libop/` 里已是新版）。
+  修复：`build/_sync_release_b2.py` 的 TARGETS 增加该目录（**只补 x86**，x64 件本就由
+  `_wb_build.py` 写在那里）。**新旧件判据**：`grep -c "on demand" <dll>`（旧件 0、新件 2）。
+  教训：**凡"注入 dll 会被 op 按目录查找"的位置都算运行时目录**，必须进同步清单。
 - **回归**：全量见本轮末尾（`workbench/_t_full_regress_ondemand.txt`）。
 
 ### 2026-09-29（x86 hook 真机 P0 修复：跨位数 RPC 调用约定 + 句柄传参宽度）
