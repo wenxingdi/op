@@ -247,8 +247,14 @@ int HttpOcrService::init_unlocked(const std::wstring &engine, const std::wstring
         cout << "HttpOcrService: selected HttpOcrEngine (remote)" << endl;
     } else {
         // 空 / "onnx" / "builtin" / 未知 → 内置进程内引擎（默认）
+#if defined(OP_HAS_ONNX) && OP_HAS_ONNX
         m_engine = std::make_unique<OnnxOcrEngine>();
         cout << "HttpOcrService: selected OnnxOcrEngine (built-in)" << endl;
+#else
+        cout << "SetOcrEngine: built-in ONNX OCR not compiled (OP_HAS_ONNX=0); "
+                "use dict-based ocr on this architecture" << endl;
+        return -1;
+#endif
     }
 #else
     // HTTP 远程后端已隐藏：http(s):// 与旧远程别名（tesseract/paddle 系）显式拒绝
@@ -260,9 +266,15 @@ int HttpOcrService::init_unlocked(const std::wstring &engine, const std::wstring
              << endl;
         return -1;
     }
+#if defined(OP_HAS_ONNX) && OP_HAS_ONNX
     m_engine = std::make_unique<OnnxOcrEngine>();
     cout << "HttpOcrService: selected OnnxOcrEngine (built-in)" << endl;
+#else
+    cout << "SetOcrEngine: built-in ONNX OCR not compiled (OP_HAS_ONNX=0); "
+            "use dict-based ocr on this architecture" << endl;
+    return -1;
 #endif
+#endif // OP_ENABLE_HTTP_OCR_BACKEND
     m_lazy_failed = false; // 显式 init 成功后清掉懒初始化失败记忆
     return m_engine->init(engine, dllName, argv);
 }

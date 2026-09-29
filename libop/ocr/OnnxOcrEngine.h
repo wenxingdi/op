@@ -4,6 +4,11 @@
 #include <string>
 #include <vector>
 
+// OP_HAS_ONNX 由 CMake 按「本架构是否存在 onnxruntime 包」定义（x86 = 0）。
+// 为 0 时整个类不声明：OnnxOcrEngine.cpp 也会从源列表剔除，调用方必须用同一宏
+// 包住使用点，否则会链接到不存在的实现。
+#if defined(OP_HAS_ONNX) && OP_HAS_ONNX
+
 namespace op::ocr {
 
 // 进程内 ONNX Runtime OCR 引擎（内置，默认）。
@@ -24,3 +29,5 @@ private:
 };
 
 } // namespace op::ocr
+
+#endif // OP_HAS_ONNX

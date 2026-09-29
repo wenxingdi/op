@@ -2,6 +2,9 @@
 #include "YoloService.h"
 #include <memory>
 
+// 同 OnnxOcrEngine.h：OP_HAS_ONNX=0（如 x86 无 onnxruntime）时整个类不声明。
+#if defined(OP_HAS_ONNX) && OP_HAS_ONNX
+
 namespace op::yolo {
 
 // 进程内 ONNX Runtime YOLO 引擎。pimpl 隔离 onnxruntime 头依赖。
@@ -34,3 +37,5 @@ class OnnxYoloEngine : public YoloEngine {
 };
 
 } // namespace op::yolo
+
+#endif // OP_HAS_ONNX

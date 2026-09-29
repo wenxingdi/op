@@ -194,10 +194,44 @@ set(OP_NETWORK_SOURCES
   # "network/HttpClient.cpp"
 )
 
+# ---- ONNX Runtime 可用性探测（特意放在源列表之前：列表要据此裁剪）--------------
+# 背景：x86 构建时 Microsoft 不发布 32 位 onnxruntime 包，而 OnnxOcrEngine.cpp /
+# OnnxYoloEngine.cpp 无条件 include <onnxruntime_cxx_api.h>，缺头文件 = 编译不过。
+# 故按「位数匹配」探测：找不到就 OP_HAS_ONNX=0，从源列表剔除这两个文件，并把
+# 宏透传给所有目标，让调用方（OcrService / YoloDetector）走「不可用」分支。
+# x64 恒为 1（行为与改造前完全一致）。
+set(_op_onnxrt_root "${CMAKE_CURRENT_SOURCE_DIR}/../build/_deps/onnxruntime")
+set(ONNXRUNTIME_DIR "")
+file(GLOB _op_onnxrt_dirs "${_op_onnxrt_root}/*")
+foreach(_d ${_op_onnxrt_dirs})
+  if(IS_DIRECTORY "${_d}/include" AND IS_DIRECTORY "${_d}/lib")
+    get_filename_component(_op_onnxrt_name "${_d}" NAME)
+    string(TOLOWER "${_op_onnxrt_name}" _op_onnxrt_name)
+    if(_op_target_is_64bit)
+      if(_op_onnxrt_name MATCHES "x64")
+        set(ONNXRUNTIME_DIR "${_d}")
+      endif()
+    else()
+      if(_op_onnxrt_name MATCHES "x86|win32")
+        set(ONNXRUNTIME_DIR "${_d}")
+      endif()
+    endif()
+  endif()
+endforeach()
+if(ONNXRUNTIME_DIR)
+  set(OP_HAS_ONNX 1)
+else()
+  set(OP_HAS_ONNX 0)
+  message(STATUS "ONNX Runtime unavailable for this architecture "
+                 "(expect build/_deps/onnxruntime/*<arch>*): built-in OCR/YOLO disabled")
+endif()
+
 set(OP_OCR_SOURCES
   "ocr/OcrService.cpp"
-  "ocr/OnnxOcrEngine.cpp"
 )
+if(OP_HAS_ONNX)
+  list(APPEND OP_OCR_SOURCES "ocr/OnnxOcrEngine.cpp")
+endif()
 # 注意：ocr_models.rc（OCR 模型资源）不放在 libop 静态库里，
 # 因为 MSVC 链接器会丢弃静态库中无人引用的 .res 对象，导致 op_c_api_x64.dll
 # 缺资源。改为在下方各 DLL 目标（op_com / op_c_api）里直接编译，保证两个 DLL 都内嵌模型。
@@ -235,8 +269,10 @@ endif()
 set(OP_YOLO_SOURCES
   "yolo/YoloDetector.cpp"
   # "yolo/HttpYoloEngine.cpp"  # HTTP 远程后端隐藏（见 OP_NETWORK_SOURCES 说明）
-  "yolo/OnnxYoloEngine.cpp"
 )
+if(OP_HAS_ONNX)
+  list(APPEND OP_YOLO_SOURCES "yolo/OnnxYoloEngine.cpp")
+endif()
 
 set(OP_MEMORY_SOURCES
   "memory/DiaGuids.cpp"
@@ -387,6 +423,12 @@ endif()
 list(APPEND OP_PRIVATE_INCLUDE_DIRS "${OP_COM_GENERATED_DIR}")
 
 add_library(libop)
+# 整个 libop 目标统一 C++20。背景：此前只给 binding/BindingSession.cpp 等个别文件
+# 单独加 /std:c++20，而 BindingSession 是 OpContext 的成员——不同 C++ 标准下 MSVC STL
+# 布局存在差异，导致 OpContext.cpp（默认标准）构造的对象与 OpRuntime.cpp 读取的
+# 成员偏移错位（x86 上 curr_path 实测差 24 字节 → OpGetPath 必崩）。ODR 级隐患，
+# x64 侥幸未显形。统一标准后此分歧消失。
+set_target_properties(libop PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 target_sources(libop PRIVATE ${OP_LIBOP_SOURCES})
 target_compile_definitions(libop PRIVATE ${OP_COMMON_DEFINITIONS} U_STATIC_IMPLEMENTATION)
 target_include_directories(libop
@@ -419,6 +461,7 @@ target_include_directories(${op_com}
 )
 set_target_properties(${op_com} PROPERTIES LINK_FLAGS "/DEF:\"${CMAKE_CURRENT_SOURCE_DIR}/com/op.def\" /NODEFAULTLIB:\"mfc110d\"")
 
+
 add_library(${op_c_api} SHARED)
 target_sources(${op_c_api} PRIVATE ${OP_C_API_SOURCES})
 target_compile_definitions(${op_c_api} PRIVATE
@@ -430,6 +473,33 @@ target_include_directories(${op_c_api}
   PUBLIC "${PROJECT_SOURCE_DIR}/include"
   PRIVATE ${OP_PRIVATE_INCLUDE_DIRS}
 )
+# ---- x86：C API 用 .def 以裸名导出 ------------------------------------------------
+# 背景：x86 下 OP_CALL=__stdcall，__declspec(dllexport) 导出的名字带 stdcall 装饰
+# （_OpCreate@0），而脚本/宿主按裸名 GetProcAddress("OpCreate")（上游 32 位 dll 亦是裸名）。
+# 故 32 位构建时从 include/op_c_api.h 生成 .def（EXPORTS 全部裸名），链接器自动把
+# 裸名指到装饰符号。x64 无名字装饰，保持 dllexport 原样。
+if(NOT _op_target_is_64bit)
+  set(_op_capi_def "${CMAKE_CURRENT_BINARY_DIR}/op_c_api_x86.def")
+  file(READ "${PROJECT_SOURCE_DIR}/include/op_c_api.h" _op_capi_hdr)
+  string(REGEX MATCHALL "OP_C_API[ A-Za-z_0-9\\*]+[ \\*]OP_CALL[ \\*]+(Op[A-Za-z0-9_]+)\\("
+         _op_capi_hits "${_op_capi_hdr}")
+  set(_op_capi_names "")
+  foreach(_h ${_op_capi_hits})
+    if(_h MATCHES "OP_CALL[ \\*]+(Op[A-Za-z0-9_]+)\\(")
+      list(APPEND _op_capi_names "${CMAKE_MATCH_1}")
+    endif()
+  endforeach()
+  list(REMOVE_DUPLICATES _op_capi_names)
+  set(_op_capi_def_content "EXPORTS\n")
+  foreach(_n ${_op_capi_names})
+    string(APPEND _op_capi_def_content "    ${_n}\n")
+  endforeach()
+  file(WRITE "${_op_capi_def}" "${_op_capi_def_content}")
+  list(LENGTH _op_capi_names _op_capi_count)
+  message(STATUS "op_c_api x86 def: ${_op_capi_def} (${_op_capi_count} exports, bare names)")
+  set_property(TARGET ${op_c_api} APPEND_STRING PROPERTY LINK_FLAGS
+               " /DEF:\"${_op_capi_def}\"")
+endif()
 
 if(enable_wgc)
   target_compile_definitions(libop PRIVATE OP_ENABLE_WGC)
@@ -470,14 +540,8 @@ target_link_libraries(${op_c_api} PRIVATE Microsoft::DirectX-Headers)
 #   * 优先静态 onnxruntime_static.lib  -> 0 新增 DLL（需源码构建或旧版 v1.14.1 主包内含）
 #   * 否则共享 onnxruntime.lib(导入库) -> +2 DLL(onnxruntime.dll + onnxruntime_providers_shared.dll)，随插件分发
 # 注：Microsoft 不为 Windows x64 发布独立静态包，≥1.16 主包亦不含静态库，故默认走共享。
-set(_op_onnxrt_root "${CMAKE_CURRENT_SOURCE_DIR}/../build/_deps/onnxruntime")
-file(GLOB _op_onnxrt_dirs "${_op_onnxrt_root}/*")
-foreach(_d ${_op_onnxrt_dirs})
-  if(IS_DIRECTORY "${_d}/include" AND IS_DIRECTORY "${_d}/lib")
-    set(ONNXRUNTIME_DIR "${_d}")
-  endif()
-endforeach()
-if(DEFINED ONNXRUNTIME_DIR AND ONNXRUNTIME_DIR)
+# ONNXRUNTIME_DIR / OP_HAS_ONNX 已在文件前部探测（源列表裁剪要用），此处只负责链接。
+if(OP_HAS_ONNX)
   message(STATUS "ONNX Runtime found: ${ONNXRUNTIME_DIR}")
   foreach(_t libop ${op_com} ${op_c_api})
     target_include_directories(${_t} PRIVATE "${ONNXRUNTIME_DIR}/include")
@@ -534,8 +598,16 @@ if(DEFINED ONNXRUNTIME_DIR AND ONNXRUNTIME_DIR)
   else()
     message(WARNING "Neither onnxruntime_static.lib nor onnxruntime.lib found under ${ONNXRUNTIME_DIR}/lib; built-in OCR disabled")
   endif()
+  foreach(_t libop ${op_com} ${op_c_api})
+    target_compile_definitions(${_t} PRIVATE OP_HAS_ONNX=1)
+  endforeach()
 else()
-  message(WARNING "ONNX Runtime not found under ${_op_onnxrt_root}; built-in OCR disabled")
+  # 32 位等无 onnxruntime 的架构：内置 OCR/YOLO 编译期整体关闭。
+  # 调用方（OcrService / YoloDetector）据此返回"引擎不可用"，字库 OCR 与其余能力不受影响。
+  message(STATUS "OP_HAS_ONNX=0: built-in ONNX OCR/YOLO compiled out for this architecture")
+  foreach(_t libop ${op_com} ${op_c_api})
+    target_compile_definitions(${_t} PRIVATE OP_HAS_ONNX=0)
+  endforeach()
 endif()
 
 target_link_libraries(libop PRIVATE dwmapi.lib)
