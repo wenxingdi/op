@@ -455,8 +455,11 @@ def g3(op, hwnd, cw, ch):
                                                         tpl, "000000", 0.9),
                ok=lambda v: v[0] >= 0, show=lambda v: "x=%s y=%s" % (v[1], v[2]) if v else v)
         if r3 and r3[0] >= 0:
-            rec("  命中坐标 ≈ 模板原点", "(%d,%d) vs (%d,%d)" % (r3[1], r3[2], tx, ty),
-                "PASS" if abs(r3[1] - tx) <= 3 and abs(r3[2] - ty) <= 3 else "FAIL")
+            # 注意**不在游戏上断言坐标精确性**：游戏画面持续动画（frame_info 逐捕获推进），
+            # 模板裁剪时刻与 find_pic 时刻画面已变；叠加中部 B0FFFF 浅色区纹理重复 → 多解漂移。
+            # 坐标精确性只在 **G5 静态靶子**上验证（那里画面不变，零漂移才算数）。
+            rec("  命中坐标≈模板原点（动态画面，仅供参考）",
+                "(%d,%d) vs (%d,%d)" % (r3[1], r3[2], tx, ty), "INFO")
 
     # ---- OCR：阶段5 只测了 ocr_auto，这里补 line / ex / 文件路径一致性 ----
     areas = [("顶栏角色", (1196, 0, 1356, 19)),
@@ -552,6 +555,32 @@ def g5_g6(op):
         w, h = bmp_info(base)[:2]
         rec("  基线截图尺寸 == 客户区", "%dx%d vs %dx%d" % (w, h, cw, ch),
             "PASS" if (w, h) == (cw, ch) else "FAIL")
+
+    # ---- find_pic 原地命中：**静态靶子才是这条判据的正确位置** ----
+    # 游戏画面持续动画，模板与命中时刻画面已变 → 坐标必漂（G3 已改为 INFO）。
+    # 本窗口画面静止，故「命中 == 模板原点」是零漂移的硬判据。
+    # 模板刻意裁在**客户区中心**（而非搜索窗左上角）：否则只返回搜索区左上角的
+    # 伪实现也能"蒙对"，判据无区分度。
+    tw, th = 120, 40
+    tx = (cw - tw) // 2
+    ty = (ch - th) // 2
+    # 该区域必须真含字形：纯白模板会匹配到任意白处 → 假漂移。
+    n_black = op.get_color_num(tx, ty, tx + tw, ty + th, "000000", 0.9)
+    rec("  模板区域含黑字（非纯白，否则无判别性）", "(%d,%d,%d,%d) 内 %d 个黑像素" % (tx, ty, tw, th, n_black),
+        "PASS" if n_black > 0 else "FAIL")
+    if n_black > 0:
+        tpl = str(SHOT / "g5_tpl.bmp")
+        op.capture(tx, ty, tx + tw, ty + th, tpl)
+        if os.path.exists(tpl):
+            r = T("find_pic 原地命中（静态靶子）",
+                  lambda: op.find_pic(0, 0, cw, ch, tpl, "000000", 0.9),
+                  ok=lambda v: v[0] >= 0, show=lambda v: "x=%s y=%s" % (v[1], v[2]))
+            if r and r[0] >= 0:
+                rec("  命中坐标 == 模板原点（静态图零漂移）",
+                    "(%d,%d) vs (%d,%d)" % (r[1], r[2], tx, ty),
+                    "PASS" if abs(r[1] - tx) <= 1 and abs(r[2] - ty) <= 1 else "FAIL")
+    else:
+        rec("find_pic 原地命中（静态靶子）", "模板区无黑字，无法构成有效判据", "SKIP")
 
     def has_all(s):
         return isinstance(s, str) and all(k in s for k in ("许愿树", "320", "778", "12345"))
