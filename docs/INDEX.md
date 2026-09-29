@@ -67,15 +67,27 @@
 | [OP_DPI坐标语义与检测_20260916.md](2026-09/OP_DPI坐标语义与检测_20260916.md) | DPI 语义机制 + 子进程隔离 A/B 铁证 |
 | [OCR_性能核查.md](2026-09/OCR_性能核查.md) | OCR 性能核查 |
 
+## scripts/build/ + scripts/probes/ —— 脚本归档（入库）
+
+> 2026-09-29 起：**构建与探针脚本**自 `build/`、`workbench/` 顶层迁入版本控制
+> （此前两处均在 .gitignore 内，脚本属于唯一副本却毫无备份）。载体源码与生成脚本
+> 原本就在 `scripts/`。
+
+| 目录 | 内容 |
+|---|---|
+| `scripts/build/` | 构建链：`_wb_build.py`（x64 日常增量）、`_wb_build_{opencv,minhook,blackbone,directxheaders,op}_x86.py`（32 位全链）、`_sync_release_b2.py` |
+| `scripts/probes/` | 探针与回归：`run_optest.py`（唯一正确跑法，cwd=仓库根）、`_t_ab_run.py`（新旧二进制 A/B）、`_t_mods.py`（跨位数模块枚举）、`_t_bind_any.py`、`_t_dx32_carrier.py`、`scan_release_copies.py`、`sync_extra_copies.py` 等 |
+
 ## workbench/ —— 中间产物隔离区（.gitignore 不入库）
 
 | 子目录 | 内容 |
 |---|---|
 | `workbench/logs/` | 构建/回归日志，文件名带 `YYYY-MM-DD_` 日期前缀（2026-08-04 lockcheck/astar → 2026-09-17 各轮回归） |
-| `workbench/probes/` | 一次性诊断脚本（d3d12/smoke/ocr_profile 等）+ 其结果 txt + d3d12_target |
+| `workbench/probes/` | 探针**产物**：载体 exe（dx_carrier / dx_carrier_x86 / dx_target）、其结果 txt |
 | `workbench/dumps/` | 调试截图 bmp/png（smoke/d3d12/字典二值化等） |
 
-约定：后续排查产生的中间产物一律进 `workbench/` 对应类型目录，日志命名带日期前缀；
+约定：后续排查产生的**中间产物**（日志/截图/载体 exe/dump）进 `workbench/` 对应类型目录，
+日志命名带日期前缀；**脚本本身写进 `scripts/probes/`、`scripts/build/`（入库）**；
 正式结论沉淀为 md 进 `docs/<当月>/`，并在本索引登记。
 
 ## 仓库外留存（未迁入）

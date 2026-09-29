@@ -1,0 +1,137 @@
+est.DoesNotPickSamePrefixSibling (0 ms)
+[ RUN      ] HookExportNamePickTest.DeterministicFirstMatch
+[       OK ] HookExportNamePickTest.DeterministicFirstMatch (0 ms)
+[ RUN      ] HookExportNamePickTest.RealX86ExportShapeAllResolve
+[       OK ] HookExportNamePickTest.RealX86ExportShapeAllResolve (0 ms)
+[----------] 6 tests from HookExportNamePickTest (0 ms total)
+
+[----------] 3 tests from HookExportNameFileTest
+[ RUN      ] HookExportNameFileTest.ReadsRealOpDllExportTable
+[       OK ] HookExportNameFileTest.ReadsRealOpDllExportTable (64 ms)
+[ RUN      ] HookExportNameFileTest.MissingFileReturnsFalse
+[       OK ] HookExportNameFileTest.MissingFileReturnsFalse (0 ms)
+[ RUN      ] HookExportNameFileTest.RejectsNonPeFile
+[       OK ] HookExportNameFileTest.RejectsNonPeFile (121 ms)
+[----------] 3 tests from HookExportNameFileTest (185 ms total)
+
+[----------] 2 tests from HookExportNameResolveTest
+[ RUN      ] HookExportNameResolveTest.MissingDllFallsBackToPlainName
+[       OK ] HookExportNameResolveTest.MissingDllFallsBackToPlainName (0 ms)
+[ RUN      ] HookExportNameResolveTest.RealDllKeepsUndecoratedName
+[       OK ] HookExportNameResolveTest.RealDllKeepsUndecoratedName (112 ms)
+[----------] 2 tests from HookExportNameResolveTest (112 ms total)
+
+[----------] 2 tests from CApiNullHandle
+[ RUN      ] CApiNullHandle.AllHandleFunctionsReturnFailure
+[       OK ] CApiNullHandle.AllHandleFunctionsReturnFailure (0 ms)
+[ RUN      ] CApiNullHandle.FreeFunctionsAreSafe
+[       OK ] CApiNullHandle.FreeFunctionsAreSafe (2 ms)
+[----------] 2 tests from CApiNullHandle (3 ms total)
+
+[----------] 15 tests from ComVariantTest
+[ RUN      ] ComVariantTest.InLongReadsPlainI4
+[       OK ] ComVariantTest.InLongReadsPlainI4 (0 ms)
+[ RUN      ] ComVariantTest.InLongReadsThroughByrefI4Wrapper
+[       OK ] ComVariantTest.InLongReadsThroughByrefI4Wrapper (0 ms)
+[ RUN      ] ComVariantTest.InLongByrefI4WithNullPointerIsZero
+[       OK ] ComVariantTest.InLongByrefI4WithNullPointerIsZero (0 ms)
+[ RUN      ] ComVariantTest.InLongUnwrapsByrefVariant
+[       OK ] ComVariantTest.InLongUnwrapsByrefVariant (0 ms)
+[ RUN      ] ComVariantTest.InLongByrefVariantHoldingI4
+[       OK ] ComVariantTest.InLongByrefVariantHoldingI4 (0 ms)
+[ RUN      ] ComVariantTest.InLongRejectsUnsupportedPayload
+[       OK ] ComVariantTest.InLongRejectsUnsupportedPayload (0 ms)
+[ RUN      ] ComVariantTest.InLongNullIsZero
+[       OK ] ComVariantTest.InLongNullIsZero (0 ms)
+[ RUN      ] ComVariantTest.OutLongWritesThroughByrefI4Wrapper
+[       OK ] ComVariantTest.OutLongWritesThroughByrefI4Wrapper (0 ms)
+[ RUN      ] ComVariantTest.OutLongWritesInnerOfByrefVariant
+[       OK ] ComVariantTest.OutLongWritesInnerOfByrefVariant (0 ms)
+[ RUN      ] ComVariantTest.OutLongLeavesUnsupportedByrefUntouched
+[       OK ] ComVariantTest.OutLongLeavesUnsupportedByrefUntouched (0 ms)
+[ RUN      ] ComVariantTest.OutLongFillsPlainVariant
+[       OK ] ComVariantTest.OutLongFillsPlainVariant (0 ms)
+[ RUN      ] ComVariantTest.OutLongNullIsNoOp
+[       OK ] ComVariantTest.OutLongNullIsNoOp (0 ms)
+[ RUN      ] ComVariantTest.SetOutValueRejectsNull
+[       OK ] ComVariantTest.SetOutValueRejectsNull (0 ms)
+[ RUN      ] ComVariantTest.SetOutValueWritesAndReturnsOk
+[       OK ] ComVariantTest.SetOutValueWritesAndReturnsOk (0 ms)
+[ RUN      ] ComVariantTest.RunCvRetOnlyRejectsNullAndStartsFromZero
+[       OK ] ComVariantTest.RunCvRetOnlyRejectsNullAndStartsFromZero (0 ms)
+[----------] 15 tests from ComVariantTest (0 ms total)
+
+[----------] 30 tests from OpenCvTest
+[ RUN      ] OpenCvTest.ReportsVersion
+[       OK ] OpenCvTest.ReportsVersion (0 ms)
+[ RUN      ] OpenCvTest.CApiJsonMethodsReturnFailureJsonForInvalidHandle
+[       OK ] OpenCvTest.CApiJsonMethodsReturnFailureJsonForInvalidHandle (0 ms)
+[ RUN      ] OpenCvTest.TemplateStoreAndMatchApis
+[       OK ] OpenCvTest.TemplateStoreAndMatchApis (162 ms)
+[ RUN      ] OpenCvTest.MatchTemplateReturnsFirstThresholdHit
+[       OK ] OpenCvTest.MatchTemplateReturnsFirstThresholdHit (245 ms)
+[ RUN      ] OpenCvTest.MatchTemplateFollowsSearchDirection
+[       OK ] OpenCvTest.MatchTemplateFollowsSearchDirection (210 ms)
+[ RUN      ] OpenCvTest.MatchTemplateHorizontalStripFindsAnyHit
+[       OK ] OpenCvTest.MatchTemplateHorizontalStripFindsAnyHit (254 ms)
+[ RUN      ] OpenCvTest.MatchTemplateRejectsInvalidStripDirectionCombo
+[       OK ] OpenCvTest.MatchTemplateRejectsInvalidStripDirectionCombo (180 ms)
+[ RUN      ] OpenCvTest.MatchAnyTemplateFollowsSearchDirectionPerTemplate
+[       OK ] OpenCvTest.MatchAnyTemplateFollowsSearchDirectionPerTemplate (465 ms)
+[ RUN      ] OpenCvTest.MatchAnyTemplateReturnsAnyFirstCompletedHit
+[       OK ] OpenCvTest.MatchAnyTemplateReturnsAnyFirstCompletedHit (343 ms)
+[ RUN      ] OpenCvTest.MatchTemplateScaleFindsScaledTemplate
+[       OK ] OpenCvTest.MatchTemplateScaleFindsScaledTemplate (268 ms)
+[ RUN      ] OpenCvTest.MatchTemplateScaleEvictsStaleScaledCache
+[       OK ] OpenCvTest.MatchTemplateScaleEvictsStaleScaledCache (240 ms)
+[ RUN      ] OpenCvTest.MatchTemplateAutomaticallyUsesPyramidOnLargeRegion
+[       OK ] OpenCvTest.MatchTemplateAutomaticallyUsesPyramidOnLargeRegion (144 ms)
+[ RUN      ] OpenCvTest.MatchAnyTemplateAutomaticallyUsesPyramidOnLargeRegion
+[       OK ] OpenCvTest.MatchAnyTemplateAutomaticallyUsesPyramidOnLargeRegion (232 ms)
+[ RUN      ] OpenCvTest.MatchAllTemplatesAutomaticallyUsesPyramidOnLargeRegion
+[       OK ] OpenCvTest.MatchAllTemplatesAutomaticallyUsesPyramidOnLargeRegion (154 ms)
+[ RUN      ] OpenCvTest.MatchTemplateOnRealPhotoSample
+[       OK ] OpenCvTest.MatchTemplateOnRealPhotoSample (699 ms)
+[ RUN      ] OpenCvTest.AllMatchingMethodsWorkOnRealImageAssets
+[       OK ] OpenCvTest.AllMatchingMethodsWorkOnRealImageAssets (3064 ms)
+[ RUN      ] OpenCvTest.AllMatchingMethodsWorkOnGameSceneAssets
+[       OK ] OpenCvTest.AllMatchingMethodsWorkOnGameSceneAssets (1073 ms)
+[ RUN      ] OpenCvTest.HardRealImageCasesExposeMatchingBoundaries
+[       OK ] OpenCvTest.HardRealImageCasesExposeMatchingBoundaries (3374 ms)
+[ RUN      ] OpenCvTest.MatchTemplateOnConfiguredRealImage
+[       OK ] OpenCvTest.MatchTemplateOnConfiguredRealImage (95 ms)
+[ RUN      ] OpenCvTest.MatchAllTemplatesReturnsAllThresholdMatches
+[       OK ] OpenCvTest.MatchAllTemplatesReturnsAllThresholdMatches (51 ms)
+[ RUN      ] OpenCvTest.MultiTemplateRegionApisOnlyMatchInsideRegion
+[       OK ] OpenCvTest.MultiTemplateRegionApisOnlyMatchInsideRegion (136 ms)
+[ RUN      ] OpenCvTest.PreprocessApisWorkOnSimpleImage
+[       OK ] OpenCvTest.PreprocessApisWorkOnSimpleImage (0 ms)
+[ RUN      ] OpenCvTest.FilePreprocessApisWork
+[       OK ] OpenCvTest.FilePreprocessApisWork (944 ms)
+[ RUN      ] OpenCvTest.LoadTemplateAutomaticallyUsesAlphaAsMaskAndFindsValidHit
+[       OK ] OpenCvTest.LoadTemplateAutomaticallyUsesAlphaAsMaskAndFindsValidHit (58 ms)
+[ RUN      ] OpenCvTest.FeatureMatchTemplateFindsPattern
+[       OK ] OpenCvTest.FeatureMatchTemplateFindsPattern (59 ms)
+[ RUN      ] OpenCvTest.EdgeMatchTemplateFindsOutline
+[       OK ] OpenCvTest.EdgeMatchTemplateFindsOutline (63 ms)
+[ RUN      ] OpenCvTest.ShapeMatchTemplateFindsRectangle
+[       OK ] OpenCvTest.ShapeMatchTemplateFindsRectangle (57 ms)
+[ RUN      ] OpenCvTest.CorrMethodsNormalizeScoreToUnitRange
+[       OK ] OpenCvTest.CorrMethodsNormalizeScoreToUnitRange (0 ms)
+[ RUN      ] OpenCvTest.MatchTemplateRotatedFindsRotatedTemplate
+[       OK ] OpenCvTest.MatchTemplateRotatedFindsRotatedTemplate (79 ms)
+[ RUN      ] OpenCvTest.BlueStacksScreenshotTemplateMatching
+[       OK ] OpenCvTest.BlueStacksScreenshotTemplateMatching (671 ms)
+[----------] 30 tests from OpenCvTest (13338 ms total)
+
+[----------] Global test environment tear-down
+[==========] 399 tests from 42 test suites ran. (129833 ms total)
+[  PASSED  ] 397 tests.
+[  SKIPPED ] 2 tests, listed below:
+[  SKIPPED ] IntegrationTest.BindUnbindFurMarkIfPresent
+[  SKIPPED ] HookCaptureTest.D3D10ChannelEitherBindsOrReportsLocateFailure
+
+  YOU HAVE 4 DISABLED TESTS
+
+
+EXIT= 0

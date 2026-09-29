@@ -1,0 +1,35 @@
+================================================================================================================
+目标窗口
+================================================================================================================
+  BlueStacks   hwnd=0x140C92   class=Qt672QWindowIcon           pid=26660  size=293x494   完全被遮挡=YES
+  计算器          hwnd=0x1131778  class=ApplicationFrameWindow     pid=21348  size=341x549   完全被遮挡=YES
+  WorkBuddy    hwnd=0x704AE    class=Chrome_WidgetWin_1         pid=32752  size=1288x862   完全被遮挡=YES
+  钉钉           hwnd=0x30434    class=Qt51511QWindowIcon         pid=15096  size=1261x829   完全被遮挡=YES
+  微信           hwnd=0xAFC15C4  class=WeChatMainWndForPC         pid=21116  size=1126x707   完全被遮挡=no
+  紫鸟           hwnd=0x30EF8    class=Chrome_WidgetWin_1         pid=26196  size=2575x1415  完全被遮挡=YES
+  汽水音乐         hwnd=0x24806EA  class=Chrome_WidgetWin_1         pid=15892  size=1100x720   完全被遮挡=YES
+
+setpath -> 1
+showerrmsg -> 1
+
+----------------------------------------------------------------------------------------------------------------
+[BlueStacks] hwnd=0x140C92 class=Qt672QWindowIcon  GetClientSize ret=1 client=440x741
+   normal       bind=1(0.00s) isbind=1 cap=1(0.06s) 439x740 非黑 ✓ 非黑100.0% 亮度220.8 色844
+   gdi          bind=1(0.00s) isbind=1 cap=1(0.05s) 439x740 非黑 ✓ 非黑89.6% 亮度170.0 色1385
+   dx2          bind=1(0.00s) isbind=1 cap=1(0.05s) 439x740 非黑 ✓ 非黑89.6% 亮度170.0 色1386
+   normal.dxgi  bind=1(0.46s) isbind=1 cap=1(0.05s) 439x740 非黑 ✓ 非黑100.0% 亮度220.8 色844
+
+================================================================================================================
+汇总矩阵   v=返回值  o=非黑  x=全黑  -=绑定失败
+================================================================================================================
+目标           类名                         normal     gdi        dx2        normal.dxgi
+----------------------------------------------------------------------------------------------------------------
+BlueStacks   Qt672QWindowIcon           非黑/844色    非黑/1385色   非黑/1386色   非黑/844色   
+计算器          ApplicationFrameWindow     -          -          -          -         
+WorkBuddy    Chrome_WidgetWin_1         -          -          -          -         
+钉钉           Qt51511QWindowIcon         -          -          -          -         
+微信           WeChatMainWndForPC         -          -          -          -         
+紫鸟           Chrome_WidgetWin_1         -          -          -          -         
+汽水音乐         Chrome_WidgetWin_1         -          -          -          -         
+
+截图落盘: D:/AutoPro/op-master/op\workbench\matrix_shots

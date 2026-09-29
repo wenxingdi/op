@@ -1,0 +1,32 @@
+[10:42:35] loaded op_c_api dll, OpVer='0.4.8.3'
+[10:42:36] target window hwnd=0x3FE16B0
+[10:42:36] ======================================================================
+[10:42:36] A. P0-1 resize 强化 —— display=normal
+[10:42:36] ======================================================================
+[10:42:36]   baseline size=320x200 capture=True center_color=FFFFFF
+[10:42:37]   enlarged size=920x720 capture=True center=FFFFFF bottom_right=FFFFFF
+[10:42:37]   verdict: PASS  (shot: D:\AutoPro\op-master\op\workbench\doc2\smoke_normal_920.bmp)
+[10:42:37] ======================================================================
+[10:42:37] A. P0-1 resize 强化 —— display=gdi
+[10:42:37] ======================================================================
+[10:42:37]   baseline size=320x200 capture=True center_color=FFFFFF
+[10:42:38]   enlarged size=920x720 capture=True center=FFFFFF bottom_right=FFFFFF
+[10:42:38]   verdict: PASS  (shot: D:\AutoPro\op-master\op\workbench\doc2\smoke_gdi_920.bmp)
+[10:42:38] ======================================================================
+[10:42:38] B. OCR: AutoOcrLine / AutoOcrEx / --charset 白名单 + 耗时
+[10:42:38] ======================================================================
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=6623
+[10:42:39]   set_ocr_engine('onnx','', '--charset=@zh0123456789[],-+') -> True
+[10:42:39]   autoocr_line -> '许愿树[320,-778]12345'  (one-shot 37.2ms)
+[10:42:40]   autoocr_line x20 avg=26.37ms min=15.38 max=36.91
+[10:42:40]   last='许愿树[320,-778]12345'  target: 9-13ms/帧（PP-OCRv4 rec 单行量级）
+[10:42:40]   autoocr_ex count=1 items='0,34,620,69,0.97,许愿树[320-778[12345'
+[10:42:40]   capture->ocr_from_file -> '许愿树[320,-778]12345'
+[10:42:41]   ocr_from_file x20 avg=63.57ms min=58.45 max=69.99
+[10:42:41]   (pure rec, no capture overhead; autoocr_line avg above includes whole-window capture)
+[10:42:41]   verdict: PASS
+[10:42:41] ======================================================================
+[10:42:41] SUMMARY
+[10:42:41] ======================================================================
+[10:42:41]   => ALL PASSED

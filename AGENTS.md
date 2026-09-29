@@ -5,6 +5,6 @@
 
 要点三条：
 
-1. **日常构建**：`python build/_wb_build.py`（nmake 增量）。不要跑上游的 `build.py` 构建流程（仅全新机器 bootstrap 依赖时用）。
+1. **日常构建**：`python scripts/build/_wb_build.py`（nmake 增量）。不要跑上游的 `build.py` 构建流程（仅全新机器 bootstrap 依赖时用）。
 2. **测试**：`scripts/run_tests.ps1` 或 cd 仓库根 + PATH 带 `build/nmake-x64-Release/libop` 后跑 `op_test.exe`；测试期间禁止构建（LNK1104）。
 3. **构建后必同步发布件**：`D:\AutoPro\OPTool\sync_op_dll.py`（bin/x64 + Python 绑定包 + OPTool 三处 Dll，sha1 校验）。

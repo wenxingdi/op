@@ -21,8 +21,8 @@ OP 是 Windows 桌面自动化 COM 插件（C++17），功能：截图（GDI/DX/
 **日常增量构建**（改完 cpp 就跑这个）：
 
 ```bash
-python build/_wb_build.py              # 默认目标 op_x64 + op_test
-python build/_wb_build.py op_c_api_x64 # 只构建 C-API DLL
+python scripts/build/_wb_build.py              # 默认目标 op_x64 + op_test
+python scripts/build/_wb_build.py op_c_api_x64 # 只构建 C-API DLL
 ```
 
 脚本内部：绝对路径 nmake + MSVC/SDK 环境变量，`cwd=build/nmake-x64-Release`。输出与日志落在构建目录 `_wb_build_out.txt`。
@@ -76,7 +76,7 @@ build/nmake-x64-Release/tests/op_test.exe --gtest_filter="OcrTest.*"
 ## 仓库约定
 
 - 提交信息中文，`fix:` / `feat:` / `docs:` 前缀；commit 后追加 `docs/CHANGELOG.md`。
-- 正式报告放 `docs/<年月>/`；探针脚本、中间产物放 `workbench/`（**workbench/ 不入库**，勿把唯一副本放这里）。
+- 正式报告放 `docs/<年月>/`；**构建/探针脚本放 `scripts/build/`、`scripts/probes/`（入库，勿再写回工作区）**；中间产物（日志、截图、载体 exe、dump）放 `workbench/`（不入库）。
 - 新增 .cpp 必须同步 `CMakeLists.txt` + `tests/CMakeLists.txt`（如含测试）。
 - 新能力必须带端到端成功用例；断言必须反向验证（故意改错 → 必须 FAIL）。
 

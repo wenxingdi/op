@@ -1,0 +1,9 @@
+[carrier] hwnd=0x1111900 pid=21368 size=500x400
+[scr] launch C:\Windows\System32\Bubbles.scr /p 17897728
+[scr] pid=31416 alive=True
+[win] hwnd=0x311890 pid=21368 parent=0x1111900 size=0x0 class='IME' title='Default IME'
+[win] hwnd=0x2b716c0 pid=31416 parent=0x1111900 size=500x400 class='D3DSaverWndClass' title='气泡'
+[scr mods] 共63个; 图形相关=['D3DREF9.DLL', 'd3d9.dll', 'nvd3dumx.dll']
+[bind] hwnd=0x2b716c0 display=dx ret=1 is_bind=1
+[capture] ret=1 uniq=2015  ← >1 说明真取到屏保画面
+done

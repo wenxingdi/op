@@ -1,0 +1,17 @@
+[launch] D:/AutoPro/op-master/op/workbench/probes/dx_carrier.exe
+[launch] pid=27824 alive=True
+[win] hwnd=0x7c1840 size=400x300@40,40 class='OpDxCarrierWnd' title='OpDxCarrier'
+[win] hwnd=0xc173a size=345x48@3490,1634 class='SoPY_Status' title=''
+[mods] 绑定前 共89个; 相关: ['DINPUT8.dll', 'OPENGL32.dll', 'd3d11.dll', 'd3d9.dll', 'dxgi.dll']
+[dx.d3d12/windows/windows] bind ret=1 is_bind=1 alive=True
+  [dx.d3d12/windows/windows] 绑定后 共102个; 相关: ['DINPUT8.dll', 'OPENGL32.dll', 'd3d11.dll', 'd3d12.dll', 'd3d9.dll', 'dxgi.dll', 'op_c_api_x64.dll']
+  [dx.d3d12/windows/windows] capture FAIL 连续4次 ret=0 → 目标未产生可捕获的帧
+[dx.d3d12/windows/windows] unbind=1 alive_after=True
+[dx.d3d10/windows/windows] bind ret=1 is_bind=1 alive=True
+  [dx.d3d10/windows/windows] 绑定后 共104个; 相关: ['DINPUT8.dll', 'OPENGL32.dll', 'd3d10.dll', 'd3d10core.dll', 'd3d11.dll', 'd3d12.dll', 'd3d9.dll', 'dxgi.dll', 'op_c_api_x64.dll']
+  [dx.d3d10/windows/windows] capture FAIL 连续4次 ret=0 → 目标未产生可捕获的帧
+[dx.d3d10/windows/windows] unbind=1 alive_after=True
+=== 汇总 ===
+  dx.d3d12/windows/windows  bind=1 is_bind=1 alive=True
+  dx.d3d10/windows/windows  bind=1 is_bind=1 alive=True
+done

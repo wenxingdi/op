@@ -1,0 +1,19 @@
+Note: Google Test filter = CaptureModeTest.*
+[==========] Running 2 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 2 tests from CaptureModeTest
+[ RUN      ] CaptureModeTest.GdiFamilyCapturesWindowContentForAllModes
+[2026/09/19 12:06:47.507]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[2026/09/19 12:06:48.034]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[2026/09/19 12:06:48.568]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] CaptureModeTest.GdiFamilyCapturesWindowContentForAllModes
+[ RUN      ] CaptureModeTest.GdiCaptureIgnoresOcclusion
+[2026/09/19 12:06:50.082]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] CaptureModeTest.GdiCaptureIgnoresOcclusion
+[----------] Global test environment tear-down
+[==========] 2 tests from 1 test suite ran.
+[  PASSED  ] 2 tests.

@@ -1,0 +1,7 @@
+[start] notepad32 pid=29168 alive=True
+[find] hwnd=0x1ad168a
+[bind dx] ret=0 (期望 0: 记事本无 D3D9, locate 必失败)
+[after 2s] target exit_code=None
+[unbind] ret=1
+[after unbind+2s] target exit_code=None
+=== VERDICT: exit=None → NO-CRASH

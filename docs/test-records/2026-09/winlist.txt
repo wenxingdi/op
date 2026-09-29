@@ -1,0 +1,18 @@
+[10:43:37.725] ERROR: no window title contains '___zzz_never_match___'. Visible top-level windows:
+[10:43:37.739]   hwnd=0x10300  '小火箭通用加速'
+[10:43:37.741]   hwnd=0x704AE  'WorkBuddy'
+[10:43:37.743]   hwnd=0x14BD15FE  '翻译 英语 页面?'
+[10:43:37.745]   hwnd=0x1D508A4  'Amazon.com | Diarilip Closed Toe Sandals for Women: Comfortable Walking Fisherman Shoes | Adjustable Ankle Strap, Soft Insole, Non Slip Outsole, Dressy Casual, Daily Wear, Lightweight, Flat Sandals for Travel | Flats 和另外 1 个页面 - 个人 - Microsoft​ Edge'
+[10:43:37.746]   hwnd=0x30EF8  'Amazon 10'
+[10:43:37.747]   hwnd=0x30434  '钉钉'
+[10:43:37.750]   hwnd=0x140C92  'BlueStacks 5'
+[10:43:37.753]   hwnd=0x30DCA  'Amazon 12'
+[10:43:37.756]   hwnd=0x4D9011E  '计算器'
+[10:43:37.758]   hwnd=0x30D5C  '紫鸟浏览器'
+[10:43:37.760]   hwnd=0xF01430  '计算器'
+[10:43:37.761]   hwnd=0xDA1C7C  '新款发货计划表.xlsx - WPS Office'
+[10:43:37.763]   hwnd=0xAFC15C4  '微信'
+[10:43:37.765]   hwnd=0x2D0162  'Microsoft Text Input Application'
+[10:43:37.768]   hwnd=0x7052C  'fileShare52'
+[10:43:37.770]   hwnd=0x208C4  'Program Manager'
+[10:43:37.774] FATAL: no valid target

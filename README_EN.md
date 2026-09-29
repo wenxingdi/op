@@ -58,7 +58,7 @@ Full requirements and step-by-step instructions (with verification commands) are
 
 - Windows 10+ / VS2022 (MSVC 14.44) / Windows SDK 10.0.26100 / CMake / Python 3.12
 - Fresh machine: `python build.py` to bootstrap dependencies, then cmake-configure `build/nmake-x64-Release` (exact command in the guide)
-- Daily incremental build: `python build/_wb_build.py`
+- Daily incremental build: `python scripts/build/_wb_build.py`
 - Tests: `powershell -File scripts/run_tests.ps1` (baseline 270 ran / 262 PASS)
 - After building, sync release binaries: `D:\AutoPro\OPTool\sync_op_dll.py`
 

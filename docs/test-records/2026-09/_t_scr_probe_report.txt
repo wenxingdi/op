@@ -1,0 +1,7 @@
+hwnd=0x1111900
+pid=21368
+size=500x400
+backend=d3d9
+msaa=0
+dinput=0
+READY

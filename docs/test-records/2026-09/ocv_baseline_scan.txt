@@ -1,0 +1,92 @@
+Note: Google Test filter = OpenCvTest.*
+[==========] Running 30 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 30 tests from OpenCvTest
+[ RUN      ] OpenCvTest.ReportsVersion
+[       OK ] OpenCvTest.ReportsVersion (0 ms)
+[ RUN      ] OpenCvTest.CApiJsonMethodsReturnFailureJsonForInvalidHandle
+[       OK ] OpenCvTest.CApiJsonMethodsReturnFailureJsonForInvalidHandle (0 ms)
+[ RUN      ] OpenCvTest.TemplateStoreAndMatchApis
+[       OK ] OpenCvTest.TemplateStoreAndMatchApis (687 ms)
+[ RUN      ] OpenCvTest.MatchTemplateReturnsFirstThresholdHit
+[       OK ] OpenCvTest.MatchTemplateReturnsFirstThresholdHit (52 ms)
+[ RUN      ] OpenCvTest.MatchTemplateFollowsSearchDirection
+[       OK ] OpenCvTest.MatchTemplateFollowsSearchDirection (40 ms)
+[ RUN      ] OpenCvTest.MatchTemplateHorizontalStripFindsAnyHit
+[       OK ] OpenCvTest.MatchTemplateHorizontalStripFindsAnyHit (39 ms)
+[ RUN      ] OpenCvTest.MatchTemplateRejectsInvalidStripDirectionCombo
+[       OK ] OpenCvTest.MatchTemplateRejectsInvalidStripDirectionCombo (39 ms)
+[ RUN      ] OpenCvTest.MatchAnyTemplateFollowsSearchDirectionPerTemplate
+[       OK ] OpenCvTest.MatchAnyTemplateFollowsSearchDirectionPerTemplate (88 ms)
+[ RUN      ] OpenCvTest.MatchAnyTemplateReturnsAnyFirstCompletedHit
+[       OK ] OpenCvTest.MatchAnyTemplateReturnsAnyFirstCompletedHit (88 ms)
+[ RUN      ] OpenCvTest.MatchTemplateScaleFindsScaledTemplate
+[       OK ] OpenCvTest.MatchTemplateScaleFindsScaledTemplate (43 ms)
+[ RUN      ] OpenCvTest.MatchTemplateScaleEvictsStaleScaledCache
+[       OK ] OpenCvTest.MatchTemplateScaleEvictsStaleScaledCache (47 ms)
+[ RUN      ] OpenCvTest.MatchTemplateAutomaticallyUsesPyramidOnLargeRegion
+[       OK ] OpenCvTest.MatchTemplateAutomaticallyUsesPyramidOnLargeRegion (71 ms)
+[ RUN      ] OpenCvTest.MatchAnyTemplateAutomaticallyUsesPyramidOnLargeRegion
+[       OK ] OpenCvTest.MatchAnyTemplateAutomaticallyUsesPyramidOnLargeRegion (64 ms)
+[ RUN      ] OpenCvTest.MatchAllTemplatesAutomaticallyUsesPyramidOnLargeRegion
+[       OK ] OpenCvTest.MatchAllTemplatesAutomaticallyUsesPyramidOnLargeRegion (73 ms)
+[ RUN      ] OpenCvTest.MatchTemplateOnRealPhotoSample
+D:\AutoPro\op-master\op\tests\opencv_test.cpp(1389): Skipped
+No real photo sample asset is available.
+
+[  SKIPPED ] OpenCvTest.MatchTemplateOnRealPhotoSample (0 ms)
+[ RUN      ] OpenCvTest.AllMatchingMethodsWorkOnRealImageAssets
+D:\AutoPro\op-master\op\tests\opencv_test.cpp(1471): Skipped
+Real image template assets are not available.
+
+[  SKIPPED ] OpenCvTest.AllMatchingMethodsWorkOnRealImageAssets (0 ms)
+[ RUN      ] OpenCvTest.AllMatchingMethodsWorkOnGameSceneAssets
+D:\AutoPro\op-master\op\tests\opencv_test.cpp(1692): Skipped
+Game scene matching assets are not available.
+
+[  SKIPPED ] OpenCvTest.AllMatchingMethodsWorkOnGameSceneAssets (0 ms)
+[ RUN      ] OpenCvTest.HardRealImageCasesExposeMatchingBoundaries
+D:\AutoPro\op-master\op\tests\opencv_test.cpp(1900): Skipped
+Hard real-image assets are not available.
+
+[  SKIPPED ] OpenCvTest.HardRealImageCasesExposeMatchingBoundaries (0 ms)
+[ RUN      ] OpenCvTest.MatchTemplateOnConfiguredRealImage
+D:\AutoPro\op-master\op\tests\opencv_test.cpp(2131): Skipped
+Default real image matching assets are not available.
+
+[  SKIPPED ] OpenCvTest.MatchTemplateOnConfiguredRealImage (0 ms)
+[ RUN      ] OpenCvTest.MatchAllTemplatesReturnsAllThresholdMatches
+[       OK ] OpenCvTest.MatchAllTemplatesReturnsAllThresholdMatches (44 ms)
+[ RUN      ] OpenCvTest.MultiTemplateRegionApisOnlyMatchInsideRegion
+[       OK ] OpenCvTest.MultiTemplateRegionApisOnlyMatchInsideRegion (92 ms)
+[ RUN      ] OpenCvTest.PreprocessApisWorkOnSimpleImage
+[       OK ] OpenCvTest.PreprocessApisWorkOnSimpleImage (0 ms)
+[ RUN      ] OpenCvTest.FilePreprocessApisWork
+[2026/09/28 14:51:43.251]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] OpenCvTest.FilePreprocessApisWork (695 ms)
+[ RUN      ] OpenCvTest.LoadTemplateAutomaticallyUsesAlphaAsMaskAndFindsValidHit
+[       OK ] OpenCvTest.LoadTemplateAutomaticallyUsesAlphaAsMaskAndFindsValidHit (44 ms)
+[ RUN      ] OpenCvTest.FeatureMatchTemplateFindsPattern
+[       OK ] OpenCvTest.FeatureMatchTemplateFindsPattern (43 ms)
+[ RUN      ] OpenCvTest.EdgeMatchTemplateFindsOutline
+[       OK ] OpenCvTest.EdgeMatchTemplateFindsOutline (49 ms)
+[ RUN      ] OpenCvTest.ShapeMatchTemplateFindsRectangle
+[       OK ] OpenCvTest.ShapeMatchTemplateFindsRectangle (49 ms)
+[ RUN      ] OpenCvTest.CorrMethodsNormalizeScoreToUnitRange
+[       OK ] OpenCvTest.CorrMethodsNormalizeScoreToUnitRange (0 ms)
+[ RUN      ] OpenCvTest.MatchTemplateRotatedFindsRotatedTemplate
+[       OK ] OpenCvTest.MatchTemplateRotatedFindsRotatedTemplate (59 ms)
+[ RUN      ] OpenCvTest.BlueStacksScreenshotTemplateMatching
+[       OK ] OpenCvTest.BlueStacksScreenshotTemplateMatching (505 ms)
+[----------] 30 tests from OpenCvTest (2937 ms total)
+
+[----------] Global test environment tear-down
+[==========] 30 tests from 1 test suite ran. (2941 ms total)
+[  PASSED  ] 25 tests.
+[  SKIPPED ] 5 tests, listed below:
+[  SKIPPED ] OpenCvTest.MatchTemplateOnRealPhotoSample
+[  SKIPPED ] OpenCvTest.AllMatchingMethodsWorkOnRealImageAssets
+[  SKIPPED ] OpenCvTest.AllMatchingMethodsWorkOnGameSceneAssets
+[  SKIPPED ] OpenCvTest.HardRealImageCasesExposeMatchingBoundaries
+[  SKIPPED ] OpenCvTest.MatchTemplateOnConfiguredRealImage

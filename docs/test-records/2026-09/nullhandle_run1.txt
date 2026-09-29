@@ -1,0 +1,91 @@
+Note: Google Test filter = CApiNullHandle.*
+[==========] Running 2 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 2 tests from CApiNullHandle
+[ RUN      ] CApiNullHandle.AllHandleFunctionsReturnFailure
+D:\AutoPro\op-master\op\tests\c_api_null_handle_test.cpp(18): error: Expected equality of these values:
+  s[0]
+    Which is: L'{' (123, 0x7B)
+  L'\0'
+OpCvConnectedComponents returned non-empty string for null handle
+
+D:\AutoPro\op-master\op\tests\c_api_null_handle_test.cpp(18): error: Expected equality of these values:
+  s[0]
+    Which is: L'{' (123, 0x7B)
+  L'\0'
+OpCvFindContours returned non-empty string for null handle
+
+D:\AutoPro\op-master\op\tests\c_api_null_handle_test.cpp(18): error: Expected equality of these values:
+  s[0]
+    Which is: L'{' (123, 0x7B)
+  L'\0'
+OpCvMatchTemplate returned non-empty string for null handle
+
+D:\AutoPro\op-master\op\tests\c_api_null_handle_test.cpp(18): error: Expected equality of these values:
+  s[0]
+    Which is: L'{' (123, 0x7B)
+  L'\0'
+OpCvMatchTemplateScale returned non-empty string for null handle
+
+D:\AutoPro\op-master\op\tests\c_api_null_handle_test.cpp(18): error: Expected equality of these values:
+  s[0]
+    Which is: L'{' (123, 0x7B)
+  L'\0'
+OpCvMatchAnyTemplate returned non-empty string for null handle
+
+D:\AutoPro\op-master\op\tests\c_api_null_handle_test.cpp(18): error: Expected equality of these values:
+  s[0]
+    Which is: L'{' (123, 0x7B)
+  L'\0'
+OpCvMatchAllTemplates returned non-empty string for null handle
+
+D:\AutoPro\op-master\op\tests\c_api_null_handle_test.cpp(18): error: Expected equality of these values:
+  s[0]
+    Which is: L'{' (123, 0x7B)
+  L'\0'
+OpCvFeatureMatchTemplate returned non-empty string for null handle
+
+D:\AutoPro\op-master\op\tests\c_api_null_handle_test.cpp(18): error: Expected equality of these values:
+  s[0]
+    Which is: L'{' (123, 0x7B)
+  L'\0'
+OpCvEdgeMatchTemplate returned non-empty string for null handle
+
+D:\AutoPro\op-master\op\tests\c_api_null_handle_test.cpp(18): error: Expected equality of these values:
+  s[0]
+    Which is: L'{' (123, 0x7B)
+  L'\0'
+OpCvShapeMatchTemplate returned non-empty string for null handle
+
+D:\AutoPro\op-master\op\tests\c_api_null_handle_test.cpp(18): error: Expected equality of these values:
+  s[0]
+    Which is: L'{' (123, 0x7B)
+  L'\0'
+OpCvMatchTemplateRot returned non-empty string for null handle
+
+D:\AutoPro\op-master\op\tests\c_api_null_handle_test.cpp(18): error: Expected equality of these values:
+  s[0]
+    Which is: L'{' (123, 0x7B)
+  L'\0'
+OpYoloDetect returned non-empty string for null handle
+
+D:\AutoPro\op-master\op\tests\c_api_null_handle_test.cpp(18): error: Expected equality of these values:
+  s[0]
+    Which is: L'{' (123, 0x7B)
+  L'\0'
+OpYoloDetectFromFile returned non-empty string for null handle
+
+[  FAILED  ] CApiNullHandle.AllHandleFunctionsReturnFailure (0 ms)
+[ RUN      ] CApiNullHandle.FreeFunctionsAreSafe
+[       OK ] CApiNullHandle.FreeFunctionsAreSafe (11 ms)
+[----------] 2 tests from CApiNullHandle (11 ms total)
+
+[----------] Global test environment tear-down
+[==========] 2 tests from 1 test suite ran. (18 ms total)
+[  PASSED  ] 1 test.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] CApiNullHandle.AllHandleFunctionsReturnFailure
+
+ 1 FAILED TEST
+
+EXIT= 1

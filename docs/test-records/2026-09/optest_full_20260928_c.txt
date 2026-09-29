@@ -1,0 +1,140 @@
+Field
+[       OK ] FrameChecksumTest.DetectsEveryCoveredField (0 ms)
+[----------] 2 tests from FrameChecksumTest (0 ms total)
+
+[----------] 1 test from HookFrameRowTest
+[ RUN      ] HookFrameRowTest.ReturnsRequestedWindow
+[       OK ] HookFrameRowTest.ReturnsRequestedWindow (0 ms)
+[----------] 1 test from HookFrameRowTest (0 ms total)
+
+[----------] 2 tests from SharedFrameWriteTest
+[ RUN      ] SharedFrameWriteTest.SpanCoversHeaderPlusPixels
+[       OK ] SharedFrameWriteTest.SpanCoversHeaderPlusPixels (0 ms)
+[ RUN      ] SharedFrameWriteTest.WritesConsistentHeaderAndCopiesPixels
+[       OK ] SharedFrameWriteTest.WritesConsistentHeaderAndCopiesPixels (0 ms)
+[----------] 2 tests from SharedFrameWriteTest (0 ms total)
+
+[----------] 2 tests from DxgiFormatNormalizeTest
+[ RUN      ] DxgiFormatNormalizeTest.StripsSrgbSuffixOnly
+[       OK ] DxgiFormatNormalizeTest.StripsSrgbSuffixOnly (0 ms)
+[ RUN      ] DxgiFormatNormalizeTest.LeavesNonSrgbUntouched
+[       OK ] DxgiFormatNormalizeTest.LeavesNonSrgbUntouched (0 ms)
+[----------] 2 tests from DxgiFormatNormalizeTest (0 ms total)
+
+[----------] 1 test from HookExportNameMatchTest
+[ RUN      ] HookExportNameMatchTest.StdcallDecorationBoundaries
+[       OK ] HookExportNameMatchTest.StdcallDecorationBoundaries (0 ms)
+[----------] 1 test from HookExportNameMatchTest (0 ms total)
+
+[----------] 6 tests from HookExportNamePickTest
+[ RUN      ] HookExportNamePickTest.PrefersUndecoratedWhenBothPresent
+[       OK ] HookExportNamePickTest.PrefersUndecoratedWhenBothPresent (0 ms)
+[ RUN      ] HookExportNamePickTest.PicksDecoratedWhenUndecoratedAbsent
+[       OK ] HookExportNamePickTest.PicksDecoratedWhenUndecoratedAbsent (0 ms)
+[ RUN      ] HookExportNamePickTest.ReturnsPlainWhenNothingMatches
+[       OK ] HookExportNamePickTest.ReturnsPlainWhenNothingMatches (0 ms)
+[ RUN      ] HookExportNamePickTest.DoesNotPickSamePrefixSibling
+[       OK ] HookExportNamePickTest.DoesNotPickSamePrefixSibling (0 ms)
+[ RUN      ] HookExportNamePickTest.DeterministicFirstMatch
+[       OK ] HookExportNamePickTest.DeterministicFirstMatch (0 ms)
+[ RUN      ] HookExportNamePickTest.RealX86ExportShapeAllResolve
+[       OK ] HookExportNamePickTest.RealX86ExportShapeAllResolve (0 ms)
+[----------] 6 tests from HookExportNamePickTest (0 ms total)
+
+[----------] 3 tests from HookExportNameFileTest
+[ RUN      ] HookExportNameFileTest.ReadsRealOpDllExportTable
+[       OK ] HookExportNameFileTest.ReadsRealOpDllExportTable (72 ms)
+[ RUN      ] HookExportNameFileTest.MissingFileReturnsFalse
+[       OK ] HookExportNameFileTest.MissingFileReturnsFalse (0 ms)
+[ RUN      ] HookExportNameFileTest.RejectsNonPeFile
+[       OK ] HookExportNameFileTest.RejectsNonPeFile (95 ms)
+[----------] 3 tests from HookExportNameFileTest (167 ms total)
+
+[----------] 2 tests from HookExportNameResolveTest
+[ RUN      ] HookExportNameResolveTest.MissingDllFallsBackToPlainName
+[       OK ] HookExportNameResolveTest.MissingDllFallsBackToPlainName (0 ms)
+[ RUN      ] HookExportNameResolveTest.RealDllKeepsUndecoratedName
+[       OK ] HookExportNameResolveTest.RealDllKeepsUndecoratedName (98 ms)
+[----------] 2 tests from HookExportNameResolveTest (98 ms total)
+
+[----------] 2 tests from CApiNullHandle
+[ RUN      ] CApiNullHandle.AllHandleFunctionsReturnFailure
+[       OK ] CApiNullHandle.AllHandleFunctionsReturnFailure (0 ms)
+[ RUN      ] CApiNullHandle.FreeFunctionsAreSafe
+[       OK ] CApiNullHandle.FreeFunctionsAreSafe (9 ms)
+[----------] 2 tests from CApiNullHandle (10 ms total)
+
+[----------] 30 tests from OpenCvTest
+[ RUN      ] OpenCvTest.ReportsVersion
+[       OK ] OpenCvTest.ReportsVersion (0 ms)
+[ RUN      ] OpenCvTest.CApiJsonMethodsReturnFailureJsonForInvalidHandle
+[       OK ] OpenCvTest.CApiJsonMethodsReturnFailureJsonForInvalidHandle (0 ms)
+[ RUN      ] OpenCvTest.TemplateStoreAndMatchApis
+[       OK ] OpenCvTest.TemplateStoreAndMatchApis (73 ms)
+[ RUN      ] OpenCvTest.MatchTemplateReturnsFirstThresholdHit
+[       OK ] OpenCvTest.MatchTemplateReturnsFirstThresholdHit (69 ms)
+[ RUN      ] OpenCvTest.MatchTemplateFollowsSearchDirection
+[       OK ] OpenCvTest.MatchTemplateFollowsSearchDirection (52 ms)
+[ RUN      ] OpenCvTest.MatchTemplateHorizontalStripFindsAnyHit
+[       OK ] OpenCvTest.MatchTemplateHorizontalStripFindsAnyHit (56 ms)
+[ RUN      ] OpenCvTest.MatchTemplateRejectsInvalidStripDirectionCombo
+[       OK ] OpenCvTest.MatchTemplateRejectsInvalidStripDirectionCombo (52 ms)
+[ RUN      ] OpenCvTest.MatchAnyTemplateFollowsSearchDirectionPerTemplate
+[       OK ] OpenCvTest.MatchAnyTemplateFollowsSearchDirectionPerTemplate (115 ms)
+[ RUN      ] OpenCvTest.MatchAnyTemplateReturnsAnyFirstCompletedHit
+[       OK ] OpenCvTest.MatchAnyTemplateReturnsAnyFirstCompletedHit (109 ms)
+[ RUN      ] OpenCvTest.MatchTemplateScaleFindsScaledTemplate
+[       OK ] OpenCvTest.MatchTemplateScaleFindsScaledTemplate (56 ms)
+[ RUN      ] OpenCvTest.MatchTemplateScaleEvictsStaleScaledCache
+[       OK ] OpenCvTest.MatchTemplateScaleEvictsStaleScaledCache (53 ms)
+[ RUN      ] OpenCvTest.MatchTemplateAutomaticallyUsesPyramidOnLargeRegion
+[       OK ] OpenCvTest.MatchTemplateAutomaticallyUsesPyramidOnLargeRegion (82 ms)
+[ RUN      ] OpenCvTest.MatchAnyTemplateAutomaticallyUsesPyramidOnLargeRegion
+[       OK ] OpenCvTest.MatchAnyTemplateAutomaticallyUsesPyramidOnLargeRegion (74 ms)
+[ RUN      ] OpenCvTest.MatchAllTemplatesAutomaticallyUsesPyramidOnLargeRegion
+[       OK ] OpenCvTest.MatchAllTemplatesAutomaticallyUsesPyramidOnLargeRegion (96 ms)
+[ RUN      ] OpenCvTest.MatchTemplateOnRealPhotoSample
+[       OK ] OpenCvTest.MatchTemplateOnRealPhotoSample (580 ms)
+[ RUN      ] OpenCvTest.AllMatchingMethodsWorkOnRealImageAssets
+[       OK ] OpenCvTest.AllMatchingMethodsWorkOnRealImageAssets (2465 ms)
+[ RUN      ] OpenCvTest.AllMatchingMethodsWorkOnGameSceneAssets
+[       OK ] OpenCvTest.AllMatchingMethodsWorkOnGameSceneAssets (1032 ms)
+[ RUN      ] OpenCvTest.HardRealImageCasesExposeMatchingBoundaries
+[       OK ] OpenCvTest.HardRealImageCasesExposeMatchingBoundaries (2973 ms)
+[ RUN      ] OpenCvTest.MatchTemplateOnConfiguredRealImage
+[       OK ] OpenCvTest.MatchTemplateOnConfiguredRealImage (90 ms)
+[ RUN      ] OpenCvTest.MatchAllTemplatesReturnsAllThresholdMatches
+[       OK ] OpenCvTest.MatchAllTemplatesReturnsAllThresholdMatches (43 ms)
+[ RUN      ] OpenCvTest.MultiTemplateRegionApisOnlyMatchInsideRegion
+[       OK ] OpenCvTest.MultiTemplateRegionApisOnlyMatchInsideRegion (108 ms)
+[ RUN      ] OpenCvTest.PreprocessApisWorkOnSimpleImage
+[       OK ] OpenCvTest.PreprocessApisWorkOnSimpleImage (0 ms)
+[ RUN      ] OpenCvTest.FilePreprocessApisWork
+[       OK ] OpenCvTest.FilePreprocessApisWork (815 ms)
+[ RUN      ] OpenCvTest.LoadTemplateAutomaticallyUsesAlphaAsMaskAndFindsValidHit
+[       OK ] OpenCvTest.LoadTemplateAutomaticallyUsesAlphaAsMaskAndFindsValidHit (58 ms)
+[ RUN      ] OpenCvTest.FeatureMatchTemplateFindsPattern
+[       OK ] OpenCvTest.FeatureMatchTemplateFindsPattern (56 ms)
+[ RUN      ] OpenCvTest.EdgeMatchTemplateFindsOutline
+[       OK ] OpenCvTest.EdgeMatchTemplateFindsOutline (52 ms)
+[ RUN      ] OpenCvTest.ShapeMatchTemplateFindsRectangle
+[       OK ] OpenCvTest.ShapeMatchTemplateFindsRectangle (50 ms)
+[ RUN      ] OpenCvTest.CorrMethodsNormalizeScoreToUnitRange
+[       OK ] OpenCvTest.CorrMethodsNormalizeScoreToUnitRange (0 ms)
+[ RUN      ] OpenCvTest.MatchTemplateRotatedFindsRotatedTemplate
+[       OK ] OpenCvTest.MatchTemplateRotatedFindsRotatedTemplate (63 ms)
+[ RUN      ] OpenCvTest.BlueStacksScreenshotTemplateMatching
+[       OK ] OpenCvTest.BlueStacksScreenshotTemplateMatching (615 ms)
+[----------] 30 tests from OpenCvTest (9900 ms total)
+
+[----------] Global test environment tear-down
+[==========] 384 tests from 41 test suites ran. (117221 ms total)
+[  PASSED  ] 382 tests.
+[  SKIPPED ] 2 tests, listed below:
+[  SKIPPED ] IntegrationTest.BindUnbindFurMarkIfPresent
+[  SKIPPED ] HookCaptureTest.D3D10ChannelEitherBindsOrReportsLocateFailure
+
+  YOU HAVE 4 DISABLED TESTS
+
+
+EXIT= 0

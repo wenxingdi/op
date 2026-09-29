@@ -1,0 +1,35 @@
+[gdi_ocr] HANG (killed after 45s)
+--- marker:
+=== RUN gdi_ocr 10:14:09 ===
+10:14:10 [28020] STAGE=gdi_ocr BEGIN
+10:14:11 [28020] S0_CREATED ver=0.4.8.3
+10:14:13 [28020] S0B_NOTEPAD hwnd=42215506 pid=None
+10:14:13 [28020] S1_BIND_GDI ret=1
+10:14:13 [28020] S2_CAPTURE ret=1 exists=True
+10:14:13 [28020] S3_OCR len=0
+10:14:13 [28020] S4_UNBIND ret=1
+10:14:13 [28020] S5_RELEASED
+10:14:13 [28020] PRE_EXIT
+[ocr_only] HANG (killed after 45s)
+--- marker:
+=== RUN ocr_only 10:14:55 ===
+10:14:55 [5808] STAGE=ocr_only BEGIN
+10:14:56 [5808] S0_CREATED ver=0.4.8.3
+10:14:57 [5808] S0B_NOTEPAD hwnd=28840070 pid=None
+10:14:57 [5808] S1_BIND_GDI ret=1(ocr_only)
+10:14:58 [5808] S3_OCR len=0
+10:14:58 [5808] S4_UNBIND ret=1
+10:14:58 [5808] S5_RELEASED
+10:14:58 [5808] PRE_EXIT
+[dx2_ocr] HANG (killed after 45s)
+--- marker:
+=== RUN dx2_ocr 10:15:40 ===
+10:15:40 [32884] STAGE=dx2_ocr BEGIN
+10:15:41 [32884] S0_CREATED ver=0.4.8.3
+10:15:43 [32884] S0B_NOTEPAD hwnd=15934480 pid=None
+10:15:43 [32884] S1_BIND_DX2 ret=1
+10:15:43 [32884] S2_CAPTURE ret=1 exists=True
+10:15:43 [32884] S3_OCR len=0
+10:15:43 [32884] S4_UNBIND ret=1
+10:15:43 [32884] S5_RELEASED
+10:15:43 [32884] PRE_EXIT

@@ -72,11 +72,12 @@ op/
 ├─ tests/            GoogleTest 测试套件
 ├─ bin/x64|x86/      发布件输出目录
 ├─ build/            构建目录（nmake-x64-Release + _deps 第三方依赖）
-├─ scripts/          run_tests.ps1 / gen_api_reference.py 等
+├─ scripts/          工具脚本（run_tests.ps1 / gen_api_reference.py …）
+├─ scripts/build/    ★ 构建脚本（_wb_build.py 日常增量 / _wb_*_x86.py 32 位链）
+├─ scripts/probes/   探针与回归脚本（run_optest.py / _t_*.py …，原 workbench/ 顶层）
 ├─ docs/             本文档所在：BUILD_GUIDE / CHANGELOG / 专题报告
-├─ workbench/        探针与中间产物（不入库）
+├─ workbench/        中间产物隔离区（不入库：日志/截图/载体产物）
 ├─ build.py          上游一键构建（仅全新机器 bootstrap 依赖时用）
-├─ build/_wb_build.py  ★ 日常增量构建入口
 └─ CMakeLists.txt
 ```
 
@@ -112,7 +113,7 @@ op = ctypes.windll.op_c_api_x64
 
 - Windows 10+ / VS2022（MSVC 14.44）/ Windows SDK 10.0.26100 / CMake / Python 3.12
 - 全新机器：`python build.py` 引导依赖 → cmake 配置 `build/nmake-x64-Release`（命令见指南）
-- 日常增量：`python build/_wb_build.py`
+- 日常增量：`python scripts/build/_wb_build.py`
 - 测试：`powershell -File scripts/run_tests.ps1`（基线 270 ran / 262 PASS）
 - 构建后同步发布件：`D:\AutoPro\OPTool\sync_op_dll.py`
 

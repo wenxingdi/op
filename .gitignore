@@ -369,3 +369,9 @@ SKILL.md
 /download_blackbone_guide.txt
 /download_opencv_guide.txt
 scripts/five_layer_matrix.json
+
+# scripts/build/ 是**脚本**目录（x64/x86 构建链，唯一副本，必须入库），
+# 不是构建产物目录 —— 上面的 `Build` 规则会误伤，故在此重新包含。
+# 同理 scripts/probes/ 是探针脚本目录（未被规则命中，无需白名单）。
+!scripts/build/
+!scripts/build/**

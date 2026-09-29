@@ -25,7 +25,6 @@ OPTOOL_REPO = Path(r"D:\AutoPro\OPTool")
 OP_BIN_X64 = OP_REPO / "bin" / "x64"
 OPTESTTOOL_REL = OPTOOL_REPO / "OPTestTool" / "bin" / "Release" / "net10.0-windows7.0"
 WORDDICTTOOL_REL = OPTOOL_REPO / "WordDictTool" / "bin" / "Release" / "net10.0-windows7.0"
-TAG = "v2026.09.23-stable"
 
 # 运行目录快照：顶层白名单后缀 + 必带子目录；其余（captures/logs/临时产物）排除
 RUN_KEEP_SUFFIX = {".exe", ".dll", ".json", ".config", ".pdb"}
@@ -47,12 +46,26 @@ def git(repo: Path, *args) -> str:
     return r.stdout.strip()
 
 
+def detect_tag(repo: Path) -> str | None:
+    """HEAD 指向的 tag，优先 *-stable。
+
+    这里原本是一个手工维护的 TAG 常量；09-23 之后忘记更新，导致 09-28 / 09-29
+    两份备份文档都把 tag 写成了 v2026.09.23-stable —— 照着「恢复方法」执行会
+    checkout 到 09-23 的代码。改为按仓库自动探测，杜绝漂移。
+    """
+    tags = git(repo, "tag", "--points-at", "HEAD").split()
+    if not tags:
+        return None
+    stable = [t for t in tags if t.endswith("-stable")]
+    return (stable or tags)[0]
+
+
 def repo_info(repo: Path) -> dict:
     return {
         "path": str(repo),
         "commit": git(repo, "rev-parse", "HEAD"),
         "branch": git(repo, "rev-parse", "--abbrev-ref", "HEAD"),
-        "tag": TAG if TAG in git(repo, "tag", "--points-at", "HEAD").split() else None,
+        "tag": detect_tag(repo),
         "describe": git(repo, "describe", "--tags", "--always"),
         "subject": git(repo, "log", "-1", "--format=%s"),
     }
@@ -99,10 +112,11 @@ def make_backup(root: Path) -> Path:
     dst.mkdir(parents=True)
 
     print(f"== 备份目录: {dst}")
+    repos = {"op": repo_info(OP_REPO), "optool": repo_info(OPTOOL_REPO)}
     manifest = {
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S %z"),
-        "tag": TAG,
-        "repos": {"op": repo_info(OP_REPO), "optool": repo_info(OPTOOL_REPO)},
+        "tag": repos["op"]["tag"] or "",
+        "repos": repos,
         "sources": {
             "op_bin_x64": str(OP_BIN_X64),
             "optesttool_release": str(OPTESTTOOL_REL),
@@ -141,9 +155,12 @@ def make_backup(root: Path) -> Path:
 
 def write_readme(dst: Path, manifest: dict) -> None:
     op, ot = manifest["repos"]["op"], manifest["repos"]["optool"]
+    # 两仓库 tag 未必同名（OPTool 常停在 predev）→ 各自如实呈现，不再写死同一个
+    op_tag = op["tag"] or op["describe"]
+    ot_tag = ot["tag"] or ot["describe"]
     (dst / "恢复说明.md").write_text(f"""# 稳定版本备份（{manifest['created_at']}）
 
-Tag：`{TAG}`（两仓库同名 tag 均指向本备份点）
+Tag 锚点：op = `{op_tag}`；OPTool = `{ot_tag}`
 
 ## 版本锚点
 
@@ -166,9 +183,9 @@ OPTool HEAD 提交：{ot['subject']}
 **1. 回滚源码**（在仓库原位置或新目录）：
 ```
 git clone <本目录>\\op-repo.bundle op-restored
-cd op-restored && git checkout {TAG}
+cd op-restored && git checkout {op_tag}
 ```
-或在原仓库直接：`git fetch <本目录>\\op-repo.bundle --all && git reset --hard {TAG}`
+或在原仓库直接：`git fetch <本目录>\\op-repo.bundle --all && git reset --hard {op_tag}`
 
 **2. 回滚运行目录**：用备份的 `OPTestTool-Release/` 等整目录覆盖现网对应目录
 （先确认 OPTestTool.exe / WordDictTool.exe 未运行，否则 DLL 被锁）。

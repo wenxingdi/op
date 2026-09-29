@@ -1,0 +1,66 @@
+[base] 2560x1440
+[patch] 选出 21 块
+[patch] real_shape -> 高亮灰阶（形状用例）
+[patch] shape -> 高亮灰阶（形状用例）
+[patch] similar_shape -> 高亮灰阶（形状用例）
+[patch] occ -> 高亮灰阶（形状用例）
+[base] low-texture tile 320x320 std=4.05
+[source] opencv_real_source.jpg                     1920x1200
+[source] opencv_real_city_source.jpg                1920x1200
+[source] opencv_real_fruit_source.jpg               1920x1200
+[source] opencv_real_sign_source.jpg                1920x1200
+[source] opencv_real_space_source.jpg               1920x1200
+[source] opencv_real_texture_source.jpg             1920x1200
+[source] opencv_real_scale_source.png               1920x1200
+[source] opencv_real_stop_source.jpg                1920x1200
+[source] opencv_real_shape_source.png               1920x1200
+[source] opencv_game_scene_source.png               1920x1200
+[source] opencv_game_scale_source.png               1920x1200
+[source] opencv_game_feature_source.png             1920x1200
+[source] opencv_game_shape_source.png               1920x1200
+[source] opencv_hard_scale_source.png               1920x1200
+[source] opencv_hard_brightness_source.png          1920x1200
+[source] opencv_hard_repeated_source.png            1920x1200
+[source] opencv_hard_rotation_source.png            1920x1200
+[source] opencv_hard_occlusion_source.png           1920x1200
+[source] opencv_hard_similar_shapes_source.png      1920x1200
+[template] opencv_real_template.png                   96x96
+[template] opencv_real_city_template.png              96x96
+[template] opencv_real_fruit_template.png             96x96
+[template] opencv_real_sign_template.png              96x96
+[template] opencv_real_space_template.png             96x96
+[template] opencv_real_texture_template.png           96x96
+[template] opencv_real_scale_template.png             96x96
+[template] opencv_real_stop_template.png              445x449
+[template] opencv_real_shape_template.png             429x433
+[template] opencv_game_scene_template.png             128x128
+[template] opencv_game_coin_template.png              70x70
+[template] opencv_game_gem_template.png               70x70
+[template] opencv_game_edge_template.png              90x114
+[template] opencv_game_feature_template.png           156x156
+[template] opencv_game_shape_template.png             248x283
+[template] opencv_hard_scale_template.png             96x96
+[template] opencv_hard_brightness_template.png        96x96
+[template] opencv_hard_repeated_template.png          96x96
+[template] opencv_hard_rotation_template.png          120x120
+[template] opencv_hard_occlusion_template.png         120x120
+[template] opencv_hard_similar_shapes_template.png    421x431
+[check] opencv_real_template.png                   best=( 860, 130) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_real_city_template.png              best=( 700, 260) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_real_fruit_template.png             best=( 520, 250) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_real_sign_template.png              best=( 585, 190) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_real_space_template.png             best=( 560, 300) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_real_texture_template.png           best=( 640, 320) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_game_scene_template.png             best=( 300, 488) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_game_gem_template.png               best=( 455, 325) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_game_edge_template.png              best=(1060, 240) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_game_feature_template.png           best=( 837, 102) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_game_shape_template.png             best=( 420,  65) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_real_stop_template.png              best=( 412, 222) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_real_shape_template.png             best=( 520, 140) score=1.0000 peaks=1 runner=-1.0000 OK
+[check] opencv_hard_brightness_template.png        best=( 460, 430) score=0.9926 peaks=1 runner=-1.0000 OK
+[check] opencv_hard_repeated_template.png          best=( 200, 160) score=1.0000 peaks=5 runner=-1.0000 OK
+[check] opencv_hard_similar_shapes_template.png    best=( 520, 140) score=1.0000 peaks=1 runner=-1.0000 OK
+
+[summary] 自检 16 项，通过 16，失败 0
+[manifest] D:\AutoPro\op-master\op\workbench\screen_assets.json

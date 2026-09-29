@@ -1,0 +1,878 @@
+Note: Google Test filter = -WgcTest.*
+[==========] Running 268 tests from 17 test suites.
+[----------] Global test environment set-up.
+[----------] 2 tests from HandleCompatTest
+[ RUN      ] HandleCompatTest.ForegroundWindowHandleFitsInLongOnlyWhenNoTruncation
+[2026/09/19 10:00:18.370]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] HandleCompatTest.ForegroundWindowHandleFitsInLongOnlyWhenNoTruncation (623 ms)
+[ RUN      ] HandleCompatTest.LongCannotRepresentAllHwndValuesOn64Bit
+[       OK ] HandleCompatTest.LongCannotRepresentAllHwndValuesOn64Bit (0 ms)
+[----------] 2 tests from HandleCompatTest (624 ms total)
+
+[----------] 3 tests from OpTest
+[ RUN      ] OpTest.VersionIsNotEmpty
+[2026/09/19 10:00:18.447]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+Version: 0.4.8.3
+[       OK ] OpTest.VersionIsNotEmpty (3 ms)
+[ RUN      ] OpTest.GetBasePath
+[2026/09/19 10:00:18.449]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+Base Path: D:\AutoPro\op-master\op\build\nmake-x64-Release\libop
+[       OK ] OpTest.GetBasePath (2 ms)
+[ RUN      ] OpTest.GetID
+[2026/09/19 10:00:18.451]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+Object ID: 4
+[       OK ] OpTest.GetID (2 ms)
+[----------] 3 tests from OpTest (9 ms total)
+
+[----------] 20 tests from AlgorithmTest
+[ RUN      ] AlgorithmTest.OneCellMapStartEqualsEnd
+[       OK ] AlgorithmTest.OneCellMapStartEqualsEnd (1 ms)
+[ RUN      ] AlgorithmTest.OpenFieldDiagonalTakesDirectStep
+[       OK ] AlgorithmTest.OpenFieldDiagonalTakesDirectStep (4 ms)
+[ RUN      ] AlgorithmTest.CorridorForcesThroughCenter
+[       OK ] AlgorithmTest.CorridorForcesThroughCenter (2 ms)
+[ RUN      ] AlgorithmTest.CornerCutPreventionBlocksDiagonal
+[       OK ] AlgorithmTest.CornerCutPreventionBlocksDiagonal (3 ms)
+[ RUN      ] AlgorithmTest.PartialWallDivertToFreeSide
+[       OK ] AlgorithmTest.PartialWallDivertToFreeSide (2 ms)
+[ RUN      ] AlgorithmTest.MalformedFirstEntryParsesNoWalls
+[       OK ] AlgorithmTest.MalformedFirstEntryParsesNoWalls (2 ms)
+[ RUN      ] AlgorithmTest.MalformedMiddleEntryTruncatesTail
+[       OK ] AlgorithmTest.MalformedMiddleEntryTruncatesTail (6 ms)
+[ RUN      ] AlgorithmTest.OutOfRangeWallsIgnored
+[       OK ] AlgorithmTest.OutOfRangeWallsIgnored (2 ms)
+[ RUN      ] AlgorithmTest.InvalidMapSizeReturnsEmpty
+[       OK ] AlgorithmTest.InvalidMapSizeReturnsEmpty (1 ms)
+[ RUN      ] AlgorithmTest.OversizedMapRejectedWithoutCrash
+[       OK ] AlgorithmTest.OversizedMapRejectedWithoutCrash (2 ms)
+[ RUN      ] AlgorithmTest.FullyWalledStartReturnsEmpty
+[       OK ] AlgorithmTest.FullyWalledStartReturnsEmpty (1 ms)
+[ RUN      ] AlgorithmTest.OpenFieldLongPathEndpointsAndLength
+[       OK ] AlgorithmTest.OpenFieldLongPathEndpointsAndLength (2 ms)
+[ RUN      ] AlgorithmTest.NearestType1ReturnsBarePair
+[       OK ] AlgorithmTest.NearestType1ReturnsBarePair (2 ms)
+[ RUN      ] AlgorithmTest.NearestTieKeepsFirstOccurrence
+[       OK ] AlgorithmTest.NearestTieKeepsFirstOccurrence (2 ms)
+[ RUN      ] AlgorithmTest.NearestType2ReturnsNameAndPos
+[       OK ] AlgorithmTest.NearestType2ReturnsNameAndPos (1 ms)
+[ RUN      ] AlgorithmTest.NearestType2SkipsBarePair
+[       OK ] AlgorithmTest.NearestType2SkipsBarePair (1 ms)
+[ RUN      ] AlgorithmTest.NearestEmptyOrAllInvalidReturnsEmpty
+[       OK ] AlgorithmTest.NearestEmptyOrAllInvalidReturnsEmpty (2 ms)
+[ RUN      ] AlgorithmTest.AStarFindPath
+[2026/09/19 10:00:18.499]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] AlgorithmTest.AStarFindPath (1 ms)
+[ RUN      ] AlgorithmTest.AStarRejectsOutOfBoundsTarget
+[2026/09/19 10:00:18.500]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] AlgorithmTest.AStarRejectsOutOfBoundsTarget (1 ms)
+[ RUN      ] AlgorithmTest.FindNearestPos
+[2026/09/19 10:00:18.503]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+Nearest Pos to (15,15): 10,10
+[       OK ] AlgorithmTest.FindNearestPos (2 ms)
+[----------] 20 tests from AlgorithmTest (51 ms total)
+
+[----------] 13 tests from WindowServiceTest
+[ RUN      ] WindowServiceTest.GetForegroundWindow
+[2026/09/19 10:00:18.505]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+Foreground Window: 1d508a4
+[       OK ] WindowServiceTest.GetForegroundWindow (2 ms)
+[ RUN      ] WindowServiceTest.ClientToScreenDesktopOriginIsStable
+[2026/09/19 10:00:18.508]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WindowServiceTest.ClientToScreenDesktopOriginIsStable (1 ms)
+[ RUN      ] WindowServiceTest.GetWindowTitleAndRect
+[2026/09/19 10:00:18.510]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+Title: Amazon.com | HARENCE Snow Boots for Women Winter Boot with Comfortable Warm Fur Lined Ankle Booties Outdoor Slip On Waterproof Short Boots | Snow Boots Rect: (-11,-11) - (3851,2111)
+[       OK ] WindowServiceTest.GetWindowTitleAndRect (1 ms)
+[ RUN      ] WindowServiceTest.EnumWindow
+[2026/09/19 10:00:18.512]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WindowServiceTest.EnumWindow (1 ms)
+[ RUN      ] WindowServiceTest.GetCmdStrEcho
+[2026/09/19 10:00:18.513]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WindowServiceTest.GetCmdStrEcho (372 ms)
+[ RUN      ] WindowServiceTest.GetCmdStrLongCommandLine
+[2026/09/19 10:00:18.886]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WindowServiceTest.GetCmdStrLongCommandLine (417 ms)
+[ RUN      ] WindowServiceTest.GetCmdStrStartsUnicodeCommandLine
+[2026/09/19 10:00:19.305]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WindowServiceTest.GetCmdStrStartsUnicodeCommandLine (412 ms)
+[ RUN      ] WindowServiceTest.GetCmdStrReturnsPartialOutputOnTimeout
+[2026/09/19 10:00:19.721]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WindowServiceTest.GetCmdStrReturnsPartialOutputOnTimeout (1655 ms)
+[ RUN      ] WindowServiceTest.RunAppReturnsPid
+[2026/09/19 10:00:21.372]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WindowServiceTest.RunAppReturnsPid (21 ms)
+[ RUN      ] WindowServiceTest.RunAppLaunchesShortcut
+[2026/09/19 10:00:21.458]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WindowServiceTest.RunAppLaunchesShortcut (734 ms)
+[ RUN      ] WindowServiceTest.GetCmdStrHandlesLargeOutputWithoutHanging
+[2026/09/19 10:00:22.128]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WindowServiceTest.GetCmdStrHandlesLargeOutputWithoutHanging (442 ms)
+[ RUN      ] WindowServiceTest.SendStringToFocusedChildEdit
+[2026/09/19 10:00:22.571]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WindowServiceTest.SendStringToFocusedChildEdit (449 ms)
+[ RUN      ] WindowServiceTest.SendStringImeToFocusedChildEdit
+[2026/09/19 10:00:23.021]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WindowServiceTest.SendStringImeToFocusedChildEdit (356 ms)
+[----------] 13 tests from WindowServiceTest (4871 ms total)
+
+[----------] 1 test from IntegrationTest
+[ RUN      ] IntegrationTest.BindUnbindFurMarkIfPresent
+[2026/09/19 10:00:23.378]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+D:\AutoPro\op-master\op\tests\op_algorithm_windows_test.cpp(389): Skipped
+FurMark render window not found
+
+[  SKIPPED ] IntegrationTest.BindUnbindFurMarkIfPresent (19 ms)
+[----------] 1 test from IntegrationTest (19 ms total)
+
+[----------] 42 tests from MouseKeyTest
+[ RUN      ] MouseKeyTest.MoveToExReturnsRandomTarget
+[2026/09/19 10:00:23.396]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.MoveToExReturnsRandomTarget (2 ms)
+[ RUN      ] MouseKeyTest.MoveToExSupportsNegativeRangesInWindowsMode
+[2026/09/19 10:00:23.399]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.MoveToExSupportsNegativeRangesInWindowsMode (336 ms)
+[ RUN      ] MouseKeyTest.MoveToAndGetCursorPos
+[2026/09/19 10:00:23.739]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+Cursor Pos: 100,100
+[       OK ] MouseKeyTest.MoveToAndGetCursorPos (11 ms)
+[ RUN      ] MouseKeyTest.GetCursorShapeDistinguishesSystemCursors
+[2026/09/19 10:00:23.749]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.GetCursorShapeDistinguishesSystemCursors (8 ms)
+[ RUN      ] MouseKeyTest.ClickAndKeyPress
+[2026/09/19 10:00:23.755]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.ClickAndKeyPress (94 ms)
+[ RUN      ] MouseKeyTest.EscKeyMapsToEscapeNotCancel
+[2026/09/19 10:00:23.850]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.EscKeyMapsToEscapeNotCancel (3 ms)
+[ RUN      ] MouseKeyTest.NumpadKeyMappings
+[2026/09/19 10:00:23.854]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.NumpadKeyMappings (187 ms)
+[ RUN      ] MouseKeyTest.GetKeyStateTracksMouseButtons
+[2026/09/19 10:00:24.041]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.GetKeyStateTracksMouseButtons (120 ms)
+[ RUN      ] MouseKeyTest.WaitKeyUsesNormalizedKeyStateForMouseButtons
+[2026/09/19 10:00:24.165]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.WaitKeyUsesNormalizedKeyStateForMouseButtons (156 ms)
+[ RUN      ] MouseKeyTest.WaitKeyImmediateCheckReturnsQuickly
+[2026/09/19 10:00:24.328]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.WaitKeyImmediateCheckReturnsQuickly (10 ms)
+[ RUN      ] MouseKeyTest.WaitKeyScanAllImmediate
+[2026/09/19 10:00:24.330]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.WaitKeyScanAllImmediate (5 ms)
+[ RUN      ] MouseKeyTest.WaitKeyScanAllWithWaitFindsKey
+[2026/09/19 10:00:24.338]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+D:\AutoPro\op-master\op\tests\mouse_keyboard_test.cpp(386): error: Expected equality of these values:
+  ret
+    Which is: 133
+  0x01
+    Which is: 1
+
+[  FAILED  ] MouseKeyTest.WaitKeyScanAllWithWaitFindsKey (164 ms)
+[ RUN      ] MouseKeyTest.WaitKeySpecificKeyZeroTimeout
+[2026/09/19 10:00:24.503]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.WaitKeySpecificKeyZeroTimeout (29 ms)
+[ RUN      ] MouseKeyTest.WindowsModeKeyPressStrSupportsUnicodeFallback
+[2026/09/19 10:00:24.635]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.WindowsModeKeyPressStrSupportsUnicodeFallback (124 ms)
+[ RUN      ] MouseKeyTest.WindowsModeMouseReturnAndWheel
+[2026/09/19 10:00:24.654]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.WindowsModeMouseReturnAndWheel (120 ms)
+[ RUN      ] MouseKeyTest.WindowsModeAdvancedMouseButtonsAndWheel
+[2026/09/19 10:00:24.775]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.WindowsModeAdvancedMouseButtonsAndWheel (241 ms)
+[ RUN      ] MouseKeyTest.WindowsModeMouseMoveCarriesLeftButtonWhileHeld
+[2026/09/19 10:00:25.017]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.WindowsModeMouseMoveCarriesLeftButtonWhileHeld (69 ms)
+[ RUN      ] MouseKeyTest.WindowsModeSmoothMoveUsesMultipleSteps
+[2026/09/19 10:00:25.086]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.WindowsModeSmoothMoveUsesMultipleSteps (64 ms)
+[ RUN      ] MouseKeyTest.WindowsModeMouseTrajectoryConfig
+[2026/09/19 10:00:25.150]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.WindowsModeMouseTrajectoryConfig (128 ms)
+[ RUN      ] MouseKeyTest.WindowsModeMovePathAndDragPath
+[2026/09/19 10:00:25.279]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.WindowsModeMovePathAndDragPath (68 ms)
+[ RUN      ] MouseKeyTest.WindowsModeMoveToKeepsClientCoordinatesAfterResize
+[2026/09/19 10:00:25.348]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.WindowsModeMoveToKeepsClientCoordinatesAfterResize (349 ms)
+[ RUN      ] MouseKeyTest.RebindResetsMousePositionState
+[2026/09/19 10:00:25.698]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.RebindResetsMousePositionState (72 ms)
+[ RUN      ] MouseKeyTest.BindWindowExSeparatesDisplayAndInputTargets
+[2026/09/19 10:00:25.770]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.BindWindowExSeparatesDisplayAndInputTargets (404 ms)
+[ RUN      ] MouseKeyTest.DxModeDeliversWindowAndRawInput
+[2026/09/19 10:00:26.174]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] MouseKeyTest.DxModeDeliversWindowAndRawInput (1789 ms)
+[ RUN      ] MouseKeyTest.DxAttrDefaultsToAllChannelsAndValidatesArguments
+[       OK ] MouseKeyTest.DxAttrDefaultsToAllChannelsAndValidatesArguments (1 ms)
+[ RUN      ] MouseKeyTest.DxModeChannelSwitchStopsWindowMessages
+[       OK ] MouseKeyTest.DxModeChannelSwitchStopsWindowMessages (1684 ms)
+[ RUN      ] MouseKeyTest.DxModeChannelSwitchStopsRawInput
+[       OK ] MouseKeyTest.DxModeChannelSwitchStopsRawInput (1549 ms)
+[ RUN      ] MouseKeyTest.BindWindowDxSuffixInvalidReturnsZero
+[       OK ] MouseKeyTest.BindWindowDxSuffixInvalidReturnsZero (68 ms)
+[ RUN      ] MouseKeyTest.BindWindowDxSuffixDefaultsToAllWhenNoSuffix
+[       OK ] MouseKeyTest.BindWindowDxSuffixDefaultsToAllWhenNoSuffix (1361 ms)
+[ RUN      ] MouseKeyTest.BindWindowDxSuffixNarrowsToDinput
+[       OK ] MouseKeyTest.BindWindowDxSuffixNarrowsToDinput (1348 ms)
+[ RUN      ] MouseKeyTest.BindWindowDxSuffixCombinesMouseKeypad
+[       OK ] MouseKeyTest.BindWindowDxSuffixCombinesMouseKeypad (1351 ms)
+[ RUN      ] MouseKeyTest.DxModeDeliversAdvancedMouseButtonsAndWheel
+[       OK ] MouseKeyTest.DxModeDeliversAdvancedMouseButtonsAndWheel (2254 ms)
+[ RUN      ] MouseKeyTest.DxModeMouseMoveCarriesLeftButtonWhileHeld
+[       OK ] MouseKeyTest.DxModeMouseMoveCarriesLeftButtonWhileHeld (1754 ms)
+[ RUN      ] MouseKeyTest.DxModeMoveToKeepsClientCoordinatesAfterResize
+[       OK ] MouseKeyTest.DxModeMoveToKeepsClientCoordinatesAfterResize (2072 ms)
+[ RUN      ] MouseKeyTest.DxModeLockInputBlocksExternalMouseMessages
+[       OK ] MouseKeyTest.DxModeLockInputBlocksExternalMouseMessages (1533 ms)
+[ RUN      ] MouseKeyTest.DxModeGetCursorShapeUsesHookedSetCursor
+[       OK ] MouseKeyTest.DxModeGetCursorShapeUsesHookedSetCursor (1440 ms)
+[ RUN      ] MouseKeyTest.DxModeFeedsDirectInputBufferedData
+[       OK ] MouseKeyTest.DxModeFeedsDirectInputBufferedData (1455 ms)
+[ RUN      ] MouseKeyTest.DxModeFeedsDirectInputDeviceState
+[       OK ] MouseKeyTest.DxModeFeedsDirectInputDeviceState (1332 ms)
+[ RUN      ] MouseKeyTest.DxModeLockInputBlocksExternalKeyboardMessages
+[       OK ] MouseKeyTest.DxModeLockInputBlocksExternalKeyboardMessages (1678 ms)
+[ RUN      ] MouseKeyTest.DxModeKeyPressStrSupportsUnicodeFallback
+[       OK ] MouseKeyTest.DxModeKeyPressStrSupportsUnicodeFallback (1495 ms)
+[ RUN      ] MouseKeyTest.DxModeKeyPressStrDeliversCharOutsideWindowMsgChannel
+[       OK ] MouseKeyTest.DxModeKeyPressStrDeliversCharOutsideWindowMsgChannel (1352 ms)
+[ RUN      ] MouseKeyTest.BindWindowDxSuffixDoesNotPolluteSessionAttr
+[       OK ] MouseKeyTest.BindWindowDxSuffixDoesNotPolluteSessionAttr (2499 ms)
+[----------] 42 tests from MouseKeyTest (30802 ms total)
+
+[----------] 86 tests from ImageColorTest
+[ RUN      ] ImageColorTest.GetColor
+[       OK ] ImageColorTest.GetColor (10 ms)
+[ RUN      ] ImageColorTest.CmpColor
+[       OK ] ImageColorTest.CmpColor (35 ms)
+[ RUN      ] ImageColorTest.GetColorAndCmpColorWorkAtBottomRightEdge
+[       OK ] ImageColorTest.GetColorAndCmpColorWorkAtBottomRightEdge (1 ms)
+[ RUN      ] ImageColorTest.CmpColorUsesSimilarityAndExplicitDelta
+[       OK ] ImageColorTest.CmpColorUsesSimilarityAndExplicitDelta (0 ms)
+[ RUN      ] ImageColorTest.FindStrIgnoresEmptyAlternatives
+[       OK ] ImageColorTest.FindStrIgnoresEmptyAlternatives (0 ms)
+[ RUN      ] ImageColorTest.FindStrMapsMatchesInsideMultiCharacterDictWords
+[       OK ] ImageColorTest.FindStrMapsMatchesInsideMultiCharacterDictWords (0 ms)
+[ RUN      ] ImageColorTest.FindColor
+FindColor ret: 1 at 0,0
+[       OK ] ImageColorTest.FindColor (30 ms)
+[ RUN      ] ImageColorTest.FindColorUsesSimilarity
+[       OK ] ImageColorTest.FindColorUsesSimilarity (1 ms)
+[ RUN      ] ImageColorTest.FindColorReturnsFirstPointBeforeColorPriority
+[       OK ] ImageColorTest.FindColorReturnsFirstPointBeforeColorPriority (0 ms)
+[ RUN      ] ImageColorTest.FindColorHonorsAllDirections
+[       OK ] ImageColorTest.FindColorHonorsAllDirections (0 ms)
+[ RUN      ] ImageColorTest.FindMultiColorHonorsAllDirections
+[       OK ] ImageColorTest.FindMultiColorHonorsAllDirections (0 ms)
+[ RUN      ] ImageColorTest.FindMultiColorSkipsMalformedOffsetSegments
+[       OK ] ImageColorTest.FindMultiColorSkipsMalformedOffsetSegments (0 ms)
+[ RUN      ] ImageColorTest.FindPicWithMissingTemplateDoesNotMatch
+[       OK ] ImageColorTest.FindPicWithMissingTemplateDoesNotMatch (1 ms)
+[ RUN      ] ImageColorTest.DirectImageEntriesFailSoft
+[       OK ] ImageColorTest.DirectImageEntriesFailSoft (1 ms)
+[ RUN      ] ImageColorTest.FindPicHonorsDirection
+[       OK ] ImageColorTest.FindPicHonorsDirection (32 ms)
+[ RUN      ] ImageColorTest.FindPicReturnsMinusOneWhenTemplateIsMissing
+[       OK ] ImageColorTest.FindPicReturnsMinusOneWhenTemplateIsMissing (1 ms)
+[ RUN      ] ImageColorTest.SharedPicCacheIsGlobalAcrossObjects
+[       OK ] ImageColorTest.SharedPicCacheIsGlobalAcrossObjects (93 ms)
+[ RUN      ] ImageColorTest.MissingPicSizeClearsOutputValues
+[       OK ] ImageColorTest.MissingPicSizeClearsOutputValues (1 ms)
+[ RUN      ] ImageColorTest.FindPicTransparentOddPointsCountsCenterMismatchOnce
+[       OK ] ImageColorTest.FindPicTransparentOddPointsCountsCenterMismatchOnce (31 ms)
+[ RUN      ] ImageColorTest.FetchWordUsesProvidedWordName
+[       OK ] ImageColorTest.FetchWordUsesProvidedWordName (1 ms)
+[ RUN      ] ImageColorTest.FetchWordReturnsEmptyForBlankRegion
+[       OK ] ImageColorTest.FetchWordReturnsEmptyForBlankRegion (1 ms)
+[ RUN      ] ImageColorTest.FetchWordExUsesSimilarity
+[       OK ] ImageColorTest.FetchWordExUsesSimilarity (0 ms)
+[ RUN      ] ImageColorTest.ExtractWordRectsCutsScaledGlyphs
+[       OK ] ImageColorTest.ExtractWordRectsCutsScaledGlyphs (0 ms)
+[ RUN      ] ImageColorTest.ExtractWordRectsExFiltersNoiseAndAddsPadding
+[       OK ] ImageColorTest.ExtractWordRectsExFiltersNoiseAndAddsPadding (0 ms)
+[ RUN      ] ImageColorTest.FetchWordsBuildsMultiplePointEntries
+[       OK ] ImageColorTest.FetchWordsBuildsMultiplePointEntries (0 ms)
+[ RUN      ] ImageColorTest.FetchWordsExFiltersNoiseBeforeBuildingEntries
+[       OK ] ImageColorTest.FetchWordsExFiltersNoiseBeforeBuildingEntries (0 ms)
+[ RUN      ] ImageColorTest.DotMatrixCApiEntrypointsWork
+[       OK ] ImageColorTest.DotMatrixCApiEntrypointsWork (0 ms)
+[ RUN      ] ImageColorTest.FetchWordsByRectsUsesGivenRects
+[       OK ] ImageColorTest.FetchWordsByRectsUsesGivenRects (0 ms)
+[ RUN      ] ImageColorTest.GetBinaryPreviewShowsBinarizedRegion
+[       OK ] ImageColorTest.GetBinaryPreviewShowsBinarizedRegion (1 ms)
+[ RUN      ] ImageColorTest.BinaryPreprocessIsDisabledByDefault
+[       OK ] ImageColorTest.BinaryPreprocessIsDisabledByDefault (2 ms)
+[ RUN      ] ImageColorTest.BinaryPreprocessRemovesIsolatedPointsByDefault
+[       OK ] ImageColorTest.BinaryPreprocessRemovesIsolatedPointsByDefault (1 ms)
+[ RUN      ] ImageColorTest.BinaryPreprocessRemovesNoiseAndBridgesOnePixelGaps
+[       OK ] ImageColorTest.BinaryPreprocessRemovesNoiseAndBridgesOnePixelGaps (1 ms)
+[ RUN      ] ImageColorTest.BinaryPreprocessBridgeGapZeroDoesNotBridge
+[       OK ] ImageColorTest.BinaryPreprocessBridgeGapZeroDoesNotBridge (1 ms)
+[ RUN      ] ImageColorTest.BinaryPreprocessDoesNotChangeColorBlockSearch
+[       OK ] ImageColorTest.BinaryPreprocessDoesNotChangeColorBlockSearch (0 ms)
+[ RUN      ] ImageColorTest.ColorSearchFailurePathsClearOutputs
+[       OK ] ImageColorTest.ColorSearchFailurePathsClearOutputs (0 ms)
+[ RUN      ] ImageColorTest.FindColorBlockExClearsResultAndRejectsInvalidSize
+[       OK ] ImageColorTest.FindColorBlockExClearsResultAndRejectsInvalidSize (0 ms)
+[ RUN      ] ImageColorTest.GetWordPreviewValidatesAndShowsPointEntry
+[       OK ] ImageColorTest.GetWordPreviewValidatesAndShowsPointEntry (0 ms)
+[ RUN      ] ImageColorTest.NormalizeWordDictKeepsOnlyValidEntries
+[       OK ] ImageColorTest.NormalizeWordDictKeepsOnlyValidEntries (0 ms)
+[ RUN      ] ImageColorTest.RenameWordDictUpdatesValidEntryNames
+[       OK ] ImageColorTest.RenameWordDictUpdatesValidEntryNames (0 ms)
+[ RUN      ] ImageColorTest.AddDictSupportsDmPointTextFormat
+[       OK ] ImageColorTest.AddDictSupportsDmPointTextFormat (0 ms)
+[ RUN      ] ImageColorTest.SetDictDoesNotImportOpTextDictFiles
+[       OK ] ImageColorTest.SetDictDoesNotImportOpTextDictFiles (5 ms)
+[ RUN      ] ImageColorTest.SetDictSupportsDmTextDictFiles
+[       OK ] ImageColorTest.SetDictSupportsDmTextDictFiles (4 ms)
+[ RUN      ] ImageColorTest.SetDictIsSharedAcrossObjects
+[       OK ] ImageColorTest.SetDictIsSharedAcrossObjects (2 ms)
+[ RUN      ] ImageColorTest.SetMemDictSupportsDmPointTextFormat
+[       OK ] ImageColorTest.SetMemDictSupportsDmPointTextFormat (0 ms)
+[ RUN      ] ImageColorTest.SetMemDictSupportsOpTextEntryFormat
+[       OK ] ImageColorTest.SetMemDictSupportsOpTextEntryFormat (0 ms)
+[ RUN      ] ImageColorTest.SetMemDictUpdatesGlobalDictForAllObjects
+[       OK ] ImageColorTest.SetMemDictUpdatesGlobalDictForAllObjects (3 ms)
+[ RUN      ] ImageColorTest.SetMemDictSupportsBinaryDictFileBytes
+[       OK ] ImageColorTest.SetMemDictSupportsBinaryDictFileBytes (3 ms)
+[ RUN      ] ImageColorTest.DictSlotSupportsZeroToNinetyNine
+[       OK ] ImageColorTest.DictSlotSupportsZeroToNinetyNine (3 ms)
+[ RUN      ] ImageColorTest.AddDictRejectsInvalidOpTextEntry
+[       OK ] ImageColorTest.AddDictRejectsInvalidOpTextEntry (1 ms)
+[ RUN      ] ImageColorTest.SetMemDictRejectsInvalidOpTextEntry
+[       OK ] ImageColorTest.SetMemDictRejectsInvalidOpTextEntry (1 ms)
+[ RUN      ] ImageColorTest.AddDictSupportsProvidedOpTextEntryFormats
+[       OK ] ImageColorTest.AddDictSupportsProvidedOpTextEntryFormats (0 ms)
+[ RUN      ] ImageColorTest.AddDictSupportsProvidedDmMultiCharFormat
+[       OK ] ImageColorTest.AddDictSupportsProvidedDmMultiCharFormat (0 ms)
+[ RUN      ] ImageColorTest.AddDictSupportsProvidedDmFeishuFormat
+[       OK ] ImageColorTest.AddDictSupportsProvidedDmFeishuFormat (0 ms)
+[ RUN      ] ImageColorTest.AddDictSupportsProvidedDmTextFormats
+[       OK ] ImageColorTest.AddDictSupportsProvidedDmTextFormats (13 ms)
+[ RUN      ] ImageColorTest.FindStrUsesChannelColorToleranceForBinaryText
+[       OK ] ImageColorTest.FindStrUsesChannelColorToleranceForBinaryText (0 ms)
+[ RUN      ] ImageColorTest.FindStrKeepsAntialiasedTextWithinTolerance
+[       OK ] ImageColorTest.FindStrKeepsAntialiasedTextWithinTolerance (0 ms)
+[ RUN      ] ImageColorTest.DictOcrRejectsSupersetStrokeBelowGlyph
+[       OK ] ImageColorTest.DictOcrRejectsSupersetStrokeBelowGlyph (0 ms)
+[ RUN      ] ImageColorTest.DictOcrMatchesSupersetEntryWhenBothInDict
+[       OK ] ImageColorTest.DictOcrMatchesSupersetEntryWhenBothInDict (0 ms)
+[ RUN      ] ImageColorTest.FindStrSupportsColoredTextWithChannelTolerance
+[       OK ] ImageColorTest.FindStrSupportsColoredTextWithChannelTolerance (0 ms)
+[ RUN      ] ImageColorTest.FindStrSupportsMultipleForegroundColors
+[       OK ] ImageColorTest.FindStrSupportsMultipleForegroundColors (0 ms)
+[ RUN      ] ImageColorTest.LocalOcrApisUseBinaryColorTolerance
+[       OK ] ImageColorTest.LocalOcrApisUseBinaryColorTolerance (0 ms)
+[ RUN      ] ImageColorTest.PointTextUsesSimilarityAsImplicitColorTolerance
+[       OK ] ImageColorTest.PointTextUsesSimilarityAsImplicitColorTolerance (0 ms)
+[ RUN      ] ImageColorTest.PointTextExplicitZeroDeltaOverridesSimilarityTolerance
+[       OK ] ImageColorTest.PointTextExplicitZeroDeltaOverridesSimilarityTolerance (0 ms)
+[ RUN      ] ImageColorTest.FetchWordTreatsMultipleBackgroundColorsAsBackground
+[       OK ] ImageColorTest.FetchWordTreatsMultipleBackgroundColorsAsBackground (0 ms)
+[ RUN      ] ImageColorTest.FindStrSupportsAutoBackgroundBinarization
+[       OK ] ImageColorTest.FindStrSupportsAutoBackgroundBinarization (0 ms)
+[ RUN      ] ImageColorTest.GameHudFindsBrightTextOnDynamicBackground
+[       OK ] ImageColorTest.GameHudFindsBrightTextOnDynamicBackground (1 ms)
+[ RUN      ] ImageColorTest.GameHudFindsOutlinedTextWithMultipleForegroundColors
+[       OK ] ImageColorTest.GameHudFindsOutlinedTextWithMultipleForegroundColors (1 ms)
+[ RUN      ] ImageColorTest.GameHudIgnoresGlowAroundText
+[       OK ] ImageColorTest.GameHudIgnoresGlowAroundText (1 ms)
+[ RUN      ] ImageColorTest.GameHudFindsGradientDamageTextWithinTolerance
+[       OK ] ImageColorTest.GameHudFindsGradientDamageTextWithinTolerance (1 ms)
+[ RUN      ] ImageColorTest.GameHudFindsScaledUiTextWhenDictionaryMatchesScale
+[       OK ] ImageColorTest.GameHudFindsScaledUiTextWhenDictionaryMatchesScale (1 ms)
+[ RUN      ] ImageColorTest.GameHudScaleMismatchDoesNotMatchUnscaledDictionary
+[       OK ] ImageColorTest.GameHudScaleMismatchDoesNotMatchUnscaledDictionary (0 ms)
+[ RUN      ] ImageColorTest.GameHudBackgroundModeSupportsTwoTonePanels
+[       OK ] ImageColorTest.GameHudBackgroundModeSupportsTwoTonePanels (0 ms)
+[ RUN      ] ImageColorTest.SetDisplayInputMemBmpPointer
+[       OK ] ImageColorTest.SetDisplayInputMemBmpPointer (0 ms)
+[ RUN      ] ImageColorTest.SetDisplayInputMemRawBgr
+[       OK ] ImageColorTest.SetDisplayInputMemRawBgr (0 ms)
+[ RUN      ] ImageColorTest.SetDisplayInputMemRawHexPointer
+[       OK ] ImageColorTest.SetDisplayInputMemRawHexPointer (0 ms)
+[ RUN      ] ImageColorTest.SetDisplayInputMemBareRawPointerFailsWithoutChangingCurrentInput
+[       OK ] ImageColorTest.SetDisplayInputMemBareRawPointerFailsWithoutChangingCurrentInput (0 ms)
+[ RUN      ] ImageColorTest.GdiCaptureRefreshesClientOffsetAfterResize
+[       OK ] ImageColorTest.GdiCaptureRefreshesClientOffsetAfterResize (213 ms)
+[ RUN      ] ImageColorTest.GdiCaptureRefreshesFrameSizeAfterEnlarge
+[       OK ] ImageColorTest.GdiCaptureRefreshesFrameSizeAfterEnlarge (263 ms)
+[ RUN      ] ImageColorTest.RequestCapturePicMemBoundsCheck
+[       OK ] ImageColorTest.RequestCapturePicMemBoundsCheck (0 ms)
+[ RUN      ] ImageColorTest.FindLineExReportsPointCountAsConfidence
+[       OK ] ImageColorTest.FindLineExReportsPointCountAsConfidence (2 ms)
+[ RUN      ] ImageColorTest.FindLineExReturnsZeroCountWhenNoForeground
+[       OK ] ImageColorTest.FindLineExReturnsZeroCountWhenNoForeground (1 ms)
+[ RUN      ] ImageColorTest.FindLineExSThresholdSuppressesHallucination
+[       OK ] ImageColorTest.FindLineExSThresholdSuppressesHallucination (1 ms)
+[ RUN      ] ImageColorTest.FindLineExSMatchesFindLineExOnRealLine
+[       OK ] ImageColorTest.FindLineExSMatchesFindLineExOnRealLine (1 ms)
+[ RUN      ] ImageColorTest.FindColorBlockExSClustersOverlappingWindows
+[       OK ] ImageColorTest.FindColorBlockExSClustersOverlappingWindows (1 ms)
+[ RUN      ] ImageColorTest.AutoOcrLazyInitsBuiltInEngine
+[       OK ] ImageColorTest.AutoOcrLazyInitsBuiltInEngine (1 ms)
+[ RUN      ] ImageColorTest.AutoOcrEntriesSupportBackgroundColorFormat
+[       OK ] ImageColorTest.AutoOcrEntriesSupportBackgroundColorFormat (0 ms)
+[----------] 86 tests from ImageColorTest (819 ms total)
+
+[----------] 25 tests from OcrFixture
+[ RUN      ] OcrFixture.SetDictAndUseDict
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+SetDict(0, miner_num.dict): 0
+UseDict(0): 1
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.SetDictAndUseDict (426 ms)
+[ RUN      ] OcrFixture.GetDictCount
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+GetDictCount(0): 0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.GetDictCount (406 ms)
+[ RUN      ] OcrFixture.GetNowDict
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+GetNowDict(): 0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.GetNowDict (391 ms)
+[ RUN      ] OcrFixture.GetDictEntry
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.GetDictEntry (392 ms)
+[ RUN      ] OcrFixture.AddAndClearDict
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+AddDict(1, test_entry): 0
+ClearDict(1): 1
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.AddAndClearDict (395 ms)
+[ RUN      ] OcrFixture.SaveDict
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+SaveDict(1, test_dict_output.dict): 0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.SaveDict (381 ms)
+[ RUN      ] OcrFixture.SetMemDict
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+SetMemDict(2): 0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.SetMemDict (391 ms)
+[ RUN      ] OcrFixture.Ocr
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.Ocr (429 ms)
+[ RUN      ] OcrFixture.OcrEx
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.OcrEx (385 ms)
+[ RUN      ] OcrFixture.OcrAuto
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.OcrAuto (412 ms)
+[ RUN      ] OcrFixture.OcrFromFile
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.OcrFromFile (918 ms)
+[ RUN      ] OcrFixture.OcrFromFileWithColorFilter
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.OcrFromFileWithColorFilter (1064 ms)
+[ RUN      ] OcrFixture.OcrAutoFromFile
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.OcrAutoFromFile (1021 ms)
+[ RUN      ] OcrFixture.FetchWord
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.FetchWord (599 ms)
+[ RUN      ] OcrFixture.GetWordsNoDict
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.GetWordsNoDict (593 ms)
+[ RUN      ] OcrFixture.FindStr
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+FindStr(test): ret=-1 at (-1,-1)
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.FindStr (1317 ms)
+[ RUN      ] OcrFixture.FindStrEx
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.FindStrEx (1495 ms)
+[ RUN      ] OcrFixture.WordResultParsing
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+GetWordResultCount: 1
+GetWordResultPos(0): ret=1 pos=(9,9)
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.WordResultParsing (599 ms)
+[ RUN      ] OcrFixture.SetOcrEngine
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+SetOcrEngine(onnx builtin): 1
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.SetOcrEngine (875 ms)
+[ RUN      ] OcrFixture.SetOcrEngineBaseUrl
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+SetOcrEngine: HTTP backend removed (built-in ONNX only, remote aliases tesseract/paddle rejected); define OP_ENABLE_HTTP_OCR_BACKEND to restore
+SetOcrEngine(base url): 0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.SetOcrEngineBaseUrl (598 ms)
+[ RUN      ] OcrFixture.SetOcrEngineInvalidUrl
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+SetOcrEngine: HTTP backend removed (built-in ONNX only, remote aliases tesseract/paddle rejected); define OP_ENABLE_HTTP_OCR_BACKEND to restore
+SetOcrEngine(invalid): 0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.SetOcrEngineInvalidUrl (616 ms)
+[ RUN      ] OcrFixture.SetOcrEngineViaDllNameArg
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+SetOcrEngine: HTTP backend removed (built-in ONNX only, remote aliases tesseract/paddle rejected); define OP_ENABLE_HTTP_OCR_BACKEND to restore
+SetOcrEngine(via dll_name): 0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.SetOcrEngineViaDllNameArg (588 ms)
+[ RUN      ] OcrFixture.SetOcrEngineTesseractAlias
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+SetOcrEngine: HTTP backend removed (built-in ONNX only, remote aliases tesseract/paddle rejected); define OP_ENABLE_HTTP_OCR_BACKEND to restore
+SetOcrEngine(tesseract): 0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.SetOcrEngineTesseractAlias (692 ms)
+[ RUN      ] OcrFixture.SetOcrEnginePaddleAlias
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+SetOcrEngine: HTTP backend removed (built-in ONNX only, remote aliases tesseract/paddle rejected); define OP_ENABLE_HTTP_OCR_BACKEND to restore
+SetOcrEngine(paddle): 0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.SetOcrEnginePaddleAlias (682 ms)
+[ RUN      ] OcrFixture.OcrAutoFromGeneratedConsoleLikeBmpContainsExpectedText
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+HttpOcrService: selected OnnxOcrEngine (built-in)
+OnnxOcrEngine: models loaded, keys=6623, charset_mask=0
+[       OK ] OcrFixture.OcrAutoFromGeneratedConsoleLikeBmpContainsExpectedText (972 ms)
+[----------] 25 tests from OcrFixture (16650 ms total)
+
+[----------] 1 test from OcrParsing
+[ RUN      ] OcrParsing.WordResultParsingHandlesBadInput
+[       OK ] OcrParsing.WordResultParsingHandlesBadInput (3 ms)
+[----------] 1 test from OcrParsing (4 ms total)
+
+[----------] 1 test from AutoOcrSmoke
+[ RUN      ] AutoOcrSmoke.LineAndExNoCrash
+AutoOcrLine/AutoOcrEx smoke: text_len=0 ex_count=0
+[       OK ] AutoOcrSmoke.LineAndExNoCrash (157 ms)
+[----------] 1 test from AutoOcrSmoke (157 ms total)
+
+[----------] 4 tests from YoloTest
+[ RUN      ] YoloTest.SetYoloEngineRejectsRemoteUrlAndAliasArgs
+YoloDetector::YoloDetector(), default engine=onnx (built-in)
+SetYoloEngine: HTTP backend removed (self-trained ONNX model only, remote aliases yolo/yolo11/yolo_http/yolo_server rejected); define OP_ENABLE_HTTP_YOLO_BACKEND to restore
+SetYoloEngine: HTTP backend removed (self-trained ONNX model only, remote aliases yolo/yolo11/yolo_http/yolo_server rejected); define OP_ENABLE_HTTP_YOLO_BACKEND to restore
+SetYoloEngine: HTTP backend removed (self-trained ONNX model only, remote aliases yolo/yolo11/yolo_http/yolo_server rejected); define OP_ENABLE_HTTP_YOLO_BACKEND to restore
+[       OK ] YoloTest.SetYoloEngineRejectsRemoteUrlAndAliasArgs (28 ms)
+[ RUN      ] YoloTest.SetYoloEngineRejectsInvalidUrl
+SetYoloEngine: HTTP backend removed (self-trained ONNX model only, remote aliases yolo/yolo11/yolo_http/yolo_server rejected); define OP_ENABLE_HTTP_YOLO_BACKEND to restore
+[       OK ] YoloTest.SetYoloEngineRejectsInvalidUrl (1 ms)
+[ RUN      ] YoloTest.YoloDetectFromFileReturnsFailureJsonForMissingFile
+[       OK ] YoloTest.YoloDetectFromFileReturnsFailureJsonForMissingFile (3 ms)
+[ RUN      ] YoloTest.CApiYoloDetectReturnsFailureJsonForInvalidHandle
+[       OK ] YoloTest.CApiYoloDetectReturnsFailureJsonForInvalidHandle (0 ms)
+[----------] 4 tests from YoloTest (33 ms total)
+
+[----------] 6 tests from YoloOnnxTest
+[ RUN      ] YoloOnnxTest.InitEmbeddedModelMissingFailsGracefully
+OnnxYoloEngine: conf=0.3 iou=0.45 labels=0
+OnnxYoloEngine: embedded yolo model missing (build without yolo model; use SetYoloEngine("onnx", <model_path>, ...))
+[       OK ] YoloOnnxTest.InitEmbeddedModelMissingFailsGracefully (1 ms)
+[ RUN      ] YoloOnnxTest.InitExternalModelMissingFails
+OnnxYoloEngine: conf=0.3 iou=0.45 labels=0
+OnnxYoloEngine: model file not found
+[       OK ] YoloOnnxTest.InitExternalModelMissingFails (1 ms)
+[ RUN      ] YoloOnnxTest.InitCorruptModelFailsGracefully
+OnnxYoloEngine: conf=0.3 iou=0.45 labels=0
+OnnxYoloEngine: session create failed: Failed to load model because protobuf parsing failed.
+[       OK ] YoloOnnxTest.InitCorruptModelFailsGracefully (3 ms)
+[ RUN      ] YoloOnnxTest.UnifiedEntryAcceptsOnnxModelPathDirectly
+OnnxYoloEngine: conf=0.3 iou=0.45 labels=0
+OnnxYoloEngine: model file not found
+OnnxYoloEngine: conf=0.3 iou=0.45 labels=0
+OnnxYoloEngine: model file not found
+OnnxYoloEngine: conf=0.3 iou=0.45 labels=0
+OnnxYoloEngine: session create failed: Failed to load model because protobuf parsing failed.
+OnnxYoloEngine: conf=0.3 iou=0.45 labels=0
+OnnxYoloEngine: model file not found
+[       OK ] YoloOnnxTest.UnifiedEntryAcceptsOnnxModelPathDirectly (4 ms)
+[ RUN      ] YoloOnnxTest.EndToEndAutoLoadsLabelsFromModelMetadata
+OnnxYoloEngine: conf=0.3 iou=0.45 labels=0
+OnnxYoloEngine: labels auto-loaded from model metadata, n=2
+OnnxYoloEngine: model loaded, input=640x640
+[       OK ] YoloOnnxTest.EndToEndAutoLoadsLabelsFromModelMetadata (81 ms)
+[ RUN      ] YoloOnnxTest.RemoteAliasAfterFailedOnnxInitRejectedNoCrash
+OnnxYoloEngine: conf=0.3 iou=0.45 labels=2
+OnnxYoloEngine: model file not found
+SetYoloEngine: HTTP backend removed (self-trained ONNX model only, remote aliases yolo/yolo11/yolo_http/yolo_server rejected); define OP_ENABLE_HTTP_YOLO_BACKEND to restore
+[       OK ] YoloOnnxTest.RemoteAliasAfterFailedOnnxInitRejectedNoCrash (2 ms)
+[----------] 6 tests from YoloOnnxTest (95 ms total)
+
+[----------] 10 tests from UtilsTest
+[ RUN      ] UtilsTest.ThreadPool
+[       OK ] UtilsTest.ThreadPool (0 ms)
+[ RUN      ] UtilsTest.ThreadPoolZeroThreadsStillRuns
+[       OK ] UtilsTest.ThreadPoolZeroThreadsStillRuns (0 ms)
+[ RUN      ] UtilsTest.RectDivideBlock
+[       OK ] UtilsTest.RectDivideBlock (0 ms)
+[ RUN      ] UtilsTest.RectDivideBlockZeroCountNoDivZero
+[       OK ] UtilsTest.RectDivideBlockZeroCountNoDivZero (0 ms)
+[ RUN      ] UtilsTest.RectDivideBlockCountExceedsSpanClamped
+[       OK ] UtilsTest.RectDivideBlockCountExceedsSpanClamped (0 ms)
+[ RUN      ] UtilsTest.Hex2BinAcceptsLowercase
+[       OK ] UtilsTest.Hex2BinAcceptsLowercase (0 ms)
+[ RUN      ] UtilsTest.JitteredDelayStaysWithinBoundsAndVaries
+[       OK ] UtilsTest.JitteredDelayStaysWithinBoundsAndVaries (0 ms)
+[ RUN      ] UtilsTest.JitteredDelayFloorAndZeroBase
+[       OK ] UtilsTest.JitteredDelayFloorAndZeroBase (0 ms)
+[ RUN      ] UtilsTest.SeedProcessRandomSeedsAtMostOnce
+[       OK ] UtilsTest.SeedProcessRandomSeedsAtMostOnce (0 ms)
+[ RUN      ] UtilsTest.SetLogWideFormatDoesNotReexpand
+[       OK ] UtilsTest.SetLogWideFormatDoesNotReexpand (127 ms)
+[----------] 10 tests from UtilsTest (128 ms total)
+
+[----------] 6 tests from MemorySearchTest
+[ RUN      ] MemorySearchTest.FindDataHitsMagicInModuleRange
+[       OK ] MemorySearchTest.FindDataHitsMagicInModuleRange (35 ms)
+[ RUN      ] MemorySearchTest.FindDataWildcardMatches
+[       OK ] MemorySearchTest.FindDataWildcardMatches (20 ms)
+[ RUN      ] MemorySearchTest.FindDataRespectsResultCap
+[       OK ] MemorySearchTest.FindDataRespectsResultCap (5 ms)
+[ RUN      ] MemorySearchTest.FindDataInvalidInputReturnsEmpty
+[       OK ] MemorySearchTest.FindDataInvalidInputReturnsEmpty (1 ms)
+[ RUN      ] MemorySearchTest.GetModuleBaseAddrReturnsHexForKnownModule
+[       OK ] MemorySearchTest.GetModuleBaseAddrReturnsHexForKnownModule (1 ms)
+[ RUN      ] MemorySearchTest.GetModuleBaseAddrMissingModuleReturnsEmpty
+[       OK ] MemorySearchTest.GetModuleBaseAddrMissingModuleReturnsEmpty (2 ms)
+[----------] 6 tests from MemorySearchTest (67 ms total)
+
+[----------] 11 tests from MemoryReadWriteTest
+[ RUN      ] MemoryReadWriteTest.IntRoundTripAllTypes
+[       OK ] MemoryReadWriteTest.IntRoundTripAllTypes (2 ms)
+[ RUN      ] MemoryReadWriteTest.ReadIntFailureYieldsZero
+[       OK ] MemoryReadWriteTest.ReadIntFailureYieldsZero (1 ms)
+[ RUN      ] MemoryReadWriteTest.FloatDoubleRoundTrip
+[       OK ] MemoryReadWriteTest.FloatDoubleRoundTrip (1 ms)
+[ RUN      ] MemoryReadWriteTest.StringRoundTripAllEncodings
+[       OK ] MemoryReadWriteTest.StringRoundTripAllEncodings (1 ms)
+[ RUN      ] MemoryReadWriteTest.ReadStringExplicitLenTrimsAtContent
+[       OK ] MemoryReadWriteTest.ReadStringExplicitLenTrimsAtContent (1 ms)
+[ RUN      ] MemoryReadWriteTest.ReadStringHugeLenIsClampedAndFailsGracefully
+[       OK ] MemoryReadWriteTest.ReadStringHugeLenIsClampedAndFailsGracefully (11 ms)
+[ RUN      ] MemoryReadWriteTest.WriteDataReadDataHexRoundTrip
+[       OK ] MemoryReadWriteTest.WriteDataReadDataHexRoundTrip (1 ms)
+[ RUN      ] MemoryReadWriteTest.WriteDataPadsZerosWhenSizeExceedsData
+[       OK ] MemoryReadWriteTest.WriteDataPadsZerosWhenSizeExceedsData (1 ms)
+[ RUN      ] MemoryReadWriteTest.WriteDataRejectsBadInput
+[       OK ] MemoryReadWriteTest.WriteDataRejectsBadInput (1 ms)
+[ RUN      ] MemoryReadWriteTest.ModuleBaseExpressionInAddress
+[       OK ] MemoryReadWriteTest.ModuleBaseExpressionInAddress (1 ms)
+[ RUN      ] MemoryReadWriteTest.MultiLevelPointerExpression
+[       OK ] MemoryReadWriteTest.MultiLevelPointerExpression (1 ms)
+[----------] 11 tests from MemoryReadWriteTest (27 ms total)
+
+[----------] 10 tests from WindowStateTest
+[ RUN      ] WindowStateTest.SetWindowTransparentPreservesTopmostStyle
+[       OK ] WindowStateTest.SetWindowTransparentPreservesTopmostStyle (343 ms)
+[ RUN      ] WindowStateTest.SetWindowTransparentRejectsInvalidHwnd
+[       OK ] WindowStateTest.SetWindowTransparentRejectsInvalidHwnd (2 ms)
+[ RUN      ] WindowStateTest.GetWindowStateFlagsOnTopmostWindow
+[       OK ] WindowStateTest.GetWindowStateFlagsOnTopmostWindow (274 ms)
+[ RUN      ] WindowStateTest.SetWindowStateMaximizeThenRestore
+[       OK ] WindowStateTest.SetWindowStateMaximizeThenRestore (231 ms)
+[ RUN      ] WindowStateTest.SetWindowStateEnableDisable
+[       OK ] WindowStateTest.SetWindowStateEnableDisable (207 ms)
+[ RUN      ] WindowStateTest.ClipboardRoundTripAscii
+[       OK ] WindowStateTest.ClipboardRoundTripAscii (2 ms)
+[ RUN      ] WindowStateTest.LayoutWindowsCascadeStepsWindows
+[       OK ] WindowStateTest.LayoutWindowsCascadeStepsWindows (393 ms)
+[ RUN      ] WindowStateTest.LayoutWindowsRejectsZeroHwnd
+[       OK ] WindowStateTest.LayoutWindowsRejectsZeroHwnd (2 ms)
+[ RUN      ] WindowStateTest.LayoutWindowsRejectsInvalidLayoutType
+[       OK ] WindowStateTest.LayoutWindowsRejectsInvalidLayoutType (196 ms)
+[ RUN      ] WindowStateTest.SendPasteDeliversToFocusedChildEdit
+[       OK ] WindowStateTest.SendPasteDeliversToFocusedChildEdit (282 ms)
+[----------] 10 tests from WindowStateTest (1936 ms total)
+
+[----------] 27 tests from OpenCvTest
+[ RUN      ] OpenCvTest.ReportsVersion
+[       OK ] OpenCvTest.ReportsVersion (0 ms)
+[ RUN      ] OpenCvTest.CApiJsonMethodsReturnFailureJsonForInvalidHandle
+[       OK ] OpenCvTest.CApiJsonMethodsReturnFailureJsonForInvalidHandle (0 ms)
+[ RUN      ] OpenCvTest.TemplateStoreAndMatchApis
+[       OK ] OpenCvTest.TemplateStoreAndMatchApis (6 ms)
+[ RUN      ] OpenCvTest.MatchTemplateReturnsFirstThresholdHit
+[       OK ] OpenCvTest.MatchTemplateReturnsFirstThresholdHit (2 ms)
+[ RUN      ] OpenCvTest.MatchTemplateFollowsSearchDirection
+[       OK ] OpenCvTest.MatchTemplateFollowsSearchDirection (2 ms)
+[ RUN      ] OpenCvTest.MatchTemplateHorizontalStripFindsAnyHit
+[       OK ] OpenCvTest.MatchTemplateHorizontalStripFindsAnyHit (1 ms)
+[ RUN      ] OpenCvTest.MatchTemplateRejectsInvalidStripDirectionCombo
+[       OK ] OpenCvTest.MatchTemplateRejectsInvalidStripDirectionCombo (1 ms)
+[ RUN      ] OpenCvTest.MatchAnyTemplateFollowsSearchDirectionPerTemplate
+[       OK ] OpenCvTest.MatchAnyTemplateFollowsSearchDirectionPerTemplate (1 ms)
+[ RUN      ] OpenCvTest.MatchAnyTemplateReturnsAnyFirstCompletedHit
+[       OK ] OpenCvTest.MatchAnyTemplateReturnsAnyFirstCompletedHit (2 ms)
+[ RUN      ] OpenCvTest.MatchTemplateScaleFindsScaledTemplate
+[       OK ] OpenCvTest.MatchTemplateScaleFindsScaledTemplate (2 ms)
+[ RUN      ] OpenCvTest.MatchTemplateScaleEvictsStaleScaledCache
+[       OK ] OpenCvTest.MatchTemplateScaleEvictsStaleScaledCache (2 ms)
+[ RUN      ] OpenCvTest.MatchTemplateAutomaticallyUsesPyramidOnLargeRegion
+[       OK ] OpenCvTest.MatchTemplateAutomaticallyUsesPyramidOnLargeRegion (36 ms)
+[ RUN      ] OpenCvTest.MatchAnyTemplateAutomaticallyUsesPyramidOnLargeRegion
+[       OK ] OpenCvTest.MatchAnyTemplateAutomaticallyUsesPyramidOnLargeRegion (26 ms)
+[ RUN      ] OpenCvTest.MatchAllTemplatesAutomaticallyUsesPyramidOnLargeRegion
+[       OK ] OpenCvTest.MatchAllTemplatesAutomaticallyUsesPyramidOnLargeRegion (24 ms)
+[ RUN      ] OpenCvTest.MatchTemplateOnRealPhotoSample
+D:\AutoPro\op-master\op\tests\opencv_test.cpp(1387): Skipped
+No real photo sample asset is available.
+
+[  SKIPPED ] OpenCvTest.MatchTemplateOnRealPhotoSample (1 ms)
+[ RUN      ] OpenCvTest.AllMatchingMethodsWorkOnRealImageAssets
+D:\AutoPro\op-master\op\tests\opencv_test.cpp(1469): Skipped
+Real image template assets are not available.
+
+[  SKIPPED ] OpenCvTest.AllMatchingMethodsWorkOnRealImageAssets (1 ms)
+[ RUN      ] OpenCvTest.AllMatchingMethodsWorkOnGameSceneAssets
+D:\AutoPro\op-master\op\tests\opencv_test.cpp(1690): Skipped
+Game scene matching assets are not available.
+
+[  SKIPPED ] OpenCvTest.AllMatchingMethodsWorkOnGameSceneAssets (1 ms)
+[ RUN      ] OpenCvTest.HardRealImageCasesExposeMatchingBoundaries
+D:\AutoPro\op-master\op\tests\opencv_test.cpp(1898): Skipped
+Hard real-image assets are not available.
+
+[  SKIPPED ] OpenCvTest.HardRealImageCasesExposeMatchingBoundaries (0 ms)
+[ RUN      ] OpenCvTest.MatchTemplateOnConfiguredRealImage
+D:\AutoPro\op-master\op\tests\opencv_test.cpp(2129): Skipped
+Default real image matching assets are not available.
+
+[  SKIPPED ] OpenCvTest.MatchTemplateOnConfiguredRealImage (0 ms)
+[ RUN      ] OpenCvTest.MatchAllTemplatesReturnsAllThresholdMatches
+[       OK ] OpenCvTest.MatchAllTemplatesReturnsAllThresholdMatches (1 ms)
+[ RUN      ] OpenCvTest.MultiTemplateRegionApisOnlyMatchInsideRegion
+[       OK ] OpenCvTest.MultiTemplateRegionApisOnlyMatchInsideRegion (1 ms)
+[ RUN      ] OpenCvTest.PreprocessApisWorkOnSimpleImage
+[       OK ] OpenCvTest.PreprocessApisWorkOnSimpleImage (0 ms)
+[ RUN      ] OpenCvTest.FilePreprocessApisWork
+[       OK ] OpenCvTest.FilePreprocessApisWork (33 ms)
+[ RUN      ] OpenCvTest.LoadTemplateAutomaticallyUsesAlphaAsMaskAndFindsValidHit
+[       OK ] OpenCvTest.LoadTemplateAutomaticallyUsesAlphaAsMaskAndFindsValidHit (1 ms)
+[ RUN      ] OpenCvTest.FeatureMatchTemplateFindsPattern
+[       OK ] OpenCvTest.FeatureMatchTemplateFindsPattern (2 ms)
+[ RUN      ] OpenCvTest.EdgeMatchTemplateFindsOutline
+[       OK ] OpenCvTest.EdgeMatchTemplateFindsOutline (1 ms)
+[ RUN      ] OpenCvTest.ShapeMatchTemplateFindsRectangle
+[       OK ] OpenCvTest.ShapeMatchTemplateFindsRectangle (1 ms)
+[----------] 27 tests from OpenCvTest (160 ms total)
+
+[----------] Global test environment tear-down
+[==========] 268 tests from 17 test suites ran. (56470 ms total)
+[  PASSED  ] 261 tests.
+[  SKIPPED ] 6 tests, listed below:
+[  SKIPPED ] IntegrationTest.BindUnbindFurMarkIfPresent
+[  SKIPPED ] OpenCvTest.MatchTemplateOnRealPhotoSample
+[  SKIPPED ] OpenCvTest.AllMatchingMethodsWorkOnRealImageAssets
+[  SKIPPED ] OpenCvTest.AllMatchingMethodsWorkOnGameSceneAssets
+[  SKIPPED ] OpenCvTest.HardRealImageCasesExposeMatchingBoundaries
+[  SKIPPED ] OpenCvTest.MatchTemplateOnConfiguredRealImage
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] MouseKeyTest.WaitKeyScanAllWithWaitFindsKey
+
+ 1 FAILED TEST
+  YOU HAVE 3 DISABLED TESTS
+

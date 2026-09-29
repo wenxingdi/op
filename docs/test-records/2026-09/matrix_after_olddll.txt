@@ -1,0 +1,77 @@
+================================================================================================================
+目标窗口
+================================================================================================================
+  BlueStacks   hwnd=0x140C92   class=Qt672QWindowIcon           pid=26660  size=293x494   完全被遮挡=YES
+  计算器          hwnd=0x1131778  class=ApplicationFrameWindow     pid=21348  size=341x549   完全被遮挡=YES
+  WorkBuddy    hwnd=0x704AE    class=Chrome_WidgetWin_1         pid=32752  size=1288x862   完全被遮挡=no
+  钉钉           hwnd=0x30434    class=Qt51511QWindowIcon         pid=15096  size=1261x829   完全被遮挡=YES
+  微信           hwnd=0xAFC15C4  class=WeChatMainWndForPC         pid=21116  size=1126x707   完全被遮挡=YES
+  紫鸟           hwnd=0x30EF8    class=Chrome_WidgetWin_1         pid=26196  size=2575x1415  完全被遮挡=no
+  汽水音乐         hwnd=0x24806EA  class=Chrome_WidgetWin_1         pid=15892  size=1100x720   完全被遮挡=YES
+
+setpath -> 1
+showerrmsg -> 1
+
+----------------------------------------------------------------------------------------------------------------
+[BlueStacks] hwnd=0x140C92 class=Qt672QWindowIcon  GetClientSize ret=1 client=440x741
+   normal       bind=1(0.00s) isbind=1 cap=1(0.06s) 439x740 非黑 ✓ 非黑100.0% 亮度250.5 色100
+   gdi          bind=1(0.00s) isbind=1 cap=1(0.04s) 439x740 非黑 ✓ 非黑89.6% 亮度169.9 色1388
+   dx2          bind=1(0.00s) isbind=1 cap=1(0.04s) 439x740 非黑 ✓ 非黑89.6% 亮度169.9 色1388
+   normal.dxgi  bind=1(0.31s) isbind=1 cap=1(0.05s) 439x740 非黑 ✓ 非黑100.0% 亮度250.5 色99
+
+----------------------------------------------------------------------------------------------------------------
+[计算器] hwnd=0x1131778 class=ApplicationFrameWindow  GetClientSize ret=1 client=490x813
+   normal       bind=1(0.00s) isbind=1 cap=1(0.07s) 489x812 非黑 ✓ 非黑100.0% 亮度237.9 色236
+   gdi          bind=1(0.00s) isbind=1 cap=1(0.04s) 489x812 全黑 ✗ 非黑0.0% 亮度0.0 色1
+   dx2          bind=1(0.00s) isbind=1 cap=1(0.04s) 489x812 全黑 ✗ 非黑0.0% 亮度0.0 色1
+   normal.dxgi  bind=1(0.13s) isbind=1 cap=1(0.04s) 489x812 非黑 ✓ 非黑100.0% 亮度237.9 色236
+
+----------------------------------------------------------------------------------------------------------------
+[WorkBuddy] hwnd=0x704AE class=Chrome_WidgetWin_1  GetClientSize ret=1 client=1932x1293
+   normal       bind=1(0.00s) isbind=1 cap=1(0.11s) 1931x1292 非黑 ✓ 非黑100.0% 亮度246.6 色134
+   gdi          bind=1(0.00s) isbind=1 cap=1(0.06s) 1931x1292 全黑 ✗ 非黑0.0% 亮度0.0 色1
+   dx2          bind=1(0.00s) isbind=1 cap=1(0.05s) 1931x1292 全黑 ✗ 非黑0.0% 亮度0.0 色1
+   normal.dxgi  bind=1(0.12s) isbind=1 cap=1(0.05s) 1931x1292 非黑 ✓ 非黑100.0% 亮度246.6 色133
+
+----------------------------------------------------------------------------------------------------------------
+[钉钉] hwnd=0x30434 class=Qt51511QWindowIcon  GetClientSize ret=1 client=1892x1244
+   normal       bind=1(0.00s) isbind=1 cap=1(0.09s) 1891x1243 非黑 ✓ 非黑100.0% 亮度247.4 色141
+   gdi          bind=1(0.00s) isbind=1 cap=1(0.10s) 1891x1243 非黑 ✓ 非黑100.0% 亮度233.0 色219
+   dx2          bind=1(0.00s) isbind=1 cap=1(0.07s) 1891x1243 非黑 ✓ 非黑100.0% 亮度233.0 色219
+   normal.dxgi  bind=1(0.16s) isbind=1 cap=1(0.06s) 1891x1243 非黑 ✓ 非黑100.0% 亮度247.4 色140
+
+----------------------------------------------------------------------------------------------------------------
+[微信] hwnd=0xAFC15C4 class=WeChatMainWndForPC  GetClientSize ret=1 client=1689x1061
+   normal       bind=1(0.00s) isbind=1 cap=1(0.09s) 1688x1060 非黑 ✓ 非黑100.0% 亮度248.6 色112
+   gdi          bind=1(0.00s) isbind=1 cap=1(0.09s) 1688x1060 非黑 ✓ 非黑99.8% 亮度229.3 色243
+   dx2          bind=1(0.00s) isbind=1 cap=1(0.06s) 1688x1060 非黑 ✓ 非黑99.8% 亮度229.3 色243
+   normal.dxgi  bind=1(0.12s) isbind=1 cap=1(0.05s) 1688x1060 非黑 ✓ 非黑100.0% 亮度248.6 色109
+
+----------------------------------------------------------------------------------------------------------------
+[紫鸟] hwnd=0x30EF8 class=Chrome_WidgetWin_1  GetClientSize ret=1 client=3840x2100
+   normal       bind=1(0.00s) isbind=1 cap=1(0.24s) 3839x2099 非黑 ✓ 非黑100.0% 亮度247.2 色173
+   gdi          bind=1(0.00s) isbind=1 cap=1(0.15s) 3839x2099 全黑 ✗ 非黑0.0% 亮度0.0 色1
+   dx2          bind=1(0.00s) isbind=1 cap=1(0.12s) 3839x2099 全黑 ✗ 非黑0.0% 亮度0.0 色1
+   normal.dxgi  bind=1(0.11s) isbind=1 cap=1(0.12s) 3839x2099 非黑 ✓ 非黑100.0% 亮度247.2 色172
+
+----------------------------------------------------------------------------------------------------------------
+[汽水音乐] hwnd=0x24806EA class=Chrome_WidgetWin_1  GetClientSize ret=1 client=1650x1080
+   normal       bind=1(0.00s) isbind=1 cap=1(0.10s) 1649x1079 非黑 ✓ 非黑99.9% 亮度249.1 色103
+   gdi          bind=1(0.00s) isbind=1 cap=1(0.07s) 1649x1079 全黑 ✗ 非黑0.0% 亮度0.0 色1
+   dx2          bind=1(0.00s) isbind=1 cap=1(0.05s) 1649x1079 全黑 ✗ 非黑0.0% 亮度0.0 色1
+   normal.dxgi  bind=1(0.12s) isbind=1 cap=1(0.05s) 1649x1079 非黑 ✓ 非黑99.9% 亮度249.2 色103
+
+================================================================================================================
+汇总矩阵   v=返回值  o=非黑  x=全黑  -=绑定失败
+================================================================================================================
+目标           类名                         normal     gdi        dx2        normal.dxgi
+----------------------------------------------------------------------------------------------------------------
+BlueStacks   Qt672QWindowIcon           非黑/100色    非黑/1388色   非黑/1388色   非黑/99色    
+计算器          ApplicationFrameWindow     非黑/236色    全黑         全黑         非黑/236色   
+WorkBuddy    Chrome_WidgetWin_1         非黑/134色    全黑         全黑         非黑/133色   
+钉钉           Qt51511QWindowIcon         非黑/141色    非黑/219色    非黑/219色    非黑/140色   
+微信           WeChatMainWndForPC         非黑/112色    非黑/243色    非黑/243色    非黑/109色   
+紫鸟           Chrome_WidgetWin_1         非黑/173色    全黑         全黑         非黑/172色   
+汽水音乐         Chrome_WidgetWin_1         非黑/103色    全黑         全黑         非黑/103色   
+
+截图落盘: D:/AutoPro/op-master/op\workbench\matrix_shots

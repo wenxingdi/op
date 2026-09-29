@@ -1,0 +1,31 @@
+=== IDL [in,out] verify 10:05:46 ===
+Ver=0.4.8.3  cwd=C:\Users\lc
+T1 GetCursorPos ref-object: ret=1 x=725 y=451 type=Int32
+T1 GetCursorPos ref-int:    ret=1 x=725 y=451
+T1 GetCursorPos plain:      ret=1 x=0 y=0
+T2 FindWindow(Notepad)=48958146 pid=8444
+T2 GetClientSize ref-object: ret=1 w=1348 h=925
+T2 GetClientSize ref-int:    ret=1 w=1348 h=925
+T2 GetWindowRect ref-object: ret=1 (878,704)-(2248,1715)
+=== DONE ===
+----- __op.log (tail) -----
+[2026/09/19 09:52:21.366]x64info: diag GetCursorPos in: x.vt=16387 y.vt=16387
+
+[2026/09/19 09:52:21.366]x64info: diag GetCursorPos out: x.vt=3 val=609 y.vt=3 val=778
+
+[2026/09/19 09:52:21.377]x64info: diag GetCursorPos in: x.vt=16387 y.vt=16387
+
+[2026/09/19 09:52:21.377]x64info: diag GetCursorPos out: x.vt=3 val=609 y.vt=3 val=778
+
+[2026/09/19 09:52:21.383]x64info: diag GetCursorPos in: x.vt=3 y.vt=3
+
+[2026/09/19 09:52:21.384]x64info: diag GetCursorPos out: x.vt=3 val=609 y.vt=3 val=778
+
+[2026/09/19 09:52:22.985]x64info: diag GetClientSize in: width.vt=16387 height.vt=16387
+
+[2026/09/19 09:52:22.986]x64info: diag GetClientSize out: width.vt=3 val=1348 height.vt=3 val=925 nret=1
+
+[2026/09/19 09:52:22.987]x64info: diag GetClientSize in: width.vt=16387 height.vt=16387
+
+[2026/09/19 09:52:23.000]x64info: diag GetClientSize out: width.vt=3 val=1348 height.vt=3 val=925 nret=1
+

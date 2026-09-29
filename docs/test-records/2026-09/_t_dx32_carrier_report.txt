@@ -1,0 +1,7 @@
+hwnd=0x369188E
+pid=5328
+size=400x300
+backend=d3d9
+msaa=0
+dinput=0
+READY

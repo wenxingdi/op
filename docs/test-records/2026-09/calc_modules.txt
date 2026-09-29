@@ -1,0 +1,12 @@
+
+命中进程数: 2
+=== ApplicationFrameHost pid=21348
+    dxgi.dll
+    d3d11.dll
+    dwmapi.dll
+    dcomp.dll
+    D3D10Warp.dll
+=== Calculator pid=33236
+    dcomp.dll
+    dxgi.dll
+    d3d11.dll

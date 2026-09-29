@@ -86,7 +86,7 @@ cmake -S . -B build/nmake-x64-Release -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Re
   -DOPENCV_LIB_SUFFIX=500
 
 # ③ 全量构建（之后日常全部走第 3 节的增量脚本）
-python build/_wb_build.py
+python scripts/build/_wb_build.py
 ```
 
 成功标志：控制台输出 `exit: 0`，且 `build/nmake-x64-Release/libop/` 下生成 `op_x64.dll`、`op_c_api_x64.dll`、`onnxruntime.dll`。
@@ -95,8 +95,8 @@ python build/_wb_build.py
 
 ```powershell
 cd D:\AutoPro\op-master\op
-python build/_wb_build.py                 # 增量编 op_x64 + op_test
-python build/_wb_build.py op_c_api_x64    # 只编 C-API DLL（OPTool 用的那份）
+python scripts/build/_wb_build.py                 # 增量编 op_x64 + op_test
+python scripts/build/_wb_build.py op_c_api_x64    # 只编 C-API DLL（OPTool 用的那份）
 ```
 
 - 改任意 `.cpp` 后直接跑，nmake 自动只编受影响的文件（通常 10~60 秒）。
@@ -184,7 +184,7 @@ python D:\AutoPro\op-master\backup\make_backup.py --verify D:\AutoPro\op-master\
 
 ### 9.3 换 MSVC / VS 版本
 
-`build\_wb_build.py` 写死了 `MSVC 14.44.35207` 与 SDK `10.0.26100.0` 的绝对路径。装了别的版本后，打开该脚本把 `MSVC`、`SDK_VER` 两行改成实际路径即可（`dir "D:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC"` 查版本目录名）。
+`scripts\build\_wb_build.py` 写死了 `MSVC 14.44.35207` 与 SDK `10.0.26100.0` 的绝对路径。装了别的版本后，打开该脚本把 `MSVC`、`SDK_VER` 两行改成实际路径即可（`dir "D:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC"` 查版本目录名）。
 
 ### 9.4 git push 走代理报 CONNECT 502 / schannel 握手失败
 

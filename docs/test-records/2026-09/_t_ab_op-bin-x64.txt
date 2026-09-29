@@ -1,0 +1,136 @@
+Note: Google Test filter = WgcTest.*
+[==========] Running 10 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 10 tests from WgcTest
+[ RUN      ] WgcTest.CapturesStaticWindowFromStart
+[2026/09/29 15:38:10.140]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[2026/09/29 15:38:10.141]x64info: WGC worker start hwnd=0000000000CF1620
+
+[2026/09/29 15:38:10.141]x64info: WgcCapture::Init start hwnd=0000000000CF1620
+
+[2026/09/29 15:38:10.171]x64info: Init: GraphicsCaptureItem created ok
+
+[2026/09/29 15:38:10.539]x64info: Init: session created, applying options
+
+[       OK ] WgcTest.CapturesStaticWindowFromStart (1756 ms)
+[ RUN      ] WgcTest.NormalAutoCapturesPlainWindows
+[2026/09/29 15:38:11.649]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WgcTest.NormalAutoCapturesPlainWindows (932 ms)
+[ RUN      ] WgcTest.NormalDxgiFirstCaptureAfterBindUsesFreshFrame
+[2026/09/29 15:38:12.987]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+D:\AutoPro\op-master\op\tests\wgc_test.cpp(169): error: Expected equality of these values:
+  color
+    Which is: L"000000"
+  L"FF0000"
+DXGI bind 后第一次截图应使用 AcquireNextFrame 成功返回的预热帧
+
+[  FAILED  ] WgcTest.NormalDxgiFirstCaptureAfterBindUsesFreshFrame (860 ms)
+[ RUN      ] WgcTest.NormalDxgiMaximizeAfterBindCapturesClippedClientArea
+[2026/09/29 15:38:13.844]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[       OK ] WgcTest.NormalDxgiMaximizeAfterBindCapturesClippedClientArea (1955 ms)
+[ RUN      ] WgcTest.NormalAutoUsesWgcForKnownBrowserClasses
+[2026/09/29 15:38:15.410]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[2026/09/29 15:38:15.411]x64info: WGC worker start hwnd=0000000000DB1620
+
+[2026/09/29 15:38:15.411]x64info: WgcCapture::Init start hwnd=0000000000DB1620
+
+[2026/09/29 15:38:15.411]x64info: WgcCapture::Init SEH fault code=0xC0000005 hwnd=0000000000DB1620 -- WGC broken in this process, subsequent WGC requests will fail fast
+
+[2026/09/29 15:38:15.422]x64info: requestCapture: WGC worker init is not ready
+
+[2026/09/29 15:38:15.422]x64info: error requestCapture
+
+D:\AutoPro\op-master\op\tests\wgc_test.cpp(234): error: Expected equality of these values:
+  color
+    Which is: L"000000"
+  L"FF0000"
+
+[  FAILED  ] WgcTest.NormalAutoUsesWgcForKnownBrowserClasses (43 ms)
+[ RUN      ] WgcTest.FirstFrameResizeAndCloseScenarios
+[2026/09/29 15:38:15.448]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[2026/09/29 15:38:15.448]x64info: BindEx: WGC broken by previous in-process SEH fault on Windows 10, bind skipped
+
+[2026/09/29 15:38:15.448]x64info: BindWindowEx failed. display_hwnd=0000000001021692 input_hwnd=0000000001021692 display=normal.wgc(2) ret=0 mouse=windows(2) ret=0 keypad=windows(2) ret=0
+
+D:\AutoPro\op-master\op\tests\wgc_test.cpp(254): error: Expected equality of these values:
+  ret
+    Which is: 0
+  1
+
+[  FAILED  ] WgcTest.FirstFrameResizeAndCloseScenarios (26 ms)
+[ RUN      ] WgcTest.MinimizeRestoreStillCaptures
+[2026/09/29 15:38:15.478]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[2026/09/29 15:38:15.478]x64info: BindEx: WGC broken by previous in-process SEH fault on Windows 10, bind skipped
+
+[2026/09/29 15:38:15.478]x64info: BindWindowEx failed. display_hwnd=000000000018166E input_hwnd=000000000018166E display=normal.wgc(2) ret=0 mouse=windows(2) ret=0 keypad=windows(2) ret=0
+
+D:\AutoPro\op-master\op\tests\wgc_test.cpp(302): error: Expected equality of these values:
+  ret
+    Which is: 0
+  1
+
+[  FAILED  ] WgcTest.MinimizeRestoreStillCaptures (28 ms)
+[ RUN      ] WgcTest.MaximizeAfterBindCapturesFullClientArea
+[2026/09/29 15:38:15.505]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[2026/09/29 15:38:15.505]x64info: BindEx: WGC broken by previous in-process SEH fault on Windows 10, bind skipped
+
+[2026/09/29 15:38:15.505]x64info: BindWindowEx failed. display_hwnd=0000000001041692 input_hwnd=0000000001041692 display=normal.wgc(2) ret=0 mouse=windows(2) ret=0 keypad=windows(2) ret=0
+
+D:\AutoPro\op-master\op\tests\wgc_test.cpp(345): error: Expected equality of these values:
+  ret
+    Which is: 0
+  1
+
+[  FAILED  ] WgcTest.MaximizeAfterBindCapturesFullClientArea (28 ms)
+[ RUN      ] WgcTest.MaximizedWindowBindCapturesFullClientArea
+[2026/09/29 15:38:16.532]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[2026/09/29 15:38:16.532]x64info: BindEx: WGC broken by previous in-process SEH fault on Windows 10, bind skipped
+
+[2026/09/29 15:38:16.532]x64info: BindWindowEx failed. display_hwnd=0000000000DF1620 input_hwnd=0000000000DF1620 display=normal.wgc(2) ret=0 mouse=windows(2) ret=0 keypad=windows(2) ret=0
+
+D:\AutoPro\op-master\op\tests\wgc_test.cpp(390): error: Expected equality of these values:
+  ret
+    Which is: 0
+  1
+
+[  FAILED  ] WgcTest.MaximizedWindowBindCapturesFullClientArea (1029 ms)
+[ RUN      ] WgcTest.RepeatedBindUnbindAndMaximizedRepeatedCapture
+[2026/09/29 15:38:16.563]x64info: dpi: process is DPI-aware, system dpi=144 (scale 150%); window/client rects are physical pixels
+
+[2026/09/29 15:38:16.563]x64info: BindEx: WGC broken by previous in-process SEH fault on Windows 10, bind skipped
+
+[2026/09/29 15:38:16.563]x64info: BindWindowEx failed. display_hwnd=0000000000E01620 input_hwnd=0000000000E01620 display=normal.wgc(2) ret=0 mouse=windows(2) ret=0 keypad=windows(2) ret=0
+
+D:\AutoPro\op-master\op\tests\wgc_test.cpp(420): error: Expected equality of these values:
+  ret
+    Which is: 0
+  1
+
+[  FAILED  ] WgcTest.RepeatedBindUnbindAndMaximizedRepeatedCapture (33 ms)
+[ DISABLED ] WgcTest.DISABLED_CapturesAnimatedWindowLatestFrame
+[----------] 10 tests from WgcTest (6695 ms total)
+
+[----------] Global test environment tear-down
+[==========] 10 tests from 1 test suite ran. (6700 ms total)
+[  PASSED  ] 3 tests.
+[  FAILED  ] 7 tests, listed below:
+[  FAILED  ] WgcTest.NormalDxgiFirstCaptureAfterBindUsesFreshFrame
+[  FAILED  ] WgcTest.NormalAutoUsesWgcForKnownBrowserClasses
+[  FAILED  ] WgcTest.FirstFrameResizeAndCloseScenarios
+[  FAILED  ] WgcTest.MinimizeRestoreStillCaptures
+[  FAILED  ] WgcTest.MaximizeAfterBindCapturesFullClientArea
+[  FAILED  ] WgcTest.MaximizedWindowBindCapturesFullClientArea
+[  FAILED  ] WgcTest.RepeatedBindUnbindAndMaximizedRepeatedCapture
+
+ 7 FAILED TESTS
+  YOU HAVE 1 DISABLED TEST
+

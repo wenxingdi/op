@@ -1,0 +1,22 @@
+{"total_set_result": 319, "risky_passthrough": 3, "negative_literal": 2}
+# 出口层返回值契约普查
+
+- set_result 调用点：**319**
+- 透传且被调方存在 `return -N`：**3**（重点）
+- 直接写负字面量：**2**
+
+## 一、透传型风险点（被调方存在负返回）
+
+| 文件:行 | 写入 | 表达式 | 被调方负返回 |
+|---|---|---|---|
+| libop/op/OpImage.cpp:138 | `ret` | `m_context->image_proc.FindPic(files, delta_color, sim, dir, found_x, found_y)` | `FindPic`→libop/image/ImageSearchAlgorithms.cpp:677 |
+| libop/op/OpInput.cpp:145 | `ret` | `m_context->bkproc._mouse->GetCursorPos(cursor_x, cursor_y)` | `GetCursorPos`→libop/binding/BindingSession.cpp:622 |
+| libop/op/OpOcr.cpp:472 | `ret` | `m_context->image_proc.FindStr(strs, color, sim, x, y)` | `FindStr`→libop/image/ImageSearchAlgorithms.cpp:1075 |
+
+## 二、直接写负字面量
+
+| 文件:行 | 写入 | 值 |
+|---|---|---|
+| libop/op/OpAlgorithm.cpp:279 | `ret` | `-1L` |
+| libop/op/OpImage.cpp:133 | `ret` | `-1L` |
+

@@ -3,6 +3,31 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-29（脚本与测试记录归档入库 + 备份链路两处修正）
+
+- **动机**：`build/` 与 `workbench/` 都在 .gitignore 内 → `_wb_build*.py`、全部探针脚本、
+  历史测试记录**既不在 git 也不在 bundle**，属"唯一副本却零备份"，本机坏盘即永久丢失。
+- **脚本归档（移动，非复制）**：
+  - `build/_wb_*.py|bat` + `_sync_release_b2.py` → `scripts/build/`（12 个，含新增共享模块 `_root.py`）
+  - `workbench/` 顶层 `*.py|ps1|c|cpp|vbs` → `scripts/probes/`（48 个）；产物目录（`probes/*.exe`、
+    `matrix_shots/`、`real_machine/`、`dumps/` 等）原地不动
+  - `.gitignore` 补 `!scripts/build/` + `!scripts/build/**` 白名单（否则被第 19 行 `Build` 规则吃掉）
+- **x86 构建脚本仓库根推导修复**：6 个脚本原先 `dirname(dirname(__file__))` 硬依赖"自己在
+  `<repo>/build/` 下"，归档后失准 → 改用 `_root.repo_root()`（向上找 `.git`）；静态验证 6/6
+  解析为 `D:\AutoPro\op-master\op`。
+- **历史测试记录入库**：45 份结论性输出 → `docs/test-records/2026-09/`（896 KB，附索引 README）；
+  `docs/CHANGELOG.md` 与 `docs/2026-09/*.md` 属历史记录，**不改写**（保留当时真实路径）。
+- **`make_backup.py` TAG 漂移 bug**：`TAG` 常量停在 `v2026.09.23-stable`，致 09-28 / 09-29 两份
+  备份的 manifest 与恢复说明都写错 tag（照做 `git checkout` 会回到 09-23）→ 改为 `detect_tag()`
+  按仓库探测 HEAD 上的 `*-stable`，并如实呈现 OPTool 的 predev 锚点。
+- **`release_assets.py` 附件名 bug**：GitHub Release 附件名**不支持非 ASCII** —— `恢复说明.md`
+  连续三次备份都被剥离成 `default.md`（`RESTORE-恢复说明.md` 更被吃成 `RESTORE-.md`）→ 上传名
+  映射为 `RESTORE.md` + 上传后按 asset id 校验纠正；三个历史 release 一并改名。
+- **备份点**：tag `v2026.09.29-stable`、release `backup-2026-09-29`（5 附件 373.9 MB：
+  `op-repo.bundle` 118.4 MB + `runtime-snapshot.zip` 248.6 MB）。
+- **验证**：`scripts/probes/run_optest.py --filter CApiNullHandle.*` → 2/2 PASS（新位置可用）；
+  归档的 48 + 12 个脚本 `compile()` 全绿。
+
 ### 2026-09-29（dx 靶子体系：x86 受控载体 + DirectInput 闭环 + 屏保路线验证）
 
 - **动机**：hook 注入要求 dll 位数匹配**目标进程**；32 位 dx 通道此前只能拿真实游戏当靶子

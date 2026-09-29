@@ -1,0 +1,26 @@
+[find] visible windows of pid 26844: [('0x1110340', '蜀门 | 当前游戏版本 Ver8.2.06\n')]
+[find] use hwnd=0x1110340
+[gdi/windows/windows] ---
+  bind ret=1 is_bind=1 get_bind_window=OK
+  [winstate] iconic=0 rect=(1229,638,2611,1462)
+  [gdi/windows/windows] capture FAIL ptr=2901975471296 size=1
+  rebind ret=1 is_bind=1
+  unbind ret=1 is_bind_after=0
+  [gdi/windows/windows] RESULT: PASS (capture_uniq=None)
+[dx/windows/windows] ---
+  bind ret=1 is_bind=1 get_bind_window=OK
+  [winstate] iconic=0 rect=(1229,638,2611,1462)
+  [dx/windows/windows] capture FAIL ptr=2901976398528 size=1
+  rebind ret=1 is_bind=1
+  unbind ret=1 is_bind_after=0
+  [dx/windows/windows] RESULT: PASS (capture_uniq=None)
+[dx/dx/dx] ---
+  bind ret=0 is_bind=0 get_bind_window=0x0
+  [dx/dx/dx] RESULT: BIND-FAIL
+
+==== SUMMARY ====
+  gdi/windows/windows          PASS
+  dx/windows/windows           PASS
+  dx/dx/dx                     FAIL
+TOTAL: 2/3 PASS
+game alive check + exit

@@ -1,0 +1,12 @@
+[carrier] arch=x86 backend=d3d9 exe=D:\AutoPro\op-master\op\workbench\probes\dx_carrier_x86.exe
+[carrier] hwnd=0x369188e pid=5328 size=400x300 dinput=0
+[dx/dx/dx] bind ret=1 is_bind=1 gw=0x369188e alive=True
+  [dx/dx/dx] capture ret=1 uniq=4 quad_ok=True TL=FF0000 TR=00FF00 BL=0000FF BR=FFFFFF
+[dx/dx/dx] unbind=1 alive_after=True
+[dx/windows/windows] bind ret=1 is_bind=1 gw=0x369188e alive=True
+  [dx/windows/windows] capture ret=1 uniq=4 quad_ok=True TL=FF0000 TR=00FF00 BL=0000FF BR=FFFFFF
+[dx/windows/windows] unbind=1 alive_after=True
+=== 汇总 ===
+  dx/dx/dx       bind=1 pixels=OK target_alive=True
+  dx/windows/windows bind=1 pixels=OK target_alive=True
+done
