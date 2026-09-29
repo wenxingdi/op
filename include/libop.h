@@ -238,7 +238,11 @@ class OP_API Op {
     void DisableMinMax(_In_ LONG_PTR hwnd, _In_ long enable, _Out_ long *ret);
     // 设置指定窗口的输入法开关:enable=0 关闭输入,1 恢复
     void SetIme(_In_ LONG_PTR hwnd, _In_ long enable, _Out_ long *ret);
-    // 运行可执行文件,可指定模式；也支持 .lnk 快捷方式（经 Shell 解析启动，mode 对其不生效）
+    // 运行可执行文件/快捷方式/文档/网址。mode：
+    //   0 = ShellExecute 启动（默认，对齐大漠），工作目录 = 继承调用方
+    //   1 = ShellExecute 启动，工作目录 = 程序所在目录（带自校验的启动器类游戏须用此值）
+    //   2 = CreateProcess 启动，工作目录 = 继承调用方
+    //   3 = CreateProcess 启动，工作目录 = 程序所在目录
     void RunApp(_In_ const wchar_t *cmdline, _In_ long mode, _Out_ unsigned long *pid, _Out_ long *ret);
     // 运行可执行文件，可指定显示模式
     void WinExec(_In_ const wchar_t *cmdline, _In_ long cmdshow, _Out_ long *ret);

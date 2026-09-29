@@ -31,18 +31,24 @@ inline std::wstring ExtractAppDirectory(const std::wstring &cmd) {
     if (start < n && cmd[start] == L'"')
         ++start;
 
-    // 2) 路径终点：优先按扩展名 .exe 定位（大小写不敏感），找不到就退化为第一个空白
+    // 2) 路径终点：优先按扩展名 .exe 定位（大小写不敏感），找不到就退化为第一个空白。
+    //    ⚠ 用独立 bool 判命中，不能用 `end == n` 判断"没找到"——.exe 恰好在串尾时
+    //    end 同样等于 n，会被误判成未命中而走 fallback（2026-09-29 蜀门真机实测暴露：
+    //    `D:\Program Files (x86)\shumen\game.exe` → 返回 "D:\" → lpDirectory 为错误目录）。
+    //    旧单测全 PASS 是因为用例全是无空格路径，fallback 找不到空白碰巧蒙对。
     size_t end = n;
+    bool hit_ext = false;
     for (size_t i = start; i + 4 <= n; ++i) {
         const wchar_t c0 = cmd[i], c1 = cmd[i + 1], c2 = cmd[i + 2], c3 = cmd[i + 3];
         const bool is_exe = (c0 == L'.') && (c1 == L'e' || c1 == L'E') && (c2 == L'x' || c2 == L'X') &&
                             (c3 == L'e' || c3 == L'E');
         if (is_exe) {
             end = i + 4;
+            hit_ext = true;
             break;
         }
     }
-    if (end == n) {
+    if (!hit_ext) {
         for (size_t i = start; i < n; ++i) {
             if (cmd[i] == L' ' || cmd[i] == L'\t') {
                 end = i;

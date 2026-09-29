@@ -58,6 +58,13 @@ TEST(RunAppPathTest, QuotedPathWithSpaces) {
     EXPECT_EQ(ExtractAppDirectory(L"  \"C:\\a b\\c.exe\""), L"C:\\a b");
 }
 
+TEST(RunAppPathTest, UnquotedPathWithSpacesAndParentheses) {
+    // 无引号带空格路径（蜀门真机 2026-09-29 复现形态）：
+    // `D:\Program Files (x86)\shumen\game.exe` → 目录必须含空格与括号，不得截断
+    EXPECT_EQ(ExtractAppDirectory(L"D:\\Program Files (x86)\\shumen\\game.exe"),
+              L"D:\\Program Files (x86)\\shumen");
+}
+
 TEST(RunAppPathTest, DegenerateInputsYieldNoDirectory) {
     EXPECT_TRUE(ExtractAppDirectory(L"").empty());
     EXPECT_TRUE(ExtractAppDirectory(L"   ").empty());

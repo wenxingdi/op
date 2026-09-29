@@ -270,76 +270,98 @@ bool WindowService::GetProcesspath(DWORD ProcessID, std::wstring &process_path) 
 long WindowService::RunApp(const std::wstring &cmd, long mode, DWORD *pid) {
     set_out(pid, 0);
 
-    // .lnk 快捷方式：CreateProcessW 不解析快捷方式（.lnk 非 PE 文件），
-    // 改走 ShellExecuteExW 由 Shell 解析目标/参数/工作目录。mode/cwd 逻辑仅对 exe 路径生效。
-    {
-        size_t end = cmd.size();
-        while (end > 0 && (cmd[end - 1] == L'"' || cmd[end - 1] == L' '))
-            --end; // 去掉尾部引号/空格
-        const size_t dot = cmd.find_last_of(L'.');
-        if (dot != std::wstring::npos && end > dot + 1 &&
-            _wcsicmp(cmd.substr(dot, end - dot).c_str(), L".lnk") == 0) {
-            SHELLEXECUTEINFOW sei;
-            ZeroMemory(&sei, sizeof(sei));
-            sei.cbSize = sizeof(sei);
-            sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
-            sei.lpVerb = L"open";
-            sei.lpFile = cmd.c_str();
-            sei.nShow = SW_SHOWNORMAL;
-            if (::ShellExecuteExW(&sei)) {
-                if (sei.hProcess) {
-                    set_out(pid, ::GetProcessId(sei.hProcess));
-                    ::CloseHandle(sei.hProcess);
-                }
-                // Shell 对某些目标（如 .bat/协议）不提供进程句柄：pid=0 但视为成功
-                return 1;
-            }
-            setlog(L"RunApp: ShellExecuteExW failed for shortcut, cmd=%s, err=%lu", cmd.c_str(),
-                   ::GetLastError());
-            return 0;
-        }
-    }
+    // 2026-09-29 方案A+：两种启动方式并存，mode 兼顾「启动链」与「工作目录」：
+    //   mode & 1 == 0 → 工作目录 = 继承调用方 cwd
+    //   mode & 1 == 1 → 工作目录 = 可执行文件所在目录（ExtractAppDirectory 推导）
+    //   mode & 2 == 0 → 启动链 = ShellExecuteExW（默认；对齐大漠 RunApp 行为，
+    //                    exe/.lnk/文档/网址通吃）
+    //   mode & 2 == 2 → 启动链 = CreateProcessW（保留原路径；对引导器有自校验的
+    //                    程序可能被拒（如蜀门 game.exe 报 "ucfile/render.lua 没找到"，
+    //                    2026-09-29 真机实测），但对控制台/裸进程场景更直接）
+    // 背景：蜀门 game.exe 经 Shell 启动链完全正常（lnk 与 ShellExecuteW 直启 exe 均验证），
+    // 大漠 RunApp 内部走 Shell 故 exe 路径可用；.lnk 非 PE 文件只有 Shell 能解析。
+    const bool use_app_dir = (mode & 1) != 0;
+    const bool use_create_process = (mode & 2) != 0;
 
-    auto cmdptr = std::make_unique<wchar_t[]>(cmd.length() + 1);
-    memcpy(cmdptr.get(), cmd.data(), cmd.length() * sizeof(wchar_t));
-    cmdptr.get()[cmd.length()] = 0; // C字符串需要末尾有0
-    /*SECURITY_ATTRIBUTES SA;
-    SA.bInheritHandle = NULL;
-    SA.*/
-    STARTUPINFO si;
-    PROCESS_INFORMATION pi;
-    ZeroMemory(&si, sizeof(si));
-    ZeroMemory(&pi, sizeof(pi));
-    int bret;
     std::wstring curr_dir;
-    if (mode == 1) {
-        // 工作目录 = 可执行文件所在目录。裸文件名（如 "notepad.exe"）无法确定目录，
-        // 必须返回空 → 下面传 nullptr（子进程继承当前目录）；旧实现会把 "notepad.exe"
-        // 截成 "notepad" 当目录，CreateProcessW 报 ERROR_DIRECTORY(267) ⇒ mode=1 必失败。
+    if (use_app_dir) {
         curr_dir = op::runapp::ExtractAppDirectory(cmd);
         if (curr_dir.empty())
-            setlog(L"RunApp: mode=1 but no directory in cmd=%s, inherit current directory", cmd.c_str());
-    }
-    bret = ::CreateProcessW(nullptr,      //// 应用程序名称
-                            cmdptr.get(), // 命令行字符串
-                            NULL,         // 进程的安全属性
-                            NULL,         // 进程的安全属性
-                            false,        // 是否继承父进程的属性
-                            0,            // 进程的安全属性
-                            nullptr,      // 进程的安全属性
-                            mode == 1 && !curr_dir.empty() ? curr_dir.c_str() : nullptr, // 指向当前目录名的指针
-                            &si,                                                         // 传递给新进程的信息
-                            &pi                                                          // 新进程返回的信息
-    );
-    if (bret) {
-        set_out(pid, pi.dwProcessId);
-        op::win32::unique_handle process(pi.hProcess);
-        op::win32::unique_handle thread(pi.hThread);
-    } else {
-        setlog(L"RunApp: CreateProcessW failed, cmd=%s, err=%lu", cmd.c_str(), ::GetLastError());
+            setlog(L"RunApp: mode=%d but no directory in cmd=%s, inherit current directory",
+                   static_cast<int>(mode), cmd.c_str());
     }
 
-    return bret;
+    // ---------------- CreateProcessW 路径（mode=2/3）：整串命令行，带空格无引号路径也能解析
+    if (use_create_process) {
+        auto cmdptr = std::make_unique<wchar_t[]>(cmd.length() + 1);
+        memcpy(cmdptr.get(), cmd.data(), cmd.length() * sizeof(wchar_t));
+        cmdptr.get()[cmd.length()] = 0; // C字符串需要末尾有0
+        STARTUPINFO si;
+        PROCESS_INFORMATION pi;
+        ZeroMemory(&si, sizeof(si));
+        ZeroMemory(&pi, sizeof(pi));
+        const BOOL bret = ::CreateProcessW(nullptr, cmdptr.get(), NULL, NULL, FALSE, 0,
+                                           nullptr,
+                                           curr_dir.empty() ? nullptr : curr_dir.c_str(),
+                                           &si, &pi);
+        if (bret) {
+            set_out(pid, pi.dwProcessId);
+            op::win32::unique_handle process(pi.hProcess);
+            op::win32::unique_handle thread(pi.hThread);
+            return 1;
+        }
+        setlog(L"RunApp: CreateProcessW failed, cmd=%s, err=%lu", cmd.c_str(), ::GetLastError());
+        return 0;
+    }
+
+    // ---------------- ShellExecuteExW 路径（mode=0/1，默认）：对齐大漠
+    // 拆出「程序路径」与「参数」（ShellExecuteExW 要求分字段）：
+    // 带引号 → 引号内是程序路径、其后是参数（Windows 惯例：含空格的路径必须加引号）；
+    // 无引号 → **整串当 lpFile、不拆参数**。不能按第一个空白拆——会把
+    // "D:\Program Files (x86)\game.exe" 这类无引号含空格路径拆成 "D:\Program"（2026-09-29
+    // 蜀门真机复现：ShellExecuteExW 找不到 "D:\Program" → 整体失败）。Shell 对带空格的
+    // lpFile 自带容错解析。
+    std::wstring file;
+    std::wstring params;
+    {
+        const size_t n = cmd.size();
+        size_t start = 0;
+        while (start < n && (cmd[start] == L' ' || cmd[start] == L'\t'))
+            ++start;
+        if (start < n && cmd[start] == L'"') {
+            const size_t close = cmd.find(L'"', start + 1);
+            if (close != std::wstring::npos) {
+                file = cmd.substr(start + 1, close - start - 1);
+                params = cmd.substr(close + 1);
+                size_t p = 0;
+                while (p < params.size() && (params[p] == L' ' || params[p] == L'\t'))
+                    ++p;
+                params.erase(0, p);
+            }
+        }
+        if (file.empty())
+            file = cmd.substr(start);
+    }
+
+    SHELLEXECUTEINFOW sei;
+    ZeroMemory(&sei, sizeof(sei));
+    sei.cbSize = sizeof(sei);
+    sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+    sei.lpVerb = L"open";
+    sei.lpFile = file.c_str();
+    sei.lpParameters = params.empty() ? nullptr : params.c_str();
+    sei.lpDirectory = curr_dir.empty() ? nullptr : curr_dir.c_str();
+    sei.nShow = SW_SHOWNORMAL;
+    if (::ShellExecuteExW(&sei)) {
+        if (sei.hProcess) {
+            set_out(pid, ::GetProcessId(sei.hProcess));
+            ::CloseHandle(sei.hProcess);
+        }
+        // Shell 对某些目标（如 .bat/协议/已运行的单实例程序）不提供进程句柄：pid=0 但视为成功
+        return 1;
+    }
+    setlog(L"RunApp: ShellExecuteExW failed, cmd=%s, err=%lu", cmd.c_str(), ::GetLastError());
+    return 0;
 }
 
 } // namespace op

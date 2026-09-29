@@ -3,6 +3,28 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-29（run_app 双启动链：exe 路径直启修复 + mode 语义扩展）
+
+- **RunAppPath.h 真 bug（第二次）：`end == n` 语义混叠**——`.exe` 恰在串尾时 end 命中后
+  同样等于 n，被误判为「未找到扩展名」→ 走「第一个空白」fallback →
+  `D:\Program Files (x86)\shumen\game.exe` 推导出 **`D:\`**。旧 9 条单测全 PASS 是因为
+  用例全是无空格路径（fallback 找不到空白，碰巧蒙对）；蜀门带空格路径首次暴露。
+  修复 = 独立 `bool hit_ext` 判命中；新增用例 `UnquotedPathWithSpacesAndParentheses` 钉住。
+  **教训：新增用例必须覆盖「命中结果等于哨兵值」的边界，哨兵值复用判定是定时炸弹。**
+- **run_app 双启动链（方案 A+）**：exe/.lnk/文档/网址统一走 ShellExecuteExW（对齐大漠
+  RunApp——蜀门引导器对裸 CreateProcessW 报 "ucfile/render.lua 没找到"，经 Shell 启动链
+  正常，真机四路径实测）；mode 扩展为「启动链 + 工作目录」双轴：
+  0=Shell+继承目录 / 1=Shell+程序目录 / 2=CreateProcess+继承目录 / 3=CreateProcess+程序目录。
+  CreateProcess 路径保留（控制台/裸进程场景）。带空格无引号路径整串传 lpFile 不拆参数
+  （按空白拆会把 `D:\Program Files\...` 拆成 `D:\Program`——真机复现过）。
+- **排查过程 3 个假象（判据）**：① 探针只跟踪返回 pid——蜀门引导器会进程接力
+  （Shell 返回 1512，「我的客户端」窗口属于新 pid 10152），pid 失效≠启动失败；
+  ② 单实例互斥弹的「错误」框与 ucfile 报错同文案，必须 tasklist 确认干净再复测；
+  ③ Git Bash heredoc 写 C++ 字面量 `\\` 会落盘成 `//`（转义链污染），字面量诊断程序
+  必须**逐字符构造**（否则诊断结论全是幻觉——本次微程序 n=41/正斜杠 dir 全是假数据）。
+- **验证**：RunApp 单测 12/12；蜀门真机 `run_app("D:\Program Files (x86)\shumen\game.exe", 1)`
+  → 「我的客户端」正常出现（此前同路径必弹 ucfile 错误）；lnk/引号/裸文件名端到端全保留。
+
 ### 2026-09-29（x86 32 位双 DLL 构建链路，提交 c8e318a）
 
 - **op_x86.dll（COM，282 导出）+ op_c_api_x86.dll（268 导出）可从源码完整构建**，

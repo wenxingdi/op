@@ -117,6 +117,8 @@ OP_C_API int OP_CALL OpLockWindowSize(op_handle handle, intptr_t hwnd, int enabl
 OP_C_API int OP_CALL OpDisableMinMax(op_handle handle, intptr_t hwnd, int enable);
 // 设置指定窗口的输入法开关:enable=0 关闭,1 恢复。
 OP_C_API int OP_CALL OpSetIme(op_handle handle, intptr_t hwnd, int enable);
+// 运行可执行文件/快捷方式/文档/网址。mode：0=Shell启动+继承目录；1=Shell启动+程序所在目录；
+// 2=CreateProcess+继承目录；3=CreateProcess+程序所在目录（启动器类游戏对工作目录敏感，推荐 1）
 OP_C_API int OP_CALL OpRunApp(op_handle handle, const wchar_t *cmdline, int mode, uint32_t *pid);
 OP_C_API int OP_CALL OpWinExec(op_handle handle, const wchar_t *cmdline, int cmdshow);
 OP_C_API const wchar_t *OP_CALL OpGetCmdStr(op_handle handle, const wchar_t *cmd, int millseconds);
