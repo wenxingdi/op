@@ -3,6 +3,23 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-30（收口复核：部署副本陈旧导致早期验证不可信 —— 已重编双架构 + 重部署 + 重新运行时验证）
+
+- **复核发现的真问题（比 bug 更隐蔽）**：本轮收口时 `bin/x64/*.dll`、`bindings/python/op/bin/x64/*.dll`、发布镜像 `op-bin-x64/*.dll` 仍停留在 **09-29** 人工拷贝的旧件；而 `_wb_build.py` **没有部署步骤**（产物只留在 `build/`），导致 python 包 `_ffi.load_dll` 的候选路径第 1 顺位就命中旧 `bin/x64` 副本。
+  - 后果：本轮此前那批探针（含 `ocr_auto`/`cv_edge` 修复的"验证通过"）实际加载的是 **09-29 旧 DLL**，两个修复**并未被真正运行时验证**。
+  - 当场求证：`op._ffi.load_dll().path` = `bindings/python/op/bin/x64/op_c_api_x64.dll`（mtime 09-29 16:19），确为旧件。
+- **纠正动作**：
+  1. **x86（32 位注入 DLL）本轮从未重编** → 跑 `scripts/build/_wb_build_op_x86.py`，`build/ninja-x86-Release/libop/op_c_api_x86.dll` 重编至 07:26/27（含 `ImageSearchService.cpp` 的 `ocr_auto` 修复）。
+  2. x64 新鲜件 `build/nmake-x64-Release/libop/op_c_api_x64.dll`（07:01）+ x86 新鲜件 → 部署到三处：`bin/x64/`、`bindings/python/op/bin/x64/`、`scripts/backup/2026-09-29_stable_3/op-bin-x64/`（已全量对齐，统一 07:30/31）。
+  3. ⚠️ 部署踩坑：`build/nmake-x64-Release/libop/` 内的 `op_c_api_x86.dll`/`op_x86.dll` 是 **09-29 的旧件**（x64 构建只重编 x64 侧），误用其覆盖会回退 x86；正确源是 `build/ninja-x86-Release/libop/`，已纠正。
+  4. `docs/api_reference.html` 由 `scripts/gen_api_reference.py` 重新生成（07:28，252 API / 参数注解 97.8%），与当前源码同步。
+- **重新运行时验证（新鲜 DLL + 在线真机 GameViewer.exe）**：
+  - `_t_dict_ocr.py` **49 PASS / 0 FAIL**，且 `ocr_auto`/`ocr_auto_from_file` 正确返回 `'AB12'`（旧 DLL 下这些断言会失败）—— `ocr_auto` 修复**现在才真正运行时坐实**。
+  - `_t_opencv_api.py` V5,V6（cv_edge 退化反向验证）**14 PASS / 0 FAIL**。
+  - `_t_input_full.py`（dx 绑定向 32 位蜀门注入 x86 新鲜件）**74 PASS / 0 FAIL**。
+  - 结论：64 位宿主 DLL 与 32 位注入 DLL **现已均基于 `70537b2` 重编、部署、运行时验证通过**。
+- **发布件同步**：`runtime-snapshot.zip` 用含新鲜 `op-bin-x64` 的镜像重打并待 `replace_assets` 重传；`verify_assets` 其余 4/5 附件（bundle/manifest/RESTORE）仍 5/5 ALL MATCH。
+
 ### 2026-09-30（续：字库/OCR 域修 `ocr_auto` 空串 + 内存/收尾域 C API 端到端补全）
 
 - **fix: `ocr_auto` / `ocr_auto_from_file` 加载字库后返回空串**（`libop/image/ImageSearchService.cpp/.h`）
