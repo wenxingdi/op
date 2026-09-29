@@ -3,6 +3,20 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-29（备份链路修正：`refresh_bundle.py` 相对路径 bug + 线上附件同步）
+
+- **`refresh_bundle.py` 路径 bug（真机暴露）**：`tmp = bk / (name + ".new")` 用**相对路径**，
+  而其 `git bundle create` 子进程的 `cwd` 是 **repo**（optool = `D:\AutoPro\OPTool`），
+  不是备份目录所在仓库 → 路径被解析到 optool 下、目录不存在 →
+  `fatal: Unable to create '...\OPTool\scripts\backup\2026-09-29_stable_3\optool-repo.bundle.new.lock'`。
+  op 侧因进程 cwd 恰好 == op 仓库根而**未暴露**（典型「环境巧合掩盖 bug」）。
+  修：`refresh_one()` 与 `main()` 统一 `Path(...).resolve()`。
+- **线上附件同步**：master `32bf802` 后重打 `op-repo.bundle`（→ `32bf802`，sha1 `d41e6a5b168f`），
+  Release `backup-2026-09-29` 替换 `op-repo.bundle` + `RESTORE.md` + `manifest.json`（后者因
+  refresh 刷新了 commit/sha1 与 `post_backup_refresh` 字段，从 8344 → 8370 字节）。
+  **硬校验 5/5 全等**（GitHub API `digest`(sha256) + `size`，三次重查；首次查询可能命缓存旧 digest）。
+- 注：`optool-repo.bundle` 未变（optool 仓库本轮无提交，`bundle_head == master` 走"跳过重打"分支）。
+
 ### 2026-09-29（真机验收：颜色口径 = RGB、绑定坐标 = 客户区、免字库 OCR 颜色语义）
 
 - **颜色字节序定性（决定性实验）**：受控 Tk 目标（白底 `RED` #ff0000 / `BLUE` #0000ff）——

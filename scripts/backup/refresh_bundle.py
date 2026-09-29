@@ -50,6 +50,9 @@ def bundle_head(path: Path, repo: Path) -> str:
 def refresh_one(bk: Path, key: str) -> dict | None:
     repo = REPOS[key]
     name = BUNDLE_NAME[key]
+    # `bk` 可能是相对路径；而下面所有 git 子进程的 cwd 是 **repo**（不是备份目录所在仓库），
+    # 相对路径会被解析到 repo 下 → shutil/bundle 找不到目录。统一转绝对路径。
+    bk = bk.resolve()
     print(f"== {key}: {repo}")
     if not (repo / ".git").exists():
         print("  仓库不存在，跳过")
@@ -98,7 +101,7 @@ def main():
     ap.add_argument("backup_dir")
     ap.add_argument("--repo", default="all", choices=["op", "optool", "all"])
     a = ap.parse_args()
-    bk = Path(a.backup_dir)
+    bk = Path(a.backup_dir).resolve()
     if not (bk / "manifest.json").is_file():
         sys.exit(f"不是备份目录（无 manifest.json）: {bk}")
 
