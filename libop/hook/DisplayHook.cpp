@@ -54,12 +54,50 @@ template <typename T> void *method_at(const std::vector<T> &methods, size_t inde
     return index < methods.size() ? reinterpret_cast<void *>(methods[index]) : nullptr;
 }
 
+// 按需加载：kiero 的 locate<Implementation_*> 全程只用 GetModuleHandleA，目标进程此刻
+// 尚未加载该图形库时会直接返回 Error_ModuleNotFound —— 与"目标根本不用这条 API"混为一谈。
+// 这里按 render_type 先补齐模块（只从 System32 找，见 ApiResolver 注释），把时机问题消掉。
+// 加载失败不致命：kiero 随后仍会如实报 Error_ModuleNotFound 并让 setup 返回 0。
+void ensure_render_modules(int render_type) {
+    switch (render_type) {
+    case RDT_DX_DEFAULT:
+    case RDT_DX_D3D9:
+        ::LoadApiModule("d3d9.dll");
+        break;
+    case RDT_DX_D3D10:
+        ::LoadApiModule("dxgi.dll");
+        ::LoadApiModule("d3d10.dll");
+        break;
+    case RDT_DX_D3D11:
+        ::LoadApiModule("dxgi.dll");
+        ::LoadApiModule("d3d11.dll");
+        break;
+    case RDT_DX_D3D12:
+        ::LoadApiModule("dxgi.dll");
+        ::LoadApiModule("d3d12.dll");
+        break;
+    case RDT_GL_DEFAULT:
+    case RDT_GL_STD:
+    case RDT_GL_NOX:
+    case RDT_GL_FI:
+        ::LoadApiModule("opengl32.dll");
+        break;
+    // RDT_GL_ES（libEGL.dll）**故意不按需加载**：libEGL 是模拟器/运行时自带的私有库，
+    // 不是系统组件，System32 里没有正品可加载；一旦走 fallback 搜索路径，可能把我们自己
+    // 找来的 libEGL 抢先塞进目标进程，反而顶替掉它本该用的那份。保持"只用已加载的"。
+    default:
+        break; // normal / gdi 系列走 GDI 抓取，不依赖被 hook 的图形模块
+    }
+}
+
 int locate_render_method(int render_type, void **target, void **detour) {
     if (!target || !detour)
         return 0;
 
     *target = nullptr;
     *detour = nullptr;
+
+    ensure_render_modules(render_type);
 
     if (render_type == RDT_DX_DEFAULT || render_type == RDT_DX_D3D9) {
         kiero::D3D9Output output;

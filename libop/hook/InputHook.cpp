@@ -365,7 +365,13 @@ bool dinput_device_kind(IDirectInputDevice8W *device, bool &is_mouse, bool &is_k
 
 bool load_dinput_vtables() {
     using DirectInput8CreateFn = decltype(DirectInput8Create);
-    auto directInput8Create = reinterpret_cast<DirectInput8CreateFn *>(ResolveApi("dinput8.dll", "DirectInput8Create"));
+    // 按需加载：目标进程可能只是**还没**加载 dinput8（DirectInput 设备通常在进游戏场景、
+    // 甚至点开设置界面时才创建）。原先只 GetModuleHandle 的话，"时机未到"会被当成
+    // "目标不用 DirectInput"，进而让整个输入绑定失败（P1-9 的诚实失败在这里代价过大：
+    // op 还有 win32 键状态 / Raw Input / 窗口过程三条通道可以工作）。
+    // 若 exe 目录或 cwd 存在同名 dinput8.dll（手柄映射包装器很常见），LoadApiModule 会拒绝加载。
+    auto directInput8Create =
+        reinterpret_cast<DirectInput8CreateFn *>(ResolveApiLazy("dinput8.dll", "DirectInput8Create"));
     if (!directInput8Create) {
         setlog("dinput8 not found");
         return false;

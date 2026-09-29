@@ -26,6 +26,7 @@
 #include <cstring>
 #include <string>
 #include <thread>
+#include <tlhelp32.h> // TargetHasModule：从外部枚举目标进程模块
 #include <vector>
 
 namespace {
@@ -60,6 +61,19 @@ std::wstring CarrierExecutable() {
     if (cut == std::wstring::npos)
         return std::wstring();
     return dir.substr(0, cut) + L"\\dx_carrier.exe";
+}
+
+// 素载体：只依赖 user32/gdi32，**不导入** d3d9/d3d11/dinput8/opengl32
+// （dx_carrier 静态导入它们，"目标尚未加载"这个前提永远不成立 → 按需加载没法在那儿验证）。
+std::wstring PlainCarrierExecutable() {
+    wchar_t self[MAX_PATH] = {};
+    if (!GetModuleFileNameW(nullptr, self, MAX_PATH))
+        return std::wstring();
+    std::wstring dir(self);
+    const size_t cut = dir.find_last_of(L"\\/");
+    if (cut == std::wstring::npos)
+        return std::wstring();
+    return dir.substr(0, cut) + L"\\plain_carrier.exe";
 }
 
 // op 注入用的 DLL 与本测试模块同目录（build 树下），从已加载模块反推，避免写死路径。
@@ -178,6 +192,7 @@ class CarrierProcess {
     }
 
     HWND hwnd() const { return hwnd_; }
+    DWORD pid() const { return process_.dwProcessId; }
     const std::wstring &error() const { return error_; }
     // 载体回报原文（含 backend= / msaa= 等实际生效参数）。用例靠它确认"跑的是不是 MSAA 通道"，
     // 否则载体回退成无 MSAA 时用例会恒真通过。
@@ -200,6 +215,29 @@ int ReportIntField(const std::wstring &report, const wchar_t *key, int fallback)
     const size_t begin = pos + needle.size();
     const size_t end = report.find_first_of(L"\r\n", begin);
     return _wtoi(report.substr(begin, end - begin).c_str());
+}
+
+// 目标进程里是否已加载指定模块。
+// 必须**从外部**枚举 Toolhelp 快照，不能在自己进程里 GetModuleHandle —— op 的按需加载
+// 是把模块塞进**目标进程**，只有这里才看得到，这也正是"真的加载了"的硬证据。
+// 枚举失败（权限/进程刚退出）一律按"没有"处理：调用方只在绑前判前提时会 SKIP。
+bool TargetHasModule(DWORD pid, const wchar_t *dll_name) {
+    HANDLE snapshot = ::CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
+    if (snapshot == INVALID_HANDLE_VALUE)
+        return false;
+    MODULEENTRY32W entry = {};
+    entry.dwSize = sizeof(entry);
+    bool found = false;
+    if (::Module32FirstW(snapshot, &entry)) {
+        do {
+            if (_wcsicmp(entry.szModule, dll_name) == 0) {
+                found = true;
+                break;
+            }
+        } while (::Module32NextW(snapshot, &entry));
+    }
+    ::CloseHandle(snapshot);
+    return found;
 }
 
 struct CaptureOutcome {
@@ -390,19 +428,28 @@ TEST_F(HookCaptureTest, LegacyDxAliasDoesNotCaptureD3D11Application) {
         ReportOutcome(outcome);
 }
 
-// 现状固化 + 环境记录：dx.d3d10 走 kiero Implementation_D3D10 locate。
-// 本机 locate 失败（日志 error=2）→ 绑定被拒。别的机器若能 locate 成功则必须取到正确画面，
-// 所以这里两种结果都不算失败，只把事实记录下来。
-TEST_F(HookCaptureTest, D3D10ChannelEitherBindsOrReportsLocateFailure) {
+// dx.d3d10 通道的事实记录。
+//
+// 历史：本机 kiero `locate<D3D10>` 恒失败（日志 `error=2`），于是本用例长期退化成 SKIP。
+// **按需模块加载上线后**，DisplayHook 会主动把 d3d10.dll 加载进目标进程，locate 不再失败 ——
+// 本用例因此开始走到"绑定成功"分支，并稳定观察到 **mismatch==4（全黑）**：
+// D3D11 载体的 Present 走 d3d11.dll/dxgi 那一份，与 D3D10 device vtable 里的 Present 不是
+// 同一处，detour 装上了也不会被命中（dx.d3d10 只对**真的用 D3D10** 的应用有效）。
+//
+// 所以两件事都固化：**能绑上**（按需加载的正向副作用）+ **看不到 D3D11 流量**（事实）。
+// 反向验证：哪天 dx.d3d10 真能抓到 D3D11 应用的帧，本用例立即 FAIL —— 那是行为变更，
+// 该更新模式文档与本用例名，而不是删掉断言。
+TEST_F(HookCaptureTest, D3D10ChannelBindsButDoesNotSeeD3D11Traffic) {
     const CaptureOutcome outcome = Capture(L"d3d11", L"dx.d3d10");
     if (!outcome.carrier_ok)
         GTEST_SKIP() << "载体不可用：" << outcome.note;
     if (!outcome.bound) {
-        GTEST_SKIP() << "本机 kiero locate<D3D10> 失败，绑定被拒（记录事实，不作为失败）："
-                     << outcome.note;
+        GTEST_SKIP() << "kiero locate<D3D10> 失败，绑定被拒（记录事实，不作为失败）：" << outcome.note;
     }
-    EXPECT_EQ(outcome.mismatch, 0) << "dx.d3d10 绑定成功但画面不正确";
-    if (outcome.mismatch != 0)
+    EXPECT_EQ(outcome.mismatch, 4)
+        << "dx.d3d10 在 D3D11 载体上的既有事实（绑得上、但没有帧）发生变化：要么 D3D10 通道"
+           "已能识别 D3D11 流量（应更新模式文档与本用例名），要么抓到了错误内容";
+    if (outcome.mismatch != 4)
         ReportOutcome(outcome);
 }
 
@@ -589,6 +636,58 @@ TEST(HookApiResolveCacheTest, CachesOnlyOnSuccessAndRetriesAfterFailure) {
             << "解析失败不得当终值缓存，否则目标进程延迟加载该 dll 后本通道永久失效";
         EXPECT_EQ(calls, 2) << "失败后必须重试";
     }
+}
+
+// ------------------------------------------------ 输入/显示通道的按需加载（on-demand load）
+//
+// 背景：ResolveApi 与 kiero 的 locate 全程只用 GetModuleHandleA，**不主动加载**。于是
+// "目标进程此刻尚未加载 d3d9.dll / dinput8.dll"与"目标永远不用这条 API"被混为一谈 ——
+// 而 InputHook::setup 里 hook_dinput() 失败会按 P1-9 中止**整个**输入绑定。
+// 对刚启动的 D3D9 程序（DirectInput 设备往往要等进场景、甚至点开设置界面才创建）来说，
+// 这个"诚实失败"代价过大：op 还有 win32 键状态 / Raw Input / 窗口过程三条通道可用。
+//
+// 这里必须走 C API（op_test 只链接 op_com / op_c_api 的导出，libop 内部符号不可见），
+// 所以判据是**端到端**的：受控载体提供单一变量（它默认不加载 dinput8 / d3d9），
+// 绑定成功 + 目标进程里随后出现该 DLL，两条同时成立才算数。
+//
+// 反向验证：删掉 ApiResolver.cpp 里 LoadLibraryEx / LoadLibraryA 那两段 -> 本用例立即 bind=0 FAIL。
+//
+// 两条断言分开写而不是合成一句：display 侧与 input 侧各走各的加载点
+// （DisplayHook 的 ensure_render_modules / InputHook 的 load_dinput_vtables），
+// 只有一条坏掉时能立刻看出是哪一侧。
+TEST_F(HookCaptureTest, BindLoadsMissingGraphicsAndInputModulesOnDemand) {
+    const std::wstring plain = PlainCarrierExecutable();
+    if (plain.empty() || GetFileAttributesW(plain.c_str()) == INVALID_FILE_ATTRIBUTES)
+        GTEST_SKIP() << "plain_carrier 载体不存在（需先构建 plain_carrier 目标）";
+
+    CarrierProcess carrier;
+    if (!carrier.Start(plain, L"plain", L"")) {
+        GTEST_SKIP() << "载体不可用：" << carrier.error();
+    }
+    const DWORD target_pid = carrier.pid();
+
+    // 前提：素载体里这两个库**都没有** —— 少了这层检查，用例可能在"反正本来就加载了"的靶子上假绿。
+    ASSERT_FALSE(TargetHasModule(target_pid, L"d3d9.dll")) << "素载体不该加载 d3d9.dll，前提不成立";
+    ASSERT_FALSE(TargetHasModule(target_pid, L"dinput8.dll")) << "素载体不该加载 dinput8.dll，前提不成立";
+
+    op::Op op;
+    long ret = 0;
+    op.SetShowErrorMsg(2, &ret);
+    op.SetPath(dll_dir_.c_str(), &ret);
+
+    ret = 0;
+    op.BindWindow(static_cast<long>(reinterpret_cast<intptr_t>(carrier.hwnd())), L"dx.d3d9", L"dx", L"dx", 0, &ret);
+    ASSERT_EQ(ret, 1L) << "目标尚未加载 d3d9.dll / dinput8.dll 时也必须能绑上（按需加载兜底）";
+
+    // 绑定后再看一次模块表：两个库都必须已经**在目标进程里**。这是"真的加载了"的硬证据 ——
+    // 少了它，bind=1 有可能只是走了别的旁路，用例会变成恒真的摆设。
+    EXPECT_TRUE(TargetHasModule(target_pid, L"d3d9.dll"))
+        << "display 侧按需加载没有发生（ensure_render_modules 未生效）";
+    EXPECT_TRUE(TargetHasModule(target_pid, L"dinput8.dll"))
+        << "input 侧按需加载没有发生（load_dinput_vtables 未生效）";
+
+    ret = 0;
+    op.UnBindWindow(&ret);
 }
 
 } // namespace

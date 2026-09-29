@@ -40,6 +40,64 @@
 - **遗留（新发现，本轮不改行为）**：`ResolveApi` 只做 `GetModuleHandleA`、**不 LoadLibrary** ⇒
   目标进程尚未加载 `dinput8.dll` 时 op 直接放弃整个 input 绑定。理论上 op 可自行加载
   dinput8 补齐该场景（游戏随后加载会复用同一模块、vtable 一致，hook 仍有效）——待决议。
+- **⚠ 归因修正（2026-09-29 晚，按需加载落地时实测）**：上文「无 `--dinput` → bind=0、
+  唯一变量是目标进程是否已加载 `dinput8.dll`」的结论**不成立**。`dx_carrier`（x64/x86 同源）
+  **静态导入** `DINPUT8.dll`（`pe_imports.py` 实测导入表：`DINPUT8.dll, GDI32.dll, KERNEL32.dll,
+  OPENGL32.dll, USER32.dll, d3d11.dll, d3d9.dll`），"无 `--dinput`"时 dinput8 **本来就在**
+  进程里 —— "是否加载"根本不是那组实验的变量。历史那次 bind=0 的确切成因**不做断言**
+  （本轮未对当时那版 dll 做 A/B 隔离；最可能是它尚未含 P0② 句柄宽度修复）。
+  **对蜀门的定性不受影响**：蜀门 `client.exe` 经 `_t_mods.py` 实测确实**没有**加载
+  `dinput8.dll`，而 `ResolveApi` 只 `GetModuleHandleA` ⇒ `hook_dinput()` 失败 ⇒
+  `InputHook::setup` 返回 0 这条链条本身成立 —— 且本轮已用按需加载把它消除（见下节）。
+  教训：**靶子的静态导入表要先看再下结论**，否则会把"一直加载着"当成"未加载"。
+
+### 2026-09-29（hook 按需模块加载：目标尚未加载 d3d9/dinput8 时的兜底）
+
+- **动机**：`ResolveApi` 与 kiero 的 locate 全程只用 `GetModuleHandleA`、**不主动加载** ⇒
+  "目标进程此刻尚未加载 d3d9.dll / dinput8.dll"与"目标永远不用这条 API"被混为一谈。
+  后果最重的是 input 侧：`hook_dinput()` 失败会让 `InputHook::setup` 按 P1-9 **中止整个输入
+  绑定** —— 而 op 还有 win32 键状态 / Raw Input / 窗口过程三条通道可用，为一条尚未就绪的
+  通道整体失败是更差的结果（蜀门「版本检查」界面 bind=0 即此类）。
+- **实现**（`libop/hook/ApiResolver.{h,cpp}`）：
+  - `LoadApiModule(mod)`：`GetModuleHandleA` 未命中时 `LoadLibraryExA(mod, nullptr,
+    LOAD_LIBRARY_SEARCH_SYSTEM32)` —— **只从 System32/SysWOW64 找**，不查 cwd/PATH；
+    老系统（无 KB2533623）该 flag 失败时退回 `LoadLibraryA` 并记日志。**永不 FreeLibrary**：
+    目标随后自行加载会复用同一模块并自增引用计数，vtable/函数地址完全一致；我们提前释放
+    反而可能打穿引用计数导致模块被卸载。
+  - `ResolveApiLazy(mod, fn)`：先按原语义解析，失败再加载重试。模块已加载时与原
+    `ResolveApi` 行为完全一致（不引入新语义）。
+  - **遮蔽防护** `ModuleShadowedByTarget`：目标 exe 目录 / cwd 下若存在**同名** DLL
+    （d3d9 wrapper / ReShade / 手柄映射用的 dinput8 包装器），**拒绝加载** —— 否则模块名被
+    我们占住，目标随后 `LoadLibrary("d3d9.dll")` 会拿到我们这份，等于静默替换它的图形栈，
+    比"绑不上"严重得多。**例外**：目标 exe 本身落在系统目录时不算遮蔽 —— 这是实测踩到的坑：
+    `SysWOW64` 里本来就有 `dinput8.dll`，不加例外则按需加载对系统目录里的目标永久失效
+    （记事本实测 bind=0，且无任何加载记录）。
+  - **关闭方式**：环境变量 `OP_NO_ONDEMAND_LOAD=1`（注入侧读**目标进程**的环境块）。
+    默认**开启**。
+- **接入点**：`DisplayHook::locate_render_method` 前按 render_type 预加载
+  （`d3d9` / `d3d10+d3d11+d3d12+dxgi` / `opengl32`）；**`libEGL.dll` 故意不加载** —— 它是
+  模拟器/运行时自带的私有库，System32 里没有正品可加载，fallback 搜索反而可能把我们自己
+  找来的那份抢先塞进目标进程、顶替它本该用的。input 侧 `load_dinput_vtables` 改走
+  `ResolveApiLazy`。
+- **验证 A（display 侧，模块级硬证据）**：`dx_carrier.exe --backend d3d9`（导入表里**没有**
+  d3d12/d3d10）绑 `dx.d3d12` → 目标进程模块表 **`d3d12.dll` 从无到有**且 bind=1；
+  绑 `dx.d3d10` → **`d3d10.dll` + `d3d10core.dll` 从无到有**且 bind=1
+  （顺带把本机此前恒失败的 `dx.d3d10` 通道打通：旧日志 `locate D3D10 failed error=2`）。
+- **验证 B（input + display 合并，gtest 端到端）**：新增素载体
+  `scripts/plain_carrier.cpp`（产物 `tests/plain_carrier.exe`，导入表只有
+  `GDI32/KERNEL32/USER32`）—— `dx_carrier` 静态导入 d3d9/d3d11/dinput8，"目标尚未加载"
+  这个前提在它身上**永远不成立**，必须另起靶子。用例
+  `HookCaptureTest.BindLoadsMissingGraphicsAndInputModulesOnDemand`：
+  启动素载体 → `ASSERT_FALSE` 两个库都不在（前提检查）→ 绑 `dx.d3d9/dx/dx`
+  → `ASSERT_EQ(ret, 1)` → 断言 `d3d9.dll` **与** `dinput8.dll` 都已出现在目标进程
+  （两条断言分开写：display/input 各走各的加载点，坏哪侧一目了然）。
+- **反向验证（A/B，零代码改动）**：同一用例在 `OP_NO_ONDEMAND_LOAD=1` 下 **FAIL**
+  （`hook_capture_test.cpp:671` 的 `ASSERT_EQ(ret,1)` 实得 0）⇒ 用例具备真实判别力，
+  不是恒真摆设。
+- **已知取舍**：加载成功 ≠ 该通道一定能拦到东西。目标若根本不走这条 API（例如只用 Raw Input
+  的游戏），hook 装上了也不会被调用 —— 所以每次按需加载都记 `loaded on demand` 日志，
+  让"绑上了但一帧都没有"可被追溯，而不是又一次"谎报成功"。
+- **回归**：全量见本轮末尾（`workbench/_t_full_regress_ondemand.txt`）。
 
 ### 2026-09-29（x86 hook 真机 P0 修复：跨位数 RPC 调用约定 + 句柄传参宽度）
 

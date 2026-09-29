@@ -255,6 +255,14 @@ target_link_libraries(dx_carrier PRIVATE d3d9.lib d3d11.lib dxgi.lib dinput8.lib
 # 窄字符串宏无法构造 std::wstring，反斜杠路径还会被当成转义序列）。
 add_dependencies(op_test dx_carrier)
 
+# 素载体：只依赖 user32/gdi32，**不导入** d3d9/d3d11/dinput8/opengl32。
+# dx_carrier 静态导入这些库，"目标尚未加载它们"的前提永远不成立 → op 的按需模块加载
+# （ApiResolver on-demand）在它身上没法验证；本目标提供那条路径唯一的干净靶子。
+add_executable(plain_carrier "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/plain_carrier.cpp")
+target_compile_definitions(plain_carrier PRIVATE _UNICODE UNICODE)
+target_link_libraries(plain_carrier PRIVATE user32.lib gdi32.lib)
+add_dependencies(op_test plain_carrier)
+
 add_test(NAME op_test COMMAND op_test)
 set_tests_properties(op_test
   PROPERTIES ENVIRONMENT "PATH=$<TARGET_FILE_DIR:${op_com}>;$<TARGET_FILE_DIR:${op_c_api}>;$ENV{PATH}")
