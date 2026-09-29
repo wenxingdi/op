@@ -78,6 +78,22 @@
 | `scripts/build/` | 构建链：`_wb_build.py`（x64 日常增量）、`_wb_build_{opencv,minhook,blackbone,directxheaders,op}_x86.py`（32 位全链）、`_sync_release_b2.py` |
 | `scripts/probes/` | 探针与回归：`run_optest.py`（唯一正确跑法，cwd=仓库根）、`_t_ab_run.py`（新旧二进制 A/B）、`_t_mods.py`（跨位数模块枚举）、`_t_bind_any.py`、`_t_dx32_carrier.py`、`scan_release_copies.py`、`sync_extra_copies.py` 等 |
 
+### 历史测试记录（`docs/test-records/`）
+
+2026-09-29 起，散落在 `workbench/` 与 `build/` 的**回归/靶子/绑定/A-B 记录文本**
+（45 份，896 KB）归档进 `docs/test-records/2026-09/`，随 git 入库，可直接下载复查。
+索引见 `docs/test-records/README.md`。日志类中间产物仍留在 `workbench/`（不入库）。
+
+## scripts/backup/ —— 备份与发布工具（入库）
+
+| 脚本 | 用途 |
+|---|---|
+| `make_backup.py` | 生成一次完整备份（bundle + 运行件 + manifest + 恢复说明）；tag 由 `detect_tag()` 自动探测，不再硬编码 |
+| `release_assets.py` | 把备份目录上传为 GitHub Release 附件（幂等，已存在则跳过；中文名自动映射 ASCII） |
+| `replace_assets.py` | **替换**已发布 Release 上的指定附件（先 DELETE 再上传，用于补打 bundle 后刷新） |
+| `refresh_bundle.py` | 重打某备份目录的 `*-repo.bundle` 至最新 master，并同步 manifest / 恢复说明 |
+| `create_repos.py` | 初始创建两仓库的辅助脚本 |
+
 ## workbench/ —— 中间产物隔离区（.gitignore 不入库）
 
 | 子目录 | 内容 |

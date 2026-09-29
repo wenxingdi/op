@@ -28,6 +28,28 @@
 - **验证**：`scripts/probes/run_optest.py --filter CApiNullHandle.*` → 2/2 PASS（新位置可用）；
   归档的 48 + 12 个脚本 `compile()` 全绿。
 
+### 2026-09-29（备份链路补完：bundle 重打 + 两个新维护工具 + 线上附件对齐）
+
+- **动机**：`backup-2026-09-29` 的 `op-repo.bundle` 是**归档提交之前**打的（停在 `14c5a2a`），
+  冷备份里缺本次入库的脚本与 45 份测试记录 —— 恰好是"要能下载复查"的那部分。
+- **`scripts/backup/refresh_bundle.py`（新增）**：把某备份目录的 `*-repo.bundle` 重打至仓库
+  当前 master，并同步刷新 `manifest.json`（commit/describe/tag/文件 sha1）与恢复说明补录节。
+  只需 bundle 与元数据，**不重打运行时快照**（二进制未变时）。
+- **`scripts/backup/replace_assets.py`（新增）**：**强制替换**已发布 Release 上的指定附件
+  （DELETE → 上传 → 复核），与幂等补齐的 `release_assets.py` 分工不同。tag 由目录名日期推导。
+- **`git bundle` 字节不确定（本次实测）**：同一 refs 连续两次 `bundle create`，sha1 不同
+  （`ed41ee8f` → `02108d1c`，pack 头含时间戳）。⇒ 若每次都无条件重打，manifest 里的 sha1 会
+  与线上附件持续漂移。`refresh_bundle.py` 因此改为**先比对 bundle 内 `refs/heads/master`，
+  已是最新则跳过重打**（实测二次运行 sha1 稳定不变）。
+- **附件对齐 + 硬校验**：`op-repo.bundle` / `manifest.json` / `RESTORE.md` 重传后，以 GitHub
+  API 的 `digest`（sha256）+ `size` 逐项比对本地文件，**5/5 全等**：
+  `op-repo.bundle` 124,304,251 B、`runtime-snapshot.zip` 260,726,426 B、
+  `optool-repo.bundle` 7,154,697 B。
+- **文档索引补全**：`docs/INDEX.md` 增 `docs/test-records/`、`scripts/backup/` 两节。
+- **口径澄清**：tag `v2026.09.29-stable` = `14c5a2a`（x86 真机验证通过的二进制点）**不变**；
+  `master` 其后仅 1 个 chore 提交（`5dc431f`，脚本/记录归档，无二进制变更）。
+  恢复说明与 manifest 均显式标注该差异，不改 tag 避免破坏"锚点即验证点"的语义。
+
 ### 2026-09-29（dx 靶子体系：x86 受控载体 + DirectInput 闭环 + 屏保路线验证）
 
 - **动机**：hook 注入要求 dll 位数匹配**目标进程**；32 位 dx 通道此前只能拿真实游戏当靶子
