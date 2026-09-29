@@ -773,30 +773,35 @@ long ImageSearchService::RenameWordDict(const wstring &dict_info, const wstring 
     return static_cast<long>(entries.size());
 }
 
-long ImageSearchService::OCR(const wstring &color, double sim, std::wstring &out_str) {
+long ImageSearchService::OcrFree(double sim, std::wstring &out_str) {
     out_str.clear();
     if (sim < 0. || sim > 1.)
         sim = 0.7;  // 默认置信度阈值：免字库 onnx 输出 conf≈0.85+，1.0 会全滤掉
+    if (_src.width <= 0 || _src.height <= 0)
+        return 0; // 与 autoocr 系对齐：截屏/读图失败早退，不喂 0x0 给引擎
+    vocr_rec_t res;
+    HttpOcrService::getInstance()->ocr(_src.pdata, _src.width, _src.height, 4, res);
     long s = 0;
+    for (auto &it : res) {
+        if (it.confidence >= sim - 1e-9) {
+            out_str += it.text;
+            ++s; // 返回过滤后条数，与 OcrEx 免字库路径对齐（原恒返 0，见 OC4）
+        }
+    }
+    return s;
+}
+
+long ImageSearchService::OCR(const wstring &color, double sim, std::wstring &out_str) {
+    out_str.clear();
+    if (sim < 0. || sim > 1.)
+        sim = 0.7;
     auto dict = ActiveDict(_curr_idx);
     if (!dict) {
         // 免字库路径：直接对整幅区域原图识别，color 不参与（要按颜色过滤请用 AutoOcr 系）
-        if (_src.width <= 0 || _src.height <= 0)
-            return 0; // 与 autoocr 系对齐：截屏失败早退，不喂 0x0 给引擎
-        vocr_rec_t res;
-        HttpOcrService::getInstance()->ocr(_src.pdata, _src.width, _src.height, 4, res);
-        for (auto &it : res) {
-            if (it.confidence >= sim - 1e-9) {
-                out_str += it.text;
-                ++s; // 返回过滤后条数，与 OcrEx 免字库路径对齐（原恒返 0，见 OC4）
-            }
-        }
-    } else {
-        str2pointbinaryfbk(color, sim);
-        s = ImageSearchAlgorithms::Ocr(*dict, sim, out_str);
+        return OcrFree(sim, out_str);
     }
-
-    return s;
+    str2pointbinaryfbk(color, sim);
+    return ImageSearchAlgorithms::Ocr(*dict, sim, out_str);
 }
 
 long ImageSearchService::autoocr(const wstring &color, double sim, wstring &out_str) {
@@ -1350,7 +1355,13 @@ long ImageSearchService::FindStrEx(const wstring &str, const wstring &color, dou
 }
 
 long ImageSearchService::OcrAuto(double sim, std::wstring &retstr) {
-    return OCR(L"", sim, retstr);
+    // Auto 系（无 color 参数）语义 = **免字库**（大漠同名接口同义）。
+    // 不能复用 OCR(L"")：字库路径要用 color 做二值化，而这里拿不到 color，
+    // 空串 → str2colordfs 得 0 个颜色 → bgr2binary 产出**全背景**的 _binary
+    // ⇒ 一旦加载过字库就恒返回空串（静默失败，实测 2026-09-30：同区域
+    // ocr(color='000000')='AB12' 而 ocr_auto()=''）。
+    // 无字库时两条路径等价（都走 OcrFree），故此改动不改变既有用例行为。
+    return OcrFree(sim, retstr);
 }
 
 long ImageSearchService::OcrFromFile(const wstring &files, const wstring &color, double sim, std::wstring &retstr) {
@@ -1367,15 +1378,11 @@ long ImageSearchService::OcrFromFile(const wstring &files, const wstring &color,
 
 long ImageSearchService::OcrAutoFromFile(const wstring &files, double sim, std::wstring &retstr) {
     retstr.clear();
-    if (sim < 0. || sim > 1.)
-        sim = 0.7;
     wstring fullpath;
-
-    if (Path2GlobalPath(files, _curr_path, fullpath)) {
-        _src.read(fullpath.data());
-        return OCR(L"", sim, retstr);
-    }
-    return 0;
+    if (!Path2GlobalPath(files, _curr_path, fullpath))
+        return 0;
+    _src.read(fullpath.data());
+    return OcrFree(sim, retstr); // 同 OcrAuto：Auto 系 = 免字库，不走字库
 }
 
 long ImageSearchService::autoocrFromFile(const wstring &files, const wstring &color, double sim, std::wstring &retstr) {

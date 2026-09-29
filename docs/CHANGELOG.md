@@ -3,6 +3,40 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-30（续：字库/OCR 域修 `ocr_auto` 空串 + 内存/收尾域 C API 端到端补全）
+
+- **fix: `ocr_auto` / `ocr_auto_from_file` 加载字库后返回空串**（`libop/image/ImageSearchService.cpp/.h`）
+  现象：字库非空时 `ocr_auto()` 恒返回 `''`，而同区域 `ocr(color='000000')` 能出 `'AB12'`。
+  根因：旧实现 `OcrAuto` 复用 `OCR(L"", sim, …)`，而 `OCR()` 在有字库时走
+  `str2pointbinaryfbk(L"", …)` ⇒ 空 color → 0 个颜色 → `bgr2binary` 产出**全背景**的 `_binary`
+  ⇒ 字库识别在空图上找不到任何点 ⇒ 静默返回空串。
+  修法：抽 `OcrFree(sim)` 免字库分支（OnnxOcrEngine 直吃 `_src` 原图，不按颜色二值化），
+  供 `OCR()` 无字库兜底、`OcrAuto`/`OcrAutoFromFile` 共用。**Auto 系（无 color 参数）语义 = 免字库**
+  （与大漠同名接口同义），故直接走 `OcrFree`；`OCR()` 有字库时仍走 `ImageSearchAlgorithms::Ocr(*dict,…)`。
+  无字库时两条路径等价（都走 `OcrFree`），不改变既有用例行为。
+  **反向验证（决定性）**：有字库时 `ocr_auto` 从 `''` → `'AB12'`（`workbench/_crop2.txt` 实证）。
+- **新增探针 `scripts/probes/_t_dict_ocr.py`（字库/OCR 域，49 PASS / 0 FAIL）**：
+  自建 Tk 靶子画 `AB12` → `extract_word_rects` 取字框 → `fetch_words` 造字 → `use_dict`/`ocr`/`find_str` 回读
+  → `save_dict` 落盘 → `clear_dict` 反向。覆盖 D1 字框与造字 / D2 字库识别（含清空字库反向）/ D3 字库文件
+  （save/set/mem/add/use）/ D4 字库串工具（preview/check/normalize/rename）/ D5 免字库路径
+  （autoocr_line / ocr_from_file / autoocr_from_file）。
+  探针**自我纠错**（非插件缺陷）：① `fetch_words` 的 `words` 是**连续串**（第 i 字符对应第 i 字框，
+  非 `"A|B|1|2"`）；② `ocr` 空字库按设计走 ONNX 兜底 ⇒ "清空字库必须识别不出" 这条反向判据本身错。
+- **新增探针 `scripts/probes/_t_memory_api.py`（内存域，52 PASS / 0 FAIL）**：
+  以**探针自身进程**为安全靶子（不碰外部游戏），覆盖 `read/write_int` / `read/write_float` /
+  `read/write_double` / `read/write_string` / `read/write_data` / `find_data(_ex)` / `get_module_base_addr`。
+  写已知值→读回断言相等；`find_data` 扫描已知字节特征；反向：错误地址/类型 → 失败。
+- **新增探针 `scripts/probes/_t_misc_api.py`（收尾批，34 PASS / 0 FAIL / 1 SKIP）**：
+  覆盖普查剩下的 12 个无端到端证据的 C API（X1 窗口枚举/鼠标点窗口 `OpEnumWindowByProcess`/
+  `OpGetMousePointWindow`/`OpBindWindowEx`；X2 `OpAutoOcr`/`OpAutoOcrFromFile`；X3 `OpSendStringIme`/
+  `OpDownCpu`/`OpSetDxAttr`/`OpGetDxAttr`/`OpGetBinaryPreview`；X4 YOLO `OpSetYoloEngine`/`OpYoloDetect`）。
+  YOLO 2 条因**本机无模型文件**记 SKIP（环境前置缺失，非缺陷）。
+  **探针自我纠错**：`enum_window_by_process` 返回的是**十进制** hwnd 串（`436213918` == `0x1A00189E`），
+  按 `int(s,16)` 解析会错判，改 `int(s)` 后通过。
+- **C API 运行时覆盖缺口收敛**：117（上轮普查）→ 12（补窗口/杂项探针）→ **0**（255/255 全部有端到端调用证据）。
+- **回归**：全量 401 用例 = **398 PASS / 1 SKIP / 2 FAILED**。2 FAILED 同前轮判为已知环境项
+  （VK 0x85 幽灵键、`WgcTest` DXGI 抖动），与本轮代码零交集。
+
 ### 2026-09-30（修 `cv_edge_match_template` 伪命中 + 键鼠域/高级图色域 C API 端到端补全）
 
 - **fix: `cv_edge_match_template` 伪命中**（`libop/opencv/TemplateMatcher.cpp`）

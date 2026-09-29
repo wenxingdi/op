@@ -125,6 +125,12 @@ class ImageSearchService : public ImageSearchAlgorithms {
 
     long FindStrEx(const wstring &str, const wstring &color, double sim, std::wstring &out_str);
 
+  private:
+    // 免字库识别（OnnxOcrEngine 直吃 _src 原图，不按颜色二值化）。
+    // 供 OCR() 的无字库兜底分支、以及 OcrAuto / OcrAutoFromFile 共用。
+    long OcrFree(double sim, std::wstring &out_str);
+
+  public:
     long OcrAuto(double sim, std::wstring &retstr);
 
     long OcrFromFile(const wstring &files, const wstring &color, double sim, std::wstring &retstr);
