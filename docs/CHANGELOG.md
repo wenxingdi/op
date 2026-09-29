@@ -3,6 +3,27 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-09-29（x86 32 位双 DLL 构建链路，提交 c8e318a）
+
+- **op_x86.dll（COM，282 导出）+ op_c_api_x86.dll（268 导出）可从源码完整构建**，
+  32 位真宿主三探针（SEH / selftest / stress）全绿：LoadLibrary、Ver/Create/GetID/
+  GetPath/GetBasePath/GetScreenWidth/FindWindow/Destroy 全链 OK，静态 CRT 自包含
+  零 VC 运行时依赖。详见 `docs/2026-09/x86构建链路_20260929.md`。
+- **四件套差异**：① OpenCV x86 配置须与 x64 对齐（`WITH_ITT/WEBP/TIFF/OPENJPEG/JASPER=OFF`
+  + /MD，缺一即对应 LNK2019）；② MinHook 1.3.4 CMP0091 OLD → 直接在 FLAGS_RELEASE 写 /MT；
+  ③ x86 SEH 专属断链 `__except_handler4_common` → `/NODEFAULTLIB:MSVCRT`；
+  ④ x86 `__stdcall` 导出名带 `@N` 装饰 → CMakeLists 从 op_c_api.h 自动生成 .def（256 裸名）。
+- **ONNX 条件化**：x86 无 32 位 onnxruntime 包 → `OP_HAS_ONNX` 按位数探测置 0，
+  Onnx 源文件剔除 + 头文件整类守卫 + 调用点编译期守卫（x64 恒 1 行为不变）。
+- **OpContext 布局错位（ODR 级，x86 独发）**：个别文件单独 /std:c++20 与默认标准混编 →
+  MSVC STL 布局差异致成员偏移错位（x86 实测 curr_path 差 24 字节 → OpGetPath 必崩）→
+  libop 目标统一 `CXX_STANDARD 20`（x64 本已全局生效，无行为变化）。
+- **最深教训**：探针 cdecl 调 stdcall → 每次带参调用栈漂移 4 字节 → 垃圾返回值 +
+  延迟崩溃，症状极像 DLL bug；x86 DLL 本身自始至终没有 bug。typedef 正确形式
+  `typedef void *(__stdcall *T)(void)`（括号包住 `__stdcall *`），一处漏写即全盘崩。
+- **x64 回归**：全量 399 = 396 PASS / 2 SKIP / 1 FAIL（FAIL = 基线排除的本机幽灵按键
+  VK133 环境项）→ 对 x64 零影响。
+
 ### 2026-09-29（COM 出参挂回归网 + 真机阶段 5 + OPTool 补齐 11 个 API）
 
 - **COM late-binding 出参有了回归网**：`libop/com/ComVariant.h`（header-only，从 `OpAutomation.cpp`
