@@ -29,11 +29,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "bui
 from _root import repo_root  # noqa: E402
 
 REMOTE = "https://github.com/wenxingdi/op.git"
-GCM = (r"C:\Users\lc\.workbuddy\binaries\PortableGit\versions\1.2.0"
-       r"\mingw64\bin\git-credential-manager.exe")
+# GCM 路径随 PortableGit 版本变动（1.2.0 → 装到 WorkBuddy vendor 目录…），硬编码会失效。
+# 故按顺序探测候选；也可用环境变量 GCM_PATH 指定。
+GCM = next((p for p in filter(None, [
+    os.environ.get("GCM_PATH"),
+    r"C:\Users\lc\.workbuddy\binaries\PortableGit\versions\1.2.0\mingw64\bin\git-credential-manager.exe",
+    r"D:\Program Files\WorkBuddy\resources\vendor\PortableGit\mingw64\bin\git-credential-manager.exe",
+]) if os.path.isfile(p)), None)
 
 
 def token() -> str:
+    if not GCM:
+        sys.exit("找不到 git-credential-manager.exe（设置环境变量 GCM_PATH 指向它）")
     r = subprocess.run([GCM, "get"], input="protocol=https\nhost=github.com\n\n",
                        capture_output=True, text=True)
     kv = dict(l.split("=", 1) for l in r.stdout.strip().splitlines() if "=" in l)
@@ -83,15 +90,17 @@ def main():
     if not ok:
         sys.exit("push 失败")
 
-    # 校验用**无凭据** URL（公开仓库）+ 容忍代理下间歇 SSL 抖动
+    # 校验需用**带凭据** URL 优先：私有仓库（如 OPTool）用匿名 URL 会 fatal 128 拒访。
+    # `credential.helper=` 同样必要（避免派生 GCM 子进程崩掉 git）。
     remote = ""
     for attempt in range(1, 6):
-        r = git("ls-remote", a.remote, "refs/heads/%s" % a.branch)
+        r = git("-c", "credential.helper=", "ls-remote", auth, "refs/heads/%s" % a.branch)
         out = r.stdout.strip()
         if out:
             remote = out.split()[0]
             break
         print("[ls-remote try%d] exit=%d，重试…" % (attempt, r.returncode))
+        print(safe((r.stderr or "").strip()[:200]))
         time.sleep(3)
 
     print("remote %s = %s" % (a.branch, remote[:12] if remote else "(空)"))
