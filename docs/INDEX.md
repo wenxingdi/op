@@ -9,7 +9,7 @@
 | 文档 | 说明 |
 |---|---|
 | [CHANGELOG.md](CHANGELOG.md) | 本仓库自有迭代日志（基线：上游 0.4.8.3） |
-| [api_reference.html](api_reference.html) | **API 参考手册**：223 个接口按 10 服务组分类，含参数表/**取值语义注解**（绑定模式/flag 枚举/sim 口径等 63 项）/搜索（`scripts/gen_api_reference.py` 从 libop.h + PARAM_DOCS 注解层生成，勿手改） |
+| [api_reference.html](api_reference.html) | **API 参考手册**：253 个接口按 10 服务组分类，含参数表/**取值语义注解**（966/988 参数，97.8%）/搜索 + 六语言调用示例（`scripts/gen_api_reference.py` 从 libop.h + PARAM_DOCS 注解层生成，勿手改） |
 
 ## docs/2026-07 —— 环境搭建期
 
@@ -51,6 +51,7 @@
 | 文档 | 说明 |
 |---|---|
 | [OP_CAPABILITY_INVENTORY.md](2026-09/OP_CAPABILITY_INVENTORY.md) | 9 服务组能力清单 + 图色 6 大类详解 |
+| [暂缓功能方案存档.md](2026-09/暂缓功能方案存档.md) | 四项暂缓功能的方案留档 + **触发条件**（OcrJson / 截图后端选型 / GetCaptureInfo / GuiSmoke 扩充），满足即按文开工免重新调研 |
 | [PROJECT_REVIEW.md](2026-09/PROJECT_REVIEW.md) | L0-L3 逐提交核查 |
 | [five_layer_matrix.md](2026-09/five_layer_matrix.md) | 五层覆盖矩阵（`scripts/five_layer_matrix.py` 自动生成，勿手改） |
 
@@ -69,6 +70,13 @@
 | [真机验收_免字库OCR颜色口径与坐标语义_20260929.md](2026-09/真机验收_免字库OCR颜色口径与坐标语义_20260929.md) | 真机验收：颜色口径=**RGB**（受控目标决定性实验）/ 绑定坐标=**客户区**（平移零位移）/ 免字库 OCR 颜色语义（空串也能识别）/ 字库路径负号不可靠 |
 | [验证_OpenCV域C_API导出层_20260929.md](2026-09/验证_OpenCV域C_API导出层_20260929.md) | OpenCV 域 **C API 导出层 36/36 全覆盖**（gtest 只覆盖 3/36 且绕过导出层）；ground-truth 像素级判据；⚠ 抓到 `cv_edge_match_template` 伪命中缺陷（`TM_CCOEFF_NORMED` 平坦区退化） |
 | [真机验收_键鼠与charset白名单_20260929.md](2026-09/真机验收_键鼠与charset白名单_20260929.md) | 真机验收：**键鼠通路闭环**（原生 WndProc 直读 lParam，`WM_MOUSEMOVE` 坐标精确一致）/ **charset 白名单闭环** / 靶子方法学三次纠正 / **真机覆盖缺口普查**（272 方法未测域清单） |
+
+## docs/2026-10 —— 5.2.0 迭代期
+
+| 文档 | 说明 |
+|---|---|
+| [项目全面分析_20261014.md](2026-10/项目全面分析_20261014.md) | 四维度盘点（效率/拟人化/精简/完整性）+ 拍板清单与关闭项 |
+| [工程卫生与32位冻结约定.md](2026-10/工程卫生与32位冻结约定.md) | 32 位冻结声明 + 仓库根约定 + 工作区卫生基线 |
 
 ## scripts/build/ + scripts/probes/ —— 脚本归档（入库）
 
