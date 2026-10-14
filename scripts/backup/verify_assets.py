@@ -27,8 +27,13 @@ from pathlib import Path
 
 OWNER_REPO = "wenxingdi/op"
 LOCAL_NAME = {"RESTORE.md": "恢复说明.md"}
-GCM = (r"C:\Users\lc\.workbuddy\binaries\PortableGit\versions\1.2.0"
-       r"\mingw64\bin\git-credential-manager.exe")
+# GCM 路径随 PortableGit 版本变动（1.2.0 → 装到 WorkBuddy vendor 目录…），硬编码会失效。
+# 故按顺序探测候选；也可设环境变量 GCM_PATH 指定。
+GCM = next((p for p in filter(None, [
+    os.environ.get("GCM_PATH"),
+    r"C:\Users\lc\.workbuddy\binaries\PortableGit\versions\1.2.0\mingw64\bin\git-credential-manager.exe",
+    r"D:\Program Files\WorkBuddy\resources\vendor\PortableGit\mingw64\bin\git-credential-manager.exe",
+]) if os.path.isfile(p)), None)
 ROUNDS, GAP = 3, 8
 
 

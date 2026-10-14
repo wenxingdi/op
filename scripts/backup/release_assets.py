@@ -29,13 +29,21 @@ RELEASE_TAG = f"backup-{BACKUP_DATE}"
 
 def token():
     """优先直调 GCM（本机实证稳定）；git credential fill 在沙箱 shell 会 segfault(139) 故不作主路径。"""
-    gcm = r"C:\Users\lc\.workbuddy\binaries\PortableGit\versions\1.2.0\mingw64\bin\git-credential-manager.exe"
-    if os.path.isfile(gcm):
+    # GCM 路径随 PortableGit 版本变动（1.2.0 → 装到 WorkBuddy vendor 目录…），硬编码会失效。
+    # 故按顺序探测候选；也可设环境变量 GCM_PATH 指定。
+    for gcm in filter(None, [
+        os.environ.get("GCM_PATH"),
+        r"C:\Users\lc\.workbuddy\binaries\PortableGit\versions\1.2.0\mingw64\bin\git-credential-manager.exe",
+        r"D:\Program Files\WorkBuddy\resources\vendor\PortableGit\mingw64\bin\git-credential-manager.exe",
+    ]):
+        if not os.path.isfile(gcm):
+            continue
         r = subprocess.run([gcm, "get"], input="protocol=https\nhost=github.com\n\n",
                            capture_output=True, text=True)
         kv = dict(l.split("=", 1) for l in r.stdout.strip().splitlines() if "=" in l)
         if "password" in kv:
             return kv["password"]
+    # 兜底：git credential fill（沙箱 shell 下曾 segfault，故只作最后手段）
     r = subprocess.run(["git", "credential", "fill"], input="protocol=https\nhost=github.com\n\n",
                        capture_output=True, text=True)
     kv = dict(l.split("=", 1) for l in r.stdout.strip().splitlines() if "=" in l)

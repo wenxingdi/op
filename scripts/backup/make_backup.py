@@ -29,6 +29,9 @@ WORDDICTTOOL_REL = OPTOOL_REPO / "WordDictTool" / "bin" / "Release" / "net10.0-w
 # 运行目录快照：顶层白名单后缀 + 必带子目录；其余（captures/logs/临时产物）排除
 RUN_KEEP_SUFFIX = {".exe", ".dll", ".json", ".config", ".pdb"}
 RUN_KEEP_DIRS = {"Dll"}
+# 排除同步脚本留下的旧件副本（*.orig）：不是运行件，混进快照只会白白撑大 Release 附件
+# （10-14 实测三份 op_c_api_x64.dll.orig 合计约 27MB，纯冗余）。
+RUN_EXCLUDE_SUFFIX = {".orig"}
 
 
 def sha1(p: Path) -> str:
@@ -86,7 +89,7 @@ def copy_snapshot(src: Path, dst: Path, keep_dirs=None) -> list:
             entries.append(target)
         elif item.is_dir() and item.name in keep_dirs:
             for f in sorted(item.rglob("*")):
-                if f.is_file():
+                if f.is_file() and f.suffix.lower() not in RUN_EXCLUDE_SUFFIX:
                     target = dst / item.name / f.relative_to(item)
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(f, target)
@@ -149,6 +152,26 @@ def make_backup(root: Path) -> Path:
 
     (dst / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     write_readme(dst, manifest)
+
+    # runtime-snapshot.zip：Release 上传要用的单一运行件附件。
+    # 此前没有脚本负责生成（09-28 那份是手工打的），导致 release_assets.py 缺附件。
+    zip_path = dst / "runtime-snapshot.zip"
+    import zipfile
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+        for e in manifest["files"]:
+            rel = e["path"]
+            # bundle 已是独立附件（且一个就 124MB），不打进运行件快照里重复翻倍
+            if rel.endswith("-repo.bundle"):
+                continue
+            p = dst / rel
+            if p.is_file():
+                z.write(p, rel)
+        z.write(dst / "manifest.json", "manifest.json")
+        z.write(dst / "恢复说明.md", "恢复说明.md")
+    manifest["files"].append({"path": zip_path.name, "size": zip_path.stat().st_size, "sha1": sha1(zip_path)})
+    (dst / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"  {zip_path.name}: {zip_path.stat().st_size:,} bytes")
+
     print(f"== 完成，共 {len(manifest['files'])} 项，manifest.json 已生成")
     return dst
 
