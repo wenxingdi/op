@@ -541,6 +541,14 @@ class Op:
     def is_bind(self) -> bool:
         return bool(self._call_int("OpIsBind"))
 
+    def get_display_method(self) -> str:
+        """当前实际生效的图色模式名（"normal"/"gdi2"/"dx.d3d11"/"normal.wgc"…）。
+
+        未绑定返回空串；normal.auto 绑定成功后返回自动选中并成功的那一个。
+        截图黑屏/找图错位时先用它确认走的是哪条链路。
+        """
+        return self._call_string("OpGetDisplayMethod")
+
     # Mouse
     def get_cursor_pos(self) -> tuple[int, int]:
         return self._call_checked_point("OpGetCursorPos")

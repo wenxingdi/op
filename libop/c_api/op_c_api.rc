@@ -6,8 +6,8 @@
 LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,4,8,3
- PRODUCTVERSION 0,4,8,3
+ FILEVERSION 5,2,0,0
+ PRODUCTVERSION 5,2,0,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -24,11 +24,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "op"
             VALUE "FileDescription", "op C API DLL"
-            VALUE "FileVersion", "0.4.8.3"
+            VALUE "FileVersion", "5.2.0.0"
             VALUE "InternalName", "op_c_api.dll"
             VALUE "OriginalFilename", "op_c_api.dll"
             VALUE "ProductName", "op"
-            VALUE "ProductVersion", "0.4.8.3"
+            VALUE "ProductVersion", "5.2.0.0"
         END
     END
     BLOCK "VarFileInfo"

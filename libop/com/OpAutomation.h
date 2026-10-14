@@ -240,6 +240,7 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(GetBindWindow)(LONGLONG *ret);
     // 判定当前对象是否已绑定窗口.
     STDMETHOD(IsBind)(LONG *ret);
+    STDMETHOD(GetDisplayMethod)(BSTR *retstr);
     //--------------------mouse & keyboard------------------
     // 获取鼠标位置.
     STDMETHOD(GetCursorPos)(VARIANT *x, VARIANT *y, LONG *ret);

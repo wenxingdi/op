@@ -639,6 +639,12 @@ STDMETHODIMP OpAutomation::IsBind(LONG *ret) {
     return S_OK;
 }
 
+STDMETHODIMP OpAutomation::GetDisplayMethod(BSTR *retstr) {
+    std::wstring s;
+    obj.GetDisplayMethod(s);
+    return CopyOutBstr(retstr, s);
+}
+
 STDMETHODIMP OpAutomation::GetCursorPos(VARIANT *x, VARIANT *y, LONG *ret) {
     if (!x || !y || !ret)
         return E_POINTER;

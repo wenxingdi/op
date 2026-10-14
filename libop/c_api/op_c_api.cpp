@@ -694,6 +694,10 @@ int OP_CALL OpIsBind(op_handle handle) {
     return call_ret(handle, [](op::Op &op, long *ret) { op.IsBind(ret); });
 }
 
+const wchar_t *OP_CALL OpGetDisplayMethod(op_handle handle) {
+    return call_string(handle, [](op::Op &op, std::wstring &ret) { op.GetDisplayMethod(ret); });
+}
+
 // Mouse
 
 int OP_CALL OpGetCursorPos(op_handle handle, int *x, int *y) {

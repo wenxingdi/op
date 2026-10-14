@@ -350,11 +350,11 @@ table.params th{background:var(--chip);font-weight:600}
 </div></div>
 </nav>
 <main>
-<p class="gen">源：include\libop.h · 252 个接口 · 生成于 2026-09-30 07:28 · 由 scripts/gen_api_reference.py 生成</p>
+<p class="gen">源：include\libop.h · 252 个接口 · 生成于 2026-10-14 15:31 · 由 scripts/gen_api_reference.py 生成</p>
 
 <section class="usage">
 <h2>调用方式速览</h2>
-<p class="g-desc">两条接入路径，按语言任选其一。示例均已在本仓库当前版本实测通过（2026-09-23，Ver=0.4.8.3）。</p>
+<p class="g-desc">两条接入路径，按语言任选其一。示例均已在本仓库当前版本实测通过（2026-10-14，Ver=5.2.0）。</p>
 <div class="path-cards">
 <div class="path-card"><b>① C-API（推荐，免注册）</b><br>
 <code>op_c_api_x64.dll</code> + <code>include/op_c_api.h</code>，函数式接口 <code>OpCreate / OpVer / OpBindWindow / …</code>。
@@ -369,7 +369,7 @@ ProgID <code>op.opsoft</code>，dual 接口支持 IDispatch 晚绑定，供易�
 
 # dll_path / dll_dir 不传时，按「当前工作目录 → op_c_api_x64.dll」查找
 with Op(dll_path=r"D:\op\bin\x64\op_c_api_x64.dll") as op:
-    print(op.version)                               # -&gt; 0.4.8.3
+    print(op.version)                               # -&gt; 5.2.0
     op.bind_window(hwnd, "gdi", "normal", "normal", 0)
     op.capture(0, 0, 800, 600, "shot.bmp")          # 相对路径基于 SetPath 设定的目录</code></pre>
 
@@ -387,7 +387,7 @@ class Demo {
 
     static void Main() {
         IntPtr h = OpCreate();
-        Console.WriteLine(Marshal.PtrToStringUni(OpVer()));   // -&gt; 0.4.8.3
+        Console.WriteLine(Marshal.PtrToStringUni(OpVer()));   // -&gt; 5.2.0
         OpDestroy(h);
     }
 }
@@ -398,7 +398,7 @@ class Demo {
 #pragma comment(lib, "op_c_api_x64.lib")            // 构建产物 build/.../libop/ 下
 
 op_handle h = OpCreate();
-wprintf(L"%s\n", OpVer());                          // -&gt; 0.4.8.3
+wprintf(L"%s\n", OpVer());                          // -&gt; 5.2.0
 OpBindWindow(h, (intptr_t)hwnd, L"gdi", L"normal", L"normal", 0);
 OpCapture(h, 0, 0, 800, 600, L"shot.bmp");
 OpDestroy(h);</code></pre>
@@ -408,7 +408,7 @@ OpDestroy(h);</code></pre>
 if err != nil { panic(err) }
 defer op.Destroy()
 
-println(op.Ver())      // -&gt; 0.4.8.3
+println(op.Ver())      // -&gt; 5.2.0
 op.BindWindow(hwnd, opcapi.DisplayNormalAuto, opcapi.MouseNormal, opcapi.KeypadNormal, opcapi.BindModeNormal)
 op.Capture(0, 0, 800, 600, "shot.bmp")</code></pre>
 
@@ -417,7 +417,7 @@ op.Capture(0, 0, 800, 600, "shot.bmp")</code></pre>
 
 .局部变量 op, 对象
 op = 创建COM对象 (“op.opsoft”)        ' 未注册会创建失败：管理员 regsvr32 op_x64.dll
-调试输出 (op.Ver ())                  ' -&gt; 0.4.8.3
+调试输出 (op.Ver ())                  ' -&gt; 5.2.0
 op.BindWindow (hwnd, “gdi”, “normal”, “normal”, 0)
 op.Capture (0, 0, 800, 600, “shot.bmp”)</code></pre>
 <p class="u-note">方法名用接口英文名（Ver / BindWindow / Capture…，与左侧导航一致），字符串参数原样传；
@@ -426,7 +426,7 @@ COM 通道（ProgID + IDispatch 晚绑定）已在本机用 PowerShell 实测通
 <h3>火山 <span class="u-tag">COM 晚绑定，与易语言同一机制</span></h3>
 <pre><code>变量 op 为 对象
 op = 创建COM对象 (“op.opsoft”)
-调试输出 (op.Ver ())        ' -&gt; 0.4.8.3</code></pre>
+调试输出 (op.Ver ())        ' -&gt; 5.2.0</code></pre>
 <p class="u-note">与易语言同一 COM 机制（ProgID + 晚绑定），接口方法名/参数与本文档一致；
 声明语法细节以火山 IDE 的 COM 支持为准。</p>
 
@@ -434,7 +434,7 @@ op = 创建COM对象 (“op.opsoft”)
 <ul class="u-tips">
 <li>调用返回 0 / 空串不代表崩溃：先 <code>set_show_error_msg(2)</code>，失败原因写入运行目录 <code>__op.log</code></li>
 <li>COM 创建失败（空对象）：检查注册表是否有 <code>op.opsoft</code>，没有则管理员 <code>regsvr32 op_x64.dll</code></li>
-<li>版本号只有 <code>Ver()</code> 一个来源（返回 <code>0.4.8.3</code>）；构建信息见 DLL 属性页「文件版本 0.4.8.3」</li>
+<li>版本号只有 <code>Ver()</code> 一个来源（返回 <code>5.2.0</code>）；构建信息见 DLL 属性页「文件版本 5.2.0」</li>
 </ul>
 </section>
 

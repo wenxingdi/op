@@ -3,6 +3,33 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-14（版本号 5.2.0 + 绑定诊断闭环 + 轨迹参数族验证，feat）
+
+- **版本号升到 5.2.0**（`Ver()` 返回 `5.2.0`）：`libop/CMakeLists.txt` 的 `OP_VERSION` 定义（构建生效值）、
+  `base/AutomationModes.h` 兜底宏（5,2,0,0）、`c_api/op_c_api.rc` 文件/产品版本（5.2.0.0）、
+  `pyproject.toml` 与 `bindings/python/pyproject.toml`、`scripts/gen_api_reference.py` 示例输出。
+  README/CHANGELOG 中的「上游基线 0.4.8.3」是历史事实，保持不变。
+- **绑定失败可诊断（新增）**：
+  - **失败原因码**：`BindWindowEx` 的 6 类失败（无效句柄 / display 模式非法 / mouse / keypad / UIPI 完整性 /
+    DXGI 或 WGC 的 OS 版本不足 / 后端创建或 Bind 失败）此前**只进 setlog**，调用者拿不到，查 `GetLastError`
+    得到的是无关 Win32 噪声。现在每个失败点同步 `::SetLastError(BindFailReason)`（0x2001 起，避开系统错误码段），
+    成功路径清零避免残留。解绑后写入（UnBindWindow 内部会调 Win32 API 覆盖 last-error）。
+  - **新增接口 `GetDisplayMethod(retstr)`**：返回当前**实际生效**的图色模式名（`normal`/`gdi2`/`dx2`/
+    `dx.d3d11`/`normal.wgc`/`opengl.nox`…），未绑定返回空串，`normal.auto` 返回自动选中并成功的那一个。
+    截图黑屏 / 找图错位时先查它确认走的哪条链路。走核心→C API→COM(idl 108)→Python ctypes 全链路；
+    `BindingSession::GetDisplay()` 此前零调用者，本次改为对外透出（配套 `display_mode_name_full` 完整映射，
+    原匿名 namespace 里的 `display_mode_name` 只覆盖 normal.auto 回退涉及的三种）。
+- **键鼠拟人化补验证（H1）**：`SetMouseTrajectory` 参数族此前零验证。新增 3 条判别力用例——
+  `max_duration` 封顶（请求 1000ms / max=100，未封顶的错误实现必然跑满 → FAIL）、
+  `start_delay` 前置延时、`jitter` 弯曲（jitter=0 应笔直 / jitter=60 应偏离，参数未接线时恒弯 → FAIL）。
+- **构建修复（F2）**：`CMakeLists.txt:50-55` 的 64 位判定在 NMake Makefiles 下失效
+  （`CMAKE_GENERATOR_PLATFORM` 为空 + `CMAKE_SIZEOF_VOID_P` 未入缓存）→ 误判 x86 → `build_swig_py` 被关，
+  本地 nmake 构建永远编不出 pyop。新增 `CMAKE_CL_64` 与 `CMAKE_CXX_COMPILER_ARCHITECTURE_ID` 两级兜底并打日志。
+- **顺手项**：`libop.h` 类注释补并发约定（单 Op 实例非线程安全，多线程请每线程一个实例；与大漠单线程语义一致）。
+  `FindColorEx`/`FindMultiColorEx` 的 `_max_return_obj_ct` off-by-one 复查确认**已修**（先判上限再拼串）。
+- **文档**：新增 `docs/2026-10/项目全面分析_20261014.md`（四维度盘点 + 拍板清单）、
+  `docs/2026-10/工程卫生与32位冻结约定.md`（x86 链路冻结边界、仓库根脚本说明、WindowState.cpp 非死代码复查）。
+
 ### 2026-09-30（收口复核：部署副本陈旧导致早期验证不可信 —— 已重编双架构 + 重部署 + 重新运行时验证）
 
 - **复核发现的真问题（比 bug 更隐蔽）**：本轮收口时 `bin/x64/*.dll`、`bindings/python/op/bin/x64/*.dll`、发布镜像 `op-bin-x64/*.dll` 仍停留在 **09-29** 人工拷贝的旧件；而 `_wb_build.py` **没有部署步骤**（产物只留在 `build/`），导致 python 包 `_ffi.load_dll` 的候选路径第 1 顺位就命中旧 `bin/x64` 副本。

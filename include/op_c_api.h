@@ -154,6 +154,9 @@ OP_C_API int OP_CALL OpSetDxAttr(op_handle handle, int attr, int value);
 OP_C_API int OP_CALL OpGetDxAttr(op_handle handle);
 OP_C_API intptr_t OP_CALL OpGetBindWindow(op_handle handle);
 OP_C_API int OP_CALL OpIsBind(op_handle handle);
+// 当前实际生效的图色模式名（"normal"/"gdi2"/"dx.d3d11"/"normal.wgc"…），未绑定返回空串。
+// 返回值为共享缓冲，跨调用请先拷贝。
+OP_C_API const wchar_t *OP_CALL OpGetDisplayMethod(op_handle handle);
 
 // Mouse
 OP_C_API int OP_CALL OpGetCursorPos(op_handle handle, int *x, int *y);

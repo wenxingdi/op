@@ -170,6 +170,47 @@ const wchar_t *display_mode_name(int display) {
     }
 }
 
+// 完整模式名映射（供对外 GetDisplayMethod 使用）：上面的 display_mode_name 只覆盖
+// normal.auto 回退日志涉及的三种，对外查询需要全部 15 种模式名。
+const wchar_t *display_mode_name_full(int display) {
+    switch (display) {
+    case RDT_NORMAL:
+        return L"normal";
+    case RDT_NORMAL_DXGI:
+        return L"normal.dxgi";
+    case RDT_NORMAL_WGC:
+        return L"normal.wgc";
+    case RDT_GDI:
+        return L"gdi";
+    case RDT_GDI2:
+        return L"gdi2";
+    case RDT_GDI_DX2:
+        return L"dx2";
+    case RDT_DX_DEFAULT:
+        return L"dx";
+    case RDT_DX_D3D9:
+        return L"dx.d3d9";
+    case RDT_DX_D3D10:
+        return L"dx.d3d10";
+    case RDT_DX_D3D11:
+        return L"dx.d3d11";
+    case RDT_DX_D3D12:
+        return L"dx.d3d12";
+    case RDT_GL_DEFAULT:
+        return L"opengl";
+    case RDT_GL_STD:
+        return L"opengl.std";
+    case RDT_GL_NOX:
+        return L"opengl.nox";
+    case RDT_GL_ES:
+        return L"opengl.es";
+    case RDT_GL_FI:
+        return L"opengl.fi";
+    default:
+        return L"";
+    }
+}
+
 } // namespace
 
 BindingSession::BindingSession()
@@ -198,6 +239,7 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
     // step 2.check hwnd
     if (!::IsWindow(displayWnd) || !::IsWindow(inputWnd)) {
         setlog("Invalid window handles display=%p input=%p", displayWnd, inputWnd);
+        ::SetLastError(BIND_FAIL_INVALID_HWND);
         return 0;
     }
 
@@ -242,6 +284,7 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
         display = RDT_GL_FI;
     else {
         setlog(L"error display mode: %s", sdisplay.c_str());
+        ::SetLastError(BIND_FAIL_DISPLAY_MODE);
         return 0;
     }
     if (!auto_display)
@@ -256,10 +299,12 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
         mouse = INPUT_TYPE::IN_DX;
         if (!parse_dx_channel_suffix(smouse, mouse_dx_mask)) {
             setlog(L"error mouse mode: %s", smouse.c_str());
+            ::SetLastError(BIND_FAIL_MOUSE_MODE);
             return 0;
         }
     } else {
         setlog(L"error mouse mode: %s", smouse.c_str());
+        ::SetLastError(BIND_FAIL_MOUSE_MODE);
         return 0;
     }
     // check keypad
@@ -274,10 +319,12 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
         keypad = INPUT_TYPE::IN_DX;
         if (!parse_dx_channel_suffix(skeypad, keypad_dx_mask)) {
             setlog(L"error keypad mode: %s", skeypad.c_str());
+            ::SetLastError(BIND_FAIL_KEYPAD_MODE);
             return 0;
         }
     } else {
         setlog(L"error keypad mode: %s", skeypad.c_str());
+        ::SetLastError(BIND_FAIL_KEYPAD_MODE);
         return 0;
     }
 
@@ -295,18 +342,21 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
             setlog(L"BindWindow rejected: target process(pid=%d) integrity is higher than ours, "
                    L"UIPI would silently drop all cross-process input. Run the host as administrator.",
                    input_pid);
+            ::SetLastError(BIND_FAIL_UIPI_INTEGRITY);
             return 0;
         }
     }
     // DXGI 只在 Windows 8 及以上开放。
     if (display == RDT_NORMAL_DXGI && !IsWindowsVersionAtLeast(6, 2, 0)) {
         setlog(L"normal.dxgi requires Windows 8 or later");
+        ::SetLastError(BIND_FAIL_DXGI_OS);
         return 0;
     }
 
     // WGC 窗口捕获从 Windows 10 1903 开始可用。
     if (display == RDT_NORMAL_WGC && !IsWindows10BuildOrGreater(kWindows10Build1903)) {
         setlog(L"normal.wgc requires Windows 10 build 18362 or later");
+        ::SetLastError(BIND_FAIL_WGC_OS);
         return 0;
     }
 
@@ -362,6 +412,7 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
     long mouse_ret = 0;
     long keypad_ret = 0;
     bool bind_ok = false;
+    bool backend_create_failed = false;
     for (size_t i = 0; i < display_candidates.size(); ++i) {
         if (i > 0)
             reset_bind_state(false);
@@ -369,6 +420,7 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
         display = display_candidates[i];
         if (!prepare_backends()) {
             setlog("create instance error!");
+            backend_create_failed = true;
             continue;
         }
 
@@ -388,13 +440,16 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
                L"keypad=%s(%d) ret=%d",
                displayWnd, inputWnd, sdisplay.c_str(), display, display_ret, smouse.c_str(), mouse, mouse_ret,
                skeypad.c_str(), keypad, keypad_ret);
+        // 先解绑再写原因码：UnBindWindow 内部会调 Win32 API，可能覆盖 last-error。
         UnBindWindow();
+        ::SetLastError(backend_create_failed ? BIND_FAIL_CREATE_BACKEND : BIND_FAIL_BACKEND_BIND);
         return 0;
     }
 
     _capture->waitForBindReady();
 
     _is_bind = 1;
+    ::SetLastError(BIND_FAIL_NONE); // 成功路径清零，避免上一次失败的原因码残留
     return 1;
 }
 
@@ -513,6 +568,13 @@ long BindingSession::IsBind() {
 
 long BindingSession::GetDisplay() {
     return _display;
+}
+
+const wchar_t *BindingSession::GetDisplayMethodName() const {
+    // _display 为 0 既是"未绑定"也是 RDT_NORMAL，靠 _is_bind 区分。
+    if (!_is_bind)
+        return L"";
+    return display_mode_name_full(_display);
 }
 
 // byte* bkbase::GetScreenData() {

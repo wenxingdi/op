@@ -139,6 +139,11 @@ void op::Op::IsBind(long *ret) {
     internal::set_result(ret, m_context->bkproc.IsBind());
 }
 
+void op::Op::GetDisplayMethod(std::wstring &ret) {
+    const wchar_t *name = m_context->bkproc.GetDisplayMethodName();
+    ret = name ? name : L"";
+}
+
 void op::Op::GetCursorPos(long *x, long *y, long *ret) {
     long cursor_x = 0;
     long cursor_y = 0;

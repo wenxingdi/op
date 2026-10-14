@@ -1,6 +1,10 @@
 // op::Op的声明
 /*
 所有op的开放接口都从此cpp类衍生而出
+
+并发约定：单个 Op 实例不是线程安全的（图色/OCR 复用实例内二值图与源图缓冲，
+多线程同时调用同一实例会互相污染结果）。多线程场景请每线程一个实例；
+不同实例之间互不影响（引擎级单例内部有锁）。与大漠插件的单线程语义一致。
 */
 #pragma once
 #include <atomic>
@@ -304,6 +308,11 @@ class OP_API Op {
     void GetBindWindow(_Out_ LONG_PTR *ret);
     // 判定当前对象是否已绑定窗口.
     void IsBind(_Out_ long *ret);
+    // 获取当前实际生效的图色模式名（"normal"/"gdi2"/"dx2"/"dx.d3d11"/"normal.wgc"/"opengl.nox" …）。
+    // 未绑定返回空串。normal.auto 绑定成功后返回自动选中并成功的那一个。
+    // 用途：截图黑屏/找图错位时先确认走的是哪条链路；配合 BindWindowEx 失败后的 GetLastError()
+    // 原因码（0x2001+，见 BindFailReason）定位绑定问题。
+    void GetDisplayMethod(_Out_ std::wstring &ret);
     //--------------------mouse & keyboard------------------
     // 获取鼠标位置.
     void GetCursorPos(_Out_ long *x, _Out_ long *y, _Out_ long *ret);

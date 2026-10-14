@@ -631,6 +631,116 @@ TEST(MouseKeyTest, WindowsModeMouseTrajectoryConfig) {
     EXPECT_EQ(unbind_ret, 1);
 }
 
+// 参数族「是否真的生效」验证：max_duration 封顶
+// 判别力：若 max_duration 未接线（错误实现按请求的 duration 跑满），耗时≈1000ms，EXPECT_LE 必然 FAIL。
+TEST(MouseKeyTest, MouseTrajectoryMaxDurationClamps) {
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"windows", L"windows", 0, &ret);
+    ASSERT_EQ(ret, 1);
+
+    op.SetMouseTrajectory(1, 40, 100, 0, 0, 0, &ret); // min=40 / max=100，无前后置延时
+    ASSERT_EQ(ret, 1);
+
+    op.MoveTo(10, 12, &ret);
+    ASSERT_EQ(ret, 1);
+    window.ResetCounts();
+
+    const auto start = std::chrono::steady_clock::now();
+    op.MoveToSmooth(200, 12, 1000, &ret); // 请求 1000ms，应被 max=100 封顶
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::steady_clock::now() - start)
+                             .count();
+    EXPECT_EQ(ret, 1);
+    EXPECT_LE(elapsed, 500) << "max_duration 未生效：耗时接近请求的 1000ms";
+    EXPECT_GE(elapsed, 40) << "min_duration 下限不应被丢弃";
+
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
+}
+
+// 参数族「是否真的生效」验证：start_delay 前置延时
+TEST(MouseKeyTest, MouseTrajectoryStartDelayApplies) {
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"windows", L"windows", 0, &ret);
+    ASSERT_EQ(ret, 1);
+
+    op.SetMouseTrajectory(1, 0, 0, 0, 200, 0, &ret); // start_delay=200，duration 全 0
+    ASSERT_EQ(ret, 1);
+
+    op.MoveTo(10, 12, &ret);
+    ASSERT_EQ(ret, 1);
+    window.ResetCounts();
+
+    const auto start = std::chrono::steady_clock::now();
+    op.MoveToSmooth(120, 12, 0, &ret);
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                             std::chrono::steady_clock::now() - start)
+                             .count();
+    EXPECT_EQ(ret, 1);
+    EXPECT_GE(elapsed, 150) << "start_delay 未生效：轨迹立即开始";
+
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
+}
+
+// 参数族「是否真的生效」验证：jitter 控制贝塞尔弯曲（mode=2 走平滑分支）
+// 判别力：jitter 恒取默认值（未接线）时，jitter=0 组也会弯曲 → EXPECT_EQ(0) 必然 FAIL。
+TEST(MouseKeyTest, MouseTrajectoryJitterBendsPath) {
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"windows", L"windows", 0, &ret);
+    ASSERT_EQ(ret, 1);
+
+    auto max_deviation_from_line = [&window](long y_base) {
+        long max_dev = 0;
+        for (const auto &ev : window.move_events) {
+            const long dev = ev.y > y_base ? ev.y - y_base : y_base - ev.y;
+            if (dev > max_dev)
+                max_dev = dev;
+        }
+        return max_dev;
+    };
+
+    // jitter=0 → 控制点零偏移 → 水平直线（y 恒为 12）
+    op.SetMouseTrajectory(2, 40, 100, 0, 0, 0, &ret);
+    ASSERT_EQ(ret, 1);
+    op.MoveTo(10, 12, &ret);
+    ASSERT_EQ(ret, 1);
+    window.ResetCounts();
+    op.MoveToSmooth(200, 12, 200, &ret);
+    EXPECT_EQ(ret, 1);
+    EXPECT_GT(window.move_count, 2) << "轨迹步数过少，弯曲无从体现";
+    EXPECT_EQ(max_deviation_from_line(12), 0) << "jitter=0 应为笔直轨迹";
+
+    // jitter=60 → 控制点沿法线偏移 → 中间点偏离直线
+    op.SetMouseTrajectory(2, 40, 100, 60, 0, 0, &ret);
+    ASSERT_EQ(ret, 1);
+    op.MoveTo(10, 12, &ret);
+    ASSERT_EQ(ret, 1);
+    window.ResetCounts();
+    op.MoveToSmooth(200, 12, 200, &ret);
+    EXPECT_EQ(ret, 1);
+    EXPECT_GT(window.move_count, 2);
+    EXPECT_GT(max_deviation_from_line(12), 0) << "jitter=60 应产生弯曲";
+
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
+}
+
 TEST(MouseKeyTest, WindowsModeMovePathAndDragPath) {
     op::Op op;
     MouseEventWindow window;
@@ -977,6 +1087,62 @@ TEST(MouseKeyTest, BindWindowDxSuffixInvalidReturnsZero) {
     // 非法 dx 通道后缀：解析阶段直接失败，不进入注入，返回 0。
     op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"dx.foo", L"windows", 0, &ret);
     EXPECT_EQ(ret, 0);
+}
+
+// 绑定失败可诊断：失败原因码同步写入 last-error（此前只进 setlog，调用者无法区分六类失败）。
+// 判别力：原因码未接线时 GetLastError 拿到的是无关的 Win32 噪声，EXPECT_EQ 必然 FAIL。
+TEST(MouseKeyTest, BindFailureWritesReasonCodeToLastError) {
+    op::Op op;
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+
+    long ret = 0;
+    long err = 0;
+
+    // 无效句柄 → BIND_FAIL_INVALID_HWND(0x2001)
+    op.BindWindowEx((long)(intptr_t)1, (long)(intptr_t)1, L"normal", L"windows", L"windows", 0, &ret);
+    EXPECT_EQ(ret, 0);
+    op.GetLastError(&err);
+    EXPECT_EQ(err, 0x2001) << "无效句柄应写入 BIND_FAIL_INVALID_HWND";
+
+    // 非法 display 模式串 → BIND_FAIL_DISPLAY_MODE(0x2002)
+    op.BindWindow((long)(intptr_t)window.hwnd, L"no.such.mode", L"windows", L"windows", 0, &ret);
+    EXPECT_EQ(ret, 0);
+    op.GetLastError(&err);
+    EXPECT_EQ(err, 0x2002) << "非法 display 模式应写入 BIND_FAIL_DISPLAY_MODE";
+
+    // 绑定成功 → 原因码清零，避免上一次失败的原因码被后续代码误读
+    op.BindWindow((long)(intptr_t)window.hwnd, L"normal", L"windows", L"windows", 0, &ret);
+    ASSERT_EQ(ret, 1);
+    op.GetLastError(&err);
+    EXPECT_EQ(err, 0) << "绑定成功应清除原因码";
+
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
+}
+
+// GetDisplayMethod：查询当前实际生效的图色模式名（截图黑屏/找图错位的首要排查项）
+TEST(MouseKeyTest, GetDisplayMethodReportsActiveBackend) {
+    op::Op op;
+    std::wstring method = L"sentinel";
+
+    op.GetDisplayMethod(method);
+    EXPECT_TRUE(method.empty()) << "未绑定应返回空串";
+
+    MouseEventWindow window;
+    ASSERT_TRUE(window.Create());
+    long ret = 0;
+    op.BindWindow((long)(intptr_t)window.hwnd, L"gdi2", L"windows", L"windows", 0, &ret);
+    ASSERT_EQ(ret, 1);
+    op.GetDisplayMethod(method);
+    EXPECT_EQ(method, L"gdi2") << "应回报实际生效的图色模式名";
+
+    long unbind_ret = 0;
+    op.UnBindWindow(&unbind_ret);
+    EXPECT_EQ(unbind_ret, 1);
+    op.GetDisplayMethod(method);
+    EXPECT_TRUE(method.empty()) << "解绑后应回到空串";
 }
 
 TEST(MouseKeyTest, BindWindowDxSuffixDefaultsToAllWhenNoSuffix) {

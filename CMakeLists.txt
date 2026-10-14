@@ -50,9 +50,17 @@ endif()
 set(_op_target_is_64bit FALSE)
 if(CMAKE_GENERATOR_PLATFORM STREQUAL "x64" OR CMAKE_VS_PLATFORM_NAME STREQUAL "x64")
     set(_op_target_is_64bit TRUE)
+elseif(CMAKE_CL_64)
+    # MSVC 工具链（含 NMake Makefiles）下可靠：cl.exe 以 64 位为目标时为 TRUE。
+    # NMake 生成器没有 CMAKE_GENERATOR_PLATFORM，且部分配置下
+    # CMAKE_SIZEOF_VOID_P 在 project() 前为空，原判定会误判 x86 → pyop 永不编。
+    set(_op_target_is_64bit TRUE)
 elseif(DEFINED CMAKE_SIZEOF_VOID_P AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(_op_target_is_64bit TRUE)
+elseif(CMAKE_CXX_COMPILER_ARCHITECTURE_ID MATCHES "x64")
+    set(_op_target_is_64bit TRUE)
 endif()
+message(STATUS "op: target 64-bit = ${_op_target_is_64bit}")
 
 if(build_swig_py AND NOT OP_PYTHON_WHEEL)
     if(_op_target_is_64bit)

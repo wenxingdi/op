@@ -209,6 +209,7 @@ def _bind(dll: ctypes.WinDLL) -> ctypes.WinDLL:
         ("OpGetDxAttr", c_int, [op_handle]),
         ("OpGetBindWindow", intptr_t, [op_handle]),
         ("OpIsBind", c_int, [op_handle]),
+        ("OpGetDisplayMethod", c_wchar_p, [op_handle]),
         ("OpGetCursorPos", c_int, [op_handle, c_int_p, c_int_p]),
         ("OpGetCursorShape", c_wchar_p, [op_handle]),
         ("OpMoveR", c_int, [op_handle, c_int, c_int]),

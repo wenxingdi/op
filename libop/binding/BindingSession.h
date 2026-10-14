@@ -13,6 +13,22 @@
 
 namespace op::binding {
 
+// 绑定失败原因码：BindWindowEx 返回 0 时同步写入 Win32 last-error，脚本可直接用
+// GetLastError() 读出（此前只进 setlog，调用者无法区分六类失败）。
+// 取值放 0x2000+ 区间，避开 Win32 系统错误码段，避免与无关的 last-error 噪声混淆。
+enum BindFailReason : unsigned long {
+    BIND_FAIL_NONE = 0,
+    BIND_FAIL_INVALID_HWND = 0x2001,   // 显示/输入句柄无效
+    BIND_FAIL_DISPLAY_MODE = 0x2002,   // display 模式串非法
+    BIND_FAIL_MOUSE_MODE = 0x2003,     // mouse 模式串非法（含 dx 后缀解析失败）
+    BIND_FAIL_KEYPAD_MODE = 0x2004,    // keypad 模式串非法（含 dx 后缀解析失败）
+    BIND_FAIL_UIPI_INTEGRITY = 0x2005, // 目标进程完整性更高，UIPI 会吞掉跨进程输入
+    BIND_FAIL_DXGI_OS = 0x2006,        // normal.dxgi 需要 Windows 8+
+    BIND_FAIL_WGC_OS = 0x2007,         // normal.wgc 需要 Windows 10 1903+
+    BIND_FAIL_CREATE_BACKEND = 0x2008, // 后端实例创建失败
+    BIND_FAIL_BACKEND_BIND = 0x2009,   // 后端 Bind 失败（含 dx 钩子活性回环未通过）
+};
+
 class BindingSession {
   public:
     BindingSession();
@@ -42,6 +58,10 @@ class BindingSession {
     // virtual long GetCursorPos(int& x, int& y);
 
     long GetDisplay();
+    // 返回当前实际生效的图色模式名（"gdi2"/"dx.d3d11"/"normal.wgc" …），未绑定返回空串。
+    // 与 GetDisplay() 的裸模式值互补：绑定失败/截图异常时用它确认走的是哪条链路。
+    // 注意：不可命名为 display_mode_name——会同本文件匿名 namespace 里的自由函数冲突（成员函数隐藏它）。
+    const wchar_t *GetDisplayMethodName() const;
     /*byte* GetScreenData();*/
     void lock_data();
     void unlock_data();
