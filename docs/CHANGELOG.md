@@ -3,6 +3,21 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第九批（OCR 提速：rec 批量推理 + PCA 惰性化，perf）
+
+逐模块分析与优化第 5 模块（OCR）提速方案落地，分析文档 `docs/2026-10/OCR模块分析_20261015.md` 末节。
+
+- **perf(ocr): rec 批量推理 + PCA 惰性化**（`libop/ocr/OnnxOcrEngine.cpp`，提交 9be106a，+76/-17）
+  ① `rec_images` 批量接口：N 个检测框 ROI 复用单框同款缩放/归一化代码 pad 到 48×320 后
+  叠成 `{N,3,48,320}` 一次 session.Run，输出按行切片逐行 CTC 解码（`ctc_greedy` 首参改
+  `const float*`）。原逐框各跑一次 Run（约 10-15ms/次），文本密集场景 N=10 预计
+  100-150ms → 20-30ms。行为差异：单框 Run 失败原跳过该框，现整批失败返回 -3（注释注明）。
+  ② PCA 惰性化：`pca_angle` 挪进 `w>1.3h` 旋转守卫内（ocr()/ocr_line() 两处），旋转守卫
+  本就含该条件，纯等价移动；非扁矩形框省三趟 double 全像素遍历。
+- **回归**：OCR 专跑 53 条全过；全量 401 ran / 398 PASS / 2 FAILED（MouseKey 已知 flake +
+  CaptureMode 基线截图 156ms vs 阈值 150ms 的机器负载边际 flake，均与 OCR 链路无关）/
+  1 SKIPPED（FurMark 缺席）。
+
 ### 2026-10-15 第八批（OCR 模块：推理输入零拷贝 + 懒初始化收拢 + 字库读取收拢，perf/refactor）
 
 逐模块分析与优化第 5 模块（OCR），分析文档 `docs/2026-10/OCR模块分析_20261015.md`。
