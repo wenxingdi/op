@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "../base/Utils.h"
+#include "../base/AutomationModes.h"
 
 using std::to_wstring;
 
@@ -1056,22 +1057,22 @@ long ImageSearchAlgorithms::trans_match(long x, long y, Image *timg, color_t dfc
     int right = static_cast<int>(pts.size()) - 1;
     while (left <= right) {
         if (nodfcolor) {
-            if (_src.at<uint>(y + PTY(pts[left]), x + PTX(pts[left])) != timg->at<uint>(PTY(pts[left]), PTX(pts[left])))
+            if (_src.at<uint>(y + GET_RENDER_TYPE(pts[left]), x + GET_RENDER_FLAG(pts[left])) != timg->at<uint>(GET_RENDER_TYPE(pts[left]), GET_RENDER_FLAG(pts[left])))
                 ++err_ct;
             if (left != right) {
-                if (_src.at<uint>(y + PTY(pts[right]), x + PTX(pts[right])) !=
-                    timg->at<uint>(PTY(pts[right]), PTX(pts[right])))
+                if (_src.at<uint>(y + GET_RENDER_TYPE(pts[right]), x + GET_RENDER_FLAG(pts[right])) !=
+                    timg->at<uint>(GET_RENDER_TYPE(pts[right]), GET_RENDER_FLAG(pts[right])))
                     ++err_ct;
             }
         } else {
             color_t cr1, cr2;
-            cr1 = _src.at<color_t>(y + PTY(pts[left]), x + PTX(pts[left]));
-            cr2 = timg->at<color_t>(PTY(pts[left]), PTX(pts[left]));
+            cr1 = _src.at<color_t>(y + GET_RENDER_TYPE(pts[left]), x + GET_RENDER_FLAG(pts[left]));
+            cr2 = timg->at<color_t>(GET_RENDER_TYPE(pts[left]), GET_RENDER_FLAG(pts[left]));
             if (!IN_RANGE(cr1, cr2, dfcolor))
                 ++err_ct;
             if (left != right) {
-                cr1 = _src.at<color_t>(y + PTY(pts[right]), x + PTX(pts[right]));
-                cr2 = timg->at<color_t>(PTY(pts[right]), PTX(pts[right]));
+                cr1 = _src.at<color_t>(y + GET_RENDER_TYPE(pts[right]), x + GET_RENDER_FLAG(pts[right]));
+                cr2 = timg->at<color_t>(GET_RENDER_TYPE(pts[right]), GET_RENDER_FLAG(pts[right]));
                 if (!IN_RANGE(cr1, cr2, dfcolor))
                     ++err_ct;
             }

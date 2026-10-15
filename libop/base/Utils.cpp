@@ -102,7 +102,9 @@ long setlog_text(const std::string &s) {
                   sys.wMinute, sys.wSecond, sys.wMilliseconds);
 
     std::stringstream ss;
-    ss << tm << (OP64 == 1 ? "x64" : "x32") << "info: " << s << std::endl;
+    // 换行只加在输出处（分发分支各有一个 endl），此处不再追加——原实现双换行导致
+    // 日志文件每条记录之间多空一行（第十三批 B3）。
+    ss << tm << (OP64 == 1 ? "x64" : "x32") << "info: " << s;
 #ifdef USE_BOOST_STACK_TRACE
     ss << "<stack>\n" << boost::stacktrace::stacktrace() << std::endl;
 #endif // USE_BOOST_STACK_TRACE
@@ -160,52 +162,52 @@ long setlog(const char *format, ...) {
     return setlog_text(buffer.data());
 }
 
-void split(const std::wstring &s, std::vector<std::wstring> &v, const std::wstring &c) {
-    std::wstring::size_type pos1, pos2;
-    size_t len = s.length();
+namespace {
+// 内部模板（第十三批 B1）：split 宽窄两版的公共实现。
+// 语义注意：保留「尾空段丢弃」历史行为（split("a|") -> ["a"]），多调用方依赖，勿"修正"。
+template <typename StrT> void split_impl(const StrT &s, std::vector<StrT> &v, const StrT &c) {
+    typename StrT::size_type pos1, pos2;
+    const size_t len = s.length();
     pos2 = s.find(c);
     pos1 = 0;
     v.clear();
-    while (std::wstring::npos != pos2) {
+    while (pos2 != StrT::npos) {
         v.emplace_back(s.substr(pos1, pos2 - pos1));
-
         pos1 = pos2 + c.size();
         pos2 = s.find(c, pos1);
     }
     if (pos1 != len)
         v.emplace_back(s.substr(pos1));
+}
+
+// 大小写转换公共实现；窄串经 unsigned char 转发，避免负值 char 直入 toupper/tolower 的 UB。
+template <typename StrT, typename ConvFn> void case_convert_impl(StrT &s, ConvFn fn) {
+    std::transform(s.begin(), s.end(), s.begin(), fn);
+}
+} // namespace
+
+void split(const std::wstring &s, std::vector<std::wstring> &v, const std::wstring &c) {
+    split_impl(s, v, c);
 }
 
 void split(const std::string &s, std::vector<std::string> &v, const std::string &c) {
-    std::string::size_type pos1, pos2;
-    size_t len = s.length();
-    pos2 = s.find(c);
-    pos1 = 0;
-    v.clear();
-    while (std::string::npos != pos2) {
-        v.emplace_back(s.substr(pos1, pos2 - pos1));
-
-        pos1 = pos2 + c.size();
-        pos2 = s.find(c, pos1);
-    }
-    if (pos1 != len)
-        v.emplace_back(s.substr(pos1));
+    split_impl(s, v, c);
 }
 
 void wstring2upper(std::wstring &s) {
-    std::transform(s.begin(), s.end(), s.begin(), towupper);
+    case_convert_impl(s, towupper);
 }
 
 void string2upper(std::string &s) {
-    std::transform(s.begin(), s.end(), s.begin(), toupper);
+    case_convert_impl(s, [](unsigned char ch) { return std::toupper(ch); });
 }
 
 void wstring2lower(std::wstring &s) {
-    std::transform(s.begin(), s.end(), s.begin(), towlower);
+    case_convert_impl(s, towlower);
 }
 
 void string2lower(std::string &s) {
-    std::transform(s.begin(), s.end(), s.begin(), tolower);
+    case_convert_impl(s, [](unsigned char ch) { return std::tolower(ch); });
 }
 
 // 旧实现用 dx = newval.len - oldval.len + 1 计算步进,newval 比 oldval 短时
@@ -263,10 +265,17 @@ std::string GetLastErrorAsString() {
                        NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
 
     // Copy the error message into a std::string.
+    // 防御（第十三批 B4）：FormatMessageA 失败时 messageBuffer 为 nullptr，
+    // 直接构造 std::string(nullptr, size) 不合标准（MSVC size=0 不崩但属 UB 边缘）。
+    if (size == 0 || messageBuffer == nullptr) {
+        if (messageBuffer)
+            ::LocalFree(messageBuffer);
+        return std::string();
+    }
     std::string message(messageBuffer, size);
 
     // Free the Win32's string's buffer.
-    LocalFree(messageBuffer);
+    ::LocalFree(messageBuffer);
 
     return message;
 }

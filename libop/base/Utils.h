@@ -45,13 +45,8 @@ int inline bin2hex(int c) {
     return ans;
 };
 
-constexpr int PTY(op::uint pt) {
-    return pt >> 16;
-}
-
-constexpr int PTX(op::uint pt) {
-    return pt & 0xffff;
-}
+// 渲染类型/标志拆包统一用 AutomationModes.h 的 GET_RENDER_TYPE/GET_RENDER_FLAG
+// （与 MAKE_RENDER 同处一套；原此处的 PTY/PTX 是重复实现，第十三批 B2 已删除）。
 
 template <typename T> void nextVal(const T &t, int *next) {
     next[0] = -1;
