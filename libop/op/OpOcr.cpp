@@ -431,30 +431,30 @@ void op::Op::OcrEx(long x1, long y1, long x2, long y2, const wchar_t *color, dou
 }
 
 // 区域截图后按颜色二值化再做免字库 OCR
-void op::Op::AutoOcr(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &retstr) {
+void op::Op::OcrAutoColor(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &retstr) {
     wstring str;
     const std::wstring color_text = color ? color : L"";
     internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
-        m_context->image_proc.autoocr(color_text, sim, str);
+        m_context->image_proc.ocr_auto_color(color_text, sim, str);
     });
     retstr = str;
 }
-// 单行快模式 AutoOcr：颜色二值化后整图直接 rec（跳过检测）
-void op::Op::AutoOcrLine(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &retstr) {
+// 单行快模式 OcrAutoColor：颜色二值化后整图直接 rec（跳过检测）
+void op::Op::OcrAutoColorLine(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &retstr) {
     wstring str;
     const std::wstring color_text = color ? color : L"";
     internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
-        m_context->image_proc.autoocr_line(color_text, sim, str);
+        m_context->image_proc.ocr_auto_color_line(color_text, sim, str);
     });
     retstr = str;
 }
-// 结构化 AutoOcr：输出 "x1,y1,x2,y2,conf,text|..."（客户区坐标，相对绑定窗口客户区左上角）
-long op::Op::AutoOcrEx(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &retstr) {
+// 结构化 OcrAutoColor：输出 "x1,y1,x2,y2,conf,text|..."（客户区坐标，相对绑定窗口客户区左上角）
+long op::Op::OcrAutoColorEx(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &retstr) {
     wstring str;
     const std::wstring color_text = color ? color : L"";
     long ct = 0;
     internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
-        ct = m_context->image_proc.autoocr_ex(color_text, sim, str);
+        ct = m_context->image_proc.ocr_auto_color_ex(color_text, sim, str);
     });
     retstr = str;
     return ct;
@@ -504,11 +504,11 @@ void op::Op::OcrFromFile(const wchar_t *file_name, const wchar_t *color_format, 
     });
 }
 
-void op::Op::AutoOcrFromFile(const wchar_t *file_name, const wchar_t *color_format, double sim, std::wstring &retstr) {
+void op::Op::OcrAutoColorFromFile(const wchar_t *file_name, const wchar_t *color_format, double sim, std::wstring &retstr) {
     retstr.clear();
-    internal::guard_exceptions("AutoOcrFromFile", [&]() {
+    internal::guard_exceptions("OcrAutoColorFromFile", [&]() {
         wstring str;
-        m_context->image_proc.autoocrFromFile(file_name ? file_name : L"", color_format ? color_format : L"", sim, str);
+        m_context->image_proc.ocr_auto_color_from_file(file_name ? file_name : L"", color_format ? color_format : L"", sim, str);
         retstr = str;
     });
 }

@@ -2851,7 +2851,7 @@ TEST(ImageColorTest, FindColorBlockExSClustersOverlappingWindows) {
 // （日志应出现 "OnnxOcrEngine: models loaded" 且识别非空）。
 // 全量跑时 OcrFixture 的 SetUp 已显式 init 过引擎，本用例退化为
 // "不崩溃/不挂死" 冒烟——懒初始化分支的确定性回归由单独跑保证。
-TEST(ImageColorTest, AutoOcrLazyInitsBuiltInEngine) {
+TEST(ImageColorTest, OcrAutoColorLazyInitsBuiltInEngine) {
     op::Op op;
     long ret = 0;
     const int width = 120;
@@ -2864,20 +2864,20 @@ TEST(ImageColorTest, AutoOcrLazyInitsBuiltInEngine) {
 
     // sim 用默认档 0.7（onnx 输出 conf≈0.85+，传 1.0 会全滤掉）。
     std::wstring text;
-    op.AutoOcr(0, 0, width, height, L"@000000", 0.7, text);
-    wcout << L"lazy-init AutoOcr result (len=" << text.size() << L"): '" << text << L"'" << endl;
+    op.OcrAutoColor(0, 0, width, height, L"@000000", 0.7, text);
+    wcout << L"lazy-init OcrAutoColor result (len=" << text.size() << L"): '" << text << L"'" << endl;
 
     std::wstring line_text;
-    op.AutoOcrLine(0, 0, width, height, L"@000000", 0.7, line_text);
-    wcout << L"lazy-init AutoOcrLine result (len=" << line_text.size() << L")" << endl;
+    op.OcrAutoColorLine(0, 0, width, height, L"@000000", 0.7, line_text);
+    wcout << L"lazy-init OcrAutoColorLine result (len=" << line_text.size() << L")" << endl;
     SUCCEED();
 }
 
-// 回归：免字库三入口（AutoOcr/AutoOcrLine/AutoOcrEx）支持 "@背景色" 反白格式。
+// 回归：免字库三入口（OcrAutoColor/OcrAutoColorLine/OcrAutoColorEx）支持 "@背景色" 反白格式。
 // 旧实现裸调 str2colordfs+bgr2binary，@ 前缀被剥掉后背景色被当前景色匹配，
 // 黑底白字图的二值结果完全反转 → 字库兜底识别不出任何字符。
 // 现统一改走 str2binaryfbk（按 @ 自动分流 bgr2binarybk），与字库制作同一入口。
-TEST(ImageColorTest, AutoOcrEntriesSupportBackgroundColorFormat) {
+TEST(ImageColorTest, OcrAutoColorEntriesSupportBackgroundColorFormat) {
     op::Op op;
     long ret = 0;
     const int width = 8;
@@ -2893,23 +2893,23 @@ TEST(ImageColorTest, AutoOcrEntriesSupportBackgroundColorFormat) {
     ASSERT_NO_FATAL_FAILURE(UseSingleWordDict(op, width, height, L"@000000", L"A", ret));
 
     std::wstring text;
-    op.AutoOcr(0, 0, width, height, L"@000000", 1.0, text);
+    op.OcrAutoColor(0, 0, width, height, L"@000000", 1.0, text);
     EXPECT_EQ(text, L"A");
 
-    op.AutoOcrLine(0, 0, width, height, L"@000000", 1.0, text);
+    op.OcrAutoColorLine(0, 0, width, height, L"@000000", 1.0, text);
     EXPECT_EQ(text, L"A");
 
-    const long ct = op.AutoOcrEx(0, 0, width, height, L"@000000", 1.0, text);
+    const long ct = op.OcrAutoColorEx(0, 0, width, height, L"@000000", 1.0, text);
     EXPECT_EQ(ct, 1);
     ASSERT_FALSE(text.empty());
-    EXPECT_NE(text.find(L",A"), wstring::npos) << "AutoOcrEx 应输出 \"x1,y1,x2,y2,conf,A\" 结构";
+    EXPECT_NE(text.find(L",A"), wstring::npos) << "OcrAutoColorEx 应输出 \"x1,y1,x2,y2,conf,A\" 结构";
 
     // 对照1：普通前景格式不得回归
     ASSERT_NO_FATAL_FAILURE(UseSingleWordDict(op, width, height, L"FFFFFF-000000", L"A", ret));
-    op.AutoOcr(0, 0, width, height, L"FFFFFF-000000", 1.0, text);
+    op.OcrAutoColor(0, 0, width, height, L"FFFFFF-000000", 1.0, text);
     EXPECT_EQ(text, L"A");
 
     // 对照2：无 @ 时按前景语义解析（黑=前景 → 二值反转 → 识别不出），钉死语义不漂移
-    op.AutoOcr(0, 0, width, height, L"000000", 1.0, text);
+    op.OcrAutoColor(0, 0, width, height, L"000000", 1.0, text);
     EXPECT_TRUE(text.empty());
 }

@@ -472,6 +472,11 @@ class ATL_NO_VTABLE OpAutomation
                            LONG *ret);
     STDMETHOD(AutoOcrLine)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr);
     STDMETHOD(AutoOcrEx)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr, LONG *ret);
+    // OcrAutoColor 系：免字库按颜色二值化 OCR 新命名（idl id 380-383）
+    STDMETHOD(OcrAutoColor)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr);
+    STDMETHOD(OcrAutoColorLine)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr);
+    STDMETHOD(OcrAutoColorEx)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr, LONG *ret);
+    STDMETHOD(OcrAutoColorFromFile)(BSTR file_name, BSTR color_format, DOUBLE sim, BSTR *retstr);
     //-----------------------opcv---------------------------------
     STDMETHOD(CvLoadTemplate)(BSTR name, BSTR file_path, LONG *ret);
     STDMETHOD(CvLoadMaskedTemplate)(BSTR name, BSTR template_path, BSTR mask_path, LONG *ret);

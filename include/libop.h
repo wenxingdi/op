@@ -643,29 +643,29 @@ class OP_API Op {
     // 免字库 OCR 家族速查（免字库 = 未 SetDict/UseDict，走内置 ONNX 引擎；有字库 = 点阵字库匹配）：
     //   OcrAuto / OcrAutoFromFile        不二值化，原图直喂引擎，无需颜色
     //   Ocr / OcrFromFile / OcrEx        免字库时不二值化（颜色不参与）；有字库时按颜色二值化
-    //   AutoOcr / AutoOcrFromFile / AutoOcrLine / AutoOcrEx
+    //   OcrAutoColor / OcrAutoColorFromFile / OcrAutoColorLine / OcrAutoColorEx
     //                                    先按颜色二值化（支持 "@背景色" 反白）再喂引擎，必须给颜色
     //   ⚠️ sim 语义双关：免字库路径 = 置信度阈值（默认 0.7，ONNX 置信度 ≈0.85+，传 1.0 会全滤光）；
     //     字库路径 = 颜色/点阵相似度 (0.1-1.0)。
     // 识别屏幕范围(x1,y1,x2,y2)内符合color_format的字符串,并且相似度为sim,sim取值范围(0.1-1.0),
     // 已装载字库时按 color_format 二值化后做字库识别；未装载字库时走免字库引擎，直接对整幅区域
-    // 原图识别（color_format 不参与过滤，要按颜色识别请用 AutoOcr 系接口）
+    // 原图识别（color_format 不参与过滤，要按颜色识别请用 OcrAutoColor 系接口）
     void Ocr(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
              _Out_ std::wstring &ret_str);
     // 同 Ocr，但返回识别到的字符串以及每个字符的坐标（已装载字库时结果按阅读顺序拼接：包围盒纵向重叠聚类成行、行内按 x 排序）
     void OcrEx(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
                _Out_ std::wstring &ret_str);
     // 区域截图后按颜色二值化再做免字库 OCR：输入区域、颜色、相似度（置信度阈值，默认 0.7）。
-    void AutoOcr(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
-                 _Out_ std::wstring &ret_str);
-    // 单行快模式 AutoOcr：颜色二值化后整图直接 rec（跳过检测），适用于读出区/固定单行文本。
+    void OcrAutoColor(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
+                      _Out_ std::wstring &ret_str);
+    // 单行快模式 OcrAutoColor：颜色二值化后整图直接 rec（跳过检测），适用于读出区/固定单行文本。
     // 区域须只含单行文本，否则结果语义由使用方承担。
     // 行切分参数为硬编码阈值（OC6，暂不提供参数）：行间隙 >3px 切段、段高 <5px 视为噪点丢弃。
-    void AutoOcrLine(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
-                     _In_ double sim, _Out_ std::wstring &ret_str);
-    // 结构化 AutoOcr：输出 "x1,y1,x2,y2,conf,text|..."（bbox 为客户区坐标，相对绑定窗口客户区左上角），返回命中行数。
-    long AutoOcrEx(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
-                   _In_ double sim, _Out_ std::wstring &ret_str);
+    void OcrAutoColorLine(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
+                          _In_ double sim, _Out_ std::wstring &ret_str);
+    // 结构化 OcrAutoColor：输出 "x1,y1,x2,y2,conf,text|..."（bbox 为客户区坐标，相对绑定窗口客户区左上角），返回命中行数。
+    long OcrAutoColorEx(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
+                        _In_ double sim, _Out_ std::wstring &ret_str);
     // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
     void FindStr(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *strs, _In_ const wchar_t *color,
                  _In_ double sim, _Out_ long *retx, _Out_ long *rety, _Out_ long *ret);
@@ -674,12 +674,12 @@ class OP_API Op {
                    _In_ double sim, _Out_ std::wstring &retstr);
     // 识别屏幕范围(x1,y1,x2,y2)内的字符串，无需指定颜色。
     // ⚠️ 并非"自动二值化"：免字库时原图 BGRA 直喂 ONNX 引擎（引擎自带预处理，二值化反而可能丢信息）；
-    // 已装载字库时按空颜色串二值化 + 字库匹配（≈无颜色筛选）。要按颜色二值化请用 AutoOcr 系。
+    // 已装载字库时按空颜色串二值化 + 字库匹配（≈无颜色筛选）。要按颜色二值化请用 OcrAutoColor 系。
     void OcrAuto(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double sim, _Out_ std::wstring &ret_str);
     // 从文件中识别图片，规则同 Ocr
     void OcrFromFile(_In_ const wchar_t *file_name, _In_ const wchar_t *color_format, _In_ double sim, _Out_ std::wstring &retstr);
-    // 文件版 AutoOcr：读取图片后按颜色二值化再做免字库 OCR。
-    void AutoOcrFromFile(_In_ const wchar_t *file_name, _In_ const wchar_t *color_format, _In_ double sim, _Out_ std::wstring &retstr);
+    // 文件版 OcrAutoColor：读取图片后按颜色二值化再做免字库 OCR。
+    void OcrAutoColorFromFile(_In_ const wchar_t *file_name, _In_ const wchar_t *color_format, _In_ double sim, _Out_ std::wstring &retstr);
     // 从文件中识别图片，无需指定颜色，规则同 OcrAuto
     void OcrAutoFromFile(_In_ const wchar_t *file_name, _In_ double sim, _Out_ std::wstring &retstr);
     // 查找频幕中的直线

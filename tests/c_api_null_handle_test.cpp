@@ -261,14 +261,19 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_empty(OpGetWordResultStr(nullptr, L"", 0), "OpGetWordResultStr");
     expect_empty(OpOcr(nullptr, 0, 0, 0, 0, L"", 0.0), "OpOcr");
     expect_empty(OpOcrEx(nullptr, 0, 0, 0, 0, L"", 0.0), "OpOcrEx");
-    expect_empty(OpAutoOcr(nullptr, 0, 0, 0, 0, L"", 0.0), "OpAutoOcr");
-    expect_empty(OpAutoOcrLine(nullptr, 0, 0, 0, 0, L"", 0.0), "OpAutoOcrLine");
-    expect_empty(OpAutoOcrEx(nullptr, 0, 0, 0, 0, L"", 0.0, nullptr), "OpAutoOcrEx");
+    expect_empty(OpOcrAutoColor(nullptr, 0, 0, 0, 0, L"", 0.0), "OpOcrAutoColor");
+    expect_empty(OpOcrAutoColorLine(nullptr, 0, 0, 0, 0, L"", 0.0), "OpOcrAutoColorLine");
+    expect_empty(OpOcrAutoColorEx(nullptr, 0, 0, 0, 0, L"", 0.0, nullptr), "OpOcrAutoColorEx");
+    // 旧名废弃别名：空 handle 应同样安全返回空串
+    expect_empty(OpAutoOcr(nullptr, 0, 0, 0, 0, L"", 0.0), "OpAutoOcr(alias)");
+    expect_empty(OpAutoOcrLine(nullptr, 0, 0, 0, 0, L"", 0.0), "OpAutoOcrLine(alias)");
+    expect_empty(OpAutoOcrEx(nullptr, 0, 0, 0, 0, L"", 0.0, nullptr), "OpAutoOcrEx(alias)");
     EXPECT_EQ(OpFindStr(nullptr, 0, 0, 0, 0, L"", L"", 0.0, nullptr, nullptr), 0) << "OpFindStr";
     expect_empty(OpFindStrEx(nullptr, 0, 0, 0, 0, L"", L"", 0.0), "OpFindStrEx");
     expect_empty(OpOcrAuto(nullptr, 0, 0, 0, 0, 0.0), "OpOcrAuto");
     expect_empty(OpOcrFromFile(nullptr, L"", L"", 0.0), "OpOcrFromFile");
-    expect_empty(OpAutoOcrFromFile(nullptr, L"", L"", 0.0), "OpAutoOcrFromFile");
+    expect_empty(OpOcrAutoColorFromFile(nullptr, L"", L"", 0.0), "OpOcrAutoColorFromFile");
+    expect_empty(OpAutoOcrFromFile(nullptr, L"", L"", 0.0), "OpAutoOcrFromFile(alias)");
     expect_empty(OpOcrAutoFromFile(nullptr, L"", 0.0), "OpOcrAutoFromFile");
     expect_empty(OpFindLine(nullptr, 0, 0, 0, 0, L"", 0.0), "OpFindLine");
     expect_empty(OpFindLineEx(nullptr, 0, 0, 0, 0, L"", 0.0, nullptr), "OpFindLineEx");

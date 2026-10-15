@@ -249,6 +249,15 @@ interface IOpAutomation : IDispatch
 	[id(265)] HRESULT AutoOcrLine([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out, retval] BSTR* retstr);
 	// 结构化 AutoOcr：retstr = "x1,y1,x2,y2,conf,text|..."（客户区坐标，相对绑定窗口客户区左上角），ret = 命中行数
 	[id(266)] HRESULT AutoOcrEx([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out] BSTR* retstr, [out, retval] LONG* ret);
+	// ---- 免字库按颜色二值化 OCR 新命名（OcrAutoColor 系）；上方 AutoOcrLine/AutoOcrEx 为旧名，保留兼容 ----
+	// 区域截图后按颜色二值化再做免字库 OCR（id(380)）
+	[id(380)] HRESULT OcrAutoColor([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out, retval] BSTR* retstr);
+	// 单行快模式：颜色二值化后整图直接 rec（跳过检测）
+	[id(381)] HRESULT OcrAutoColorLine([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out, retval] BSTR* retstr);
+	// 结构化：retstr = "x1,y1,x2,y2,conf,text|..."，ret = 命中行数
+	[id(382)] HRESULT OcrAutoColorEx([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out] BSTR* retstr, [out, retval] LONG* ret);
+	// 文件版：读取图片后按颜色二值化再做免字库 OCR
+	[id(383)] HRESULT OcrAutoColorFromFile([in] BSTR file_name, [in] BSTR color_format, [in] DOUBLE sim, [out, retval] BSTR* retstr);
 	[id(300)] HRESULT CvLoadTemplate([in] BSTR name, [in] BSTR file_path, [out, retval] LONG* ret);
 	[id(301)] HRESULT CvLoadMaskedTemplate([in] BSTR name, [in] BSTR template_path, [in] BSTR mask_path, [out, retval] LONG* ret);
 	[id(302)] HRESULT CvRemoveTemplate([in] BSTR name, [out, retval] LONG* ret);

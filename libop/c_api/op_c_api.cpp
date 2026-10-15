@@ -1499,27 +1499,56 @@ const wchar_t *OP_CALL OpOcrEx(op_handle handle, int x1, int y1, int x2, int y2,
     return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.OcrEx(x1, y1, x2, y2, safe_text(color), sim, ret); });
 }
 
-const wchar_t *OP_CALL OpAutoOcr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, double sim) {
+const wchar_t *OP_CALL OpOcrAutoColor(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
+                                      double sim) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) {
-        op.AutoOcr(x1, y1, x2, y2, safe_text(color), sim, ret);
+        op.OcrAutoColor(x1, y1, x2, y2, safe_text(color), sim, ret);
     });
+}
+
+const wchar_t *OP_CALL OpOcrAutoColorLine(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
+                                          double sim) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.OcrAutoColorLine(x1, y1, x2, y2, safe_text(color), sim, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpOcrAutoColorEx(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
+                                        double sim, int *find_count) {
+    long ct = 0;
+    const wchar_t *ret = call_string(handle, [&](op::Op &op, std::wstring &s) {
+        ct = op.OcrAutoColorEx(x1, y1, x2, y2, safe_text(color), sim, s);
+    });
+    out_int(find_count, ct);
+    return ret;
+}
+
+const wchar_t *OP_CALL OpOcrAutoColorFromFile(op_handle handle, const wchar_t *file_name, const wchar_t *color_format,
+                                              double sim) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.OcrAutoColorFromFile(safe_text(file_name), safe_text(color_format), sim, ret);
+    });
+}
+
+/* ---- 旧名废弃别名：一行转发到新名，保护已有脚本 ---- */
+
+const wchar_t *OP_CALL OpAutoOcr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, double sim) {
+    return OpOcrAutoColor(handle, x1, y1, x2, y2, color, sim);
 }
 
 const wchar_t *OP_CALL OpAutoOcrLine(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
                                      double sim) {
-    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
-        op.AutoOcrLine(x1, y1, x2, y2, safe_text(color), sim, ret);
-    });
+    return OpOcrAutoColorLine(handle, x1, y1, x2, y2, color, sim);
 }
 
 const wchar_t *OP_CALL OpAutoOcrEx(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, double sim,
                                    int *find_count) {
-    long ct = 0;
-    const wchar_t *ret = call_string(handle, [&](op::Op &op, std::wstring &s) {
-        ct = op.AutoOcrEx(x1, y1, x2, y2, safe_text(color), sim, s);
-    });
-    out_int(find_count, ct);
-    return ret;
+    return OpOcrAutoColorEx(handle, x1, y1, x2, y2, color, sim, find_count);
+}
+
+const wchar_t *OP_CALL OpAutoOcrFromFile(op_handle handle, const wchar_t *file_name, const wchar_t *color_format,
+                                        double sim) {
+    return OpOcrAutoColorFromFile(handle, file_name, color_format, sim);
 }
 
 int OP_CALL OpFindStr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *strs, const wchar_t *color,
@@ -1547,13 +1576,6 @@ const wchar_t *OP_CALL OpOcrFromFile(op_handle handle, const wchar_t *file_name,
                                      double sim) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) {
         op.OcrFromFile(safe_text(file_name), safe_text(color_format), sim, ret);
-    });
-}
-
-const wchar_t *OP_CALL OpAutoOcrFromFile(op_handle handle, const wchar_t *file_name, const wchar_t *color_format,
-                                        double sim) {
-    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
-        op.AutoOcrFromFile(safe_text(file_name), safe_text(color_format), sim, ret);
     });
 }
 

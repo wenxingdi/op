@@ -301,26 +301,36 @@ func (o *Op) OcrEx(x1, y1, x2, y2 int, color string, sim float64) string {
 	return wcharString(ret)
 }
 
-// AutoOcrLine 单行快模式 AutoOcr：颜色二值化后整图直接 rec（跳过检测），
+// OcrAutoColorLine 单行快模式 OcrAutoColor：颜色二值化后整图直接 rec（跳过检测），
 // 适用于读出区/固定单行文本；区域须只含单行文本。
-func (o *Op) AutoOcrLine(x1, y1, x2, y2 int, color string, sim float64) string {
+func (o *Op) OcrAutoColorLine(x1, y1, x2, y2 int, color string, sim float64) string {
 	if !o.valid() {
 		return ""
 	}
 
-	ret, _, _ := procAutoOcrLine.Call(o.handle, uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2), strArg(color), f64Arg(sim))
+	ret, _, _ := procOcrAutoColorLine.Call(o.handle, uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2), strArg(color), f64Arg(sim))
 	return wcharString(ret)
 }
 
-// AutoOcrEx 结构化 AutoOcr：返回 "x1,y1,x2,y2,conf,text|..."（客户区坐标，相对绑定窗口客户区左上角）与命中行数。
-func (o *Op) AutoOcrEx(x1, y1, x2, y2 int, color string, sim float64) (string, int) {
+// OcrAutoColorEx 结构化 OcrAutoColor：返回 "x1,y1,x2,y2,conf,text|..."（客户区坐标，相对绑定窗口客户区左上角）与命中行数。
+func (o *Op) OcrAutoColorEx(x1, y1, x2, y2 int, color string, sim float64) (string, int) {
 	if !o.valid() {
 		return "", 0
 	}
 
 	var count int32
-	ret, _, _ := procAutoOcrEx.Call(o.handle, uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2), strArg(color), f64Arg(sim), int32Ptr(&count))
+	ret, _, _ := procOcrAutoColorEx.Call(o.handle, uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2), strArg(color), f64Arg(sim), int32Ptr(&count))
 	return wcharString(ret), int(count)
+}
+
+// AutoOcrLine 已废弃：请使用 OcrAutoColorLine（保留转发兼容旧代码）。
+func (o *Op) AutoOcrLine(x1, y1, x2, y2 int, color string, sim float64) string {
+	return o.OcrAutoColorLine(x1, y1, x2, y2, color, sim)
+}
+
+// AutoOcrEx 已废弃：请使用 OcrAutoColorEx（保留转发兼容旧代码）。
+func (o *Op) AutoOcrEx(x1, y1, x2, y2 int, color string, sim float64) (string, int) {
+	return o.OcrAutoColorEx(x1, y1, x2, y2, color, sim)
 }
 
 func (o *Op) FindStr(x1, y1, x2, y2 int, strs, color string, sim float64) (int, int, int) {

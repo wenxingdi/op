@@ -778,7 +778,7 @@ long ImageSearchService::OcrFree(double sim, std::wstring &out_str) {
     if (sim < 0. || sim > 1.)
         sim = 0.7;  // 默认置信度阈值：免字库 onnx 输出 conf≈0.85+，1.0 会全滤掉
     if (_src.width <= 0 || _src.height <= 0)
-        return 0; // 与 autoocr 系对齐：截屏/读图失败早退，不喂 0x0 给引擎
+        return 0; // 与 ocr_auto_color 系对齐：截屏/读图失败早退，不喂 0x0 给引擎
     vocr_rec_t res;
     HttpOcrService::getInstance()->ocr(_src.pdata, _src.width, _src.height, 4, res);
     long s = 0;
@@ -797,14 +797,14 @@ long ImageSearchService::OCR(const wstring &color, double sim, std::wstring &out
         sim = 0.7;
     auto dict = ActiveDict(_curr_idx);
     if (!dict) {
-        // 免字库路径：直接对整幅区域原图识别，color 不参与（要按颜色过滤请用 AutoOcr 系）
+        // 免字库路径：直接对整幅区域原图识别，color 不参与（要按颜色过滤请用 OcrAutoColor 系）
         return OcrFree(sim, out_str);
     }
     str2pointbinaryfbk(color, sim);
     return ImageSearchAlgorithms::Ocr(*dict, sim, out_str);
 }
 
-long ImageSearchService::autoocr(const wstring &color, double sim, wstring &out_str) {
+long ImageSearchService::ocr_auto_color(const wstring &color, double sim, wstring &out_str) {
     out_str.clear();
     if (sim < 0. || sim > 1.)
         sim = 0.7; // 默认置信度阈值：免字库 onnx 输出 conf≈0.85+，1.0 会全滤掉
@@ -835,7 +835,7 @@ long ImageSearchService::autoocr(const wstring &color, double sim, wstring &out_
     return 0;
 }
 
-long ImageSearchService::autoocr_line(const wstring &color, double sim, wstring &out_str) {
+long ImageSearchService::ocr_auto_color_line(const wstring &color, double sim, wstring &out_str) {
     out_str.clear();
     if (sim < 0. || sim > 1.)
         sim = 0.7;
@@ -896,7 +896,7 @@ long ImageSearchService::autoocr_line(const wstring &color, double sim, wstring 
     return 0;
 }
 
-long ImageSearchService::autoocr_ex(const wstring &color, double sim, wstring &out_str) {
+long ImageSearchService::ocr_auto_color_ex(const wstring &color, double sim, wstring &out_str) {
     out_str.clear();
     if (sim < 0. || sim > 1.)
         sim = 0.7;
@@ -1284,7 +1284,7 @@ long ImageSearchService::OcrEx(const wstring &color, double sim, std::wstring &r
             if (it.confidence < sim - 1e-9)
                 continue;
             if (find_ct >= _max_return_obj_ct)
-                break; // 先判上限再收集（与 autoocr_ex 一致，修正原 off-by-one 实返上限+1）
+                break; // 先判上限再收集（与 ocr_auto_color_ex 一致，修正原 off-by-one 实返上限+1）
             swprintf(coordbuf, 64, L"%d,%d,", it.left_top.x + _x1 + _dx, it.left_top.y + _y1 + _dy);
             retstr += coordbuf;
             retstr += it.text;
@@ -1376,14 +1376,14 @@ long ImageSearchService::OcrAutoFromFile(const wstring &files, double sim, std::
     return OcrFree(sim, retstr); // 同 OcrAuto：Auto 系 = 免字库，不走字库
 }
 
-long ImageSearchService::autoocrFromFile(const wstring &files, const wstring &color, double sim, std::wstring &retstr) {
+long ImageSearchService::ocr_auto_color_from_file(const wstring &files, const wstring &color, double sim, std::wstring &retstr) {
     retstr.clear();
     if (sim < 0. || sim > 1.)
         sim = 0.7;
     wstring fullpath;
     if (Path2GlobalPath(files, _curr_path, fullpath)) {
         _src.read(fullpath.data());
-        return autoocr(color, sim, retstr); // 复用真实 autoocr：颜色二值化后再免字库 OCR
+        return ocr_auto_color(color, sim, retstr); // 复用真实 ocr_auto_color：颜色二值化后再免字库 OCR
     }
     return 0;
 }

@@ -123,6 +123,12 @@ class Op(object):
     def EnablePicCache(self, enable):
         return _pyop.Op_EnablePicCache(self, enable)
 
+    def ClearPicCache(self):
+        return _pyop.Op_ClearPicCache(self)
+
+    def SetPicCacheMax(self, max_count):
+        return _pyop.Op_SetPicCacheMax(self, max_count)
+
     def CapturePre(self, file_name):
         return _pyop.Op_CapturePre(self, file_name)
 
@@ -134,6 +140,33 @@ class Op(object):
 
     def FindNearestPos(self, all_pos, type, x, y):
         return _pyop.Op_FindNearestPos(self, all_pos, type, x, y)
+
+    def SetAStarMap(self, bitmap_file, scale, offset_x, offset_y):
+        return _pyop.Op_SetAStarMap(self, bitmap_file, scale, offset_x, offset_y)
+
+    def SetAStarMapData(self, width, height, bgra_data, size, scale, offset_x, offset_y):
+        return _pyop.Op_SetAStarMapData(self, width, height, bgra_data, size, scale, offset_x, offset_y)
+
+    def AStarFindPathBM(self, beginX, beginY, endX, endY):
+        return _pyop.Op_AStarFindPathBM(self, beginX, beginY, endX, endY)
+
+    def AStarFindPathWay(self, points):
+        return _pyop.Op_AStarFindPathWay(self, points)
+
+    def SmoothPathByLOS(self, path):
+        return _pyop.Op_SmoothPathByLOS(self, path)
+
+    def SimplifyPath(self, path, epsilon):
+        return _pyop.Op_SimplifyPath(self, path, epsilon)
+
+    def IsLineBlocked(self, x1, y1, x2, y2):
+        return _pyop.Op_IsLineBlocked(self, x1, y1, x2, y2)
+
+    def FindNearestPathPoint(self, path, x, y):
+        return _pyop.Op_FindNearestPathPoint(self, path, x, y)
+
+    def PointInPolygon(self, point, polygon):
+        return _pyop.Op_PointInPolygon(self, point, polygon)
 
     def EnumWindow(self, parent, title, class_name, filter):
         return _pyop.Op_EnumWindow(self, parent, title, class_name, filter)
@@ -237,6 +270,18 @@ class Op(object):
     def SendStringIme(self, hwnd, str):
         return _pyop.Op_SendStringIme(self, hwnd, str)
 
+    def LockWindowPosition(self, hwnd, enable):
+        return _pyop.Op_LockWindowPosition(self, hwnd, enable)
+
+    def LockWindowSize(self, hwnd, enable):
+        return _pyop.Op_LockWindowSize(self, hwnd, enable)
+
+    def DisableMinMax(self, hwnd, enable):
+        return _pyop.Op_DisableMinMax(self, hwnd, enable)
+
+    def SetIme(self, hwnd, enable):
+        return _pyop.Op_SetIme(self, hwnd, enable)
+
     def WinExec(self, cmdline, cmdshow):
         return _pyop.Op_WinExec(self, cmdline, cmdshow)
 
@@ -255,6 +300,39 @@ class Op(object):
     def Delays(self, mis_min, mis_max):
         return _pyop.Op_Delays(self, mis_min, mis_max)
 
+    def GetScreenWidth(self):
+        return _pyop.Op_GetScreenWidth(self)
+
+    def GetScreenHeight(self):
+        return _pyop.Op_GetScreenHeight(self)
+
+    def GetScreenDepth(self):
+        return _pyop.Op_GetScreenDepth(self)
+
+    def GetDPI(self):
+        return _pyop.Op_GetDPI(self)
+
+    def GetTime(self):
+        return _pyop.Op_GetTime(self)
+
+    def Beep(self, freq, dur):
+        return _pyop.Op_Beep(self, freq, dur)
+
+    def GetRandomNumber(self, min, max):
+        return _pyop.Op_GetRandomNumber(self, min, max)
+
+    def GetRandomDouble(self, min, max, ret):
+        return _pyop.Op_GetRandomDouble(self, min, max, ret)
+
+    def GaiLu(self, p):
+        return _pyop.Op_GaiLu(self, p)
+
+    def GetMachineCode(self):
+        return _pyop.Op_GetMachineCode(self)
+
+    def IsElevated(self):
+        return _pyop.Op_IsElevated(self)
+
     def BindWindow(self, hwnd, display, mouse, keypad, mode):
         return _pyop.Op_BindWindow(self, hwnd, display, mouse, keypad, mode)
 
@@ -267,6 +345,9 @@ class Op(object):
     def LockInput(self, lock):
         return _pyop.Op_LockInput(self, lock)
 
+    def DownCpu(self, type, rate):
+        return _pyop.Op_DownCpu(self, type, rate)
+
     def SetDxAttr(self, attr, value):
         return _pyop.Op_SetDxAttr(self, attr, value)
 
@@ -278,6 +359,9 @@ class Op(object):
 
     def IsBind(self):
         return _pyop.Op_IsBind(self)
+
+    def GetDisplayMethod(self):
+        return _pyop.Op_GetDisplayMethod(self)
 
     def GetCursorPos(self):
         return _pyop.Op_GetCursorPos(self)
@@ -480,6 +564,9 @@ class Op(object):
     def GetScreenFrameInfo(self):
         return _pyop.Op_GetScreenFrameInfo(self)
 
+    def GetFPS(self):
+        return _pyop.Op_GetFPS(self)
+
     def MatchPicName(self, pic_name):
         return _pyop.Op_MatchPicName(self, pic_name)
 
@@ -548,6 +635,9 @@ class Op(object):
 
     def CvPreprocessPipeline(self, src_file, dst_file, pipeline):
         return _pyop.Op_CvPreprocessPipeline(self, src_file, dst_file, pipeline)
+
+    def CvMatchTemplateRot(self, x, y, width, height, template_name, angles, threshold, method, color_mode):
+        return _pyop.Op_CvMatchTemplateRot(self, x, y, width, height, template_name, angles, threshold, method, color_mode)
 
     def CvCrop(self, src_file, x, y, width, height, dst_file):
         return _pyop.Op_CvCrop(self, src_file, x, y, width, height, dst_file)
@@ -687,14 +777,14 @@ class Op(object):
     def OcrEx(self, x1, y1, x2, y2, color, sim):
         return _pyop.Op_OcrEx(self, x1, y1, x2, y2, color, sim)
 
-    def AutoOcr(self, x1, y1, x2, y2, color, sim):
-        return _pyop.Op_AutoOcr(self, x1, y1, x2, y2, color, sim)
+    def OcrAutoColor(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_OcrAutoColor(self, x1, y1, x2, y2, color, sim)
 
-    def AutoOcrLine(self, x1, y1, x2, y2, color, sim):
-        return _pyop.Op_AutoOcrLine(self, x1, y1, x2, y2, color, sim)
+    def OcrAutoColorLine(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_OcrAutoColorLine(self, x1, y1, x2, y2, color, sim)
 
-    def AutoOcrEx(self, x1, y1, x2, y2, color, sim):
-        return _pyop.Op_AutoOcrEx(self, x1, y1, x2, y2, color, sim)
+    def OcrAutoColorEx(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_OcrAutoColorEx(self, x1, y1, x2, y2, color, sim)
 
     def FindStr(self, x1, y1, x2, y2, strs, color, sim):
         return _pyop.Op_FindStr(self, x1, y1, x2, y2, strs, color, sim)
@@ -708,8 +798,8 @@ class Op(object):
     def OcrFromFile(self, file_name, color_format, sim):
         return _pyop.Op_OcrFromFile(self, file_name, color_format, sim)
 
-    def AutoOcrFromFile(self, file_name, color_format, sim):
-        return _pyop.Op_AutoOcrFromFile(self, file_name, color_format, sim)
+    def OcrAutoColorFromFile(self, file_name, color_format, sim):
+        return _pyop.Op_OcrAutoColorFromFile(self, file_name, color_format, sim)
 
     def OcrAutoFromFile(self, file_name, sim):
         return _pyop.Op_OcrAutoFromFile(self, file_name, sim)
@@ -764,6 +854,18 @@ class Op(object):
 
     def RunApp(self, *args):
         return _pyop.Op_RunApp(self, *args)
+
+    def AutoOcr(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_AutoOcr(self, x1, y1, x2, y2, color, sim)
+
+    def AutoOcrLine(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_AutoOcrLine(self, x1, y1, x2, y2, color, sim)
+
+    def AutoOcrEx(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_AutoOcrEx(self, x1, y1, x2, y2, color, sim)
+
+    def AutoOcrFromFile(self, file_name, color_format, sim):
+        return _pyop.Op_AutoOcrFromFile(self, file_name, color_format, sim)
 
 # Register Op in _pyop:
 _pyop.Op_swigregister(Op)

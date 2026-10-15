@@ -15,7 +15,7 @@
   D3 字库文件       save_dict / set_dict / get_dict / set_mem_dict / add_dict /
                     use_dict / get_now_dict / clear_dict
   D4 字库串工具     get_word_preview / check_word_dict / normalize_word_dict / rename_word_dict
-  D5 免字库路径     autoocr_line / ocr_from_file / autoocr_from_file（AutoOcr 系列补齐）
+  D5 免字库路径     ocr_auto_color_line / ocr_from_file / ocr_auto_from_file（OcrAutoColor 系）
 
 用法：
   python scripts/probes/_t_dict_ocr.py [--groups D1,D2,D3,D4,D5]
@@ -328,9 +328,9 @@ def d4(op, info):
 # ------------------------------------------------------------------ D5 免字库路径
 def d5(op, shot):
     _group[0] = "D5"
-    sec("D5 免字库路径（autoocr_line / ocr_from_file / autoocr_from_file）")
+    sec("D5 免字库路径（ocr_auto_color_line / ocr_from_file / ocr_auto_from_file）")
     x1, y1, x2, y2 = 40, 40, 400, 140
-    T("autoocr_line(文本区)", lambda: op.autoocr_line(x1, y1, x2, y2, COLOR, SIM),
+    T("ocr_auto_color_line(文本区)", lambda: op.ocr_auto_color_line(x1, y1, x2, y2, COLOR, SIM),
       ok=lambda v: v == TEXT, show=lambda v: "识别=%r（真值 %r）" % (v, TEXT))
     T("ocr_from_file(截图)", lambda: op.ocr_from_file(shot, COLOR, SIM),
       ok=lambda v: v == TEXT, show=lambda v: "识别=%r（真值 %r）" % (v, TEXT))

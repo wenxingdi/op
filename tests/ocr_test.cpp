@@ -295,15 +295,15 @@ TEST_F(OcrFixture, OcrAutoFromGeneratedConsoleLikeBmpContainsExpectedText) {
     std::filesystem::remove(path, ec);
 }
 
-// OCR 阶段2/3：门面冒烟——未绑定窗口时 AutoOcrLine/AutoOcrEx 区域调用不应崩溃
+// OCR 阶段2/3：门面冒烟——未绑定窗口时 OcrAutoColorLine/OcrAutoColorEx 区域调用不应崩溃
 // （返回值不校验内容；引擎 rec 路径由 OcrAutoFromGeneratedConsoleLikeBmp 用例覆盖，
 //   ocr_line 与 ocr 共享同一 rec_image 实现。独立 TEST 以绕过 OcrFixture 的 HTTP 服务 skip 门槛）。
-TEST(AutoOcrSmoke, LineAndExNoCrash) {
+TEST(OcrAutoColorSmoke, LineAndExNoCrash) {
     op::Op op;
     std::wstring text;
-    op.AutoOcrLine(0, 0, 120, 40, L"000000-ffffff", 0.7, text);
-    const long ct = op.AutoOcrEx(0, 0, 120, 40, L"000000-ffffff", 0.7, text);
-    cout << "AutoOcrLine/AutoOcrEx smoke: text_len=" << text.size() << " ex_count=" << ct << endl;
+    op.OcrAutoColorLine(0, 0, 120, 40, L"000000-ffffff", 0.7, text);
+    const long ct = op.OcrAutoColorEx(0, 0, 120, 40, L"000000-ffffff", 0.7, text);
+    cout << "OcrAutoColorLine/OcrAutoColorEx smoke: text_len=" << text.size() << " ex_count=" << ct << endl;
     SUCCEED();
 }
 

@@ -370,14 +370,14 @@ OP_C_API const wchar_t *OP_CALL OpOcr(op_handle handle, int x1, int y1, int x2, 
                                       double sim);
 OP_C_API const wchar_t *OP_CALL OpOcrEx(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
                                         double sim);
-OP_C_API const wchar_t *OP_CALL OpAutoOcr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
-                                          double sim);
-/* 单行快模式 AutoOcr：颜色二值化后整图直接 rec（跳过检测），适用于读出区/固定单行文本 */
-OP_C_API const wchar_t *OP_CALL OpAutoOcrLine(op_handle handle, int x1, int y1, int x2, int y2,
-                                              const wchar_t *color, double sim);
-/* 结构化 AutoOcr：返回 "x1,y1,x2,y2,conf,text|..."（客户区坐标，相对绑定窗口客户区左上角），find_count 输出命中行数 */
-OP_C_API const wchar_t *OP_CALL OpAutoOcrEx(op_handle handle, int x1, int y1, int x2, int y2,
-                                            const wchar_t *color, double sim, int *find_count);
+OP_C_API const wchar_t *OP_CALL OpOcrAutoColor(op_handle handle, int x1, int y1, int x2, int y2,
+                                                const wchar_t *color, double sim);
+/* 单行快模式 OcrAutoColor：颜色二值化后整图直接 rec（跳过检测），适用于读出区/固定单行文本 */
+OP_C_API const wchar_t *OP_CALL OpOcrAutoColorLine(op_handle handle, int x1, int y1, int x2, int y2,
+                                                   const wchar_t *color, double sim);
+/* 结构化 OcrAutoColor：返回 "x1,y1,x2,y2,conf,text|..."（客户区坐标，相对绑定窗口客户区左上角），find_count 输出命中行数 */
+OP_C_API const wchar_t *OP_CALL OpOcrAutoColorEx(op_handle handle, int x1, int y1, int x2, int y2,
+                                                 const wchar_t *color, double sim, int *find_count);
 OP_C_API int OP_CALL OpFindStr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *strs,
                                const wchar_t *color, double sim, int *x, int *y);
 OP_C_API const wchar_t *OP_CALL OpFindStrEx(op_handle handle, int x1, int y1, int x2, int y2,
@@ -385,9 +385,18 @@ OP_C_API const wchar_t *OP_CALL OpFindStrEx(op_handle handle, int x1, int y1, in
 OP_C_API const wchar_t *OP_CALL OpOcrAuto(op_handle handle, int x1, int y1, int x2, int y2, double sim);
 OP_C_API const wchar_t *OP_CALL OpOcrFromFile(op_handle handle, const wchar_t *file_name,
                                               const wchar_t *color_format, double sim);
+OP_C_API const wchar_t *OP_CALL OpOcrAutoColorFromFile(op_handle handle, const wchar_t *file_name,
+                                                        const wchar_t *color_format, double sim);
+OP_C_API const wchar_t *OP_CALL OpOcrAutoFromFile(op_handle handle, const wchar_t *file_name, double sim);
+/* ---- 以下旧名为废弃别名，保留转发以兼容已有脚本，新代码请用 OpOcrAutoColor* ---- */
+OP_C_API const wchar_t *OP_CALL OpAutoOcr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
+                                          double sim);
+OP_C_API const wchar_t *OP_CALL OpAutoOcrLine(op_handle handle, int x1, int y1, int x2, int y2,
+                                              const wchar_t *color, double sim);
+OP_C_API const wchar_t *OP_CALL OpAutoOcrEx(op_handle handle, int x1, int y1, int x2, int y2,
+                                            const wchar_t *color, double sim, int *find_count);
 OP_C_API const wchar_t *OP_CALL OpAutoOcrFromFile(op_handle handle, const wchar_t *file_name,
                                                  const wchar_t *color_format, double sim);
-OP_C_API const wchar_t *OP_CALL OpOcrAutoFromFile(op_handle handle, const wchar_t *file_name, double sim);
 OP_C_API const wchar_t *OP_CALL OpFindLine(op_handle handle, int x1, int y1, int x2, int y2,
                                            const wchar_t *color, double sim);
 /* 查找直线(扩展版): 返回"角度,距离"; point_count 输出该直线上的点数。

@@ -1517,24 +1517,42 @@ class Op:
     def ocr_ex(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
         return self._call_string("OpOcrEx", int(x1), int(y1), int(x2), int(y2), color, float(sim))
 
-    def autoocr_line(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
-        """单行快模式 AutoOcr：颜色二值化后整图直接 rec（跳过检测）。
+    def ocr_auto_color(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
+        """区域截图后按颜色二值化再做免字库 OCR（置信度阈值 sim，默认 0.7）。"""
+        return self._call_string("OpOcrAutoColor", int(x1), int(y1), int(x2), int(y2), color, float(sim))
 
-        适用于读出区/固定单行文本，速度显著快于 :meth:`ocr` / :meth:`autoocr`；
+    def ocr_auto_color_line(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
+        """单行快模式 OcrAutoColor：颜色二值化后整图直接 rec（跳过检测）。
+
+        适用于读出区/固定单行文本，速度显著快于 :meth:`ocr` / :meth:`ocr_auto_color`；
         区域须只含单行文本，否则结果语义由调用方承担。
         """
-        return self._call_string("OpAutoOcrLine", int(x1), int(y1), int(x2), int(y2), color, float(sim))
+        return self._call_string("OpOcrAutoColorLine", int(x1), int(y1), int(x2), int(y2), color, float(sim))
 
-    def autoocr_ex(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> tuple[str, int]:
-        """结构化 AutoOcr，返回 ``(items, count)``。
+    def ocr_auto_color_ex(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> tuple[str, int]:
+        """结构化 OcrAutoColor，返回 ``(items, count)``。
 
         ``items`` 格式 ``"x1,y1,x2,y2,conf,text|..."``，坐标为**客户区坐标**（相对绑定窗口客户区左上角，与
         :meth:`find_color` / :meth:`find_pic` 同口径；**不是**屏幕绝对坐标），
         ``conf`` 为置信度（0~1，两位小数）；``count`` 为命中行数。
         """
         return self._call_string_with_int(
-            "OpAutoOcrEx", int(x1), int(y1), int(x2), int(y2), color, float(sim)
+            "OpOcrAutoColorEx", int(x1), int(y1), int(x2), int(y2), color, float(sim)
         )
+
+    def ocr_auto_color_from_file(self, file_name: str | Path, color_format: str, sim: float) -> str:
+        """文件版 OcrAutoColor：读取图片后按颜色二值化再做免字库 OCR。"""
+        return self._call_string("OpOcrAutoColorFromFile", str(file_name), color_format, float(sim))
+
+    def autoocr_line(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
+        """.. deprecated:: 2026-10-15
+        旧名别名，等同于 :meth:`ocr_auto_color_line`，新代码请用新名。"""
+        return self.ocr_auto_color_line(x1, y1, x2, y2, color, sim)
+
+    def autoocr_ex(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> tuple[str, int]:
+        """.. deprecated:: 2026-10-15
+        旧名别名，等同于 :meth:`ocr_auto_color_ex`，新代码请用新名。"""
+        return self.ocr_auto_color_ex(x1, y1, x2, y2, color, sim)
 
     def find_str(self, x1: int, y1: int, x2: int, y2: int, strs: str, color: str, sim: float) -> tuple[int, int, int]:
         return self._call_result_point("OpFindStr", int(x1), int(y1), int(x2), int(y2), strs, color, float(sim))

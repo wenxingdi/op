@@ -109,15 +109,15 @@ class ImageSearchService : public ImageSearchAlgorithms {
 
     // 免字库识别：按颜色对(已截入 _src 的)区域做二值化(白字黑底)后再做 OCR。
     // 与 OCR() 的区别：强制先按颜色二值化，适用于彩色背景下隔离指定颜色文字。
-    long autoocr(const wstring &color, double sim, std::wstring &out_str);
+    long ocr_auto_color(const wstring &color, double sim, std::wstring &out_str);
 
-    // 单行快模式 autoocr：颜色二值化后水平投影切行 -> 每行直 rec（跳过 det）。
+    // 单行快模式 ocr_auto_color：颜色二值化后水平投影切行 -> 每行直 rec（跳过 det）。
     // 行定位自动裁掉上下留白（整窗直 rec 会压扁字符致错字），多行区域逐行拼接；
     // 适用于读出区/固定文本，比 det+rec 快。
-    long autoocr_line(const wstring &color, double sim, std::wstring &out_str);
+    long ocr_auto_color_line(const wstring &color, double sim, std::wstring &out_str);
 
-    // 结构化 autoocr：输出 "x1,y1,x2,y2,conf,text|..."（bbox 已偏移为客户区坐标，相对绑定窗口客户区左上角）。
-    long autoocr_ex(const wstring &color, double sim, std::wstring &out_str);
+    // 结构化 ocr_auto_color：输出 "x1,y1,x2,y2,conf,text|..."（bbox 已偏移为客户区坐标，相对绑定窗口客户区左上角）。
+    long ocr_auto_color_ex(const wstring &color, double sim, std::wstring &out_str);
 
     long OcrEx(const wstring &color, double sim, std::wstring &out_str);
 
@@ -135,8 +135,8 @@ class ImageSearchService : public ImageSearchAlgorithms {
 
     long OcrFromFile(const wstring &files, const wstring &color, double sim, std::wstring &retstr);
 
-    // 文件版 autoocr：读取图片到 _src 后按颜色二值化再做免字库 OCR（与 autoocr 同源）。
-    long autoocrFromFile(const wstring &files, const wstring &color, double sim, std::wstring &retstr);
+    // 文件版 ocr_auto_color：读取图片到 _src 后按颜色二值化再做免字库 OCR（与 ocr_auto_color 同源）。
+    long ocr_auto_color_from_file(const wstring &files, const wstring &color, double sim, std::wstring &retstr);
 
     long OcrAutoFromFile(const wstring &files, double sim, std::wstring &retstr);
 

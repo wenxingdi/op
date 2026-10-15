@@ -358,6 +358,11 @@ def _bind(dll: ctypes.WinDLL) -> ctypes.WinDLL:
         ("OpGetWordResultStr", c_wchar_p, [op_handle, c_wchar_p, c_int]),
         ("OpOcr", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
         ("OpOcrEx", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
+        ("OpOcrAutoColor", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
+        ("OpOcrAutoColorLine", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
+        ("OpOcrAutoColorEx", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double, c_int_p]),
+        ("OpOcrAutoColorFromFile", c_wchar_p, [op_handle, c_wchar_p, c_wchar_p, c_double]),
+        # 旧名废弃别名（C 层转发到新名），保留兼容已有脚本
         ("OpAutoOcrLine", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
         ("OpAutoOcrEx", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double, c_int_p]),
         ("OpFindStr", c_int, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_wchar_p, c_double, c_int_p, c_int_p]),

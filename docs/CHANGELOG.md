@@ -3,6 +3,26 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第二批（OCR 命名规范化：AutoOcr* → OcrAutoColor*，refactor）
+
+- **背景**：免字库 OCR 存在两套命名混用且语义不同——`OcrAuto/OcrAutoFromFile`（原图直识别，无颜色参数）
+  与 `AutoOcr/AutoOcrLine/AutoOcrEx/AutoOcrFromFile`（先按颜色二值化再识别，必须给颜色）。
+  `autoocr`/`ocrauto` 字面近似，调用方极易用错族。
+- **新命名**（按大漠风格 Ocr 前缀 + Color 后缀精确表达"带颜色二值化"语义）：
+  `OcrAutoColor` / `OcrAutoColorLine` / `OcrAutoColorEx` / `OcrAutoColorFromFile`；
+  Service 层 snake_case `ocr_auto_color(_line/_ex/_from_file)`；`OcrAuto` 系保持不动。
+- **改动面**：`include/libop.h`（C++ 契约）、`libop/op/OpOcr.cpp`、`libop/image/ImageSearchService.h/.cpp`、
+  `include/op_c_api.h` + `libop/c_api/op_c_api.cpp`（新增 `OpOcrAutoColor*`）、
+  `libop/com/op.idl`（新 dispid 380-383）+ `OpAutomation.h/.cpp`、
+  `swig/op.i`（旧名 %extend 废弃别名）+ 重生成 `swig/pyop.py`/`op_wrap.cxx`/`python/pyop/_binding.py`（SWIG 4.4.1）、
+  `bindings/python/op`（新名 + `autoocr_line/ex` 转 deprecated alias）、`bindings/go`（新增 `OcrAutoColorLine/Ex`，旧名转转发）、
+  C++ 测试改用新名，`c_api_null_handle_test` 新旧名并测（别名回归）。
+- **兼容**：C API 旧名 `OpAutoOcr*` 保留为废弃别名（一行转发）；COM 旧 dispid 265/266 不动；
+  pyop/ctypes/Go 旧方法名保留。已有脚本与 OPTool 零迁移。
+- **回归**：全量 gtest 371 PASS（同批次 2 条已知环境/flaky 项）；`OcrFixture`+新名用例 28/28；
+  `_t_dict_ocr.py` 49 PASS/0 FAIL（D5 组已用新名）；`check_swig_sync.py` 三层同步通过。
+  `api_reference.html` 已重新生成（含 4 个新接口）。
+
 ### 2026-10-15（OCR 并发解锁 + 找图死代码精简 + OcrEx 上限修正，perf/fix/refactor）
 
 - **perf(ocr): 管理器锁外推，并发 OCR 不再串行化**（`libop/ocr/OcrService.cpp/.h`）
