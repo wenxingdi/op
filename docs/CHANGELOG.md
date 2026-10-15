@@ -3,6 +3,45 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第十九批（P1 功能落地：文件模块 + 组合键 + 窗口 DPI + 进程终止 + 二维码，feat）
+
+按 `docs/2026-10/OP_vs_OLA全模块对比_20261015.md` 的 P1 建议，对照 OLA
+常用子集新增 19 个接口，Op 类 → C API → COM（idl）→ 测试四层全落地，
+全部经构建与全量回归（407 ran / 405 PASS，唯一失败为基线环境 flake
+MouseKeyTest.WaitKeyScanAllWithWaitFindsKey）。
+
+- **feat(op): 文件模块 12 接口（F1，新文件 OpFile.cpp）**：
+  FileExists / CreateFolder（多级递归，已存在视为成功）/ DeleteFolder（递归
+  删树）/ GetFileList（全路径 `|` 分隔，空通配符 = `*`）/ CopyFile / MoveFile /
+  DeleteFile / GetFileSize（int64 出参）/ ReadFileString（UTF-8 剔 BOM）/
+  WriteStringToFile（UTF-8 带 BOM 覆盖写）/ GetFileName（flag 0 全名/1 主名/
+  2 扩展/3 目录）/ ToAbsolutePath。新增共享头 `libop/ipc/ProcessTree.h`。
+- **feat(op): KeyPressHotkey 组合键（F2）**：`"ctrl+alt+a"` 式组合串，
+  修饰键解析去重、字符自带 shift 态（如 `!`）并入修饰集，复用 key_combo_press。
+- **feat(op): GetWindowScale 窗口 DPI 缩放（F3）**：GetDpiForWindow 直取，
+  退化 Shcore.dll 动态加载 GetDpiForMonitor，返回 `"%.2f"` 字符串。
+- **feat(op): TerminateProcess / TerminateProcessTree（F4）**：OpenProcess
+  (TERMINATE|SYNCHRONIZE) + TerminateProcess + 等 1s；树杀复用
+  `op::proctree::terminate_process_tree`（Pipe.cpp 本地副本已收编为共享头），
+  以进程不可再打开判定成功。
+- **feat(opencv): 二维码 Decode/Create（F5）**：DecodeQRCode（区域截图链 +
+  QRCodeDetector::detectAndDecode）/ DecodeQRCodeFromFile（filesystem 路径
+  同 loadImageFromFile 口径）/ CreateQRCode（QRCodeEncoder → INTER_NEAREST
+  缩放到指定边长，<=0 用 256 → imwrite PNG）。
+- **fix(Windows 宏冲突)**：CopyFile/MoveFile/DeleteFile 宏会把
+  `Op::CopyFile` 声明、IOpAutomation 纯虚与 C API 调用点改写为 *W 后缀
+  （C2039/C2259 连锁）；随 FindWindow 先例在 libop.h、OpAutomation.h、
+  op_c_api.cpp 三处局部 `#undef`。
+- **fix(opencv): OpenCV 5 头适配**——`encode` 改 OutputArray 两参形态；
+  `createMatView` 在 `opcv::helpers` 命名空间。
+- **test**: 新增 tests/file_api_test.cpp（FileApiTest 5 用例：目录增删/
+  UTF-8 往返/拷贝移动删除+大小/通配遍历/路径解析）；空句柄测试生成物
+  经 gen_c_api_null_handle_test.py 重跑覆盖 19 个新接口。
+- **docs**: API 手册 261 → 280；对比文档 P1 表标注已落地。
+
+遗留：swig/python 绑定（op.i/op_wrap.cxx/pyop）与 Go 绑定未同步——本机无
+swig 二进制，C API 与 COM 完整，待有 swig 环境补齐。
+
 ### 2026-10-15 第十八批（algorithm/ 收官：A* 惰性删除 + 建图去逐像素除法，refactor）
 
 逐模块分析与优化第 14 模块（algorithm/，逐模块专项收官弹），分析文档
