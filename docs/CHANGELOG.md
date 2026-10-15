@@ -3,6 +3,14 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第二十批·补（AStarFindPathWay 建图复用，perf）
+
+O3 落地：`astar_segment` 拆为 build_astar + astar_segment_on，多点途经寻路
+由"每段 set_map_grid 整表拷贝障碍网格"（N 段 = N 次拷贝 + N 份堆分配）改为
+整条只建图一次、逐段复用同一 AStar 实例（findpath 只读 `_walls`，逐段
+g_score/parents 本为局部分配，复用安全）。单段 AStarFindPathBM 行为不变。
+回归 411 ran / 409 PASS。
+
 ### 2026-10-15 第二十批（算法/系统补充：可行点吸附 + 坐标排序 + 调试权限 + 错误文本，feat）
 
 承接第十九批的欧拉算法/综合功能复查结论，新增 4 接口（Op → C API → COM
