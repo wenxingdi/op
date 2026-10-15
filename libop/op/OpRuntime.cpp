@@ -38,7 +38,9 @@ void op::Op::SetPath(const wchar_t *path, long *ret) {
         else
             fpath = m_context->curr_path + fpath;
         if (::PathFileExistsW(fpath.data())) {
-            m_context->curr_path = path;
+            // 必须写 fpath（curr_path + 子目录拼接后的完整路径），不能写 path（原始入参）：
+            // 首分支写的就是规范化后的 fpath，这里写原始串会让后续相对解析基于错误基准。
+            m_context->curr_path = fpath;
             m_context->image_proc._curr_path = m_context->curr_path;
             m_context->bkproc._curr_path = m_context->curr_path;
             internal::set_result(ret, 1L);

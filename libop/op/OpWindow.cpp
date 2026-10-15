@@ -397,6 +397,35 @@ void geo_lock_ensure_thread() {
 // 返回 false 表示该条目已无任何锁标志,调用方应删除
 bool geo_lock_prune(GeoLockEntry &e) { return !e.lock_pos && !e.lock_size && !e.orig_style_saved; }
 
+// ---------------- 锁内助手（第十二批 OP5）：三个公开函数的公共骨架 ----------------
+// 注意：均要求调用方已持有 g_geo_lock_mtx。
+
+// 取条目；create 为 true 且无条目时新建（anchor_on_create 控制是否立即锚定当前矩形，
+// DisableMinMax 不需要锚点）。create 为 false 时纯查找，不会凭空产生条目
+// （disable 路径不得为不存在的窗口创建空条目）。
+GeoLockEntry *geo_lock_entry_locked(HWND target, bool create, bool anchor_on_create) {
+    GeoLockEntry *e = geo_lock_find_locked(target);
+    if (!e && create) {
+        g_geo_locks.push_back(GeoLockEntry{});
+        e = &g_geo_locks.back();
+        e->hwnd = target;
+        if (anchor_on_create)
+            ::GetWindowRect(target, &e->anchor);
+    }
+    return e;
+}
+
+// 条目已无任何锁标志时从表中删除。
+void geo_lock_drop_locked(HWND target) {
+    GeoLockEntry *e = geo_lock_find_locked(target);
+    if (e && geo_lock_prune(*e)) {
+        auto it = std::find_if(g_geo_locks.begin(), g_geo_locks.end(),
+                               [&](const GeoLockEntry &x) { return x.hwnd == target; });
+        if (it != g_geo_locks.end())
+            g_geo_locks.erase(it);
+    }
+}
+
 // ---------------- 输入法(imm32 动态加载,免改链接库) ----------------
 struct ImmApi {
     HMODULE mod = nullptr;
@@ -436,26 +465,16 @@ void op::Op::LockWindowPosition(LONG_PTR hwnd, long enable, long *ret) {
 
     geo_lock_ensure_thread();
     std::lock_guard<std::mutex> lk(g_geo_lock_mtx);
-    GeoLockEntry *e = geo_lock_find_locked(target);
+    GeoLockEntry *e = geo_lock_entry_locked(target, enable != 0, false);
     if (enable) {
-        if (!e) {
-            g_geo_locks.push_back(GeoLockEntry{});
-            e = &g_geo_locks.back();
-            e->hwnd = target;
-            ::GetWindowRect(target, &e->anchor);
-        } else if (!e->lock_pos) {
-            // 重新锚定当前位置(避免旧锚点残留)
+        if (!e->lock_pos) {
+            // 新建条目或重新启用时锚定当前位置(避免旧锚点残留)
             ::GetWindowRect(target, &e->anchor);
         }
         e->lock_pos = true;
     } else if (e) {
         e->lock_pos = false;
-        if (geo_lock_prune(*e)) {
-            auto it = std::find_if(g_geo_locks.begin(), g_geo_locks.end(),
-                                   [&](const GeoLockEntry &x) { return x.hwnd == target; });
-            if (it != g_geo_locks.end())
-                g_geo_locks.erase(it);
-        }
+        geo_lock_drop_locked(target);
     }
     internal::set_result(ret, 1L);
 }
@@ -468,25 +487,16 @@ void op::Op::LockWindowSize(LONG_PTR hwnd, long enable, long *ret) {
 
     geo_lock_ensure_thread();
     std::lock_guard<std::mutex> lk(g_geo_lock_mtx);
-    GeoLockEntry *e = geo_lock_find_locked(target);
+    GeoLockEntry *e = geo_lock_entry_locked(target, enable != 0, false);
     if (enable) {
-        if (!e) {
-            g_geo_locks.push_back(GeoLockEntry{});
-            e = &g_geo_locks.back();
-            e->hwnd = target;
-            ::GetWindowRect(target, &e->anchor);
-        } else if (!e->lock_size) {
+        if (!e->lock_size) {
+            // 新建条目或重新启用时锚定当前位置(避免旧锚点残留)
             ::GetWindowRect(target, &e->anchor);
         }
         e->lock_size = true;
     } else if (e) {
         e->lock_size = false;
-        if (geo_lock_prune(*e)) {
-            auto it = std::find_if(g_geo_locks.begin(), g_geo_locks.end(),
-                                   [&](const GeoLockEntry &x) { return x.hwnd == target; });
-            if (it != g_geo_locks.end())
-                g_geo_locks.erase(it);
-        }
+        geo_lock_drop_locked(target);
     }
     internal::set_result(ret, 1L);
 }
@@ -499,28 +509,21 @@ void op::Op::DisableMinMax(LONG_PTR hwnd, long enable, long *ret) {
 
     constexpr LONG_PTR kMask = WS_MAXIMIZEBOX | WS_MINIMIZEBOX;
     std::lock_guard<std::mutex> lk(g_geo_lock_mtx);
-    GeoLockEntry *e = geo_lock_find_locked(target);
     if (enable) {
-        if (!e) {
-            g_geo_locks.push_back(GeoLockEntry{});
-            e = &g_geo_locks.back();
-            e->hwnd = target;
-        }
+        GeoLockEntry *e = geo_lock_entry_locked(target, true, false);
         if (!e->orig_style_saved) {
             e->orig_style = GetWindowLongPtrW(target, GWL_STYLE);
             e->orig_style_saved = true;
         }
         SetWindowLongPtrW(target, GWL_STYLE, e->orig_style & ~kMask);
-    } else if (e && e->orig_style_saved) {
-        // 恢复原始样式;若位置/尺寸锁已不存在则删除条目
-        SetWindowLongPtrW(target, GWL_STYLE, e->orig_style);
-        e->orig_style = 0;
-        e->orig_style_saved = false;
-        if (geo_lock_prune(*e)) {
-            auto it = std::find_if(g_geo_locks.begin(), g_geo_locks.end(),
-                                   [&](const GeoLockEntry &x) { return x.hwnd == target; });
-            if (it != g_geo_locks.end())
-                g_geo_locks.erase(it);
+    } else {
+        // 纯查找不新建；恢复原始样式,若位置/尺寸锁已不存在则删除条目
+        GeoLockEntry *e = geo_lock_find_locked(target);
+        if (e && e->orig_style_saved) {
+            SetWindowLongPtrW(target, GWL_STYLE, e->orig_style);
+            e->orig_style = 0;
+            e->orig_style_saved = false;
+            geo_lock_drop_locked(target);
         }
     }
     SetWindowPos(target, nullptr, 0, 0, 0, 0,

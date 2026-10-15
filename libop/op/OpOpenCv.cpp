@@ -14,94 +14,79 @@
 
 namespace {
 
-bool parse_cv_threshold_mode(const wchar_t *mode_text, opcv::ThresholdMode &mode) {
-    std::wstring value = mode_text ? mode_text : L"";
+// 公共别名匹配（第十二批 OP1）：小写化后在静态 {别名, 枚举值} 表中查值，
+// 空串别名即"缺省值"。五个 parse_cv_* 模式解析器共用。
+template <typename Enum, size_t N>
+bool match_cv_alias(const wchar_t *text, const std::pair<const wchar_t *, Enum> (&table)[N], Enum &out) {
+    std::wstring value = text ? text : L"";
     wstring2lower(value);
-
-    if (value == L"binary" || value.empty()) {
-        mode = opcv::ThresholdMode::Binary;
-    } else if (value == L"binary_inv" || value == L"inv") {
-        mode = opcv::ThresholdMode::BinaryInv;
-    } else if (value == L"otsu") {
-        mode = opcv::ThresholdMode::Otsu;
-    } else if (value == L"otsu_inv") {
-        mode = opcv::ThresholdMode::OtsuInv;
-    } else if (value == L"adaptive") {
-        mode = opcv::ThresholdMode::Adaptive;
-    } else if (value == L"adaptive_inv") {
-        mode = opcv::ThresholdMode::AdaptiveInv;
-    } else {
-        return false;
+    for (const auto &entry : table) {
+        if (value == entry.first) {
+            out = entry.second;
+            return true;
+        }
     }
-    return true;
+    return false;
+}
+
+bool parse_cv_threshold_mode(const wchar_t *mode_text, opcv::ThresholdMode &mode) {
+    static const std::pair<const wchar_t *, opcv::ThresholdMode> kTable[] = {
+        {L"binary", opcv::ThresholdMode::Binary},
+        {L"", opcv::ThresholdMode::Binary},
+        {L"binary_inv", opcv::ThresholdMode::BinaryInv},
+        {L"inv", opcv::ThresholdMode::BinaryInv},
+        {L"otsu", opcv::ThresholdMode::Otsu},
+        {L"otsu_inv", opcv::ThresholdMode::OtsuInv},
+        {L"adaptive", opcv::ThresholdMode::Adaptive},
+        {L"adaptive_inv", opcv::ThresholdMode::AdaptiveInv},
+    };
+    return match_cv_alias(mode_text, kTable, mode);
 }
 
 bool parse_cv_color_space(const wchar_t *space_text, opcv::InRangeColorSpace &color_space) {
-    std::wstring value = space_text ? space_text : L"";
-    wstring2lower(value);
-
-    if (value == L"bgr" || value.empty()) {
-        color_space = opcv::InRangeColorSpace::Bgr;
-    } else if (value == L"hsv") {
-        color_space = opcv::InRangeColorSpace::Hsv;
-    } else if (value == L"gray" || value == L"grey") {
-        color_space = opcv::InRangeColorSpace::Gray;
-    } else {
-        return false;
-    }
-    return true;
+    static const std::pair<const wchar_t *, opcv::InRangeColorSpace> kTable[] = {
+        {L"bgr", opcv::InRangeColorSpace::Bgr},
+        {L"", opcv::InRangeColorSpace::Bgr},
+        {L"hsv", opcv::InRangeColorSpace::Hsv},
+        {L"gray", opcv::InRangeColorSpace::Gray},
+        {L"grey", opcv::InRangeColorSpace::Gray},
+    };
+    return match_cv_alias(space_text, kTable, color_space);
 }
 
 bool parse_cv_morphology_mode(const wchar_t *mode_text, opcv::MorphologyMode &mode) {
-    std::wstring value = mode_text ? mode_text : L"";
-    wstring2lower(value);
-
-    if (value == L"erode") {
-        mode = opcv::MorphologyMode::Erode;
-    } else if (value == L"dilate") {
-        mode = opcv::MorphologyMode::Dilate;
-    } else if (value == L"open" || value.empty()) {
-        mode = opcv::MorphologyMode::Open;
-    } else if (value == L"close") {
-        mode = opcv::MorphologyMode::Close;
-    } else {
-        return false;
-    }
-    return true;
+    static const std::pair<const wchar_t *, opcv::MorphologyMode> kTable[] = {
+        {L"erode", opcv::MorphologyMode::Erode},
+        {L"dilate", opcv::MorphologyMode::Dilate},
+        {L"open", opcv::MorphologyMode::Open},
+        {L"", opcv::MorphologyMode::Open},
+        {L"close", opcv::MorphologyMode::Close},
+    };
+    return match_cv_alias(mode_text, kTable, mode);
 }
 
 bool parse_cv_thin_mode(const wchar_t *mode_text, opcv::ThinMode &mode) {
-    std::wstring value = mode_text ? mode_text : L"";
-    wstring2lower(value);
-
-    if (value == L"zhang_suen" || value == L"zhangsuen" || value.empty()) {
-        mode = opcv::ThinMode::ZhangSuen;
-    } else if (value == L"guo_hall" || value == L"guohall") {
-        mode = opcv::ThinMode::GuoHall;
-    } else if (value == L"morph") {
-        mode = opcv::ThinMode::Morph;
-    } else {
-        return false;
-    }
-    return true;
+    static const std::pair<const wchar_t *, opcv::ThinMode> kTable[] = {
+        {L"zhang_suen", opcv::ThinMode::ZhangSuen},
+        {L"zhangsuen", opcv::ThinMode::ZhangSuen},
+        {L"", opcv::ThinMode::ZhangSuen},
+        {L"guo_hall", opcv::ThinMode::GuoHall},
+        {L"guohall", opcv::ThinMode::GuoHall},
+        {L"morph", opcv::ThinMode::Morph},
+    };
+    return match_cv_alias(mode_text, kTable, mode);
 }
 
 bool parse_cv_blur_mode(const wchar_t *mode_text, opcv::BlurMode &mode) {
-    std::wstring value = mode_text ? mode_text : L"";
-    wstring2lower(value);
-
-    if (value == L"gaussian" || value.empty()) {
-        mode = opcv::BlurMode::Gaussian;
-    } else if (value == L"median") {
-        mode = opcv::BlurMode::Median;
-    } else if (value == L"bilateral") {
-        mode = opcv::BlurMode::Bilateral;
-    } else if (value == L"box" || value == L"mean") {
-        mode = opcv::BlurMode::Box;
-    } else {
-        return false;
-    }
-    return true;
+    static const std::pair<const wchar_t *, opcv::BlurMode> kTable[] = {
+        {L"gaussian", opcv::BlurMode::Gaussian},
+        {L"", opcv::BlurMode::Gaussian},
+        {L"median", opcv::BlurMode::Median},
+        {L"bilateral", opcv::BlurMode::Bilateral},
+        {L"box", opcv::BlurMode::Box},
+        {L"mean", opcv::BlurMode::Box},
+    };
+    return match_cv_alias(mode_text, kTable, mode);
 }
 
 bool parse_cv_number_list(const wchar_t *text, std::vector<double> &values) {
@@ -152,35 +137,35 @@ void run_cv_file_preprocess(const wchar_t *src_file, const wchar_t *dst_file, lo
     op::internal::set_result(ret, 1L);
 }
 
-std::wstring build_cv_components_json(const std::vector<opcv::RegionAnalysisResult> &results, bool ok) {
+// 公共 JSON 框架（第十二批 OP3）：{"ok":..,"results":[<items>]}，元素序列化由调用方传入。
+// components/contours 两份构建器仅元素字段不同，合并为一个框架 + 两个元素格式化 lambda。
+template <typename Item, typename FormatItem>
+std::wstring build_cv_results_json(bool ok, const std::vector<Item> &results, FormatItem &&format_item) {
     std::wostringstream oss;
     oss << L"{\"ok\":" << (ok ? 1 : 0) << L",\"results\":[";
     for (size_t i = 0; i < results.size(); ++i) {
         if (i != 0) {
             oss << L",";
         }
-        const auto &item = results[i];
-        oss << L"{\"x\":" << item.x << L",\"y\":" << item.y << L",\"width\":" << item.width << L",\"height\":"
-            << item.height << L",\"area\":" << static_cast<long long>(item.area) << L"}";
+        format_item(oss, results[i]);
     }
     oss << L"]}";
     return oss.str();
 }
 
+std::wstring build_cv_components_json(const std::vector<opcv::RegionAnalysisResult> &results, bool ok) {
+    return build_cv_results_json(ok, results, [](std::wostringstream &oss, const opcv::RegionAnalysisResult &item) {
+        oss << L"{\"x\":" << item.x << L",\"y\":" << item.y << L",\"width\":" << item.width << L",\"height\":"
+            << item.height << L",\"area\":" << static_cast<long long>(item.area) << L"}";
+    });
+}
+
 std::wstring build_cv_contours_json(const std::vector<opcv::ContourAnalysisResult> &results, bool ok) {
-    std::wostringstream oss;
-    oss << L"{\"ok\":" << (ok ? 1 : 0) << L",\"results\":[";
-    for (size_t i = 0; i < results.size(); ++i) {
-        if (i != 0) {
-            oss << L",";
-        }
-        const auto &item = results[i];
+    return build_cv_results_json(ok, results, [](std::wostringstream &oss, const opcv::ContourAnalysisResult &item) {
         oss << L"{\"x\":" << item.x << L",\"y\":" << item.y << L",\"width\":" << item.width << L",\"height\":"
             << item.height << L",\"area\":" << static_cast<long long>(item.area) << L",\"perimeter\":"
             << static_cast<long long>(item.perimeter) << L",\"points\":" << item.points << L"}";
-    }
-    oss << L"]}";
-    return oss.str();
+    });
 }
 
 bool parse_cv_pipeline_step(const std::wstring &step, std::wstring &name, std::vector<std::wstring> &args) {
@@ -234,30 +219,49 @@ bool parse_cv_pipeline_long_arg(const std::vector<std::wstring> &args, size_t in
     }
 }
 
+// 无参步骤别名表（第十二批 OP2）：gray/binary/edge/outline/denoise/equalize/cropvalid
+// 及其全部历史别名 → opcv 一步函数。查不到返回 false，调用方继续走带参步骤链。
+bool cv_pipeline_apply_noarg_step(const std::wstring &name, const opcv::ImageHandle &source,
+                                  opcv::ImageHandle &output) {
+    using StepFn = bool (*)(const opcv::ImageHandle &, opcv::ImageHandle &);
+    static const std::pair<const wchar_t *, StepFn> kNoArgSteps[] = {
+        {L"gray", &opcv::ToGray},
+        {L"togray", &opcv::ToGray},
+        {L"to_gray", &opcv::ToGray},
+        {L"cvtogray", &opcv::ToGray},
+        {L"binary", &opcv::ToBinary},
+        {L"tobinary", &opcv::ToBinary},
+        {L"to_binary", &opcv::ToBinary},
+        {L"cvtobinary", &opcv::ToBinary},
+        {L"edge", &opcv::ToEdge},
+        {L"toedge", &opcv::ToEdge},
+        {L"to_edge", &opcv::ToEdge},
+        {L"cvtoedge", &opcv::ToEdge},
+        {L"outline", &opcv::ToOutline},
+        {L"tooutline", &opcv::ToOutline},
+        {L"to_outline", &opcv::ToOutline},
+        {L"cvtooutline", &opcv::ToOutline},
+        {L"denoise", &opcv::Denoise},
+        {L"cvdenoise", &opcv::Denoise},
+        {L"equalize", &opcv::Equalize},
+        {L"cvequalize", &opcv::Equalize},
+        {L"cropvalid", &opcv::CropValid},
+        {L"crop_valid", &opcv::CropValid},
+        {L"cvcropvalid", &opcv::CropValid},
+    };
+    for (const auto &entry : kNoArgSteps) {
+        if (name == entry.first)
+            return entry.second(source, output);
+    }
+    return false;
+}
+
 bool cv_pipeline_apply_step(const std::wstring &name, const std::vector<std::wstring> &args,
                             const opcv::ImageHandle &source, opcv::ImageHandle &output) {
     // 每一步只接收当前图像并输出下一张图，保证流水线状态简单清晰。
-    if (name == L"gray" || name == L"togray" || name == L"to_gray" || name == L"cvtogray") {
-        return opcv::ToGray(source, output);
-    }
-    if (name == L"binary" || name == L"tobinary" || name == L"to_binary" || name == L"cvtobinary") {
-        return opcv::ToBinary(source, output);
-    }
-    if (name == L"edge" || name == L"toedge" || name == L"to_edge" || name == L"cvtoedge") {
-        return opcv::ToEdge(source, output);
-    }
-    if (name == L"outline" || name == L"tooutline" || name == L"to_outline" || name == L"cvtooutline") {
-        return opcv::ToOutline(source, output);
-    }
-    if (name == L"denoise" || name == L"cvdenoise") {
-        return opcv::Denoise(source, output);
-    }
-    if (name == L"equalize" || name == L"cvequalize") {
-        return opcv::Equalize(source, output);
-    }
-    if (name == L"cropvalid" || name == L"crop_valid" || name == L"cvcropvalid") {
-        return opcv::CropValid(source, output);
-    }
+    // 无参步骤先查别名映射表；带参步骤逻辑各异，保留 if 链。
+    if (cv_pipeline_apply_noarg_step(name, source, output))
+        return true;
 
     if (name == L"clahe") {
         double clip_limit = 2.0;
@@ -676,247 +680,225 @@ void op::Op::CvThin(const wchar_t *src_file, const wchar_t *dst_file, const wcha
     internal::set_result(ret, 1L);
 }
 
-void op::Op::CvMatchTemplate(long x, long y, long width, long height, const wchar_t *template_name, double threshold,
-                            long dir, long strip_mode, long method, long color_mode, std::wstring &retjson, long *ret) {
-    retjson = L"{\"ok\":0}";
-    internal::set_result(ret, 0L);
-    if (template_name == nullptr) {
-        return;
-    }
+namespace {
 
+// Match 骨架（第十二批 OP3）：8 个 Cv*MatchTemplate 变体共享的「失败 JSON + ret 归零 +
+// 区域捕获」。fn 收到捕获成功的 source/region/origin，负责匹配、origin 平移、
+// BuildXxxJson 与 set_result；捕获失败 fn 不执行，retjson/ret 保持入口处失败值。
+// m_context 为 Op 私有成员，故以两个服务引用传入。
+template <typename Fn>
+void cv_match_capture_run(op::binding::BindingSession &bkproc, op::image::ImageSearchService &image_proc, long x,
+                          long y, long width, long height, std::wstring &retjson, long *ret, const wchar_t *fail_json,
+                          Fn &&fn) {
+    retjson = fail_json;
+    op::internal::set_result(ret, 0L);
     opcv::ImageHandle source;
     opcv::Region region;
     int origin_x = 0;
     int origin_y = 0;
-    if (!opcv::bridge::CaptureRegion(m_context->bkproc, m_context->image_proc, x, y, width, height, source, region,
-                                     origin_x, origin_y)) {
+    if (!opcv::bridge::CaptureRegion(bkproc, image_proc, x, y, width, height, source, region, origin_x, origin_y))
+        return;
+    fn(source, region, origin_x, origin_y);
+}
+
+} // namespace
+
+void op::Op::CvMatchTemplate(long x, long y, long width, long height, const wchar_t *template_name, double threshold,
+                            long dir, long strip_mode, long method, long color_mode, std::wstring &retjson, long *ret) {
+    if (template_name == nullptr) {
+        retjson = L"{\"ok\":0}";
+        internal::set_result(ret, 0L);
         return;
     }
-
-    opcv::MatchResult match;
-    const bool ok =
-        opcv::MatchTemplate(source, template_name, region, threshold, match, static_cast<opcv::SearchDirection>(dir),
-                            static_cast<opcv::StripMode>(strip_mode), method, opcv::bridge::ParseColorMode(color_mode));
-    if (ok) {
-        match.x += origin_x;
-        match.y += origin_y;
-    }
-    retjson = opcv::bridge::BuildMatchJson(match, ok);
-    internal::set_result(ret, ok ? 1L : 0L);
+    cv_match_capture_run(m_context->bkproc, m_context->image_proc, x, y, width, height, retjson, ret, L"{\"ok\":0}",
+                         [&](const opcv::ImageHandle &source, const opcv::Region &region, int origin_x, int origin_y) {
+                             opcv::MatchResult match;
+                             const bool ok = opcv::MatchTemplate(
+                                 source, template_name, region, threshold, match, static_cast<opcv::SearchDirection>(dir),
+                                 static_cast<opcv::StripMode>(strip_mode), method,
+                                 opcv::bridge::ParseColorMode(color_mode));
+                             if (ok) {
+                                 match.x += origin_x;
+                                 match.y += origin_y;
+                             }
+                             retjson = opcv::bridge::BuildMatchJson(match, ok);
+                             internal::set_result(ret, ok ? 1L : 0L);
+                         });
 }
 
 void op::Op::CvMatchTemplateScale(long x, long y, long width, long height, const wchar_t *template_name,
                                  const wchar_t *scales, double threshold, long method, long color_mode,
                                  std::wstring &retjson, long *ret) {
-    retjson = L"{\"ok\":0}";
-    internal::set_result(ret, 0L);
     if (template_name == nullptr) {
+        retjson = L"{\"ok\":0}";
+        internal::set_result(ret, 0L);
         return;
     }
-
     std::vector<double> scale_values;
     if (!opcv::bridge::ParseScaleList(scales, scale_values)) {
+        retjson = L"{\"ok\":0}";
+        internal::set_result(ret, 0L);
         return;
     }
 
-    opcv::ImageHandle source;
-    opcv::Region region;
-    int origin_x = 0;
-    int origin_y = 0;
-    if (!opcv::bridge::CaptureRegion(m_context->bkproc, m_context->image_proc, x, y, width, height, source, region,
-                                     origin_x, origin_y)) {
-        return;
-    }
-
-    opcv::MatchResult match;
-    const bool ok = opcv::MatchTemplateScale(source, template_name, region, scale_values, threshold, match, method,
-                                             opcv::bridge::ParseColorMode(color_mode));
-    if (ok) {
-        match.x += origin_x;
-        match.y += origin_y;
-    }
-    retjson = opcv::bridge::BuildMatchJson(match, ok);
-    internal::set_result(ret, ok ? 1L : 0L);
+    cv_match_capture_run(m_context->bkproc, m_context->image_proc, x, y, width, height, retjson, ret, L"{\"ok\":0}",
+                         [&](const opcv::ImageHandle &source, const opcv::Region &region, int origin_x, int origin_y) {
+                             opcv::MatchResult match;
+                             const bool ok = opcv::MatchTemplateScale(source, template_name, region, scale_values,
+                                                                      threshold, match, method,
+                                                                      opcv::bridge::ParseColorMode(color_mode));
+                             if (ok) {
+                                 match.x += origin_x;
+                                 match.y += origin_y;
+                             }
+                             retjson = opcv::bridge::BuildMatchJson(match, ok);
+                             internal::set_result(ret, ok ? 1L : 0L);
+                         });
 }
 
 void op::Op::CvMatchAnyTemplate(long x, long y, long width, long height, const wchar_t *template_names, double threshold,
                                long dir, long strip_mode, long method, long color_mode, std::wstring &retjson,
                                long *ret) {
-    retjson = L"{\"ok\":0}";
-    internal::set_result(ret, 0L);
-
     std::vector<std::wstring> names;
     if (!opcv::bridge::ParseTemplateNames(template_names, names)) {
+        retjson = L"{\"ok\":0}";
+        internal::set_result(ret, 0L);
         return;
     }
 
-    opcv::ImageHandle source;
-    opcv::Region region;
-    int origin_x = 0;
-    int origin_y = 0;
-    if (!opcv::bridge::CaptureRegion(m_context->bkproc, m_context->image_proc, x, y, width, height, source, region,
-                                     origin_x, origin_y)) {
-        return;
-    }
-
-    opcv::NamedMatchResult match;
-    const bool ok = opcv::MatchAnyTemplate(
-        source, names, region, threshold, match, static_cast<opcv::SearchDirection>(dir),
-        static_cast<opcv::StripMode>(strip_mode), method, opcv::bridge::ParseColorMode(color_mode));
-    if (ok) {
-        match.match.x += origin_x;
-        match.match.y += origin_y;
-    }
-    retjson = opcv::bridge::BuildNamedMatchJson(match, ok);
-    internal::set_result(ret, ok ? 1L : 0L);
+    cv_match_capture_run(m_context->bkproc, m_context->image_proc, x, y, width, height, retjson, ret, L"{\"ok\":0}",
+                         [&](const opcv::ImageHandle &source, const opcv::Region &region, int origin_x, int origin_y) {
+                             opcv::NamedMatchResult match;
+                             const bool ok = opcv::MatchAnyTemplate(
+                                 source, names, region, threshold, match, static_cast<opcv::SearchDirection>(dir),
+                                 static_cast<opcv::StripMode>(strip_mode), method,
+                                 opcv::bridge::ParseColorMode(color_mode));
+                             if (ok) {
+                                 match.match.x += origin_x;
+                                 match.match.y += origin_y;
+                             }
+                             retjson = opcv::bridge::BuildNamedMatchJson(match, ok);
+                             internal::set_result(ret, ok ? 1L : 0L);
+                         });
 }
 
 void op::Op::CvMatchAllTemplates(long x, long y, long width, long height, const wchar_t *template_names,
                                 double threshold, long dir, long strip_mode, long method, long color_mode,
                                 std::wstring &retjson, long *ret) {
-    retjson = L"{\"ok\":0,\"results\":[]}";
-    internal::set_result(ret, 0L);
-
     std::vector<std::wstring> names;
     if (!opcv::bridge::ParseTemplateNames(template_names, names)) {
+        retjson = L"{\"ok\":0,\"results\":[]}";
+        internal::set_result(ret, 0L);
         return;
     }
 
-    opcv::ImageHandle source;
-    opcv::Region region;
-    int origin_x = 0;
-    int origin_y = 0;
-    if (!opcv::bridge::CaptureRegion(m_context->bkproc, m_context->image_proc, x, y, width, height, source, region,
-                                     origin_x, origin_y)) {
-        return;
-    }
-
-    std::vector<opcv::NamedMatchResult> matches;
-    const bool ok = opcv::MatchAllTemplates(
-        source, names, region, threshold, matches, static_cast<opcv::SearchDirection>(dir),
-        static_cast<opcv::StripMode>(strip_mode), method, opcv::bridge::ParseColorMode(color_mode));
-    if (ok) {
-        for (auto &match : matches) {
-            match.match.x += origin_x;
-            match.match.y += origin_y;
-        }
-    }
-    retjson = opcv::bridge::BuildAllMatchesJson(matches, ok);
-    internal::set_result(ret, ok ? 1L : 0L);
+    cv_match_capture_run(m_context->bkproc, m_context->image_proc, x, y, width, height, retjson, ret,
+                         L"{\"ok\":0,\"results\":[]}",
+                         [&](const opcv::ImageHandle &source, const opcv::Region &region, int origin_x, int origin_y) {
+                             std::vector<opcv::NamedMatchResult> matches;
+                             const bool ok = opcv::MatchAllTemplates(
+                                 source, names, region, threshold, matches, static_cast<opcv::SearchDirection>(dir),
+                                 static_cast<opcv::StripMode>(strip_mode), method,
+                                 opcv::bridge::ParseColorMode(color_mode));
+                             if (ok) {
+                                 for (auto &match : matches) {
+                                     match.match.x += origin_x;
+                                     match.match.y += origin_y;
+                                 }
+                             }
+                             retjson = opcv::bridge::BuildAllMatchesJson(matches, ok);
+                             internal::set_result(ret, ok ? 1L : 0L);
+                         });
 }
 
 void op::Op::CvFeatureMatchTemplate(long x, long y, long width, long height, const wchar_t *template_name,
                                    double threshold, std::wstring &retjson, long *ret) {
-    retjson = L"{\"ok\":0}";
-    internal::set_result(ret, 0L);
     if (template_name == nullptr) {
+        retjson = L"{\"ok\":0}";
+        internal::set_result(ret, 0L);
         return;
     }
-
-    opcv::ImageHandle source;
-    opcv::Region region;
-    int origin_x = 0;
-    int origin_y = 0;
-    if (!opcv::bridge::CaptureRegion(m_context->bkproc, m_context->image_proc, x, y, width, height, source, region,
-                                     origin_x, origin_y)) {
-        return;
-    }
-
-    opcv::MatchResult match;
-    const bool ok = opcv::FeatureMatchTemplate(source, template_name, region, threshold, match);
-    if (ok) {
-        match.x += origin_x;
-        match.y += origin_y;
-    }
-    retjson = opcv::bridge::BuildMatchJson(match, ok);
-    internal::set_result(ret, ok ? 1L : 0L);
+    cv_match_capture_run(m_context->bkproc, m_context->image_proc, x, y, width, height, retjson, ret, L"{\"ok\":0}",
+                         [&](const opcv::ImageHandle &source, const opcv::Region &region, int origin_x, int origin_y) {
+                             opcv::MatchResult match;
+                             const bool ok = opcv::FeatureMatchTemplate(source, template_name, region, threshold, match);
+                             if (ok) {
+                                 match.x += origin_x;
+                                 match.y += origin_y;
+                             }
+                             retjson = opcv::bridge::BuildMatchJson(match, ok);
+                             internal::set_result(ret, ok ? 1L : 0L);
+                         });
 }
 
 void op::Op::CvEdgeMatchTemplate(long x, long y, long width, long height, const wchar_t *template_name, double threshold,
                                 std::wstring &retjson, long *ret) {
-    retjson = L"{\"ok\":0}";
-    internal::set_result(ret, 0L);
     if (template_name == nullptr) {
+        retjson = L"{\"ok\":0}";
+        internal::set_result(ret, 0L);
         return;
     }
-
-    opcv::ImageHandle source;
-    opcv::Region region;
-    int origin_x = 0;
-    int origin_y = 0;
-    if (!opcv::bridge::CaptureRegion(m_context->bkproc, m_context->image_proc, x, y, width, height, source, region,
-                                     origin_x, origin_y)) {
-        return;
-    }
-
-    opcv::MatchResult match;
-    const bool ok = opcv::EdgeMatchTemplate(source, template_name, region, threshold, match);
-    if (ok) {
-        match.x += origin_x;
-        match.y += origin_y;
-    }
-    retjson = opcv::bridge::BuildMatchJson(match, ok);
-    internal::set_result(ret, ok ? 1L : 0L);
+    cv_match_capture_run(m_context->bkproc, m_context->image_proc, x, y, width, height, retjson, ret, L"{\"ok\":0}",
+                         [&](const opcv::ImageHandle &source, const opcv::Region &region, int origin_x, int origin_y) {
+                             opcv::MatchResult match;
+                             const bool ok = opcv::EdgeMatchTemplate(source, template_name, region, threshold, match);
+                             if (ok) {
+                                 match.x += origin_x;
+                                 match.y += origin_y;
+                             }
+                             retjson = opcv::bridge::BuildMatchJson(match, ok);
+                             internal::set_result(ret, ok ? 1L : 0L);
+                         });
 }
 
 void op::Op::CvShapeMatchTemplate(long x, long y, long width, long height, const wchar_t *template_name,
                                  double threshold, std::wstring &retjson, long *ret) {
-    retjson = L"{\"ok\":0}";
-    internal::set_result(ret, 0L);
     if (template_name == nullptr) {
+        retjson = L"{\"ok\":0}";
+        internal::set_result(ret, 0L);
         return;
     }
-
-    opcv::ImageHandle source;
-    opcv::Region region;
-    int origin_x = 0;
-    int origin_y = 0;
-    if (!opcv::bridge::CaptureRegion(m_context->bkproc, m_context->image_proc, x, y, width, height, source, region,
-                                     origin_x, origin_y)) {
-        return;
-    }
-
-    opcv::MatchResult match;
-    const bool ok = opcv::ShapeMatchTemplate(source, template_name, region, threshold, match);
-    if (ok) {
-        match.x += origin_x;
-        match.y += origin_y;
-    }
-    retjson = opcv::bridge::BuildMatchJson(match, ok);
-    internal::set_result(ret, ok ? 1L : 0L);
+    cv_match_capture_run(m_context->bkproc, m_context->image_proc, x, y, width, height, retjson, ret, L"{\"ok\":0}",
+                         [&](const opcv::ImageHandle &source, const opcv::Region &region, int origin_x, int origin_y) {
+                             opcv::MatchResult match;
+                             const bool ok = opcv::ShapeMatchTemplate(source, template_name, region, threshold, match);
+                             if (ok) {
+                                 match.x += origin_x;
+                                 match.y += origin_y;
+                             }
+                             retjson = opcv::bridge::BuildMatchJson(match, ok);
+                             internal::set_result(ret, ok ? 1L : 0L);
+                         });
 }
 
 void op::Op::CvMatchTemplateRot(long x, long y, long width, long height, const wchar_t *template_name,
                                 const wchar_t *angles, double threshold, long method, long color_mode,
                                 std::wstring &retjson, long *ret) {
-    retjson = L"{\"ok\":0}";
-    internal::set_result(ret, 0L);
     if (template_name == nullptr) {
+        retjson = L"{\"ok\":0}";
+        internal::set_result(ret, 0L);
         return;
     }
-
     std::vector<double> angle_values;
     if (!opcv::bridge::ParseAngleList(angles, angle_values)) {
+        retjson = L"{\"ok\":0}";
+        internal::set_result(ret, 0L);
         return;
     }
 
-    opcv::ImageHandle source;
-    opcv::Region region;
-    int origin_x = 0;
-    int origin_y = 0;
-    if (!opcv::bridge::CaptureRegion(m_context->bkproc, m_context->image_proc, x, y, width, height, source, region,
-                                     origin_x, origin_y)) {
-        return;
-    }
-
-    opcv::MatchResult match;
-    double best_angle = 0.0;
-    const bool ok = opcv::MatchTemplateRotated(source, template_name, region, angle_values, threshold, match, best_angle,
-                                               method, opcv::bridge::ParseColorMode(color_mode));
-    if (ok) {
-        match.x += origin_x;
-        match.y += origin_y;
-    }
-    retjson = opcv::bridge::BuildRotatedMatchJson(match, best_angle, ok);
-    internal::set_result(ret, ok ? 1L : 0L);
+    cv_match_capture_run(m_context->bkproc, m_context->image_proc, x, y, width, height, retjson, ret, L"{\"ok\":0}",
+                         [&](const opcv::ImageHandle &source, const opcv::Region &region, int origin_x, int origin_y) {
+                             opcv::MatchResult match;
+                             double best_angle = 0.0;
+                             const bool ok =
+                                 opcv::MatchTemplateRotated(source, template_name, region, angle_values, threshold,
+                                                            match, best_angle, method,
+                                                            opcv::bridge::ParseColorMode(color_mode));
+                             if (ok) {
+                                 match.x += origin_x;
+                                 match.y += origin_y;
+                             }
+                             retjson = opcv::bridge::BuildRotatedMatchJson(match, best_angle, ok);
+                             internal::set_result(ret, ok ? 1L : 0L);
+                         });
 }
