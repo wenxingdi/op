@@ -29,12 +29,9 @@ class AStar {
     // 有效地图范围是 [0, w) x [0, h)，越界障碍点会被忽略。
     // 返回 false 表示尺寸非法或超出 kMaxCells（此时 _walls 置空 = 全图视为墙，findpath 一律返回空路径）。
     bool set_map(int w, int h, const std::vector<Vec2i> &wall) {
-        _mapSize = {w, h};
-        const size_t cells = static_cast<size_t>(w) * static_cast<size_t>(h);
-        if (w <= 0 || h <= 0 || cells == 0 || cells > kMaxCells) {
-            _walls.clear();
+        size_t cells = 0;
+        if (!prepare_map(w, h, cells))
             return false;
-        }
         _walls.assign(cells, false);
 
         for (const auto &pos : wall) {
@@ -47,9 +44,11 @@ class AStar {
 
     // 从降采样障碍网格直接建图（1=墙），免展开墙点 vector。尺寸上限同 set_map。
     bool set_map_grid(int w, int h, const std::vector<uint8_t> &blocked) {
-        _mapSize = {w, h};
-        const size_t cells = static_cast<size_t>(w) * static_cast<size_t>(h);
-        if (w <= 0 || h <= 0 || cells == 0 || cells > kMaxCells || blocked.size() != cells) {
+        size_t cells = 0;
+        if (!prepare_map(w, h, cells))
+            return false;
+        if (blocked.size() != cells) {
+            // 与原版语义对齐：参数非法同样清墙（全图视为墙），而不是保留旧图。
             _walls.clear();
             return false;
         }
@@ -73,7 +72,6 @@ class AStar {
         const int total = cell_count();
         std::vector<int> g_score(total, kUnreached);
         std::vector<int> parents(total, -1);
-        std::vector<bool> closed(total, false);
 
         // 优先扩展预估总代价最低的节点。
         std::priority_queue<OpenNode, std::vector<OpenNode>, OpenNodeGreater> open;
@@ -87,10 +85,13 @@ class AStar {
             open.pop();
 
             const int current_index = index(current.pos);
-            if (closed[current_index]) {
+            // AL2: 惰性删除取代 closed[] —— 本启发式（八方向等代价 + Chebyshev）
+            // 是 consistent 的（每移一步 h 恰降 1 = 代价 1），节点首次弹出即最优，
+            // 队列里残留的同一节点旧条目 g 必然更大，按陈旧跳过即可。少一份
+            // vector<bool> 辅助数组（64M 格上限时即 8MB 分配+位清扫）。
+            if (current.g > g_score[current_index]) {
                 continue;
             }
-            closed[current_index] = true;
 
             if (current_index == end_index) {
                 build_path(end_index, parents, path);
@@ -111,11 +112,9 @@ class AStar {
                 }
 
                 const int next_index = index(next);
-                if (closed[next_index]) {
-                    continue;
-                }
-
-                const int next_g = g_score[current_index] + 1;
+                // 已弹出（closed）的节点最优 g 已定，新路径 g 不可能更小
+                // （consistency 保证），下面的 >= 判据天然涵盖，无需 closed 检查。
+                const int next_g = current.g + 1;
                 if (next_g >= g_score[next_index]) {
                     continue;
                 }
@@ -155,6 +154,18 @@ class AStar {
         {-1, -1},
         {1, -1},
     };
+
+    // AL3: set_map/set_map_grid 同构前导——置尺寸、算 cells、判非法。
+    // 返回 false 表示尺寸非法或超 kMaxCells（_walls 已清 = 全图视为墙）。
+    bool prepare_map(int w, int h, size_t &cells) {
+        _mapSize = {w, h};
+        cells = static_cast<size_t>(w) * static_cast<size_t>(h);
+        if (w <= 0 || h <= 0 || cells == 0 || cells > kMaxCells) {
+            _walls.clear();
+            return false;
+        }
+        return true;
+    }
 
     bool outside(Vec2i pos) const {
         return pos.x < 0 || pos.y < 0 || pos.x >= _mapSize.x || pos.y >= _mapSize.y;

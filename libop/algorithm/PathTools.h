@@ -82,16 +82,25 @@ inline bool build_astar_map_from_bgra(const unsigned char *bgra, int img_w, int 
     out.grid_h = grid_h;
     out.blocked.assign(cells, 0);
 
+    // AL1: 原实现对每个像素做 x / scale 整数除（1920x1080 ≈ 200 万次除法
+    // ≈ 20-40ms，而 SetAStarMap 是同步用户 API）。y / scale 已按行提升，这里
+    // 用"格内剩余列数"游标在 x 方向累进（x 非负，与 x / scale 逐点等价），
+    // 行指针步进消掉每像素的 size_t 乘法。行为不变，仅消除逐像素除法。
     for (int y = 0; y < img_h; ++y) {
         const int gy = y / scale;
-        const unsigned char *row = bgra + static_cast<size_t>(y) * img_w * 4;
-        for (int x = 0; x < img_w; ++x) {
-            const unsigned char b = row[static_cast<size_t>(x) * 4 + 0];
-            const unsigned char g = row[static_cast<size_t>(x) * 4 + 1];
-            const unsigned char r = row[static_cast<size_t>(x) * 4 + 2];
-            const int luminance = (b + g + r) / 3;
+        uint8_t *blocked_row = &out.blocked[static_cast<size_t>(gy) * grid_w];
+        const unsigned char *px = bgra + static_cast<size_t>(y) * img_w * 4;
+        const unsigned char *row_end = px + static_cast<size_t>(img_w) * 4;
+        int gx = 0;
+        int col_in_cell = 0;
+        for (; px < row_end; px += 4) {
+            const int luminance = (px[0] + px[1] + px[2]) / 3;
             if (luminance < 128)
-                out.blocked[static_cast<size_t>(gy) * grid_w + (x / scale)] = 1;
+                blocked_row[gx] = 1;
+            if (++col_in_cell == scale) {
+                col_in_cell = 0;
+                ++gx;
+            }
         }
     }
     return true;
