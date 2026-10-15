@@ -65,6 +65,9 @@ private:
   // 锁内复用的引擎选择+加载逻辑（init/懒初始化共用，调用方必须已持锁）。
   int init_unlocked(const std::wstring &engine, const std::wstring &dllName,
                     const std::vector<std::string> &argv);
+  // 懒初始化公共路径（ocr/ocr_line 共用）：加锁 → 判空 → 懒初始化 → 返回引擎快照。
+  // 失败只试一次（m_lazy_failed），显式 init 会清除该记忆；返回 nullptr = 引擎不可用。
+  std::shared_ptr<OcrEngine> lazy_engine(const char *caller);
   std::mutex m_mutex;
   // shared_ptr 而非 unique_ptr：ocr()/ocr_line() 锁内取快照后在锁外调用引擎（引擎可重入），
   // 并发推理期间 release()/重 init 不会销毁正在使用的引擎实例。

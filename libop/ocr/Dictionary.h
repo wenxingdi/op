@@ -101,12 +101,10 @@ struct word1_t {
     bool operator==(const word1_t &rhs) {
         if (info.w != rhs.info.w || info.h != rhs.info.h || info.bit_cnt != rhs.info.bit_cnt)
             return false;
-        if (data.size() != rhs.data.size())
-            return false;
-        for (size_t i = 0; i < data.size(); i++)
-            if (data[i] != rhs.data[i])
-                return false;
-        return true;
+        // info 前置过滤后只剩同尺寸候选走到这里；data 按字节 memcmp（先按 info 过滤
+        // 使 add_word/erase 的线性扫描常数极小，故不引入额外索引结构）。
+        return data.size() == rhs.data.size() &&
+               std::memcmp(data.data(), rhs.data.data(), data.size()) == 0;
     }
     void set_chars(const std::wstring &s) {
         const size_t nlen = std::min<size_t>(s.length(), 7);
@@ -536,14 +534,9 @@ struct Dictionary {
         sort_dict();
         return true;
     }
-    void read_dict_dm(const std::wstring &s) {
-        clear();
-        std::fstream file;
-        file.open(s, std::ios::in);
-        if (!file.is_open())
-            return;
-        // 读取信息
-        std::wstring ss;
+    // 文本字库行读取公共路径：dm 文件导入与内存文本字库仅「流来源 + 行解析入口」不同。
+    // 行内是否含 '$' 的预检并入 parse_entry（两个 parse 都先做字段数校验，重复扫描无收益）。
+    template <typename Stream, typename ParseEntry> void read_text_dict_stream(Stream &file, ParseEntry parse_entry) {
         std::string str;
         while (std::getline(file, str)) {
             // 用 MultiByteToWideChar(CP_ACP) 替代 mbstowcs：线程安全、不触碰进程全局 locale
@@ -553,14 +546,23 @@ struct Dictionary {
                 continue;
             std::wstring wstrResult(static_cast<size_t>(conv_len), L'\0');
             MultiByteToWideChar(CP_ACP, 0, str.data(), static_cast<int>(str.size()), wstrResult.data(), conv_len);
-            ss = std::move(wstrResult);
-            size_t idx1 = ss.find(L'$');
-            auto idx2 = ss.find(L'$', idx1 + 1);
+            const std::wstring ss = std::move(wstrResult);
             word1_t wd1;
-            // 文件导入只接受大漠文本格式；OP 三段文本用于 AddDict 和内存文本字库。
-            if (idx1 != -1 && idx2 != -1 && dm_dict_compat::parse_dm_text_word(ss, wd1))
+            if (parse_entry(ss, wd1))
                 add_word(wd1);
         }
+    }
+
+    void read_dict_dm(const std::wstring &s) {
+        clear();
+        std::fstream file;
+        file.open(s, std::ios::in);
+        if (!file.is_open())
+            return;
+        // 文件导入只接受大漠文本格式；OP 三段文本用于 AddDict 和内存文本字库。
+        read_text_dict_stream(file, [](const std::wstring &line, word1_t &wd) {
+            return dm_dict_compat::parse_dm_text_word(line, wd);
+        });
         file.close();
         sort_dict();
     }
@@ -568,25 +570,9 @@ struct Dictionary {
         clear();
         std::stringstream file;
         file.write(buf, size);
-
-        // 读取信息
-        std::wstring ss;
-        std::string str;
-        while (std::getline(file, str)) {
-            // 用 MultiByteToWideChar(CP_ACP) 替代 mbstowcs：线程安全、不触碰进程全局 locale
-            // （旧实现每行 setlocale(LC_ALL,"")，多线程同时加载字库会互相干扰）。
-            const int conv_len = MultiByteToWideChar(CP_ACP, 0, str.data(), static_cast<int>(str.size()), nullptr, 0);
-            if (conv_len <= 0)
-                continue;
-            std::wstring wstrResult(static_cast<size_t>(conv_len), L'\0');
-            MultiByteToWideChar(CP_ACP, 0, str.data(), static_cast<int>(str.size()), wstrResult.data(), conv_len);
-            ss = std::move(wstrResult);
-            size_t idx1 = ss.find(L'$');
-            auto idx2 = ss.find(L'$', idx1 + 1);
-            word1_t wd1;
-            if (idx1 != -1 && idx2 != -1 && dict_entry_importer::parse_text_dict_entry(ss, wd1))
-                add_word(wd1);
-        }
+        read_text_dict_stream(file, [](const std::wstring &line, word1_t &wd) {
+            return dict_entry_importer::parse_text_dict_entry(line, wd);
+        });
         sort_dict();
     }
     bool read_memory_dict(const void *data, size_t size) {

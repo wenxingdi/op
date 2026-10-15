@@ -199,9 +199,11 @@ void planar_rgb_imagenet(const BGR &s, std::vector<float> &dst) {
 bool ort_run(Ort::Session &sess, const std::vector<float> &in, const std::vector<int64_t> &shape,
              std::vector<float> &out, std::vector<int64_t> &oshape) {
     Ort::AllocatorWithDefaultOptions alloc;
-    std::vector<float> buf(in); // CreateTensor 需要非 const 指针
+    // CreateTensor 只要非 const 指针（签名历史原因）；ORT 推理不写输入张量，
+    // 直接借用调用方 buffer，省一次整份拷贝（det 输入 960×960×3 float ≈ 11MB/次 OCR）。
     Ort::MemoryInfo mi = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-    Ort::Value v = Ort::Value::CreateTensor<float>(mi, buf.data(), buf.size(), shape.data(), shape.size());
+    Ort::Value v = Ort::Value::CreateTensor<float>(mi, const_cast<float *>(in.data()), in.size(), shape.data(),
+                                                   shape.size());
     // 1.19.2 API：返回 RAII 智能指针，作用域结束自动释放，无需 ReleaseInputName/OutputName。
     auto iname = sess.GetInputNameAllocated(0, alloc);
     auto oname = sess.GetOutputNameAllocated(0, alloc);
@@ -218,11 +220,11 @@ bool ort_run(Ort::Session &sess, const std::vector<float> &in, const std::vector
 }
 
 // DB 后处理：对 det 概率图做阈值+膨胀+连通域，输出原图坐标轴对齐框。
+// 坐标映射用 iw/WW、ih/HH（见下），无需调用方传缩放比。
 struct Box {
     int x0, y0, x1, y1;
 };
-void db_postprocess(const std::vector<float> &score, int HH, int WW, float sx, float sy,
-                    int iw, int ih, std::vector<Box> &boxes) {
+void db_postprocess(const std::vector<float> &score, int HH, int WW, int iw, int ih, std::vector<Box> &boxes) {
     std::vector<uint8_t> bin(size_t(HH) * WW);
     const float thr = 0.3f;
     // 自动探测输出是否已归一化：PP-OCRv4 det 导出通常含 sigmoid（值∈[0,1]），
@@ -290,8 +292,8 @@ void db_postprocess(const std::vector<float> &score, int HH, int WW, float sx, f
             int X1 = int(maxx * (float)iw / WW), Y1 = int(maxy * (float)ih / HH);
             // 外扩近似 unclip，保证识别裁剪包含完整文字
             int cw = X1 - X0, ch = Y1 - Y0;
-            int mx = int(cw * 0.1f) + 5, my = int(ch * 0.1f) + 5;
-            boxes.push_back({X0 - mx, Y0 - my, X1 + mx, Y1 + my});
+            int pad_x = int(cw * 0.1f) + 5, pad_y = int(ch * 0.1f) + 5;
+            boxes.push_back({X0 - pad_x, Y0 - pad_y, X1 + pad_x, Y1 + pad_y});
         }
 }
 
@@ -530,7 +532,6 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
     rw = std::max(int(std::round(float(rw) / 32.0f)) * 32, 32);
     rh = std::max(int(std::round(float(rh) / 32.0f)) * 32, 32);
     BGR rimg = resize_bilinear(img, rh, rw);
-    float sx = float(w) / rw, sy = float(h) / rh;
 
     std::vector<float> din;
     planar_rgb_imagenet(rimg, din);
@@ -544,7 +545,7 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
     if (HH <= 0 || WW <= 0) return -3;
 
     std::vector<Box> boxes;
-    db_postprocess(dout, HH, WW, sx, sy, w, h, boxes);
+    db_postprocess(dout, HH, WW, w, h, boxes);
     if (boxes.empty()) return 0;
 
     // 按阅读顺序排序：先 y 后 x

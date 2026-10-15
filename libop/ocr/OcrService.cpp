@@ -57,7 +57,8 @@ int resolve_default_timeout_ms() {
 #else
 // HTTP 后端隐藏期的远程名判定：http(s):// 地址与旧远程别名（tesseract/paddle 系）
 // 一律视为"已移除"，init 显式拒绝并提示，避免静默落到内置引擎造成语义漂移。
-// 自包含实现（不依赖 network/HttpClient，该模块已整体移出构建）。
+// 必须自包含：trim_copy/to_lower_copy 在 network/HttpClient.h（network 模块已移出构建，
+// 本分支拿不到），不能为省 13 行把它们拖回依赖。
 bool is_removed_remote_backend(const std::string &engine) {
     std::string key;
     key.reserve(engine.size());
@@ -287,46 +288,37 @@ int HttpOcrService::release() {
 
 // 懒初始化：脚本未显式 SetOcrEngine 时，首次免字库调用自动就绪内置 ONNX 引擎。
 // 失败只试一次（m_lazy_failed），避免每次调用重复加载/刷日志；显式 init 会清除该记忆。
+std::shared_ptr<OcrEngine> HttpOcrService::lazy_engine(const char *caller) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_engine) {
+        if (m_lazy_failed)
+            return nullptr;
+        if (init_unlocked(L"", L"", {}) != 0 || !m_engine) {
+            m_engine.reset(); // 加载失败的引擎实例不留着（其内部 ok=false，只会持续返回 -1）
+            m_lazy_failed = true;
+            cout << caller << ": lazy init of built-in engine failed, call SetOcrEngine explicitly" << endl;
+            return nullptr;
+        }
+    }
+    return m_engine;
+}
+
 //
 // 锁纪律：m_mutex 只保护"引擎选择/懒初始化"这一小段，推理本体在锁外执行。
 // OnnxOcrEngine 内部 Ort::Session 只读、无共享可变状态，可重入（见 OP_OCR_INTERNAL_PLAN 9.2）；
 // 锁内 shared_ptr 快照保证并发 release()/重 init 时本调用持有的引擎不被销毁。
 // 原先锁包住整个推理，多线程并发 OCR 被完全串行化（每次 130ms+），这里解锁拿回并发吞吐。
 int HttpOcrService::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
-    std::shared_ptr<OcrEngine> engine;
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (!m_engine) {
-            if (m_lazy_failed)
-                return -1;
-            if (init_unlocked(L"", L"", {}) != 0 || !m_engine) {
-                m_engine.reset(); // 加载失败的引擎实例不留着（其内部 ok=false，只会持续返回 -1）
-                m_lazy_failed = true;
-                cout << "ocr: lazy init of built-in engine failed, call SetOcrEngine explicitly" << endl;
-                return -1;
-            }
-        }
-        engine = m_engine;
-    }
+    const auto engine = lazy_engine("ocr");
+    if (!engine)
+        return -1;
     return engine->ocr(data, w, h, bpp, result);
 }
 
 int HttpOcrService::ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
-    std::shared_ptr<OcrEngine> engine;
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        if (!m_engine) {
-            if (m_lazy_failed)
-                return -1;
-            if (init_unlocked(L"", L"", {}) != 0 || !m_engine) {
-                m_engine.reset();
-                m_lazy_failed = true;
-                cout << "ocr_line: lazy init of built-in engine failed, call SetOcrEngine explicitly" << endl;
-                return -1;
-            }
-        }
-        engine = m_engine;
-    }
+    const auto engine = lazy_engine("ocr_line");
+    if (!engine)
+        return -1;
     return engine->ocr_line(data, w, h, bpp, result);
 }
 
