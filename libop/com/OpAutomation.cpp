@@ -1092,9 +1092,12 @@ STDMETHODIMP OpAutomation::GetScreenData(LONG x1, LONG y1, LONG x2, LONG y2, LON
 
 STDMETHODIMP OpAutomation::GetScreenDataBmp(LONG x1, LONG y1, LONG x2, LONG y2, VARIANT *data, VARIANT *size,
                                            LONG *ret) {
-#if OP64
+    // CB1: 空指针校验原先只在 OP64 分支里，x86 分支直接解引用 —— 调用方传 null
+    // VARIANT* 即在目标进程 AV。移到条件编译之前（与 GetScreenData L1082 对齐），
+    // 非空路径逐字节不变。
     if (!data || !size || !ret)
         return E_POINTER;
+#if OP64
     data->vt = VT_I8;
     size->vt = VT_I8;
     data->llVal = 0;
