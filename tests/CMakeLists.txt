@@ -155,6 +155,10 @@ set(OP_TEST_SOURCES
   "memory_search_test.cpp"
   "memory_readwrite_test.cpp"
   "window_state_test.cpp"
+  # W1a：EnumWindowInternal（filter 0-31 共 32 分支 switch）特征化测试。
+  # 自建窗口树 + 精确集合/成员资格断言，把 32 种行为组合的现状钉死，
+  # 供 W1b 表驱动重构前后对拍（含「进程版 filter=1 不递归」「case16 强制桌面」等历史怪癖）。
+  "window_enum_test.cpp"
   # inject_dll 失败上报（2026-09-28 真机暴露：DllInjector 的 -1~-7 被透传，
   # 而对外约定 0=失败非 0=成功 ⇒ 永远无法上报失败）。本测试只注入本进程已加载模块，无需外部进程。
   # run_app(mode=1) 工作目录推导（2026-09-28 真机暴露：裸文件名被截成目录 →
