@@ -3,6 +3,24 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第十六批（com/+c_api/ 门面：GetScreenDataBmp x86 空指针校验修复，fix）
+
+逐模块分析与优化第 12 模块（com/ + c_api/），分析文档
+`docs/2026-10/com_c_api模块分析_20261015.md`。门面层整体已是薄封装
+（c_api 217/227 走 call_* 骨架，COM 出参封送已外移 ComVariant.h 并挂测试），
+清单仅一项真 bug，CB2/CB3（宏化 83 处字符串出参 / 四处手写 try 收拢）经
+评估损可检索性、收益中性，按用户裁定跳过。
+
+- **fix(com): GetScreenDataBmp 空指针校验移出 OP64 分支（CB1）**：校验原先
+  只在 `#if OP64` 里，x86 分支直接写 `data->vt`——32 位下调用方传 null
+  VARIANT* 即在目标进程 AV（x86 DLL 为实际发布产物）。移到条件编译之前，
+  与 GetScreenData 对齐；非空路径逐字节不变。
+- **回归**：构建零错误（x64）；全量 401 ran / 399 PASS / 1 FAILED（MouseKeyTest.
+  WaitKeyScanAllWithWaitFindsKey 已知环境 flake）/ 1 SKIPPED（FurMark 缺席）；
+  DLL 同步副本全部一致。x86 ninja 目标因工具链路径失效未能重跑，改动仅移动
+  既有校验语句、arch 分支函数体未动，无语法风险（分析文档已如实记录）。
+  净 +3 行。
+
 ### 2026-10-15 第十五批（hook 注入引擎：热路径缓存+RPC骨架收拢+共享帧写入统一+D3D12设备失效，refactor/fix）
 
 逐模块分析与优化第 11 模块（hook），分析文档
