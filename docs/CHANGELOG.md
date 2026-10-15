@@ -3,6 +3,39 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第二十二批（P2：内存三件套 + 模块列表，feat）
+
+承接 OLA 对比 P2 批排期 #6，新增 4 接口（Op → C API → COM idl 417-420 →
+测试四层），全量回归 418 ran / 416 PASS（唯一失败为基线环境 flake
+MouseKeyTest.WaitKeyScanAllWithWaitFindsKey，BindUnbindFurMark 因无测试
+目标跳过）。
+
+- **feat(op): GetModuleSize**（欧拉同名对等）：psapi EnumProcessModules
+  按基名大小写不敏感匹配（GetModuleBaseNameW），GetModuleInformation 取
+  SizeOfImage；失败/未找到返回 0。本地走 GetCurrentProcess 伪句柄，远程
+  复用 BlackBone Attach 句柄（PROCESS_ALL_ACCESS）。
+- **feat(op): GetModuleInfoList**（欧拉同名对等）：模块列表 JSON
+  {"ok":1,"modules":[{"name","path","base":"HEX","size"}...]}，name/path
+  经 internal::json::EscapeString 转义。
+- **feat(op): VirtualProtectEx / VirtualAllocEx**（欧拉同名对等）：
+  address 复用 str2address 表达式（十六进制/四则/<module>/多级指针），
+  alloc_type/protect 传 0 用默认 MEM_COMMIT|MEM_RESERVE / PAGE_READWRITE。
+  psapi 以 pragma comment 补链（共享 onnx 分支 CMake 不链系统库，同
+  OpCrypto 先例）。
+- **test**: memory_ext_test.cpp 新增 3 用例，全部走本进程闭环（无需
+  外部目标进程）：模块大小自身 exe 断言 + 缺失模块返回 0；模块列表
+  JSON 含自身；分配→写读→改保护(NOACCESS 读失败)→改回→读恢复全链路。
+  用例坑（同第二十一批 Base64）：c_api 字符串返回共用 string_result
+  缓冲，OpVirtualAllocEx 的返回地址必须先拷贝再喂给 call_string 系
+  （OpReadData 会 clear 缓冲），否则读的是空地址。
+- **fix(gen)**: gen_c_api_null_handle_test.py 的 JSON 分类原用定长 700
+  字符窗口扫描，相邻短函数插入会把别家的 call_json_string 误算进来
+  （本次实证 OpGetModuleInfoList 插入后 OpGetModuleBaseAddr 被误判、
+  空句柄测试假失败）；改为花括号配对截取本函数体再判断。空句柄生成物
+  重跑覆盖 4 新接口（297 声明）。
+
+遗留同前批：swig/python 与 Go 绑定待补（本机无 swig）。
+
 ### 2026-10-15 第二十一批（P2：摘要/编码三件套 + 屏幕绘制最小组，feat）
 
 承接 OLA 对比的 P2 批排期，新增 9 接口（Op → C API → COM idl 408-416 →
