@@ -131,8 +131,18 @@ using op::pathtools::AStarMapState;
 using op::pathtools::PathPoint;
 using AStar = op::AStar;
 
-// 内部：在会话地图上跑一段 A*，返回世界坐标路径（起点->终点）。失败返回空。
-std::vector<PathPoint> astar_segment(const AStarMapState &map, long bx, long by, long ex, long ey) {
+// 内部：把会话障碍网格装入 AStar 实例（set_map_grid 会整表拷贝，多次途经寻路
+// 必须只建一次复用——findpath 只读 _walls，逐段的 g_score/parents 是局部分配）。
+bool build_astar(const AStarMapState &map, AStar &as) {
+    if (!as.set_map_grid(map.grid_w, map.grid_h, map.blocked)) {
+        setlog(L"AStar: 障碍网格 %dx%d 建图失败", map.grid_w, map.grid_h);
+        return false;
+    }
+    return true;
+}
+
+// 内部：在已建图实例上跑一段 A*，返回世界坐标路径（起点->终点）。失败返回空。
+std::vector<PathPoint> astar_segment_on(const AStarMapState &map, AStar &as, long bx, long by, long ex, long ey) {
     std::vector<PathPoint> result;
     const int gx1 = map.world_to_grid_x(bx);
     const int gy1 = map.world_to_grid_y(by);
@@ -147,12 +157,7 @@ std::vector<PathPoint> astar_segment(const AStarMapState &map, long bx, long by,
         return result;
     }
 
-    AStar as;
     std::list<AStar::Vec2i> paths;
-    if (!as.set_map_grid(map.grid_w, map.grid_h, map.blocked)) {
-        setlog(L"AStar: 障碍网格 %dx%d 建图失败", map.grid_w, map.grid_h);
-        return result;
-    }
     as.findpath(gx1, gy1, gx2, gy2, paths);
     for (auto it = paths.rbegin(); it != paths.rend(); ++it) {
         const long wx = map.grid_to_world_x(it->x);
@@ -223,7 +228,10 @@ void op::Op::AStarFindPathBM(long beginX, long beginY, long endX, long endY, std
         setlog(L"AStarFindPathBM: 未设置障碍地图，请先 SetAStarMap/SetAStarMapData");
         return;
     }
-    auto pts = astar_segment(m_context->astar_map, beginX, beginY, endX, endY);
+    AStar as;
+    if (!build_astar(m_context->astar_map, as))
+        return;
+    auto pts = astar_segment_on(m_context->astar_map, as, beginX, beginY, endX, endY);
     if (pts.empty())
         return;
     path = pathtools::points_to_string(pts);
@@ -242,11 +250,17 @@ void op::Op::AStarFindPathWay(const wchar_t *points, std::wstring &path) {
         return;
     }
 
+    // O3: 建图一次、逐段复用。旧实现每段都 set_map_grid 整表拷贝障碍网格
+    // （N 途经点 = N 次拷贝+N 份堆分配）；findpath 只读 _walls，复用安全。
+    AStar as;
+    if (!build_astar(m_context->astar_map, as))
+        return;
+
     std::vector<PathPoint> full;
     for (size_t i = 1; i < waypoints.size(); ++i) {
-        auto seg = astar_segment(m_context->astar_map, static_cast<long>(waypoints[i - 1].first),
-                                 static_cast<long>(waypoints[i - 1].second), static_cast<long>(waypoints[i].first),
-                                 static_cast<long>(waypoints[i].second));
+        auto seg = astar_segment_on(m_context->astar_map, as, static_cast<long>(waypoints[i - 1].first),
+                                    static_cast<long>(waypoints[i - 1].second), static_cast<long>(waypoints[i].first),
+                                    static_cast<long>(waypoints[i].second));
         if (seg.empty()) {
             setlog(L"AStarFindPathWay: 第 %zu 段 (%.0f,%.0f)->(%.0f,%.0f) 不可达", i, waypoints[i - 1].first,
                    waypoints[i - 1].second, waypoints[i].first, waypoints[i].second);
