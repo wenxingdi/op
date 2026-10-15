@@ -196,6 +196,16 @@ class ImageSearchService : public ImageSearchAlgorithms {
     void files2mats(const wstring &files, std::vector<PicMatchTemplate *> &vmatches, std::vector<wstring> &vstr,
                     std::vector<std::shared_ptr<Image>> &holders,
                     std::vector<std::shared_ptr<PicMatchTemplate>> &match_holders);
+    // FindPic/FindPicEx 共用的入口准备结果：模板视图 + 名称 + 生命周期持有者 + delta 偏色。
+    struct find_pic_ctx_t {
+        std::vector<PicMatchTemplate *> vmatches;
+        std::vector<wstring> vpic_name;
+        std::vector<std::shared_ptr<Image>> holders;
+        std::vector<std::shared_ptr<PicMatchTemplate>> match_holders;
+        color_t dfcolor;
+    };
+    // files2mats + delta 偏色解析 + sim 域变换（0.5+sim/2），FindPic/FindPicEx 共用。
+    void prepare_find_pic(const wstring &files, const wstring &delta_colors, double &sim, find_pic_ctx_t &ctx);
 };
 
 } // namespace op::image

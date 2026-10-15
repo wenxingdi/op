@@ -616,7 +616,6 @@ long ImageSearchAlgorithms::FindMultiColorEx(std::vector<color_df_t> &first_colo
     if (!retstr.empty() && retstr.back() == L'|')
         retstr.pop_back();
     return find_ct;
-    // x = y = -1;
 }
 
 long ImageSearchAlgorithms::FindPicTh(std::vector<PicMatchTemplate *> &pics, color_t dfcolor, double sim, long dir,
@@ -663,7 +662,6 @@ long ImageSearchAlgorithms::FindPicTh(std::vector<PicMatchTemplate *> &pics, col
                     return point_t(-1, -1);
                 },
                 blocks[i], pic, use_ts_match, sim));
-            // results.push_back(r);
         }
         // wait all
         point_t best(-1, -1);
@@ -728,7 +726,6 @@ long ImageSearchAlgorithms::FindPicExTh(std::vector<PicMatchTemplate *> &pics, c
                     return vp;
                 },
                 blocks[i], pic, use_ts_match, sim));
-            // results.push_back(r);
         }
         // wait all
         for (auto &&f : results) {
@@ -773,17 +770,16 @@ long ImageSearchAlgorithms::FindColorBlockEx(long count, long height, long width
 
     record_sum(_binary);
     int cnt = 0;
-    for (int i = 0; i <= _binary.height - height; ++i) {
+    for (int i = 0; i <= _binary.height - height && cnt < _max_return_obj_ct; ++i) {
         for (int j = 0; j <= _binary.width - width; ++j) {
             if (region_sum(j, i, j + width, i + height) >= count) {
                 retstr += to_wstring(j + _x1 + _dx) + L"," + to_wstring(i + _y1 + _dy) + L"|";
                 ++cnt;
-                if (cnt > _max_return_obj_ct)
-                    goto _quick_return;
+                if (cnt >= _max_return_obj_ct)
+                    break; // 先判上限再收集，恰收 1800 条（与 FindColorEx 一致）
             }
         }
     }
-_quick_return:
     if (cnt) {
         retstr.pop_back();
     }
@@ -885,10 +881,10 @@ long ImageSearchAlgorithms::FindColorBlockExS(long count, long height, long widt
         cells[(static_cast<uint64_t>(static_cast<uint32_t>(ci)) << 32) | static_cast<uint32_t>(cj)].push_back(k);
     }
 
-    // 每簇输出左上角，按出现顺序去重
+    // 每簇输出左上角，按出现顺序去重（先判上限再收集，恰收 1800 条）
     std::unordered_set<size_t> seen;
     int cnt = 0;
-    for (size_t k = 0; hits.size() - k > 0 && cnt <= _max_return_obj_ct; ++k) {
+    for (size_t k = 0; k < hits.size() && cnt < _max_return_obj_ct; ++k) {
         const size_t root = uf.find(k);
         if (!seen.insert(root).second)
             continue;
@@ -918,6 +914,8 @@ long ImageSearchAlgorithms::OcrEx(Dictionary &dict, double sim, std::wstring &re
     // x1,y1,str....|x2,y2,str2...|...
     int find_ct = 0;
     for (const auto &it : ocr_items_in_reading_order(ps)) {
+        if (find_ct >= _max_return_obj_ct)
+            break; // 先判上限再收集（恰收 1800 条，与免字库路径一致，修正原上限+1）
         retstr += std::to_wstring(it.first.x + _x1 + _dx);
         retstr += L",";
         retstr += std::to_wstring(it.first.y + _y1 + _dy);
@@ -925,8 +923,6 @@ long ImageSearchAlgorithms::OcrEx(Dictionary &dict, double sim, std::wstring &re
         retstr += it.second.text;
         retstr += L"|";
         ++find_ct;
-        if (find_ct > _max_return_obj_ct)
-            break;
     }
     if (!retstr.empty() && retstr.back() == L'|')
         retstr.pop_back();
@@ -976,12 +972,14 @@ long ImageSearchAlgorithms::FindStrEx(std::map<point_t, ocr_rec_t> &ps, const ve
     const std::wstring str = build_ocr_text_spans(ps, spans);
 
     int find_ct = 0;
-    for (size_t i = 0; i < vstr.size(); ++i) {
+    for (size_t i = 0; i < vstr.size() && find_ct < _max_return_obj_ct; ++i) {
         if (vstr[i].empty())
             continue;
 
         size_t search_from = 0;
-        do {
+        // 先判上限再收集（恰收 1800 条，与 FindColorEx 一致）；span 未命中时 find_ct
+        // 不变，循环条件保持为真，继续查找下一个出现位置
+        while (find_ct < _max_return_obj_ct) {
             const size_t index = str.find(vstr[i], search_from);
             if (index == std::wstring::npos)
                 break;
@@ -995,14 +993,11 @@ long ImageSearchAlgorithms::FindStrEx(std::map<point_t, ocr_rec_t> &ps, const ve
                 retstr += std::to_wstring(span->point.y + _y1 + _dy);
                 retstr += L"|";
                 ++find_ct;
-                if (find_ct > _max_return_obj_ct)
-                    goto _quick_return;
             }
 
             search_from = index + 1;
-        } while (1);
+        }
     }
-_quick_return:
     if (!retstr.empty() && retstr.back() == L'|')
         retstr.pop_back();
     return find_ct;
@@ -1014,13 +1009,18 @@ long ImageSearchAlgorithms::FindLine(std::wstring &outStr) {
     _sum.create(360, h);
     // 行：距离，列：角度
     _sum.fill(0);
-    std::array<double, 360> cos_table;
-    std::array<double, 360> sin_table;
-    for (int t = 0; t < 360; ++t) {
-        const double radians = t * 0.0174532925;
-        cos_table[t] = cos(radians);
-        sin_table[t] = sin(radians);
-    }
+    // 三角表进程级缓存一次（magic static 线程安全），避免每次调用重建 360 项
+    static const auto trig_tables = [] {
+        std::pair<std::array<double, 360>, std::array<double, 360>> t;
+        for (int i = 0; i < 360; ++i) {
+            const double radians = i * 0.0174532925;
+            t.first[i] = cos(radians);
+            t.second[i] = sin(radians);
+        }
+        return t;
+    }();
+    const auto &cos_table = trig_tables.first;
+    const auto &sin_table = trig_tables.second;
     for (int i = 0; i < _binary.height; i++) {
         for (int j = 0; j < _binary.width; j++) {
             if (_binary.at(i, j) == WORD_COLOR) {
@@ -1226,8 +1226,7 @@ void ImageSearchAlgorithms::binshadowx(const rect_t &rc, std::vector<rect_t> &ou
 
     // int* blackcout = new int[binary.cols];
     std::vector<int> vx;
-    vx.resize(_binary.width);
-    memset(&vx[0], 0, _binary.width * 4);
+    vx.resize(_binary.width); // resize 已零初始化
     for (int j = rc.x1; j < rc.x2; j++) {
         for (int i = rc.y1; i < rc.y2; i++) {
             if (_binary.at(i, j) == WORD_COLOR) {
@@ -1280,8 +1279,7 @@ void ImageSearchAlgorithms::binshadowy(const rect_t &rc, std::vector<rect_t> &ou
     // 水平投影
     //  int* pointcount = new int[binary.rows]; //在二值图片中记录行中特征点的个数
     std::vector<int> vy;
-    vy.resize(_binary.height);
-    memset(&vy[0], 0, _binary.height * 4); // 注意这里需要进行初始化
+    vy.resize(_binary.height); // resize 已零初始化
 
     for (int i = rc.y1; i < rc.y2; i++) {
         for (int j = rc.x1; j < rc.x2; j++) {
@@ -1591,7 +1589,6 @@ void ImageSearchAlgorithms::_bin_ocr(const Dictionary &dict, std::map<point_t, o
             point_t pt;
             pt.x = px;
             pt.y = py;
-            int k = 0;
             for (size_t k = 0; k < dict_sz.size(); ++k) {
                 int h = dict_sz[k].second >> 8, w = dict_sz[k].second & 0xff;
                 rect_t crc;

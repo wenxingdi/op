@@ -3,6 +3,32 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第五批（找图/颜色模块：上限 off-by-one 修正 + 样板收拢，fix/refactor）
+
+逐模块分析与优化第 2 模块（找图/颜色），分析文档 `docs/2026-10/找图颜色模块分析_20261015.md`。
+
+- **fix(image): `_max_return_obj_ct` 上限 off-by-one 漏网 ×4**（`libop/image/ImageSearchAlgorithms.cpp`）
+  `FindColorBlockEx`/`FindColorBlockExS`/`FindStrEx`/`OcrEx` 字库路径原用 `cnt > 1800`/`cnt <= 1800`
+  判停，先追加第 1801 条再停，实返上限+1（第一批只修了服务层 2 处，此为同族漏网）。
+  统一改为先判 `>=` 再收集，与 FindColorEx 等已修正路径对齐（大漠契约上限 1800）；
+  顺手去掉 FindColorBlockEx/FindStrEx 的 `goto _quick_return`（同第一批 FindColorNum 风格）。
+  新增 `ImageColorTest.FindColorBlockExCapsResultsAtMaxReturnCount`（2048 锚点恰截 1800、
+  恰好 1800 不截断、ExS mode=0 一致）。
+- **refactor(image): 免字库 OCR 样板收拢**（`ImageSearchService.cpp`）
+  新增 `clamp_sim_default`（0.7）/`clamp_sim_exact`（1.0）/`engine_ocr_filtered`（引擎调用+
+  置信度过滤一体）三助手，收拢 OcrFree/OCR/OcrEx/ocr_auto_color(_line/_ex)/OcrFromFile/
+  FindStr/FindStrEx 等 8 处 sim 钳制与 6 处引擎调用样板；`ocr_auto_color_line` 走 ocr_line
+  不收拢，仅复用钳制。
+- **refactor(image): FindPic/FindPicEx 入口准备合并**（`ImageSearchService.cpp/.h`）
+  新增 `prepare_find_pic` + `find_pic_ctx_t`，两入口的 files2mats/delta 偏色/sim 变换
+  样板单源化；`str2binaryfbk(color)` 委托 `(color, 1.0)`（隐式偏色展开为 0，逐位等价）。
+- **refactor(image): 死代码清理**（`ImageSearchAlgorithms.cpp`）
+  删 `_bin_ocr` 被遮蔽的死变量 `int k`、2 处 `// results.push_back(r);`、`// x = y = -1;`
+  残留注释、binshadowx/y 冗余 memset（vector resize 已零初始化）。
+- **perf(image): FindLine 三角表进程级缓存**（cos/sin 360 项改 magic static，一次初始化）。
+- **回归**：全量 gtest 373 PASS（+1 新用例，1 条已知环境项不变）；`_t_dict_ocr.py` 49 PASS/0 FAIL。
+  C5（FindPicExTh 全量收集）/C6（_bin_ocr 双实现）/C7（get_rois 宽度比阈值等）按分析文档列观察项不动。
+
 ### 2026-10-15 第四批（后台绑定模块：死代码清理 + 表单化 + 回退提效 + 异常护栏，refactor/perf/fix）
 
 逐模块分析与优化第 1 模块（后台绑定），分析文档 `docs/2026-10/后台绑定模块分析_20261015.md`。

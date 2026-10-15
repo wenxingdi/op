@@ -64,6 +64,25 @@ void binary_to_white_on_black_bgra(const unsigned char *bin, int w, int h, std::
     }
 }
 
+// sim 钳制：免字库 onnx 输出 conf≈0.85+，默认阈值 0.7（1.0 会全滤掉）。
+double clamp_sim_default(double sim) {
+    return (sim < 0. || sim > 1.) ? 0.7 : sim;
+}
+
+// sim 钳制：字库匹配/找线等"精确"路径默认 1.0。
+double clamp_sim_exact(double sim) {
+    return (sim < 0. || sim > 1.) ? 1. : sim;
+}
+
+// 免字库共用：引擎调用 + 置信度过滤一体化，res 只保留 conf >= sim 的条目。
+// OcrFree/OcrEx/ocr_auto_color(_line/_ex)/FindStr/FindStrEx 的重复样板收拢于此。
+void engine_ocr_filtered(unsigned char *data, int w, int h, double sim, vocr_rec_t &res) {
+    HttpOcrService::getInstance()->ocr(data, w, h, 4, res);
+    res.erase(std::remove_if(res.begin(), res.end(),
+                             [sim](const ocr_rec_t &r) { return r.confidence < sim - 1e-9; }),
+              res.end());
+}
+
 template <typename Fn> void for_each_dict_line(const wstring &dict_info, Fn fn) {
     long item_index = 0;
     size_t begin = 0;
@@ -304,32 +323,24 @@ long ImageSearchService::FindMultiColorEx(const wstring &first_color, const wstr
 // 图形定位
 long ImageSearchService::FindPic(const std::wstring &files, const wstring &delta_colors, double sim, long dir, long &x,
                         long &y) {
-    vector<PicMatchTemplate *> vmatches;
-    // 算法层沿用裸指针入参，这里用 holders 保证匹配期间图片对象仍然存活。
-    vector<std::shared_ptr<Image>> holders;
-    vector<std::shared_ptr<PicMatchTemplate>> match_holders;
-    color_t dfcolor;
-    vector<std::wstring> vpic_name;
-    files2mats(files, vmatches, vpic_name, holders, match_holders);
-    dfcolor.str2color(delta_colors);
+    find_pic_ctx_t ctx;
+    prepare_find_pic(files, delta_colors, sim, ctx);
+    return ImageSearchAlgorithms::FindPicTh(ctx.vmatches, ctx.dfcolor, sim, dir, x, y);
+}
+
+void ImageSearchService::prepare_find_pic(const wstring &files, const wstring &delta_colors, double &sim,
+                                          find_pic_ctx_t &ctx) {
+    files2mats(files, ctx.vmatches, ctx.vpic_name, ctx.holders, ctx.match_holders);
+    ctx.dfcolor.str2color(delta_colors);
     sim = 0.5 + sim / 2;
-    long ret = ImageSearchAlgorithms::FindPicTh(vmatches, dfcolor, sim, dir, x, y);
-    return ret;
 }
 //
 long ImageSearchService::FindPicEx(const std::wstring &files, const wstring &delta_colors, double sim, long dir, wstring &retstr,
                           bool returnID) {
-    vector<PicMatchTemplate *> vmatches;
-    // 算法层沿用裸指针入参，这里用 holders 保证匹配期间图片对象仍然存活。
-    vector<std::shared_ptr<Image>> holders;
-    vector<std::shared_ptr<PicMatchTemplate>> match_holders;
+    find_pic_ctx_t ctx;
+    prepare_find_pic(files, delta_colors, sim, ctx);
     vpoint_desc_t vpd;
-    color_t dfcolor;
-    vector<std::wstring> vpic_name;
-    files2mats(files, vmatches, vpic_name, holders, match_holders);
-    dfcolor.str2color(delta_colors);
-    sim = 0.5 + sim / 2;
-    long ret = ImageSearchAlgorithms::FindPicExTh(vmatches, dfcolor, sim, dir, vpd);
+    long ret = ImageSearchAlgorithms::FindPicExTh(ctx.vmatches, ctx.dfcolor, sim, dir, vpd);
     std::wstringstream ss(std::wstringstream::in | std::wstringstream::out);
     if (returnID) {
         for (auto &it : vpd) {
@@ -337,7 +348,7 @@ long ImageSearchService::FindPicEx(const std::wstring &files, const wstring &del
         }
     } else {
         for (auto &it : vpd) {
-            ss << vpic_name[it.id] << L"," << it.pos << L"|";
+            ss << ctx.vpic_name[it.id] << L"," << it.pos << L"|";
         }
     }
     retstr = ss.str();
@@ -775,26 +786,21 @@ long ImageSearchService::RenameWordDict(const wstring &dict_info, const wstring 
 
 long ImageSearchService::OcrFree(double sim, std::wstring &out_str) {
     out_str.clear();
-    if (sim < 0. || sim > 1.)
-        sim = 0.7;  // 默认置信度阈值：免字库 onnx 输出 conf≈0.85+，1.0 会全滤掉
+    sim = clamp_sim_default(sim);
     if (_src.width <= 0 || _src.height <= 0)
         return 0; // 与 ocr_auto_color 系对齐：截屏/读图失败早退，不喂 0x0 给引擎
     vocr_rec_t res;
-    HttpOcrService::getInstance()->ocr(_src.pdata, _src.width, _src.height, 4, res);
-    long s = 0;
+    engine_ocr_filtered(_src.pdata, _src.width, _src.height, sim, res);
     for (auto &it : res) {
-        if (it.confidence >= sim - 1e-9) {
-            out_str += it.text;
-            ++s; // 返回过滤后条数，与 OcrEx 免字库路径对齐（原恒返 0，见 OC4）
-        }
+        out_str += it.text;
     }
-    return s;
+    // 返回过滤后条数，与 OcrEx 免字库路径对齐（原恒返 0，见 OC4）
+    return static_cast<long>(res.size());
 }
 
 long ImageSearchService::OCR(const wstring &color, double sim, std::wstring &out_str) {
     out_str.clear();
-    if (sim < 0. || sim > 1.)
-        sim = 0.7;
+    sim = clamp_sim_default(sim);
     auto dict = ActiveDict(_curr_idx);
     if (!dict) {
         // 免字库路径：直接对整幅区域原图识别，color 不参与（要按颜色过滤请用 OcrAutoColor 系）
@@ -806,8 +812,7 @@ long ImageSearchService::OCR(const wstring &color, double sim, std::wstring &out
 
 long ImageSearchService::ocr_auto_color(const wstring &color, double sim, wstring &out_str) {
     out_str.clear();
-    if (sim < 0. || sim > 1.)
-        sim = 0.7; // 默认置信度阈值：免字库 onnx 输出 conf≈0.85+，1.0 会全滤掉
+    sim = clamp_sim_default(sim);
 
     // 1) 按颜色二值化 -> _binary（WORD_COLOR=1 命中文字，WORD_BKCOLOR=0 背景）。
     //    用 str2binaryfbk 而非裸 str2colordfs+bgr2binary：它支持 "@背景色" 格式
@@ -827,18 +832,15 @@ long ImageSearchService::ocr_auto_color(const wstring &color, double sim, wstrin
     std::vector<unsigned char> buf;
     binary_to_white_on_black_bgra(_binary.data(), w, h, buf);
     vocr_rec_t res;
-    HttpOcrService::getInstance()->ocr(buf.data(), w, h, 4, res);
-    for (auto &it : res) {
-        if (it.confidence >= sim - 1e-9)
-            out_str += it.text;
-    }
+    engine_ocr_filtered(buf.data(), w, h, sim, res);
+    for (auto &it : res)
+        out_str += it.text;
     return 0;
 }
 
 long ImageSearchService::ocr_auto_color_line(const wstring &color, double sim, wstring &out_str) {
     out_str.clear();
-    if (sim < 0. || sim > 1.)
-        sim = 0.7;
+    sim = clamp_sim_default(sim);
 
     // 1) 按颜色二值化 -> _binary（命中文字=1，背景=0）。
     //    str2binaryfbk：支持 "@背景色" 反白格式，与字库制作同一入口。
@@ -888,18 +890,18 @@ long ImageSearchService::ocr_auto_color_line(const wstring &color, double sim, w
         binary_to_white_on_black_bgra(bin + size_t(s.first) * w, w, seg_h, buf);
         vocr_rec_t res;
         HttpOcrService::getInstance()->ocr_line(buf.data(), w, seg_h, 4, res);
-        for (auto &it : res) {
-            if (it.confidence >= sim - 1e-9)
-                out_str += it.text;
-        }
+        res.erase(std::remove_if(res.begin(), res.end(),
+                                 [sim](const ocr_rec_t &r) { return r.confidence < sim - 1e-9; }),
+                  res.end());
+        for (auto &it : res)
+            out_str += it.text;
     }
     return 0;
 }
 
 long ImageSearchService::ocr_auto_color_ex(const wstring &color, double sim, wstring &out_str) {
     out_str.clear();
-    if (sim < 0. || sim > 1.)
-        sim = 0.7;
+    sim = clamp_sim_default(sim);
 
     // 1) 按颜色二值化 -> _binary。
     //    str2binaryfbk：支持 "@背景色" 反白格式，与字库制作同一入口。
@@ -918,7 +920,7 @@ long ImageSearchService::ocr_auto_color_ex(const wstring &color, double sim, wst
     std::vector<unsigned char> buf;
     binary_to_white_on_black_bgra(_binary.data(), w, h, buf);
     vocr_rec_t res;
-    HttpOcrService::getInstance()->ocr(buf.data(), w, h, 4, res);
+    engine_ocr_filtered(buf.data(), w, h, sim, res);
     // det 结果按阅读序稳定排序（上→下、同行左→右），输出顺序确定
     std::stable_sort(res.begin(), res.end(), [](const auto &a, const auto &b) {
         if (a.left_top.y != b.left_top.y)
@@ -928,10 +930,8 @@ long ImageSearchService::ocr_auto_color_ex(const wstring &color, double sim, wst
     long find_ct = 0;
     wchar_t itembuf[96];
     for (auto &it : res) {
-        if (it.confidence < sim - 1e-9)
-            continue;
         if (find_ct >= _max_return_obj_ct)
-            break; // 先判上限再收集（修正 off-by-one）
+            break; // 先判上限再收集（置信度已在 engine_ocr_filtered 过滤）
         swprintf(itembuf, 96, L"%d,%d,%d,%d,%.2f,", it.left_top.x + _x1 + _dx, it.left_top.y + _y1 + _dy,
                  it.right_bottom.x + _x1 + _dx, it.right_bottom.y + _y1 + _dy, it.confidence);
         out_str += itembuf;
@@ -1088,12 +1088,9 @@ long ImageSearchService::GetPicSize(const wstring &file_name, long *width, long 
 }
 
 void ImageSearchService::str2binaryfbk(const wstring &color) {
-    vector<color_df_t> colors;
-    if (str2colordfs(color, colors) == 0) {
-        bgr2binary(colors);
-    } else {
-        bgr2binarybk(colors);
-    }
+    // sim=1.0 时隐式偏色展开为 0（=000000），与单参版"隐式 df=000000"语义完全一致，
+    // 直接复用双参实现，消两份维护。
+    str2binaryfbk(color, 1.0);
 }
 
 void ImageSearchService::str2binaryfbk(const wstring &color, double sim) {
@@ -1269,8 +1266,7 @@ void ImageSearchService::files2mats(const wstring &files, std::vector<PicMatchTe
 
 long ImageSearchService::OcrEx(const wstring &color, double sim, std::wstring &retstr) {
     retstr.clear();
-    if (sim < 0. || sim > 1.)
-        sim = 0.7;
+    sim = clamp_sim_default(sim);
     auto dict = ActiveDict(_curr_idx);
     if (!dict) {
         // 免字库路径：直接对整幅区域原图识别，color 不参与（同 OCR()）
@@ -1278,13 +1274,11 @@ long ImageSearchService::OcrEx(const wstring &color, double sim, std::wstring &r
             return 0;
         vocr_rec_t res;
         int find_ct = 0;
-        HttpOcrService::getInstance()->ocr(_src.pdata, _src.width, _src.height, 4, res);
+        engine_ocr_filtered(_src.pdata, _src.width, _src.height, sim, res);
         wchar_t coordbuf[64];
         for (auto &it : res) {
-            if (it.confidence < sim - 1e-9)
-                continue;
             if (find_ct >= _max_return_obj_ct)
-                break; // 先判上限再收集（与 ocr_auto_color_ex 一致，修正原 off-by-one 实返上限+1）
+                break; // 先判上限再收集（与 ocr_auto_color_ex 一致；置信度已过滤）
             swprintf(coordbuf, 64, L"%d,%d,", it.left_top.x + _x1 + _dx, it.left_top.y + _y1 + _dy);
             retstr += coordbuf;
             retstr += it.text;
@@ -1303,17 +1297,14 @@ long ImageSearchService::OcrEx(const wstring &color, double sim, std::wstring &r
 long ImageSearchService::FindStr(const wstring &str, const wstring &color, double sim, long &retx, long &rety) {
     vector<wstring> vstr;
     split(str, vstr, L"|");
-    if (sim < 0. || sim > 1.)
-        sim = 1.;
+    sim = clamp_sim_exact(sim);
     std::map<point_t, ocr_rec_t> ocr_res;
     auto dict = ActiveDict(_curr_idx);
     if (!dict) {
         vocr_rec_t res;
-        HttpOcrService::getInstance()->ocr(_src.pdata, _src.width, _src.height, 4, res);
+        engine_ocr_filtered(_src.pdata, _src.width, _src.height, sim, res);
         for (auto &it : res) {
-            if (it.confidence >= sim - 1e-9) {
-                ocr_res[it.left_top] = it;
-            }
+            ocr_res[it.left_top] = it;
         }
     } else {
         str2pointbinaryfbk(color, sim);
@@ -1326,17 +1317,14 @@ long ImageSearchService::FindStrEx(const wstring &str, const wstring &color, dou
     out_str.clear();
     vector<wstring> vstr;
     split(str, vstr, L"|");
-    if (sim < 0. || sim > 1.)
-        sim = 1.;
+    sim = clamp_sim_exact(sim);
     std::map<point_t, ocr_rec_t> ocr_res;
     auto dict = ActiveDict(_curr_idx);
     if (!dict) {
         vocr_rec_t res;
-        HttpOcrService::getInstance()->ocr(_src.pdata, _src.width, _src.height, 4, res);
+        engine_ocr_filtered(_src.pdata, _src.width, _src.height, sim, res);
         for (auto &it : res) {
-            if (it.confidence >= sim - 1e-9) {
-                ocr_res[it.left_top] = it;
-            }
+            ocr_res[it.left_top] = it;
         }
     } else {
         str2pointbinaryfbk(color, sim);
@@ -1357,8 +1345,7 @@ long ImageSearchService::OcrAuto(double sim, std::wstring &retstr) {
 
 long ImageSearchService::OcrFromFile(const wstring &files, const wstring &color, double sim, std::wstring &retstr) {
     retstr.clear();
-    if (sim < 0. || sim > 1.)
-        sim = 0.7;
+    sim = clamp_sim_default(sim);
     wstring fullpath;
     if (Path2GlobalPath(files, _curr_path, fullpath)) {
         _src.read(fullpath.data());
@@ -1378,8 +1365,7 @@ long ImageSearchService::OcrAutoFromFile(const wstring &files, double sim, std::
 
 long ImageSearchService::ocr_auto_color_from_file(const wstring &files, const wstring &color, double sim, std::wstring &retstr) {
     retstr.clear();
-    if (sim < 0. || sim > 1.)
-        sim = 0.7;
+    sim = clamp_sim_default(sim);
     wstring fullpath;
     if (Path2GlobalPath(files, _curr_path, fullpath)) {
         _src.read(fullpath.data());
@@ -1390,16 +1376,14 @@ long ImageSearchService::ocr_auto_color_from_file(const wstring &files, const ws
 
 long ImageSearchService::FindLine(const wstring &color, double sim, wstring &retStr) {
     retStr.clear();
-    if (sim < 0. || sim > 1.)
-        sim = 1.;
+    sim = clamp_sim_exact(sim);
     str2binaryfbk(color, sim);
     return ImageSearchAlgorithms::FindLine(retStr);
 }
 
 long ImageSearchService::FindLineExS(const wstring &color, double sim, long min_points, wstring &retStr) {
     retStr.clear();
-    if (sim < 0. || sim > 1.)
-        sim = 1.;
+    sim = clamp_sim_exact(sim);
     // 走 point 链路：二值化后应用孤立点去噪（与 OCR 链路同一套 _binary_preprocess 配置）
     str2pointbinaryfbk(color, sim);
     const long peak = ImageSearchAlgorithms::FindLine(retStr);

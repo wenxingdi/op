@@ -1300,6 +1300,29 @@ TEST(ImageColorTest, FindColorBlockExClearsResultAndRejectsInvalidSize) {
     EXPECT_TRUE(results.empty());
 }
 
+TEST(ImageColorTest, FindColorBlockExCapsResultsAtMaxReturnCount) {
+    op::Op op;
+    long ret = 0;
+    const int width = 64;
+    const int height = 32;
+    auto pixels = MakePixels(width, height, 0x00, 0x00, 0x00); // 全黑：每个像素都是 1x1 命中锚点
+    SetMemBmp(op, width, height, pixels, ret);
+    ASSERT_EQ(ret, 1);
+
+    wstring results;
+    // 64*32=2048 个锚点：必须先判上限再收集，恰好截断在 1800 条（修复前会先收第 1801 条再停）
+    op.FindColorBlockEx(0, 0, width, height, L"000000", 1.0, 1, 1, 1, results);
+    EXPECT_EQ(std::count(results.begin(), results.end(), L'|'), 1799);
+
+    // 命中数恰好等于上限：不截断也不越界，仍是 1800 条
+    op.FindColorBlockEx(0, 0, 60, 30, L"000000", 1.0, 1, 1, 1, results);
+    EXPECT_EQ(std::count(results.begin(), results.end(), L'|'), 1799);
+
+    // mode=0 走同一实现，行为一致
+    op.FindColorBlockExS(0, 0, width, height, L"000000", 1.0, 1, 1, 1, 0, results);
+    EXPECT_EQ(std::count(results.begin(), results.end(), L'|'), 1799);
+}
+
 TEST(ImageColorTest, GetWordPreviewValidatesAndShowsPointEntry) {
     op::Op op;
     long ret = 0;
