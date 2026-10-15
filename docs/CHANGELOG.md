@@ -3,6 +3,44 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第二十一批（P2：摘要/编码三件套 + 屏幕绘制最小组，feat）
+
+承接 OLA 对比的 P2 批排期，新增 9 接口（Op → C API → COM idl 408-416 →
+测试四层），全量回归 415 ran / 413 PASS（唯一失败为基线环境 flake
+MouseKeyTest.WaitKeyScanAllWithWaitFindsKey，BindUnbindFurMark 因无测试
+目标跳过）。
+
+- **feat(op): Md5 / Sha1**（欧拉同名对等）：输入宽串按 UTF-8 编码后走
+  WinCrypt（advapi32），输出小写 hex（32/40 字符），空输入返回空串。
+  实现坑：HP_HASHSIZE 查询在本机 Win11 CSP 上对小缓冲直接返回
+  ERROR_MORE_DATA(234)，digest 长度改用算法常量（16/20），不再查询。
+- **feat(op): Base64Encode / Base64Decode**（欧拉同名对等）：UTF-8 字节流
+  编码（CRYPT_STRING_BASE64|NOCRLF）；解码两段式 CryptStringToBinaryW +
+  BASE64_ANY（容忍空白，非法串返回空串）。实现坑：CryptBinaryToStringW
+  各版本 len 是否含 NUL 不一致，统一按返回 len resize 后从尾剥 '\0'
+  （'=' 是有效字符不能误删）。
+- **feat(op): DrawRect / DrawLine / DrawText / DrawClear / DrawSetVisible**
+  （欧拉屏幕绘制对等）：进程级单例 DrawOverlay，专用 detached 线程建
+  全屏分层窗口（WS_EX_LAYERED|TRANSPARENT|TOPMOST|NOACTIVATE|TOOLWINDOW），
+  GDI+ 渲到 32bpp ARGB Bitmap → LockBits 拷 top-down DIB →
+  UpdateLayeredWindow(ULW_ALPHA) 合成；穿透点击、置顶，图元 vector+mutex，
+  变更 PostMessage(WM_APP+71) 才触发重绘（非高帧率设计）。颜色只收
+  "RRGGBB"（与找色同格式），非法颜色返回 0。首次调用惰性建窗，工作线程
+  经 ready_event_（manual-reset，ensure_started 侧 WaitForSingleObject 5s）
+  同步，所有出口（含失败路径）都 SetEvent，修掉启动竞态。
+  实现坑：UNICODE 下 DrawText 宏变 DrawTextW，libop.h / op_c_api.cpp /
+  OpAutomation.h 三处 #undef（同 CopyFile 先例）；libop 目标未定义
+  UNICODE，OpDraw.cpp 定义处不用 undef。
+- **test**: crypto_draw_test.cpp 新增 4 用例（MD5/SHA1 已知向量含 RFC 1321 /
+  FIPS 测试组、Base64 往返+非法串+中文 UTF-8 保真；overlay 隐藏模式验证
+  命令返回值与非法颜色拒绝，无桌面会话允许 SKIP）。空句柄生成物重跑覆盖
+  9 新接口（293 声明）。
+  用例坑：c_api 字符串返回值共用 string_result 缓冲（有效至下一次字符串
+  调用），跨调用使用必须先拷贝——测试曾直接把 Encode 返回指针喂给
+  Decode，clear() 把输入清空导致假失败。
+
+遗留同前批：swig/python 与 Go 绑定待补（本机无 swig）。
+
 ### 2026-10-15 第二十批·补（AStarFindPathWay 建图复用，perf）
 
 O3 落地：`astar_segment` 拆为 build_astar + astar_segment_on，多点途经寻路
