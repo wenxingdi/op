@@ -336,7 +336,8 @@ CharSetRule parse_charset_rule(const std::string &rule) {
 //   允许类别 c 参与 argmax，c >= mask.size() 视为禁止（覆盖模型类别多于 keys 的
 //   尾部错位，无需 mask 与 C 等长）。白名单外字符概率被屏蔽，形近字符
 //   （0/O、,/.、1/l）竞争被消除。空 mask = 全字典（默认）。
-std::string ctc_greedy(const std::vector<float> &out, const std::vector<int64_t> &shape,
+// out 为指针以支持批量推理按行切片（batch Run 后每行是连续的 {1,T,C}/{1,C,T}）。
+std::string ctc_greedy(const float *out, const std::vector<int64_t> &shape,
                         const std::vector<std::string> &keys, float &conf,
                         const std::vector<uint8_t> &mask) {
     int A = int(shape[1]), B = int(shape[2]);
@@ -426,7 +427,48 @@ public:
         std::vector<int64_t> roshape;
         if (!ort_run(*rec, rin, rshape, rout, roshape)) return false;
         if (roshape.size() != 3) return false;
-        txt = ctc_greedy(rout, roshape, keys, conf, m_mask);
+        txt = ctc_greedy(rout.data(), roshape, keys, conf, m_mask);
+        return true;
+    }
+
+    // 批量 rec：所有 ROI 统一 pad 到 RH×RW 后叠成 {N,3,RH,RW} 一次 Run，再逐行 CTC
+    // 解码。每行输入与 rec_image 单跑逐字节一致（同缩放/归一化代码），数学等价；
+    // batch 数值可能有微差（同模型同权重，行为邻近）。
+    // 失败语义：整批 Run 失败返回 false（单次 session 故障），由调用方按推理失败处理。
+    bool rec_images(const std::vector<BGR> &rois, std::vector<std::string> &texts,
+                    std::vector<float> &confs) {
+        const int RH = 48, RW = 320;
+        const size_t N = rois.size();
+        texts.assign(N, std::string());
+        confs.assign(N, 0.0f);
+        if (N == 0) return true;
+        std::vector<float> rin(size_t(3) * RH * RW * N, 0.0f);
+        for (size_t n = 0; n < N; ++n) {
+            const BGR &roi = rois[n];
+            float ratio = float(roi.w) / roi.h;
+            int tw = int(std::ceil(48.0f * ratio));
+            if (tw > RW) tw = RW;
+            BGR rs = resize_bilinear(roi, RH, tw);
+            float *dst = rin.data() + size_t(3) * RH * RW * n;
+            for (int c = 0; c < 3; ++c) {
+                int src = 2 - c; // RGB 顺序（PP-OCR rec 约定）
+                for (int y = 0; y < RH; ++y)
+                    for (int x = 0; x < tw; ++x) {
+                        float v = rs.at(y, x)[src] / 255.0f;
+                        v = (v - 0.5f) / 0.5f; // rec 归一化：[-1,1]
+                        dst[size_t(c) * RH * RW + size_t(y) * RW + x] = v;
+                    }
+            }
+        }
+        std::vector<int64_t> rshape = {int64_t(N), 3, RH, RW};
+        std::vector<float> rout;
+        std::vector<int64_t> roshape;
+        if (!ort_run(*rec, rin, rshape, rout, roshape)) return false;
+        if (roshape.size() != 3 || roshape[0] != int64_t(N)) return false;
+        const size_t per = size_t(roshape[1]) * size_t(roshape[2]); // 每行输出 {T,C} 或 {C,T}
+        for (size_t n = 0; n < N; ++n)
+            texts[n] = ctc_greedy(rout.data() + per * n, {1, roshape[1], roshape[2]}, keys,
+                                  confs[n], m_mask);
         return true;
     }
 
@@ -555,25 +597,40 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
     });
 
     // ---- 识别 ----
-    int n = 0;
+    // 先收集全部 ROI（含倾斜校正），再一次性批量 rec：N 框共用一次 session.Run
+    // （原逐框各跑一次，N 框串行 N 次，约 10-15ms/次）。
+    std::vector<BGR> rois;
+    std::vector<Box> kept;
+    rois.reserve(boxes.size());
+    kept.reserve(boxes.size());
     for (const Box &box : boxes) {
         BGR roi = crop(img, box.x0, box.y0, box.x1, box.y1);
         if (roi.h < 2 || roi.w < 2) continue;
-        // 倾斜校正（PCA 主轴）
-        double ang = pca_angle(roi);
-        if (std::abs(ang) > 15.0 && std::abs(ang) < 75.0 && roi.w > 1.3 * roi.h)
-            roi = rotate(roi, -ang);
+        // 倾斜校正（PCA 主轴）：仅扁矩形（行文本）才计算 PCA 角度——
+        // 旋转守卫本就含 w>1.3h，非扁矩形算了也不会转，纯浪费三趟全像素遍历。
+        if (roi.w > 1.3 * roi.h) {
+            double ang = pca_angle(roi);
+            if (std::abs(ang) > 15.0 && std::abs(ang) < 75.0)
+                roi = rotate(roi, -ang);
+        }
+        rois.push_back(std::move(roi));
+        kept.push_back(box);
+    }
+    if (rois.empty()) return 0;
+    std::vector<std::string> texts;
+    std::vector<float> confs;
+    if (!m_impl->rec_images(rois, texts, confs)) return -3;
 
-        std::string txt;
-        float conf = 0;
-        if (!m_impl->rec_image(roi, txt, conf)) continue;
-        if (txt.empty()) continue;
+    int n = 0;
+    for (size_t i = 0; i < rois.size(); ++i) {
+        if (texts[i].empty()) continue;
 
         ocr_rec_t rec;
+        const Box &box = kept[i];
         rec.left_top = point_t(std::max(0, box.x0), std::max(0, box.y0));
         rec.right_bottom = point_t(std::min(w, box.x1), std::min(h, box.y1));
-        rec.text = utf8_to_wstring(txt);  // txt 是 PP-OCR 输出的 UTF-8，必须用 CP_UTF8 解码
-        rec.confidence = conf;
+        rec.text = utf8_to_wstring(texts[i]); // txt 是 PP-OCR 输出的 UTF-8，必须用 CP_UTF8 解码
+        rec.confidence = confs[i];
         result.push_back(rec);
         ++n;
     }
@@ -588,11 +645,13 @@ int OnnxOcrEngine::ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &resul
 
     BGR img = to_bgr(data, w, h, bpp);
 
-    // 倾斜校正（PCA 主轴）：与 ocr() 的单行 rec 分支一致
+    // 倾斜校正（PCA 主轴）：与 ocr() 的单行 rec 分支一致——仅扁矩形才计算 PCA。
     BGR roi = img;
-    double ang = pca_angle(roi);
-    if (std::abs(ang) > 15.0 && std::abs(ang) < 75.0 && roi.w > 1.3 * roi.h)
-        roi = rotate(roi, -ang);
+    if (roi.w > 1.3 * roi.h) {
+        double ang = pca_angle(roi);
+        if (std::abs(ang) > 15.0 && std::abs(ang) < 75.0)
+            roi = rotate(roi, -ang);
+    }
 
     std::string txt;
     float conf = 0;
