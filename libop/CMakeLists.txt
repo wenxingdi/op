@@ -287,6 +287,7 @@ set(OP_CLASS_SOURCES
   "op/OpContext.cpp"
   "op/OpRuntime.cpp"
   "op/OpProcess.cpp"
+  "op/OpFile.cpp"
   "op/OpClipboard.cpp"
   "op/OpWindow.cpp"
   "op/OpInput.cpp"

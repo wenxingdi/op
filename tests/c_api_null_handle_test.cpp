@@ -124,6 +124,7 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     EXPECT_EQ(OpGetDxAttr(nullptr), 0) << "OpGetDxAttr";
     EXPECT_EQ(OpGetBindWindow(nullptr), 0) << "OpGetBindWindow";
     EXPECT_EQ(OpIsBind(nullptr), 0) << "OpIsBind";
+    expect_empty(OpGetDisplayMethod(nullptr), "OpGetDisplayMethod");
     EXPECT_EQ(OpGetCursorPos(nullptr, nullptr, nullptr), 0) << "OpGetCursorPos";
     expect_empty(OpGetCursorShape(nullptr), "OpGetCursorShape");
     EXPECT_EQ(OpMoveR(nullptr, 0, 0), 0) << "OpMoveR";
@@ -264,17 +265,16 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_empty(OpOcrAutoColor(nullptr, 0, 0, 0, 0, L"", 0.0), "OpOcrAutoColor");
     expect_empty(OpOcrAutoColorLine(nullptr, 0, 0, 0, 0, L"", 0.0), "OpOcrAutoColorLine");
     expect_empty(OpOcrAutoColorEx(nullptr, 0, 0, 0, 0, L"", 0.0, nullptr), "OpOcrAutoColorEx");
-    expect_empty(OpAutoOcr(nullptr, 0, 0, 0, 0, L"", 0.0), "OpAutoOcr(归一入口)");
-    // 旧名废弃别名：空 handle 应同样安全返回空串
-    expect_empty(OpAutoOcrLine(nullptr, 0, 0, 0, 0, L"", 0.0), "OpAutoOcrLine(alias)");
-    expect_empty(OpAutoOcrEx(nullptr, 0, 0, 0, 0, L"", 0.0, nullptr), "OpAutoOcrEx(alias)");
     EXPECT_EQ(OpFindStr(nullptr, 0, 0, 0, 0, L"", L"", 0.0, nullptr, nullptr), 0) << "OpFindStr";
     expect_empty(OpFindStrEx(nullptr, 0, 0, 0, 0, L"", L"", 0.0), "OpFindStrEx");
     expect_empty(OpOcrAuto(nullptr, 0, 0, 0, 0, 0.0), "OpOcrAuto");
     expect_empty(OpOcrFromFile(nullptr, L"", L"", 0.0), "OpOcrFromFile");
     expect_empty(OpOcrAutoColorFromFile(nullptr, L"", L"", 0.0), "OpOcrAutoColorFromFile");
-    expect_empty(OpAutoOcrFromFile(nullptr, L"", L"", 0.0), "OpAutoOcrFromFile(alias)");
     expect_empty(OpOcrAutoFromFile(nullptr, L"", 0.0), "OpOcrAutoFromFile");
+    expect_empty(OpAutoOcr(nullptr, 0, 0, 0, 0, L"", 0.0), "OpAutoOcr");
+    expect_empty(OpAutoOcrLine(nullptr, 0, 0, 0, 0, L"", 0.0), "OpAutoOcrLine");
+    expect_empty(OpAutoOcrEx(nullptr, 0, 0, 0, 0, L"", 0.0, nullptr), "OpAutoOcrEx");
+    expect_empty(OpAutoOcrFromFile(nullptr, L"", L"", 0.0), "OpAutoOcrFromFile");
     expect_empty(OpFindLine(nullptr, 0, 0, 0, 0, L"", 0.0), "OpFindLine");
     expect_empty(OpFindLineEx(nullptr, 0, 0, 0, 0, L"", 0.0, nullptr), "OpFindLineEx");
     EXPECT_EQ(OpWriteData(nullptr, 0, L"", L"", 0), 0) << "OpWriteData";
@@ -292,6 +292,25 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_empty(OpGetModuleBaseAddr(nullptr, 0, L""), "OpGetModuleBaseAddr");
     expect_empty(OpFindColorBlockExS(nullptr, 0, 0, 0, 0, L"", 0.0, 0, 0, 0, 0), "OpFindColorBlockExS");
     expect_empty(OpFindLineExS(nullptr, 0, 0, 0, 0, L"", 0.0, 0, nullptr), "OpFindLineExS");
+    EXPECT_EQ(OpFileExists(nullptr, L""), 0) << "OpFileExists";
+    EXPECT_EQ(OpCreateFolder(nullptr, L""), 0) << "OpCreateFolder";
+    EXPECT_EQ(OpDeleteFolder(nullptr, L""), 0) << "OpDeleteFolder";
+    expect_empty(OpGetFileList(nullptr, L"", L""), "OpGetFileList");
+    EXPECT_EQ(OpCopyFile(nullptr, L"", L""), 0) << "OpCopyFile";
+    EXPECT_EQ(OpMoveFile(nullptr, L"", L""), 0) << "OpMoveFile";
+    EXPECT_EQ(OpDeleteFile(nullptr, L""), 0) << "OpDeleteFile";
+    EXPECT_EQ(OpGetFileSize(nullptr, L"", nullptr), 0) << "OpGetFileSize";
+    expect_empty(OpReadFileString(nullptr, L""), "OpReadFileString");
+    EXPECT_EQ(OpWriteStringToFile(nullptr, L"", L""), 0) << "OpWriteStringToFile";
+    expect_empty(OpGetFileName(nullptr, L"", 0), "OpGetFileName");
+    expect_empty(OpToAbsolutePath(nullptr, L""), "OpToAbsolutePath");
+    EXPECT_EQ(OpKeyPressHotkey(nullptr, L""), 0) << "OpKeyPressHotkey";
+    expect_empty(OpGetWindowScale(nullptr, 0), "OpGetWindowScale");
+    EXPECT_EQ(OpTerminateProcess(nullptr, 0), 0) << "OpTerminateProcess";
+    EXPECT_EQ(OpTerminateProcessTree(nullptr, 0), 0) << "OpTerminateProcessTree";
+    expect_empty(OpDecodeQRCode(nullptr, 0, 0, 0, 0), "OpDecodeQRCode");
+    expect_empty(OpDecodeQRCodeFromFile(nullptr, L""), "OpDecodeQRCodeFromFile");
+    EXPECT_EQ(OpCreateQRCode(nullptr, L"", L"", 0), 0) << "OpCreateQRCode";
 }
 
 TEST(CApiNullHandle, FreeFunctionsAreSafe) {

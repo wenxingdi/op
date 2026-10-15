@@ -7,6 +7,7 @@
 #include <libop.h>
 
 #include <Windows.h>
+#include <algorithm>
 #include <cwchar>
 #include <map>
 #include <string>
@@ -66,6 +67,69 @@ bool resolve_text_key_combo(const std::map<std::wstring, long> &vkmap, const wch
         return false;
 
     return resolve_char_key_combo(text[0], combo);
+}
+
+// P1 组合键解析（2026-10-15）："ctrl+alt+a" / "shift+f1" / "win+d"。
+// 除最后一个 token 外必须是修饰键（ctrl/control/alt/shift/win，重复自动去重）；
+// 主键走命名键 vkmap 或单字符（字符自带 shift 态如 '!' 会并入修饰集）。
+bool parse_hotkey_combo(const std::map<std::wstring, long> &vkmap, const std::wstring &text, key_combo_t &combo) {
+    combo = {};
+    if (text.empty())
+        return false;
+
+    std::vector<std::wstring> tokens;
+    size_t begin = 0;
+    while (true) {
+        const size_t pos = text.find(L'+', begin);
+        tokens.push_back(text.substr(begin, pos == std::wstring::npos ? std::wstring::npos : pos - begin));
+        if (pos == std::wstring::npos)
+            break;
+        begin = pos + 1;
+    }
+    for (auto &token : tokens) {
+        const auto first = token.find_first_not_of(L" \t");
+        const auto last = token.find_last_not_of(L" \t");
+        token = first == std::wstring::npos ? L"" : token.substr(first, last - first + 1);
+        wstring2lower(token);
+        if (token.empty())
+            return false;
+    }
+
+    for (size_t i = 0; i + 1 < tokens.size(); ++i) {
+        long modifier = 0;
+        if (tokens[i] == L"ctrl" || tokens[i] == L"control")
+            modifier = VK_CONTROL;
+        else if (tokens[i] == L"alt")
+            modifier = VK_MENU;
+        else if (tokens[i] == L"shift")
+            modifier = VK_SHIFT;
+        else if (tokens[i] == L"win")
+            modifier = VK_LWIN;
+        else
+            return false;
+        if (std::find(combo.modifiers.begin(), combo.modifiers.end(), modifier) == combo.modifiers.end())
+            combo.modifiers.push_back(modifier);
+    }
+
+    const std::wstring &main_key = tokens.back();
+    long named_vk = 0;
+    if (is_named_vk(vkmap, main_key.c_str(), named_vk)) {
+        combo.vk = named_vk;
+        return combo.vk != 0;
+    }
+    if (main_key.size() == 1) {
+        // resolve_char_key_combo 会整体重置 combo，先在临时对象上解析再合并
+        key_combo_t main_combo;
+        if (!resolve_char_key_combo(main_key[0], main_combo))
+            return false;
+        combo.vk = main_combo.vk;
+        for (long modifier : main_combo.modifiers) {
+            if (std::find(combo.modifiers.begin(), combo.modifiers.end(), modifier) == combo.modifiers.end())
+                combo.modifiers.push_back(modifier);
+        }
+        return true;
+    }
+    return false;
 }
 
 long key_combo_down(KeyboardBackend *keypad, const key_combo_t &combo) {
@@ -354,6 +418,13 @@ void op::Op::KeyPressChar(const wchar_t *vk_code, long *ret) {
     internal::set_result(ret, 0L);
     key_combo_t combo;
     if (resolve_text_key_combo(m_context->vkmap, vk_code, combo))
+        internal::set_result(ret, key_combo_press(m_context->bkproc._keyboard.get(), combo));
+}
+
+void op::Op::KeyPressHotkey(const wchar_t *combo_text, long *ret) {
+    internal::set_result(ret, 0L);
+    key_combo_t combo;
+    if (parse_hotkey_combo(m_context->vkmap, combo_text ? std::wstring(combo_text) : std::wstring(), combo))
         internal::set_result(ret, key_combo_press(m_context->bkproc._keyboard.get(), combo));
 }
 

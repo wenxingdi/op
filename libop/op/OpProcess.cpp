@@ -2,6 +2,8 @@
 #include "OpResult.h"
 
 #include "ipc/CommandRunner.h"
+#include "ipc/ProcessTree.h"
+#include "../base/WindowsHandle.h"
 #include "base/Utils.h"
 #include "window/DllInjector.h"
 
@@ -87,4 +89,31 @@ void op::Op::GetCmdStr(const wchar_t *cmd, long millseconds, std::wstring &retst
     auto str = command_runner.GetCmdStr(cmd ? std::wstring(cmd) : std::wstring(),
                                         millseconds <= 0 ? 5 : static_cast<DWORD>(millseconds));
     retstr = decode_command_output(str);
+}
+
+void op::Op::TerminateProcess(long pid, long *ret) {
+    internal::set_result(ret, 0L);
+    if (pid <= 0)
+        return;
+    const op::win32::unique_handle process(::OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE,
+                                                         static_cast<DWORD>(pid)));
+    if (!process)
+        return;
+    if (::TerminateProcess(process.get(), 0) == FALSE)
+        return;
+    ::WaitForSingleObject(process.get(), 1000);
+    internal::set_result(ret, 1L);
+}
+
+void op::Op::TerminateProcessTree(long pid, long *ret) {
+    internal::set_result(ret, 0L);
+    if (pid <= 0)
+        return;
+    // 复用 ipc/ProcessTree.h（原 Pipe.cpp 匿名命名空间实现，P1 提升为共享）。
+    // 语义：先快照子进程列表，终止本进程并等待，再递归各子树。
+    proctree::terminate_process_tree(static_cast<DWORD>(pid));
+    // terminate_process_tree 无返回值：以进程已不可打开为准判定成功
+    const op::win32::unique_handle check(::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE,
+                                                       static_cast<DWORD>(pid)));
+    internal::set_result(ret, check ? 0L : 1L);
 }

@@ -554,3 +554,33 @@ void op::Op::SetIme(LONG_PTR hwnd, long enable, long *ret) {
             internal::set_result(ret, 1L);
     }
 }
+
+void op::Op::GetWindowScale(LONG_PTR hwnd, std::wstring &retstr) {
+    retstr.clear();
+    HWND target = reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd));
+    if (!target || !IsWindow(target))
+        return;
+
+    // 优先 GetDpiForWindow（与 OpRuntime::GetDPI 用 GetDpiForSystem 同口径，
+    // 均要求 Win10 1607+，本仓库已以此为基线）；退化到窗口所在显示器 DPI。
+    UINT dpi = ::GetDpiForWindow(target);
+    if (dpi == 0) {
+        HMONITOR monitor = ::MonitorFromWindow(target, MONITOR_DEFAULTTONEAREST);
+        const HMODULE shcore = ::LoadLibraryW(L"Shcore.dll");
+        if (shcore) {
+            typedef HRESULT(WINAPI * GetDpiForMonitor_t)(HMONITOR, int, UINT *, UINT *);
+            const auto get_dpi_for_monitor =
+                reinterpret_cast<GetDpiForMonitor_t>(::GetProcAddress(shcore, "GetDpiForMonitor"));
+            UINT dpi_x = 0, dpi_y = 0;
+            if (get_dpi_for_monitor && SUCCEEDED(get_dpi_for_monitor(monitor, 0, &dpi_x, &dpi_y)))
+                dpi = dpi_x;
+            ::FreeLibrary(shcore);
+        }
+    }
+    if (dpi == 0)
+        dpi = 96;
+
+    wchar_t buf[16] = {};
+    swprintf(buf, L"%.2f", dpi / 96.0);
+    retstr = buf;
+}

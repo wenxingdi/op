@@ -1858,3 +1858,107 @@ STDMETHODIMP OpAutomation::CvMatchTemplateRot(LONG x, LONG y, LONG width, LONG h
     return CopyOutBstr(retjson, s);
 }
 
+
+// ---- P1 新增实现（2026-10-15，id 385-403）----
+
+STDMETHODIMP OpAutomation::FileExists(BSTR file_name, LONG *ret) {
+    obj.FileExists(file_name, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::CreateFolder(BSTR folder_name, LONG *ret) {
+    obj.CreateFolder(folder_name, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DeleteFolder(BSTR folder_name, LONG *ret) {
+    obj.DeleteFolder(folder_name, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetFileList(BSTR folder, BSTR wildcard, BSTR *retstr) {
+    wstring s;
+    obj.GetFileList(folder, wildcard, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::CopyFile(BSTR src_file, BSTR dst_file, LONG *ret) {
+    obj.CopyFile(src_file, dst_file, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::MoveFile(BSTR src_file, BSTR dst_file, LONG *ret) {
+    obj.MoveFile(src_file, dst_file, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DeleteFile(BSTR file_name, LONG *ret) {
+    obj.DeleteFile(file_name, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetFileSize(BSTR file_name, LONGLONG *size, LONG *ret) {
+    obj.GetFileSize(file_name, reinterpret_cast<int64_t *>(size), ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::ReadFileString(BSTR file_name, BSTR *retstr) {
+    wstring s;
+    obj.ReadFileString(file_name, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::WriteStringToFile(BSTR file_name, BSTR content, LONG *ret) {
+    obj.WriteStringToFile(file_name, content, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetFileName(BSTR file_path, LONG flag, BSTR *retstr) {
+    wstring s;
+    obj.GetFileName(file_path, flag, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::ToAbsolutePath(BSTR path, BSTR *retstr) {
+    wstring s;
+    obj.ToAbsolutePath(path, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::KeyPressHotkey(BSTR combo, LONG *ret) {
+    obj.KeyPressHotkey(combo, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetWindowScale(LONG_PTR hwnd, BSTR *retstr) {
+    wstring s;
+    obj.GetWindowScale(hwnd, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::TerminateProcess(LONG pid, LONG *ret) {
+    obj.TerminateProcess(pid, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::TerminateProcessTree(LONG pid, LONG *ret) {
+    obj.TerminateProcessTree(pid, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DecodeQRCode(LONG x1, LONG y1, LONG x2, LONG y2, BSTR *retstr) {
+    wstring s;
+    obj.DecodeQRCode(x1, y1, x2, y2, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::DecodeQRCodeFromFile(BSTR file_name, BSTR *retstr) {
+    wstring s;
+    obj.DecodeQRCodeFromFile(file_name, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::CreateQRCode(BSTR text, BSTR file_name, LONG size, LONG *ret) {
+    obj.CreateQRCode(text, file_name, size, ret);
+    return S_OK;
+}

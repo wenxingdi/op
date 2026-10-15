@@ -3,41 +3,12 @@
 #include "../base/AutomationModes.h"
 #include "../base/Utils.h"
 #include "../base/WindowsHandle.h"
+#include "ProcessTree.h"
 #include <chrono>
 #include <iostream>
-#include <tlhelp32.h>
 #include <vector>
 
 namespace op {
-
-namespace {
-
-void terminate_process_tree(DWORD pid) {
-    std::vector<DWORD> children;
-
-    op::win32::unique_handle snapshot(::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0));
-    if (snapshot) {
-        PROCESSENTRY32W entry = {};
-        entry.dwSize = sizeof(entry);
-        if (::Process32FirstW(snapshot.get(), &entry)) {
-            do {
-                if (entry.th32ParentProcessID == pid)
-                    children.push_back(entry.th32ProcessID);
-            } while (::Process32NextW(snapshot.get(), &entry));
-        }
-    }
-
-    op::win32::unique_handle process(::OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, pid));
-    if (process) {
-        ::TerminateProcess(process.get(), 0);
-        ::WaitForSingleObject(process.get(), 1000);
-    }
-
-    for (DWORD child_pid : children)
-        terminate_process_tree(child_pid);
-}
-
-} // namespace
 
 Pipe::Pipe() {
     _hread = _hwrite = _hread2 = _hwrite2 = nullptr;
@@ -109,7 +80,7 @@ int Pipe::close(DWORD process_wait_ms) {
         const DWORD wait_result = ::WaitForSingleObject(_pi.hProcess, process_wait_ms);
         if (wait_result == WAIT_TIMEOUT) {
             process_exited = false;
-            terminate_process_tree(_pi.dwProcessId);
+            proctree::terminate_process_tree(_pi.dwProcessId);
         }
     }
 

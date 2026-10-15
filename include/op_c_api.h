@@ -435,6 +435,40 @@ OP_C_API const wchar_t *OP_CALL OpFindColorBlockExS(op_handle handle, int x1, in
 OP_C_API const wchar_t *OP_CALL OpFindLineExS(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
                                               double sim, int min_points, int *out_count);
 
+// ---- 文件模块（P1 新增 2026-10-15；ret=1 成功 0 失败，路径支持正斜杠）----
+OP_C_API int OP_CALL OpFileExists(op_handle handle, const wchar_t *file_name);
+OP_C_API int OP_CALL OpCreateFolder(op_handle handle, const wchar_t *folder_name);
+OP_C_API int OP_CALL OpDeleteFolder(op_handle handle, const wchar_t *folder_name);
+// 遍历返回全路径 "p1|p2|..."（wildcard 空=全部）
+OP_C_API const wchar_t *OP_CALL OpGetFileList(op_handle handle, const wchar_t *folder, const wchar_t *wildcard);
+OP_C_API int OP_CALL OpCopyFile(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file);
+OP_C_API int OP_CALL OpMoveFile(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file);
+OP_C_API int OP_CALL OpDeleteFile(op_handle handle, const wchar_t *file_name);
+// 文件大小字节数经 out_ret 返回（int64）；函数返回值同 ret 语义
+OP_C_API intptr_t OP_CALL OpGetFileSize(op_handle handle, const wchar_t *file_name, int *out_ret);
+// 文本读写：UTF-8 带 BOM，覆盖写
+OP_C_API const wchar_t *OP_CALL OpReadFileString(op_handle handle, const wchar_t *file_name);
+OP_C_API int OP_CALL OpWriteStringToFile(op_handle handle, const wchar_t *file_name, const wchar_t *content);
+// 路径解析：flag 0=文件名含扩展名 1=仅文件名 2=仅扩展名(含.) 3=目录部分
+OP_C_API const wchar_t *OP_CALL OpGetFileName(op_handle handle, const wchar_t *file_path, int flag);
+OP_C_API const wchar_t *OP_CALL OpToAbsolutePath(op_handle handle, const wchar_t *path);
+
+// ---- 组合键（P1 新增 2026-10-15）：形如 "ctrl+alt+a" / "shift+f1" / "win+d" ----
+OP_C_API int OP_CALL OpKeyPressHotkey(op_handle handle, const wchar_t *combo);
+
+// ---- 窗口 DPI 缩放（P1 新增 2026-10-15）：两位小数字符串，失败返回空串 ----
+OP_C_API const wchar_t *OP_CALL OpGetWindowScale(op_handle handle, intptr_t hwnd);
+
+// ---- 进程终止（P1 新增 2026-10-15）----
+OP_C_API int OP_CALL OpTerminateProcess(op_handle handle, int pid);
+OP_C_API int OP_CALL OpTerminateProcessTree(op_handle handle, int pid);
+
+// ---- 二维码（P1 新增 2026-10-15，OpenCV QRCodeDetector/Encoder 直桥）----
+OP_C_API const wchar_t *OP_CALL OpDecodeQRCode(op_handle handle, int x1, int y1, int x2, int y2);
+OP_C_API const wchar_t *OP_CALL OpDecodeQRCodeFromFile(op_handle handle, const wchar_t *file_name);
+// 生成二维码保存为图片（size<=0 用 256）
+OP_C_API int OP_CALL OpCreateQRCode(op_handle handle, const wchar_t *text, const wchar_t *file_name, int size);
+
 #ifdef __cplusplus
 }
 #endif

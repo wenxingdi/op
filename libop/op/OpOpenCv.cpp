@@ -2,17 +2,47 @@
 #include "OpResult.h"
 
 #include "opencv/OpenCvBridge.h"
+#include "opencv/OpenCvHelpers.h"
 #include "opencv/TemplateMatcher.h"
 #include "base/Utils.h"
 
 #include <libop.h>
 
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/objdetect.hpp>
+
+#include <filesystem>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace {
+
+// 二维码文本走 CP_UTF8 编解码（与 MiniImage.h 同口径；OpenCV imread/imwrite
+// 的 string 路径在 Windows 按 ANSI 解释，内容串必须显式 UTF-8）。
+std::string utf8_encode(const wchar_t *text) {
+    if (!text || !text[0])
+        return "";
+    const int n = ::WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr, nullptr);
+    if (n <= 1)
+        return "";
+    std::string out(n - 1, '\0');
+    ::WideCharToMultiByte(CP_UTF8, 0, text, -1, out.data(), n, nullptr, nullptr);
+    return out;
+}
+
+std::wstring utf8_decode(const std::string &text) {
+    if (text.empty())
+        return L"";
+    const int n = ::MultiByteToWideChar(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), nullptr, 0);
+    if (n <= 0)
+        return L"";
+    std::wstring out(n, L'\0');
+    ::MultiByteToWideChar(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), out.data(), n);
+    return out;
+}
 
 // 公共别名匹配（第十二批 OP1）：小写化后在静态 {别名, 枚举值} 表中查值，
 // 空串别名即"缺省值"。五个 parse_cv_* 模式解析器共用。
@@ -901,4 +931,63 @@ void op::Op::CvMatchTemplateRot(long x, long y, long width, long height, const w
                              retjson = opcv::bridge::BuildRotatedMatchJson(match, best_angle, ok);
                              internal::set_result(ret, ok ? 1L : 0L);
                          });
+}
+
+
+// ---- 二维码（P1 新增 2026-10-15）：OpenCV QRCodeDetector/Encoder 直桥 ----
+// 区域解码复用 cv_match_capture_run 截图链；文件读写宽路径走 filesystem 转换
+// （与 OpenCvHelpers::loadImageFromFile / TemplateMatcher 保存同口径）。
+
+void op::Op::DecodeQRCode(long x1, long y1, long x2, long y2, std::wstring &retstr) {
+    retstr.clear();
+    cv_match_capture_run(m_context->bkproc, m_context->image_proc, x1, y1, x2, y2, retstr, nullptr, L"",
+                         [&](const opcv::ImageHandle &source, const opcv::Region &, int, int) {
+                             const cv::Mat mat = opcv::helpers::createMatView(source);
+                             if (mat.empty())
+                                 return;
+                             cv::QRCodeDetector detector;
+                             std::vector<cv::Point> points;
+                             cv::Mat straight;
+                             const std::string decoded = detector.detectAndDecode(mat, points, straight);
+                             if (!decoded.empty())
+                                 retstr = utf8_decode(decoded);
+                         });
+}
+
+void op::Op::DecodeQRCodeFromFile(const wchar_t *file_name, std::wstring &retstr) {
+    retstr.clear();
+    if (!file_name || !file_name[0])
+        return;
+    const cv::Mat mat = cv::imread(std::filesystem::path(file_name).string(), cv::IMREAD_COLOR);
+    if (mat.empty())
+        return;
+    cv::QRCodeDetector detector;
+    std::vector<cv::Point> points;
+    cv::Mat straight;
+    const std::string decoded = detector.detectAndDecode(mat, points, straight);
+    if (!decoded.empty())
+        retstr = utf8_decode(decoded);
+}
+
+void op::Op::CreateQRCode(const wchar_t *text, const wchar_t *file_name, long size, long *ret) {
+    internal::set_result(ret, 0L);
+    if (!text || !text[0] || !file_name || !file_name[0])
+        return;
+    const std::string utf8_text = utf8_encode(text);
+    if (utf8_text.empty())
+        return;
+
+    cv::QRCodeEncoder::Params params;
+    const cv::Ptr<cv::QRCodeEncoder> encoder = cv::QRCodeEncoder::create(params);
+    cv::Mat qr;
+    encoder->encode(utf8_text, qr); // 灰度小图，模块数随内容定
+    if (qr.empty())
+        return;
+
+    // size 指定输出边长（<=0 用 256）；INTER_NEAREST 保持模块锐利不混色
+    const int out_size = size > 0 ? static_cast<int>(size) : 256;
+    cv::Mat out;
+    cv::resize(qr, out, cv::Size(out_size, out_size), 0.0, 0.0, cv::INTER_NEAREST);
+    if (cv::imwrite(std::filesystem::path(file_name).string(), out))
+        internal::set_result(ret, 1L);
 }

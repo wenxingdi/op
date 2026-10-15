@@ -260,6 +260,31 @@ interface IOpAutomation : IDispatch
 	[id(383)] HRESULT OcrAutoColorFromFile([in] BSTR file_name, [in] BSTR color_format, [in] DOUBLE sim, [out, retval] BSTR* retstr);
 	// 免字库 OCR 归一入口（推荐）：color 为空 → 原图直识别；非空 → 按颜色二值化
 	[id(384)] HRESULT AutoOcr([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out, retval] BSTR* retstr);
+	// ---- P1 新增（2026-10-15，id 385-403；与 c_api 同名导出一一对应）----
+	// 文件模块
+	[id(385)] HRESULT FileExists([in] BSTR file_name, [out, retval] LONG* ret);
+	[id(386)] HRESULT CreateFolder([in] BSTR folder_name, [out, retval] LONG* ret);
+	[id(387)] HRESULT DeleteFolder([in] BSTR folder_name, [out, retval] LONG* ret);
+	[id(388)] HRESULT GetFileList([in] BSTR folder, [in] BSTR wildcard, [out, retval] BSTR* retstr);
+	[id(389)] HRESULT CopyFile([in] BSTR src_file, [in] BSTR dst_file, [out, retval] LONG* ret);
+	[id(390)] HRESULT MoveFile([in] BSTR src_file, [in] BSTR dst_file, [out, retval] LONG* ret);
+	[id(391)] HRESULT DeleteFile([in] BSTR file_name, [out, retval] LONG* ret);
+	[id(392)] HRESULT GetFileSize([in] BSTR file_name, [out] LONGLONG* size, [out, retval] LONG* ret);
+	[id(393)] HRESULT ReadFileString([in] BSTR file_name, [out, retval] BSTR* retstr);
+	[id(394)] HRESULT WriteStringToFile([in] BSTR file_name, [in] BSTR content, [out, retval] LONG* ret);
+	[id(395)] HRESULT GetFileName([in] BSTR file_path, [in] LONG flag, [out, retval] BSTR* retstr);
+	[id(396)] HRESULT ToAbsolutePath([in] BSTR path, [out, retval] BSTR* retstr);
+	// 组合键：形如 "ctrl+alt+a" / "shift+f1" / "win+d"
+	[id(397)] HRESULT KeyPressHotkey([in] BSTR combo, [out, retval] LONG* ret);
+	// 窗口 DPI 缩放（两位小数字符串，失败空串）
+	[id(398)] HRESULT GetWindowScale([in] LONG_PTR hwnd, [out, retval] BSTR* retstr);
+	// 进程终止（Tree 为整棵进程树，先父后子）
+	[id(399)] HRESULT TerminateProcess([in] LONG pid, [out, retval] LONG* ret);
+	[id(400)] HRESULT TerminateProcessTree([in] LONG pid, [out, retval] LONG* ret);
+	// 二维码（OpenCV QRCodeDetector/Encoder 直桥）
+	[id(401)] HRESULT DecodeQRCode([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [out, retval] BSTR* retstr);
+	[id(402)] HRESULT DecodeQRCodeFromFile([in] BSTR file_name, [out, retval] BSTR* retstr);
+	[id(403)] HRESULT CreateQRCode([in] BSTR text, [in] BSTR file_name, [in] LONG size, [out, retval] LONG* ret);
 	[id(300)] HRESULT CvLoadTemplate([in] BSTR name, [in] BSTR file_path, [out, retval] LONG* ret);
 	[id(301)] HRESULT CvLoadMaskedTemplate([in] BSTR name, [in] BSTR template_path, [in] BSTR mask_path, [out, retval] LONG* ret);
 	[id(302)] HRESULT CvRemoveTemplate([in] BSTR name, [out, retval] LONG* ret);

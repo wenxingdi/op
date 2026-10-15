@@ -16,6 +16,10 @@
 #undef FindWindow
 #undef FindWindowEx
 #undef SetWindowText
+// 文件模块方法名与 Win32 宏冲突（op.CopyFile 等调用点会被改写为 CopyFileW）
+#undef CopyFile
+#undef MoveFile
+#undef DeleteFile
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
@@ -1709,6 +1713,112 @@ const wchar_t *OP_CALL OpFindLineExS(op_handle handle, int x1, int y1, int x2, i
         long count = 0;
         op.FindLineExS(x1, y1, x2, y2, safe_text(color), sim, min_points, ret, &count);
         out_value(out_count, static_cast<int>(count));
+    });
+}
+
+// ---- 文件模块（P1 新增 2026-10-15）----
+
+int OP_CALL OpFileExists(op_handle handle, const wchar_t *file_name) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.FileExists(safe_text(file_name), ret); });
+}
+
+int OP_CALL OpCreateFolder(op_handle handle, const wchar_t *folder_name) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.CreateFolder(safe_text(folder_name), ret); });
+}
+
+int OP_CALL OpDeleteFolder(op_handle handle, const wchar_t *folder_name) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DeleteFolder(safe_text(folder_name), ret); });
+}
+
+const wchar_t *OP_CALL OpGetFileList(op_handle handle, const wchar_t *folder, const wchar_t *wildcard) {
+    return call_string(handle,
+                       [&](op::Op &op, std::wstring &ret) { op.GetFileList(safe_text(folder), wildcard, ret); });
+}
+
+int OP_CALL OpCopyFile(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.CopyFile(safe_text(src_file), safe_text(dst_file), ret); });
+}
+
+int OP_CALL OpMoveFile(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.MoveFile(safe_text(src_file), safe_text(dst_file), ret); });
+}
+
+int OP_CALL OpDeleteFile(op_handle handle, const wchar_t *file_name) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DeleteFile(safe_text(file_name), ret); });
+}
+
+intptr_t OP_CALL OpGetFileSize(op_handle handle, const wchar_t *file_name, int *out_ret) {
+    out_int(out_ret, 0);
+    if (!handle)
+        return 0;
+    try {
+        int64_t size = 0;
+        long ret = 0;
+        handle->op.GetFileSize(safe_text(file_name), &size, &ret);
+        out_int(out_ret, static_cast<int>(ret));
+        return static_cast<intptr_t>(size);
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception escaped to C boundary in OpGetFileSize: %s", e.what());
+        return 0;
+    } catch (...) {
+        setlog("op_c_api: unknown exception escaped to C boundary in OpGetFileSize");
+        return 0;
+    }
+}
+
+const wchar_t *OP_CALL OpReadFileString(op_handle handle, const wchar_t *file_name) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.ReadFileString(safe_text(file_name), ret); });
+}
+
+int OP_CALL OpWriteStringToFile(op_handle handle, const wchar_t *file_name, const wchar_t *content) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.WriteStringToFile(safe_text(file_name), safe_text(content), ret);
+    });
+}
+
+const wchar_t *OP_CALL OpGetFileName(op_handle handle, const wchar_t *file_path, int flag) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.GetFileName(safe_text(file_path), flag, ret); });
+}
+
+const wchar_t *OP_CALL OpToAbsolutePath(op_handle handle, const wchar_t *path) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.ToAbsolutePath(safe_text(path), ret); });
+}
+
+// ---- 组合键（P1 新增 2026-10-15）----
+
+int OP_CALL OpKeyPressHotkey(op_handle handle, const wchar_t *combo) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.KeyPressHotkey(safe_text(combo), ret); });
+}
+
+// ---- 窗口 DPI 缩放（P1 新增 2026-10-15）----
+
+const wchar_t *OP_CALL OpGetWindowScale(op_handle handle, intptr_t hwnd) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.GetWindowScale(hwnd, ret); });
+}
+
+// ---- 进程终止（P1 新增 2026-10-15）----
+
+int OP_CALL OpTerminateProcess(op_handle handle, int pid) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.TerminateProcess(pid, ret); });
+}
+
+int OP_CALL OpTerminateProcessTree(op_handle handle, int pid) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.TerminateProcessTree(pid, ret); });
+}
+
+// ---- 二维码（P1 新增 2026-10-15）----
+
+const wchar_t *OP_CALL OpDecodeQRCode(op_handle handle, int x1, int y1, int x2, int y2) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.DecodeQRCode(x1, y1, x2, y2, ret); });
+}
+
+const wchar_t *OP_CALL OpDecodeQRCodeFromFile(op_handle handle, const wchar_t *file_name) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.DecodeQRCodeFromFile(safe_text(file_name), ret); });
+}
+
+int OP_CALL OpCreateQRCode(op_handle handle, const wchar_t *text, const wchar_t *file_name, int size) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.CreateQRCode(safe_text(text), safe_text(file_name), size, ret);
     });
 }
 

@@ -10,6 +10,11 @@
 #undef FindWindow
 #undef FindWindowEx
 #undef SetWindowText
+// 文件模块方法名与 Win32 宏冲突（op_i.h 中的 IOpAutomation::CopyFile 等会被
+// 改写为 CopyFileW 导致纯虚未实现，C2259），此处局部取消映射
+#undef CopyFile
+#undef MoveFile
+#undef DeleteFile
 #include "op_i.h"
 // #include "Types.h"
 // #include "WindowService.h"
@@ -532,6 +537,26 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(CvMatchTemplateRot)
     (LONG x, LONG y, LONG width, LONG height, BSTR template_name, BSTR angles, DOUBLE threshold, LONG method,
      LONG color_mode, BSTR *retjson, LONG *ret);
+    // ---- P1 新增（2026-10-15，id 385-403）----
+    STDMETHOD(FileExists)(BSTR file_name, LONG *ret);
+    STDMETHOD(CreateFolder)(BSTR folder_name, LONG *ret);
+    STDMETHOD(DeleteFolder)(BSTR folder_name, LONG *ret);
+    STDMETHOD(GetFileList)(BSTR folder, BSTR wildcard, BSTR *retstr);
+    STDMETHOD(CopyFile)(BSTR src_file, BSTR dst_file, LONG *ret);
+    STDMETHOD(MoveFile)(BSTR src_file, BSTR dst_file, LONG *ret);
+    STDMETHOD(DeleteFile)(BSTR file_name, LONG *ret);
+    STDMETHOD(GetFileSize)(BSTR file_name, LONGLONG *size, LONG *ret);
+    STDMETHOD(ReadFileString)(BSTR file_name, BSTR *retstr);
+    STDMETHOD(WriteStringToFile)(BSTR file_name, BSTR content, LONG *ret);
+    STDMETHOD(GetFileName)(BSTR file_path, LONG flag, BSTR *retstr);
+    STDMETHOD(ToAbsolutePath)(BSTR path, BSTR *retstr);
+    STDMETHOD(KeyPressHotkey)(BSTR combo, LONG *ret);
+    STDMETHOD(GetWindowScale)(LONG_PTR hwnd, BSTR *retstr);
+    STDMETHOD(TerminateProcess)(LONG pid, LONG *ret);
+    STDMETHOD(TerminateProcessTree)(LONG pid, LONG *ret);
+    STDMETHOD(DecodeQRCode)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR *retstr);
+    STDMETHOD(DecodeQRCodeFromFile)(BSTR file_name, BSTR *retstr);
+    STDMETHOD(CreateQRCode)(BSTR text, BSTR file_name, LONG size, LONG *ret);
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(OpAutomation), OpAutomation)

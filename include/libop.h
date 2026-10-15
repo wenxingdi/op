@@ -29,6 +29,10 @@
 #undef FindWindow
 #undef FindWindowEx
 #undef SetWindowText
+// 文件模块成员名与 Win32 宏冲突（CopyFileW/MoveFileW/DeleteFileW），一并取消映射
+#undef CopyFile
+#undef MoveFile
+#undef DeleteFile
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -724,6 +728,53 @@ class OP_API Op {
                     _In_ long count, _Out_ std::wstring &retstr);
     // 取目标进程（hwnd=0 为本进程）模块基址，返回大写十六进制串；失败返回空。
     void GetModuleBaseAddr(_In_ LONG_PTR hwnd, _In_ const wchar_t *module, _Out_ std::wstring &retstr);
+
+    // ---- 文件模块（P1 新增 2026-10-15，参考 OLA 文件模块常用子集）----
+    // 全部路径为宽字符绝对/相对路径；返回值约定与窗口系一致：ret=1 成功，0 失败（路径非法/不存在/拒绝访问）。
+    // 判断文件或文件夹是否存在（file_name 可为目录）
+    void FileExists(_In_ const wchar_t *file_name, _Out_ long *ret);
+    // 创建文件夹（含多级父目录，已存在视为成功）
+    void CreateFolder(_In_ const wchar_t *folder_name, _Out_ long *ret);
+    // 递归删除文件夹及其全部内容；路径非法/不存在返回 0
+    void DeleteFolder(_In_ const wchar_t *folder_name, _Out_ long *ret);
+    // 遍历文件夹，wildcard 支持 * ?（空=全部）。返回全路径 "p1|p2|..."，无匹配返回空串。
+    void GetFileList(_In_ const wchar_t *folder, _In_ const wchar_t *wildcard, _Out_ std::wstring &retstr);
+    void CopyFile(_In_ const wchar_t *src_file, _In_ const wchar_t *dst_file, _Out_ long *ret);
+    void MoveFile(_In_ const wchar_t *src_file, _In_ const wchar_t *dst_file, _Out_ long *ret);
+    void DeleteFile(_In_ const wchar_t *file_name, _Out_ long *ret);
+    // 文件大小（字节，int64）。ret=1 成功，0 失败。
+    void GetFileSize(_In_ const wchar_t *file_name, _Out_ int64_t *size, _Out_ long *ret);
+    // 读取文本文件全部内容（按 UTF-8 解码；BOM 自动剔除）。失败/空文件返回空串。
+    void ReadFileString(_In_ const wchar_t *file_name, _Out_ std::wstring &retstr);
+    // 写入文本文件（UTF-8 带 BOM，覆盖写）。ret=1 成功。
+    void WriteStringToFile(_In_ const wchar_t *file_name, _In_ const wchar_t *content, _Out_ long *ret);
+    // 路径解析：flag 0=文件名含扩展名 1=仅文件名 2=仅扩展名(含.) 3=目录部分
+    void GetFileName(_In_ const wchar_t *file_path, _In_ long flag, _Out_ std::wstring &retstr);
+    // 相对路径转绝对路径（不做存在性检查，仅规范化 .\ ..\ 与斜杠）
+    void ToAbsolutePath(_In_ const wchar_t *path, _Out_ std::wstring &retstr);
+
+    // ---- 组合键（P1 新增 2026-10-15）----
+    // 发送组合键，combo 形如 "ctrl+alt+a" / "shift+f1" / "win+d"。修饰键支持 ctrl/control/alt/shift/win，主键支持
+    // vkmap 命名键（f1/enter/esc...）或单字符。ret=1 成功，0 解析失败或后端失败。
+    void KeyPressHotkey(_In_ const wchar_t *combo, _Out_ long *ret);
+
+    // ---- 窗口 DPI 缩放（P1 新增 2026-10-15）----
+    // 取窗口实际缩放系数（1.00=96DPI 无缩放），两位小数字符串如 "1.25"；失败返回空串。
+    // 优先 GetDpiForWindow（Per-Monitor V2 感知窗口），退化为窗口所在显示器 DPI。
+    void GetWindowScale(_In_ LONG_PTR hwnd, _Out_ std::wstring &retstr);
+
+    // ---- 进程终止（P1 新增 2026-10-15，进程树逻辑复用 ipc/ProcessTree.h）----
+    // 按 PID 终止进程（不限树）；TerminateProcessTree 先父后子递归终止整棵进程树。
+    void TerminateProcess(_In_ long pid, _Out_ long *ret);
+    void TerminateProcessTree(_In_ long pid, _Out_ long *ret);
+
+    // ---- 二维码（P1 新增 2026-10-15，OpenCV QRCodeDetector/Encoder 直桥）----
+    // 识别绑定窗口客户区区域内二维码文本，未识别返回空串
+    void DecodeQRCode(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _Out_ std::wstring &retstr);
+    // 识别图片文件中的二维码文本
+    void DecodeQRCodeFromFile(_In_ const wchar_t *file_name, _Out_ std::wstring &retstr);
+    // 生成二维码保存为图片（PNG/BMP 由扩展名决定），size 为边长像素（<=0 用 256）。ret=1 成功。
+    void CreateQRCode(_In_ const wchar_t *text, _In_ const wchar_t *file_name, _In_ long size, _Out_ long *ret);
 };
 
 } // namespace op
