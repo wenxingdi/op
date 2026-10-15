@@ -3,6 +3,28 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第八批（OCR 模块：推理输入零拷贝 + 懒初始化收拢 + 字库读取收拢，perf/refactor）
+
+逐模块分析与优化第 5 模块（OCR），分析文档 `docs/2026-10/OCR模块分析_20261015.md`。
+
+- **perf(ocr): 识别引擎热路径与字库维护精简**（`libop/ocr/`，提交 c03aee1，-77/+59）
+  O1 `ort_run` 输入张量由拷贝改 `const_cast` 借用（ORT Run 不写输入，det 每次省约 11MB
+  memcpy）；O2 `HttpOcrService` 懒初始化收拢为 `lazy_engine(caller)`，`ocr()`/`ocr_line()`
+  各缩至 4 行，锁纪律注释保留；O3 `db_postprocess` 删死参数 sx/sy + 内层遮蔽变量改名
+  pad_x/pad_y；O7 `word1_t::operator==` data 比较改 memcmp（细读确认 info 前置过滤已使
+  常数极小，O(n²) 无实际危害，**不加索引**——避免过度设计）；O8 提取
+  `read_text_dict_stream` 模板收拢 `read_dict_dm`/`read_memory_dict_dm` 两个同构函数。
+- **O5 尝试后回退（记录）**：`is_removed_remote_backend` 手写 trim+tolower 本想换 Utils
+  助手，但 `to_lower_copy/trim_copy` 定义于 `network/HttpClient.h`，network 模块已移出
+  构建，`#else` 分支拿不到（原"自包含实现"注释是对的）。恢复原手写版并升级注释。
+  教训：跨模块助手调用前须确认该模块仍在构建内。
+- **提速空间分析入档**（文档末节，随用户 17:34 追加要求记录）：最大杠杆为 rec 批量
+  推理（N 框一次 Run，文本密集场景约 100-150ms → 20-30ms，行为邻近需拍板）；零行为
+  微项为 PCA 惰性化（挪进 w>1.3h 守卫内）；中项（crop/resize 融合、det 融合、bpp=3
+  零拷贝=O6）留 O1 落地后再评估。
+- **回归**：全量 401 ran / 398 PASS / 2 FAILED（已知环境 flake）/ 1 SKIPPED（FurMark
+  缺席）；OCR 专跑 53 条全过（run_tests.ps1 过滤器排除 *Ocr*，单独执行）。
+
 ### 2026-10-15 第七批（窗口/内存模块：EnumWindowInternal 表驱动重构 + 特征化测试网，refactor/test）
 
 逐模块分析与优化第 4 模块（窗口/内存），分析文档 `docs/2026-10/窗口内存模块分析_20261015.md`。
