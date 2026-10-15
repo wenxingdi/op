@@ -217,6 +217,7 @@ var (
 	procOcr                    *windows.LazyProc
 	procOcrEx                  *windows.LazyProc
 	procAutoOcrLine            *windows.LazyProc
+	procAutoOcr                *windows.LazyProc
 	procOcrAutoColorLine       *windows.LazyProc
 	procAutoOcrEx              *windows.LazyProc
 	procOcrAutoColorEx         *windows.LazyProc
@@ -456,6 +457,7 @@ func bindProcs() {
 	procOcr = dll.NewProc("OpOcr")
 	procOcrEx = dll.NewProc("OpOcrEx")
 	procAutoOcrLine = dll.NewProc("OpAutoOcrLine")
+	procAutoOcr = dll.NewProc("OpAutoOcr")
 	procOcrAutoColorLine = dll.NewProc("OpOcrAutoColorLine")
 	procAutoOcrEx = dll.NewProc("OpAutoOcrEx")
 	procOcrAutoColorEx = dll.NewProc("OpOcrAutoColorEx")

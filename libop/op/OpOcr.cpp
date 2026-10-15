@@ -430,6 +430,16 @@ void op::Op::OcrEx(long x1, long y1, long x2, long y2, const wchar_t *color, dou
     retstr = str;
 }
 
+// 免字库 OCR 归一入口：color 为空 → 原图直识别（同 OcrAuto）；非空 → 按颜色二值化（同 OcrAutoColor）。
+void op::Op::AutoOcr(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &retstr) {
+    const std::wstring color_text = color ? color : L"";
+    if (color_text.empty()) {
+        OcrAuto(x1, y1, x2, y2, sim, retstr);
+        return;
+    }
+    OcrAutoColor(x1, y1, x2, y2, color, sim, retstr);
+}
+
 // 区域截图后按颜色二值化再做免字库 OCR
 void op::Op::OcrAutoColor(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &retstr) {
     wstring str;

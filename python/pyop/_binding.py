@@ -771,6 +771,9 @@ class Op(object):
     def GetWordResultStr(self, result, index):
         return _pyop.Op_GetWordResultStr(self, result, index)
 
+    def AutoOcr(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_AutoOcr(self, x1, y1, x2, y2, color, sim)
+
     def Ocr(self, x1, y1, x2, y2, color, sim):
         return _pyop.Op_Ocr(self, x1, y1, x2, y2, color, sim)
 
@@ -854,9 +857,6 @@ class Op(object):
 
     def RunApp(self, *args):
         return _pyop.Op_RunApp(self, *args)
-
-    def AutoOcr(self, x1, y1, x2, y2, color, sim):
-        return _pyop.Op_AutoOcr(self, x1, y1, x2, y2, color, sim)
 
     def AutoOcrLine(self, x1, y1, x2, y2, color, sim):
         return _pyop.Op_AutoOcrLine(self, x1, y1, x2, y2, color, sim)

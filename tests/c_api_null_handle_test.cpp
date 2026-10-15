@@ -264,8 +264,8 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_empty(OpOcrAutoColor(nullptr, 0, 0, 0, 0, L"", 0.0), "OpOcrAutoColor");
     expect_empty(OpOcrAutoColorLine(nullptr, 0, 0, 0, 0, L"", 0.0), "OpOcrAutoColorLine");
     expect_empty(OpOcrAutoColorEx(nullptr, 0, 0, 0, 0, L"", 0.0, nullptr), "OpOcrAutoColorEx");
+    expect_empty(OpAutoOcr(nullptr, 0, 0, 0, 0, L"", 0.0), "OpAutoOcr(归一入口)");
     // 旧名废弃别名：空 handle 应同样安全返回空串
-    expect_empty(OpAutoOcr(nullptr, 0, 0, 0, 0, L"", 0.0), "OpAutoOcr(alias)");
     expect_empty(OpAutoOcrLine(nullptr, 0, 0, 0, 0, L"", 0.0), "OpAutoOcrLine(alias)");
     expect_empty(OpAutoOcrEx(nullptr, 0, 0, 0, 0, L"", 0.0, nullptr), "OpAutoOcrEx(alias)");
     EXPECT_EQ(OpFindStr(nullptr, 0, 0, 0, 0, L"", L"", 0.0, nullptr, nullptr), 0) << "OpFindStr";

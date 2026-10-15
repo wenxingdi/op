@@ -2913,3 +2913,34 @@ TEST(ImageColorTest, OcrAutoColorEntriesSupportBackgroundColorFormat) {
     op.OcrAutoColor(0, 0, width, height, L"000000", 1.0, text);
     EXPECT_TRUE(text.empty());
 }
+
+// 归一入口 AutoOcr：color 为空 → 原图直识别分支（同 OcrAuto）；非空 → 按颜色二值化分支（同 OcrAutoColor）。
+// 用单字字库场景钉死分发语义：非空分支须命中字库结果，空分支必须与 OcrAuto 完全一致（含 nullptr）。
+TEST(ImageColorTest, AutoOcrFacadeDispatchesByColor) {
+    op::Op op;
+    long ret = 0;
+    const int width = 8;
+    const int height = 8;
+
+    auto pixels = MakePixels(width, height, 0x00, 0x00, 0x00);
+    PaintGlyphA(pixels, width, 0, 0, 0xff, 0xff, 0xff);
+    SetMemBmp(op, width, height, pixels, ret);
+    ASSERT_EQ(ret, 1);
+    ASSERT_NO_FATAL_FAILURE(UseSingleWordDict(op, width, height, L"@000000", L"A", ret));
+
+    // 分支1（非空色 → 二值化）：与显式 OcrAutoColor 一致且命中字库
+    std::wstring via_facade, via_explicit;
+    op.AutoOcr(0, 0, width, height, L"@000000", 1.0, via_facade);
+    op.OcrAutoColor(0, 0, width, height, L"@000000", 1.0, via_explicit);
+    EXPECT_EQ(via_explicit, L"A");
+    EXPECT_EQ(via_facade, via_explicit) << "非空色须走 OcrAutoColor 分支";
+
+    // 分支2（空串 → 原图）：与显式 OcrAuto 完全一致（有字库也走免字库原图，9-30 语义）
+    op.AutoOcr(0, 0, width, height, L"", 1.0, via_facade);
+    op.OcrAuto(0, 0, width, height, 1.0, via_explicit);
+    EXPECT_EQ(via_facade, via_explicit) << "空色须走 OcrAuto 分支";
+
+    // 分支3（nullptr 颜色按空串处理，不得崩溃）
+    op.AutoOcr(0, 0, width, height, nullptr, 1.0, via_facade);
+    EXPECT_EQ(via_facade, via_explicit) << "nullptr 颜色须等价空串";
+}

@@ -641,12 +641,19 @@ class OP_API Op {
     // 在使用GetWords进行词组识别以后,可以用此接口进行识别各个词组的内容
     void GetWordResultStr(_In_ const wchar_t *result, _In_ long index, _Out_ std::wstring &ret_str);
     // 免字库 OCR 家族速查（免字库 = 未 SetDict/UseDict，走内置 ONNX 引擎；有字库 = 点阵字库匹配）：
-    //   OcrAuto / OcrAutoFromFile        不二值化，原图直喂引擎，无需颜色
+    //   AutoOcr / AutoOcrFromFile（归一入口，推荐）
+    //                                    color 为空 → 原图直识别（同 OcrAuto）；
+    //                                    color 非空 → 按颜色二值化（同 OcrAutoColor，含字库协同）
+    //   OcrAuto / OcrAutoFromFile        显式原图：不二值化，原图直喂引擎，无需颜色（= AutoOcr 空色分支）
     //   Ocr / OcrFromFile / OcrEx        免字库时不二值化（颜色不参与）；有字库时按颜色二值化
     //   OcrAutoColor / OcrAutoColorFromFile / OcrAutoColorLine / OcrAutoColorEx
-    //                                    先按颜色二值化（支持 "@背景色" 反白）再喂引擎，必须给颜色
+    //                                    显式二值化：先按颜色二值化（支持 "@背景色" 反白）再识别，必须给颜色
     //   ⚠️ sim 语义双关：免字库路径 = 置信度阈值（默认 0.7，ONNX 置信度 ≈0.85+，传 1.0 会全滤光）；
     //     字库路径 = 颜色/点阵相似度 (0.1-1.0)。
+    // 免字库 OCR 归一入口（推荐）：color 为空走原图直识别，非空走按颜色二值化。
+    // 两分支行为分别与 OcrAuto / OcrAutoColor 完全一致，已有脚本可无缝换用本入口。
+    void AutoOcr(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
+                 _Out_ std::wstring &ret_str);
     // 识别屏幕范围(x1,y1,x2,y2)内符合color_format的字符串,并且相似度为sim,sim取值范围(0.1-1.0),
     // 已装载字库时按 color_format 二值化后做字库识别；未装载字库时走免字库引擎，直接对整幅区域
     // 原图识别（color_format 不参与过滤，要按颜色识别请用 OcrAutoColor 系接口）

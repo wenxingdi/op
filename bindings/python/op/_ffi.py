@@ -358,6 +358,8 @@ def _bind(dll: ctypes.WinDLL) -> ctypes.WinDLL:
         ("OpGetWordResultStr", c_wchar_p, [op_handle, c_wchar_p, c_int]),
         ("OpOcr", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
         ("OpOcrEx", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
+        # 免字库 OCR 归一入口：color 为空 → 原图直识别；非空 → 按颜色二值化
+        ("OpAutoOcr", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
         ("OpOcrAutoColor", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
         ("OpOcrAutoColorLine", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double]),
         ("OpOcrAutoColorEx", c_wchar_p, [op_handle, c_int, c_int, c_int, c_int, c_wchar_p, c_double, c_int_p]),

@@ -1533,7 +1533,9 @@ const wchar_t *OP_CALL OpOcrAutoColorFromFile(op_handle handle, const wchar_t *f
 /* ---- 旧名废弃别名：一行转发到新名，保护已有脚本 ---- */
 
 const wchar_t *OP_CALL OpAutoOcr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, double sim) {
-    return OpOcrAutoColor(handle, x1, y1, x2, y2, color, sim);
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.AutoOcr(x1, y1, x2, y2, safe_text(color), sim, ret);
+    });
 }
 
 const wchar_t *OP_CALL OpAutoOcrLine(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,

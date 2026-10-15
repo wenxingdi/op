@@ -3,6 +3,20 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第三批（免字库 OCR 归一入口 AutoOcr，feat）
+
+- **新增归一入口 `AutoOcr(x1,y1,x2,y2,color,sim)`**：color 为空 → 原图直识别（等同 `OcrAuto`）；
+  color 非空 → 按颜色二值化（等同 `OcrAutoColor`，含字库协同）。
+  两分支行为与显式入口**完全一致**，已有脚本可无缝换用；唯一行为变化是空颜色从"返回空串"变为有用的原图识别。
+  显式入口 `OcrAuto* / OcrAutoColor*` 全部保留（调试抓手与字库协同场景）。
+- **改动面**：`include/libop.h` + `libop/op/OpOcr.cpp`（门面分发）、C API `OpAutoOcr`（由废弃别名升级为正主名）、
+  COM idl 新 dispid 384 + `OpAutomation`、`swig/op.i`（去掉 AutoOcr %extend 别名，AutoOcr 改为 libop.h 真实方法，
+  三层重生成）、`bindings/python/op`（新增 `autoocr()`）、`bindings/go`（新增 `AutoOcr`）。
+- **测试**：新增 `ImageColorTest.AutoOcrFacadeDispatchesByColor`（非空色≡OcrAutoColor 且命中、空色≡OcrAuto、
+  nullptr≡空串）；空句柄测试 OpAutoOcr 改标归一入口。
+- **回归**：全量 gtest 372 PASS（+1 新用例，2 条已知环境项不变）；`_t_dict_ocr.py` 49 PASS/0 FAIL；
+  `check_swig_sync.py` 三层同步通过；`api_reference.html` 已重新生成（995 接口条目）。
+
 ### 2026-10-15 第二批（OCR 命名规范化：AutoOcr* → OcrAutoColor*，refactor）
 
 - **背景**：免字库 OCR 存在两套命名混用且语义不同——`OcrAuto/OcrAutoFromFile`（原图直识别，无颜色参数）

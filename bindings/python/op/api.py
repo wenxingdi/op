@@ -1517,6 +1517,14 @@ class Op:
     def ocr_ex(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
         return self._call_string("OpOcrEx", int(x1), int(y1), int(x2), int(y2), color, float(sim))
 
+    def autoocr(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
+        """免字库 OCR 归一入口（推荐）：``color`` 为空 → 原图直识别；非空 → 按颜色二值化。
+
+        两分支分别与 :meth:`ocr_auto` / :meth:`ocr_auto_color` 完全一致
+        （非空分支含字库协同：有字库走字库匹配，无字库走 ONNX）。
+        """
+        return self._call_string("OpAutoOcr", int(x1), int(y1), int(x2), int(y2), color, float(sim))
+
     def ocr_auto_color(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
         """区域截图后按颜色二值化再做免字库 OCR（置信度阈值 sim，默认 0.7）。"""
         return self._call_string("OpOcrAutoColor", int(x1), int(y1), int(x2), int(y2), color, float(sim))

@@ -301,6 +301,16 @@ func (o *Op) OcrEx(x1, y1, x2, y2 int, color string, sim float64) string {
 	return wcharString(ret)
 }
 
+// AutoOcr 免字库 OCR 归一入口（推荐）：color 为空 → 原图直识别；非空 → 按颜色二值化。
+func (o *Op) AutoOcr(x1, y1, x2, y2 int, color string, sim float64) string {
+	if !o.valid() {
+		return ""
+	}
+
+	ret, _, _ := procAutoOcr.Call(o.handle, uintptr(x1), uintptr(y1), uintptr(x2), uintptr(y2), strArg(color), f64Arg(sim))
+	return wcharString(ret)
+}
+
 // OcrAutoColorLine 单行快模式 OcrAutoColor：颜色二值化后整图直接 rec（跳过检测），
 // 适用于读出区/固定单行文本；区域须只含单行文本。
 func (o *Op) OcrAutoColorLine(x1, y1, x2, y2 int, color string, sim float64) string {

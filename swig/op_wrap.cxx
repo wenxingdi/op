@@ -4033,9 +4033,6 @@ SWIGINTERN void op_Op_RunApp__SWIG_1(op::Op *self,wchar_t const *cmdline,long mo
         unsigned long pid = 0;
         self->RunApp(cmdline, mode, &pid, ret);
     }
-SWIGINTERN void op_Op_AutoOcr(op::Op *self,long x1,long y1,long x2,long y2,wchar_t const *color,double sim,std::wstring &ret_str){
-        self->OcrAutoColor(x1, y1, x2, y2, color, sim, ret_str);
-    }
 SWIGINTERN void op_Op_AutoOcrLine(op::Op *self,long x1,long y1,long x2,long y2,wchar_t const *color,double sim,std::wstring &ret_str){
         self->OcrAutoColorLine(x1, y1, x2, y2, color, sim, ret_str);
     }
@@ -19510,6 +19507,99 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_Op_AutoOcr(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long arg2 ;
+  long arg3 ;
+  long arg4 ;
+  long arg5 ;
+  wchar_t *arg6 = 0 ;
+  double arg7 ;
+  std::wstring *arg8 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long val2 ;
+  int ecode2 = 0 ;
+  long val3 ;
+  int ecode3 = 0 ;
+  long val4 ;
+  int ecode4 = 0 ;
+  long val5 ;
+  int ecode5 = 0 ;
+  int res6 ;
+  wchar_t *buf6 = 0 ;
+  int alloc6 = 0 ;
+  double val7 ;
+  int ecode7 = 0 ;
+  std::wstring temp8 ;
+  int res8 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[7] ;
+  
+  arg8 = &temp8;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_AutoOcr", 7, 7, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_AutoOcr" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_AutoOcr" "', argument " "2"" of type '" "long""'");
+  } 
+  arg2 = static_cast< long >(val2);
+  ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
+  if (!SWIG_IsOK(ecode3)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_AutoOcr" "', argument " "3"" of type '" "long""'");
+  } 
+  arg3 = static_cast< long >(val3);
+  ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_AutoOcr" "', argument " "4"" of type '" "long""'");
+  } 
+  arg4 = static_cast< long >(val4);
+  ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
+  if (!SWIG_IsOK(ecode5)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_AutoOcr" "', argument " "5"" of type '" "long""'");
+  } 
+  arg5 = static_cast< long >(val5);
+  res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
+  if (!SWIG_IsOK(res6)) {
+    SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "Op_AutoOcr" "', argument " "6"" of type '" "wchar_t const *""'");
+  }
+  arg6 = reinterpret_cast< wchar_t * >(buf6);
+  ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
+  if (!SWIG_IsOK(ecode7)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_AutoOcr" "', argument " "7"" of type '" "double""'");
+  } 
+  arg7 = static_cast< double >(val7);
+  {
+    try {
+      (arg1)->AutoOcr(arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res8)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res8) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg8), SWIGTYPE_p_std__wstring, new_flags), 1);
+  }
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return resultobj;
+fail:
+  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_Op_Ocr(PyObject *self, PyObject *args) {
   PyObject *resultobj = 0;
   op::Op *arg1 = 0 ;
@@ -21844,89 +21934,6 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_Op_AutoOcr(PyObject *self, PyObject *args) {
-  PyObject *resultobj = 0;
-  op::Op *arg1 = 0 ;
-  long arg2 ;
-  long arg3 ;
-  long arg4 ;
-  long arg5 ;
-  wchar_t *arg6 = 0 ;
-  double arg7 ;
-  std::wstring *arg8 = 0 ;
-  void *argp1 = 0 ;
-  int res1 = 0 ;
-  long val2 ;
-  int ecode2 = 0 ;
-  long val3 ;
-  int ecode3 = 0 ;
-  long val4 ;
-  int ecode4 = 0 ;
-  long val5 ;
-  int ecode5 = 0 ;
-  int res6 ;
-  wchar_t *buf6 = 0 ;
-  int alloc6 = 0 ;
-  double val7 ;
-  int ecode7 = 0 ;
-  std::wstring temp8 ;
-  int res8 = SWIG_TMPOBJ ;
-  PyObject *swig_obj[7] ;
-  
-  arg8 = &temp8;
-  (void)self;
-  if (!SWIG_Python_UnpackTuple(args, "Op_AutoOcr", 7, 7, swig_obj)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
-  if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_AutoOcr" "', argument " "1"" of type '" "op::Op *""'"); 
-  }
-  arg1 = reinterpret_cast< op::Op * >(argp1);
-  ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
-  if (!SWIG_IsOK(ecode2)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_AutoOcr" "', argument " "2"" of type '" "long""'");
-  } 
-  arg2 = static_cast< long >(val2);
-  ecode3 = SWIG_AsVal_long(swig_obj[2], &val3);
-  if (!SWIG_IsOK(ecode3)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "Op_AutoOcr" "', argument " "3"" of type '" "long""'");
-  } 
-  arg3 = static_cast< long >(val3);
-  ecode4 = SWIG_AsVal_long(swig_obj[3], &val4);
-  if (!SWIG_IsOK(ecode4)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "Op_AutoOcr" "', argument " "4"" of type '" "long""'");
-  } 
-  arg4 = static_cast< long >(val4);
-  ecode5 = SWIG_AsVal_long(swig_obj[4], &val5);
-  if (!SWIG_IsOK(ecode5)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode5), "in method '" "Op_AutoOcr" "', argument " "5"" of type '" "long""'");
-  } 
-  arg5 = static_cast< long >(val5);
-  res6 = SWIG_AsWCharPtrAndSize(swig_obj[5], &buf6, NULL, &alloc6);
-  if (!SWIG_IsOK(res6)) {
-    SWIG_exception_fail(SWIG_ArgError(res6), "in method '" "Op_AutoOcr" "', argument " "6"" of type '" "wchar_t const *""'");
-  }
-  arg6 = reinterpret_cast< wchar_t * >(buf6);
-  ecode7 = SWIG_AsVal_double(swig_obj[6], &val7);
-  if (!SWIG_IsOK(ecode7)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode7), "in method '" "Op_AutoOcr" "', argument " "7"" of type '" "double""'");
-  } 
-  arg7 = static_cast< double >(val7);
-  op_Op_AutoOcr(arg1,arg2,arg3,arg4,arg5,(wchar_t const *)arg6,arg7,*arg8);
-  resultobj = SWIG_Py_Void();
-  if (SWIG_IsTmpObj(res8)) {
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_std_wstring((*arg8)), 1);
-  } else {
-    int new_flags = SWIG_IsNewObj(res8) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
-    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg8), SWIGTYPE_p_std__wstring, new_flags), 1);
-  }
-  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
-  return resultobj;
-fail:
-  if (alloc6 == SWIG_NEWOBJ) delete[] buf6;
-  return NULL;
-}
-
-
 SWIGINTERN PyObject *_wrap_Op_AutoOcrLine(PyObject *self, PyObject *args) {
   PyObject *resultobj = 0;
   op::Op *arg1 = 0 ;
@@ -22405,6 +22412,7 @@ static PyMethodDef SwigMethods[] = {
 	 { "Op_GetWordResultCount", _wrap_Op_GetWordResultCount, METH_VARARGS, NULL},
 	 { "Op_GetWordResultPos", _wrap_Op_GetWordResultPos, METH_VARARGS, NULL},
 	 { "Op_GetWordResultStr", _wrap_Op_GetWordResultStr, METH_VARARGS, NULL},
+	 { "Op_AutoOcr", _wrap_Op_AutoOcr, METH_VARARGS, NULL},
 	 { "Op_Ocr", _wrap_Op_Ocr, METH_VARARGS, NULL},
 	 { "Op_OcrEx", _wrap_Op_OcrEx, METH_VARARGS, NULL},
 	 { "Op_OcrAutoColor", _wrap_Op_OcrAutoColor, METH_VARARGS, NULL},
@@ -22433,7 +22441,6 @@ static PyMethodDef SwigMethods[] = {
 	 { "Op_FindDataEx", _wrap_Op_FindDataEx, METH_VARARGS, NULL},
 	 { "Op_GetModuleBaseAddr", _wrap_Op_GetModuleBaseAddr, METH_VARARGS, NULL},
 	 { "Op_RunApp", _wrap_Op_RunApp, METH_VARARGS, NULL},
-	 { "Op_AutoOcr", _wrap_Op_AutoOcr, METH_VARARGS, NULL},
 	 { "Op_AutoOcrLine", _wrap_Op_AutoOcrLine, METH_VARARGS, NULL},
 	 { "Op_AutoOcrEx", _wrap_Op_AutoOcrEx, METH_VARARGS, NULL},
 	 { "Op_AutoOcrFromFile", _wrap_Op_AutoOcrFromFile, METH_VARARGS, NULL},

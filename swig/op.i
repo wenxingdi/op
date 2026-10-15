@@ -40,11 +40,9 @@
 
 // ---- OCR 命名规范化（2026-10-15）----
 // libop.h 中"按颜色二值化后识别"一族已由 AutoOcr* 更名为 OcrAutoColor*；
-// 此处 %extend 保留旧名 AutoOcr* 作为废弃别名转发，保护已有 python 脚本。
+// 此处 %extend 保留旧名 AutoOcrLine/AutoOcrEx/AutoOcrFromFile 作为废弃别名转发
+// （AutoOcr 无后缀旧名已由 libop.h 的归一入口接管，不再作别名）。
 %extend op::Op {
-    void AutoOcr(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &ret_str) {
-        $self->OcrAutoColor(x1, y1, x2, y2, color, sim, ret_str);
-    }
     void AutoOcrLine(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, std::wstring &ret_str) {
         $self->OcrAutoColorLine(x1, y1, x2, y2, color, sim, ret_str);
     }

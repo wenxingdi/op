@@ -1646,6 +1646,12 @@ STDMETHODIMP OpAutomation::OcrAutoColorFromFile(BSTR file_name, BSTR color_forma
     return CopyOutBstr(retstr, s);
 }
 
+STDMETHODIMP OpAutomation::AutoOcr(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr) {
+    wstring s;
+    obj.AutoOcr(x1, y1, x2, y2, color, static_cast<double>(sim), s);
+    return CopyOutBstr(retstr, s);
+}
+
 STDMETHODIMP OpAutomation::CvLoadTemplate(BSTR name, BSTR file_path, LONG *ret) {
     obj.CvLoadTemplate(name, file_path, ret);
     return S_OK;

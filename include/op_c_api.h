@@ -388,9 +388,10 @@ OP_C_API const wchar_t *OP_CALL OpOcrFromFile(op_handle handle, const wchar_t *f
 OP_C_API const wchar_t *OP_CALL OpOcrAutoColorFromFile(op_handle handle, const wchar_t *file_name,
                                                         const wchar_t *color_format, double sim);
 OP_C_API const wchar_t *OP_CALL OpOcrAutoFromFile(op_handle handle, const wchar_t *file_name, double sim);
-/* ---- 以下旧名为废弃别名，保留转发以兼容已有脚本，新代码请用 OpOcrAutoColor* ---- */
+/* 免字库 OCR 归一入口（推荐）：color 为空 → 原图直识别；非空 → 按颜色二值化。行为同 OpOcrAuto/OpOcrAutoColor 两分支 */
 OP_C_API const wchar_t *OP_CALL OpAutoOcr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
                                           double sim);
+/* ---- 以下旧名为废弃别名，保留转发以兼容已有脚本，新代码请用 OpOcrAutoColor* / OpAutoOcr ---- */
 OP_C_API const wchar_t *OP_CALL OpAutoOcrLine(op_handle handle, int x1, int y1, int x2, int y2,
                                               const wchar_t *color, double sim);
 OP_C_API const wchar_t *OP_CALL OpAutoOcrEx(op_handle handle, int x1, int y1, int x2, int y2,
