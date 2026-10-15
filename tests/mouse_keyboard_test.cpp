@@ -2,6 +2,8 @@
 
 #include "../libop/hook/HookProtocol.h"
 #include "../libop/input/mouse/CursorShape.h"
+#include "../libop/input/mouse/WinMouse.h"
+#include "../libop/input/keyboard/WinKeyboard.h"
 #include <chrono>
 #include <iostream>
 #include <cwchar>
@@ -364,6 +366,17 @@ TEST(MouseKeyTest, WaitKeyScanAllImmediate) {
         std::chrono::steady_clock::now() - start).count();
     EXPECT_LT(elapsed, 50);
     EXPECT_TRUE(ret == 0 || (ret >= 1 && ret <= 254));
+}
+
+TEST(MouseKeyTest, WinMouseBindRejectsInvalidHwnd) {
+    // D2 防护：WinMouse::Bind 拒绝空/失效句柄（对齐 WinKeyboard::Bind 的 IsWindow 校验），
+    // 防 IN_WINDOWS 消息路径 SendMessageTimeout(NULL,...) 广播全部顶层窗口。
+    op::input::WinMouse mouse;
+    EXPECT_EQ(mouse.Bind(nullptr, 1), 0);
+    EXPECT_EQ(mouse.Bind(reinterpret_cast<HWND>(1), 1), 0);
+
+    op::input::WinKeyboard keyboard;
+    EXPECT_EQ(keyboard.Bind(nullptr, 1), 0);
 }
 
 TEST(MouseKeyTest, WaitKeyScanAllWithWaitFindsKey) {

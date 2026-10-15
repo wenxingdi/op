@@ -3,6 +3,27 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第六批（键鼠输入模块：空句柄防护 + 死代码清理 + 拟人化落地核对入档，fix/refactor/docs）
+
+逐模块分析与优化第 3 模块（键鼠输入，重点核对拟人化落地），分析文档 `docs/2026-10/键鼠输入模块分析_20261015.md`。
+
+- **fix(input): WinMouse 两条空句柄未定义行为路径封堵**（`libop/input/mouse/WinMouse.cpp`）
+  ① `send_wheel` IN_WINDOWS 分支 `ClientToScreen(_hwnd,...)` 补 `if (_hwnd)` 守卫（对齐
+  MoveTo/sync_system_cursor 风格，D2 修复后经公开 API 已不可达，属防御纵深）；
+  ② `Bind` 加 `IsWindow` 校验（对齐 WinKeyboard）——原 Bind(NULL, IN_WINDOWS) 后
+  `SendMessageTimeout(NULL,...)` 会**广播全部顶层窗口**。新增
+  `MouseKeyTest.WinMouseBindRejectsInvalidHwnd`（空/伪句柄拒绑）；op_test 直接编入
+  WinMouse/WinKeyboard/KeyboardBackend/AutomationModes 四个实现文件
+  （op_com SHARED 只导出 op.def 符号，内部类链不进去，与 CursorShape 同做法）。
+- **refactor(input): KeyboardBackend.cpp 删 ~45 行注释死代码**（oem_code 扫描码表 + 注释版 Bind）。
+- **docs: 拟人化落地逐项核对入档**（`项目全面分析_20261014.md` + 新分析文档）：
+  贝塞尔轨迹/步内抖动/时长抖动/落点偏移/参数验证全部确认落地；H1（参数族零验证）与
+  H2（落点随机偏移）系文档过时实际已关闭；H3 补代码层结论（dx 通道多态复用轨迹、
+  MoveTo 逐点 OP_WM_MOUSEMOVE 会逐条发）；更正"时长随机区间"表述（实现为钳制，随机性来自步内抖动）。
+- **docs: 后台绑定模块分析补输入后端交叉核对**（四后端 Bind 异同表、B3 前提完整核验、
+  dx 通道拟人化轨迹链路）。
+- **回归**：全量 gtest 374 PASS（+1 新用例）/ 2 条已知基线项（环境 flake + 时序 flaky，单跑已复核）。
+
 ### 2026-10-15 第五批（找图/颜色模块：上限 off-by-one 修正 + 样板收拢，fix/refactor）
 
 逐模块分析与优化第 2 模块（找图/颜色），分析文档 `docs/2026-10/找图颜色模块分析_20261015.md`。

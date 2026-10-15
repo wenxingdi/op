@@ -186,8 +186,14 @@ set(OP_TEST_SOURCES
   "com_variant_test.cpp"
   "../libop/base/Utils.cpp"
   "../libop/base/Environment.cpp"
+  "../libop/base/AutomationModes.cpp"
   "../libop/window/WindowLayout.cpp"
   "../libop/input/mouse/CursorShape.cpp"
+  # WinMouse/WinKeyboard 直接级单测（D2 空句柄防护等）；op_com 是 SHARED 只导出
+  # op.def 符号，内部 C++ 类链不进去，与 CursorShape 同一做法直接编入本目标。
+  "../libop/input/mouse/WinMouse.cpp"
+  "../libop/input/keyboard/KeyboardBackend.cpp"
+  "../libop/input/keyboard/WinKeyboard.cpp"
   # 交换链格式白名单是纯函数（GetImageBufferFormat / CopyImageData），但 op_com 是 SHARED
   # 且只导出 op.def 里的符号，测试链接不到 -> 与 OpenCv 测试同一做法：直接编入本目标。
   "../libop/hook/DxCaptureCommon.cpp"

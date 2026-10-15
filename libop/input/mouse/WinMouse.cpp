@@ -216,6 +216,10 @@ WinMouse::~WinMouse() {
 }
 
 long WinMouse::Bind(HWND h, int mode) {
+    // 与 WinKeyboard::Bind 对齐：拒绝空/失效句柄，防 _hwnd=NULL 时
+    // IN_WINDOWS 消息路径 SendMessageTimeout(NULL) 广播全部顶层窗口。
+    if (!::IsWindow(h))
+        return 0;
     _hwnd = h;
     _mode = mode;
     _x = _y = 0;
@@ -422,7 +426,8 @@ long WinMouse::send_wheel(DWORD input_flag, UINT window_message, int delta) {
         return send_input_mouse(input_flag, static_cast<DWORD>(delta));
     case INPUT_TYPE::IN_WINDOWS: {
         POINT pt = current_client_point();
-        ::ClientToScreen(_hwnd, &pt);
+        if (_hwnd)
+            ::ClientToScreen(_hwnd, &pt);
         return message::SendTimeout(_hwnd, window_message,
                                     MAKEWPARAM(static_cast<WORD>(button_state()), static_cast<WORD>(delta)),
                                     MAKELPARAM(pt.x, pt.y));
