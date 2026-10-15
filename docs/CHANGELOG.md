@@ -3,6 +3,31 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第十八批（algorithm/ 收官：A* 惰性删除 + 建图去逐像素除法，refactor）
+
+逐模块分析与优化第 14 模块（algorithm/，逐模块专项收官弹），分析文档
+`docs/2026-10/algorithm模块分析_20261015.md`。三个 header-only 530 行，
+无 bug；本批两处效率项 + 一处同构收拢，测试网（tests/algorithm_test.cpp +
+op_algorithm_windows_test.cpp）在位。
+
+- **refactor(algorithm): AStar::findpath 惰性删除取代 closed[]（AL2）**：
+  启发式（八方向等代价 + Chebyshev）是 consistent 的（每步 h 恰降 1 =
+  代价 1），节点首次弹出即最优，队列残留旧条目按 `current.g > g_score[idx]`
+  判陈旧跳过即可；邻接侧原 closed 检查由 `next_g >= g_score[next]` 天然
+  涵盖。删一份 vector<bool> 辅助数组（64M 格上限时 8MB 分配+位清扫），
+  辅助内存 3 份变 2 份。等价性论证写进代码注释。
+- **refactor(algorithm): build_astar_map_from_bgra 消除逐像素整数除（AL1）**：
+  `x / scale` 改"格内剩余列数"游标累进 + 行指针步进，1920×1080 图约省
+  200 万次整数除（≈20-40ms，SetAStarMap 为同步用户 API）；y 侧原本已按行
+  提升。x 非负时游标与除法逐点等价，scale>img_w 的 ceil 语义不变。
+- **refactor(algorithm): set_map/set_map_grid 同构前导收拢（AL3）**：
+  提 prepare_map（置尺寸/算 cells/判非法+失败清墙），set_map_grid 的
+  blocked.size() 不匹配分支单独保留清墙语义。
+- **回归**：构建零错误；全量 401 ran / 399 PASS / 1 FAILED（MouseKeyTest.
+  WaitKeyScanAllWithWaitFindsKey 已知环境 flake）/ 1 SKIPPED（FurMark 缺席），
+  algorithm 用例全绿；DLL 同步副本全部一致。净 +20 行（+43/-23，游标与
+  归因注释开销大于所删行数）。
+
 ### 2026-10-15 第十七批（ipc/+network/ 清尾：Pipe 关闭清单去重，refactor）
 
 逐模块分析与优化第 13 模块（ipc/ + network/，逐模块专项收尾弹），分析文档
