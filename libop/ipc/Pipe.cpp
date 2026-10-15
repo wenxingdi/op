@@ -133,8 +133,10 @@ int Pipe::close(DWORD process_wait_ms) {
     }
     SAFE_CLOSE(_hread);
     SAFE_CLOSE(_hwrite);
-    SAFE_CLOSE(_hwrite2);
-    SAFE_CLOSE(_hread2);
+    // IN1: _hwrite2/_hread2 在 close() 开头（L104-105）已关——成功路径上
+    // _hread2 早在 open() CreateProcess 后即关（L96），失败路径 -4 也由开头
+    // 兜底关闭，此处再关纯属重复。_hwrite 必须保留：open 失败路径 -2/-3 上
+    // 它尚未被关闭，靠此处扫荡。
     SAFE_CLOSE(_pi.hProcess);
     SAFE_CLOSE(_pi.hThread);
     return 0;
