@@ -300,6 +300,10 @@ interface IOpAutomation : IDispatch
 	[id(414)] HRESULT DrawText([in] LONG x, [in] LONG y, [in] BSTR text, [in] BSTR color, [in] LONG font_size, [out, retval] LONG* ret);
 	[id(415)] HRESULT DrawClear([out, retval] LONG* ret);
 	[id(416)] HRESULT DrawSetVisible([in] LONG show, [out, retval] LONG* ret);
+	[id(417)] HRESULT GetModuleSize([in] LONGLONG hwnd, [in] BSTR module_name, [out, retval] LONG* ret);
+	[id(418)] HRESULT GetModuleInfoList([in] LONGLONG hwnd, [out, retval] BSTR* retstr);
+	[id(419)] HRESULT VirtualProtectEx([in] LONGLONG hwnd, [in] BSTR address, [in] LONG size, [in] LONG new_protect, [out] LONG* old_protect, [out, retval] LONG* ret);
+	[id(420)] HRESULT VirtualAllocEx([in] LONGLONG hwnd, [in] BSTR address, [in] LONG size, [in] LONG alloc_type, [in] LONG protect, [out, retval] BSTR* retstr);
 	[id(300)] HRESULT CvLoadTemplate([in] BSTR name, [in] BSTR file_path, [out, retval] LONG* ret);
 	[id(301)] HRESULT CvLoadMaskedTemplate([in] BSTR name, [in] BSTR template_path, [in] BSTR mask_path, [out, retval] LONG* ret);
 	[id(302)] HRESULT CvRemoveTemplate([in] BSTR name, [out, retval] LONG* ret);

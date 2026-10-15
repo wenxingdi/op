@@ -1755,6 +1755,35 @@ const wchar_t *OP_CALL OpGetModuleBaseAddr(op_handle handle, intptr_t hwnd, cons
     });
 }
 
+long OP_CALL OpGetModuleSize(op_handle handle, intptr_t hwnd, const wchar_t *module) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.GetModuleSize(static_cast<LONG_PTR>(hwnd), safe_text(module), ret);
+    });
+}
+
+const wchar_t *OP_CALL OpGetModuleInfoList(op_handle handle, intptr_t hwnd) {
+    return call_json_string(handle, kJsonFailure, [&](op::Op &op, std::wstring &json) {
+        op.GetModuleInfoList(static_cast<LONG_PTR>(hwnd), json);
+    });
+}
+
+int OP_CALL OpVirtualProtectEx(op_handle handle, intptr_t hwnd, const wchar_t *address, long size, int new_protect,
+                               int *old_protect) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        long oldp = 0;
+        op.VirtualProtectEx(static_cast<LONG_PTR>(hwnd), safe_text(address), size, new_protect, &oldp, ret);
+        if (old_protect && ret && *ret == 1)
+            *old_protect = static_cast<int>(oldp);
+    });
+}
+
+const wchar_t *OP_CALL OpVirtualAllocEx(op_handle handle, intptr_t hwnd, const wchar_t *address, long size,
+                                        int alloc_type, int protect) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.VirtualAllocEx(static_cast<LONG_PTR>(hwnd), safe_text(address), size, alloc_type, protect, ret);
+    });
+}
+
 const wchar_t *OP_CALL OpFindColorBlockExS(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
                                            double sim, int count, int height, int width, int mode) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) {

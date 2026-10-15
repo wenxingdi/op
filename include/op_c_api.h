@@ -441,6 +441,17 @@ OP_C_API const wchar_t *OP_CALL OpFindDataEx(op_handle handle, intptr_t hwnd, co
                                              const wchar_t *string, int step, int count);
 // 取模块基址（大写十六进制串）；失败返回空串。
 OP_C_API const wchar_t *OP_CALL OpGetModuleBaseAddr(op_handle handle, intptr_t hwnd, const wchar_t *module);
+// 模块大小（字节）；失败/未找到返回 0。
+OP_C_API long OP_CALL OpGetModuleSize(op_handle handle, intptr_t hwnd, const wchar_t *module);
+// 模块列表 JSON：{"ok":1,"modules":[{"name":..,"path":..,"base":"HEX","size":n},...]}。
+OP_C_API const wchar_t *OP_CALL OpGetModuleInfoList(op_handle handle, intptr_t hwnd);
+// 修改地址保护属性；返回 1 成功 0 失败，old_protect 带回原 PAGE_* 值。
+OP_C_API int OP_CALL OpVirtualProtectEx(op_handle handle, intptr_t hwnd, const wchar_t *address, long size,
+                                        int new_protect, int *old_protect);
+// 在目标进程分配内存，返回分配地址大写十六进制串；失败返回空。
+// alloc_type/protect 传 0 用默认 MEM_COMMIT|MEM_RESERVE / PAGE_READWRITE。
+OP_C_API const wchar_t *OP_CALL OpVirtualAllocEx(op_handle handle, intptr_t hwnd, const wchar_t *address, long size,
+                                                 int alloc_type, int protect);
 // 颜色块增强版：mode=0 raw；mode=1 重合窗口聚类合并，每块只返回一个左上角坐标。
 OP_C_API const wchar_t *OP_CALL OpFindColorBlockExS(op_handle handle, int x1, int y1, int x2, int y2,
                                                     const wchar_t *color, double sim, int count, int height,

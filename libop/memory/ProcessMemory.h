@@ -58,6 +58,18 @@ class ProcessMemory {
     std::wstring FindData(HWND hwnd, const wstring &range, const wstring &pattern, long step, long max_results);
     // 取目标进程（hwnd=0 为本进程）模块基址，返回大写十六进制串；失败返回空。
     std::wstring GetModuleBaseAddr(HWND hwnd, const wstring &module);
+    // 模块大小（字节），失败/未找到返回 0。
+    uint32_t GetModuleSize(HWND hwnd, const wstring &module);
+    // 模块列表 JSON：{"ok":1,"modules":[{"name":..,"path":..,"base":"HEX","size":n},...]}。
+    std::wstring GetModuleInfoList(HWND hwnd);
+    // 修改目标进程地址保护属性，成功返回 true 并经 old_protect 带回原属性。
+    // address 走 str2address 表达式（含 <module> 与多级指针）。
+    bool VirtualProtectEx(HWND hwnd, const wstring &address, size_t size, uint32_t new_protect,
+                          uint32_t *old_protect);
+    // 在目标进程分配内存，返回分配地址大写十六进制串；失败返回空。
+    // alloc_type/protect 传 0 用默认 MEM_COMMIT|MEM_RESERVE / PAGE_READWRITE。
+    std::wstring VirtualAllocEx(HWND hwnd, const wstring &address, size_t size, uint32_t alloc_type,
+                                uint32_t protect);
 
   private:
     // 每次读写前准备进程上下文，当前进程场景不用 attach。

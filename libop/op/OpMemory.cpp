@@ -150,3 +150,46 @@ void op::Op::GetModuleBaseAddr(LONG_PTR hwnd, const wchar_t *module, std::wstrin
         return mem.GetModuleBaseAddr(target, module);
     });
 }
+
+void op::Op::GetModuleSize(LONG_PTR hwnd, const wchar_t *module, long *ret) {
+    internal::set_result(ret, 0L);
+    if (!ret || !module || !*module)
+        return;
+    internal::set_result(ret, memory_call(this, hwnd, 0L, [&](ProcessMemory &mem, HWND target) {
+        return static_cast<long>(mem.GetModuleSize(target, module));
+    }));
+}
+
+void op::Op::GetModuleInfoList(LONG_PTR hwnd, std::wstring &retstr) {
+    retstr.clear();
+    retstr = memory_call(this, hwnd, std::wstring(L"{\"ok\":0,\"modules\":[]}"),
+                         [&](ProcessMemory &mem, HWND target) { return mem.GetModuleInfoList(target); });
+}
+
+void op::Op::VirtualProtectEx(LONG_PTR hwnd, const wchar_t *address, long size, long new_protect, long *old_protect,
+                              long *ret) {
+    internal::set_result(ret, 0L);
+    internal::set_result(old_protect, 0L);
+    if (!ret || !address || size <= 0)
+        return;
+    const bool ok = memory_call(this, hwnd, false, [&](ProcessMemory &mem, HWND target) {
+        uint32_t oldp = 0;
+        if (!mem.VirtualProtectEx(target, address, static_cast<size_t>(size),
+                                  static_cast<uint32_t>(new_protect), &oldp))
+            return false;
+        internal::set_result(old_protect, static_cast<long>(oldp));
+        return true;
+    });
+    internal::set_result(ret, ok ? 1L : 0L);
+}
+
+void op::Op::VirtualAllocEx(LONG_PTR hwnd, const wchar_t *address, long size, long alloc_type, long protect,
+                            std::wstring &retstr) {
+    retstr.clear();
+    if (size <= 0)
+        return;
+    retstr = memory_call(this, hwnd, std::wstring(), [&](ProcessMemory &mem, HWND target) {
+        return mem.VirtualAllocEx(target, address ? address : L"", static_cast<size_t>(size),
+                                  static_cast<uint32_t>(alloc_type), static_cast<uint32_t>(protect));
+    });
+}

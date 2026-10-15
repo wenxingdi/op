@@ -303,6 +303,10 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_empty(OpFindData(nullptr, 0, L"", L""), "OpFindData");
     expect_empty(OpFindDataEx(nullptr, 0, L"", L"", 0, 0), "OpFindDataEx");
     expect_empty(OpGetModuleBaseAddr(nullptr, 0, L""), "OpGetModuleBaseAddr");
+    EXPECT_EQ(OpGetModuleSize(nullptr, 0, L""), 0) << "OpGetModuleSize";
+    expect_json_failure(OpGetModuleInfoList(nullptr, 0), "OpGetModuleInfoList");
+    EXPECT_EQ(OpVirtualProtectEx(nullptr, 0, L"", 0, 0, nullptr), 0) << "OpVirtualProtectEx";
+    expect_empty(OpVirtualAllocEx(nullptr, 0, L"", 0, 0, 0), "OpVirtualAllocEx");
     expect_empty(OpFindColorBlockExS(nullptr, 0, 0, 0, 0, L"", 0.0, 0, 0, 0, 0), "OpFindColorBlockExS");
     expect_empty(OpFindLineExS(nullptr, 0, 0, 0, 0, L"", 0.0, 0, nullptr), "OpFindLineExS");
     EXPECT_EQ(OpFileExists(nullptr, L""), 0) << "OpFileExists";

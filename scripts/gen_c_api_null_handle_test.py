@@ -51,8 +51,31 @@ def json_funcs() -> set:
     text = open(src, "r", encoding="utf-8", errors="replace").read()
     out = set()
     for m in re.finditer(r"OP_CALL\s+(Op\w+)\s*\(", text):
-        window = text[m.end(): m.end() + 700]
-        if "call_json_string" in window:
+        # 只扫描本函数体：从函数头的第一个 '{' 到配对的 '}'。
+        # 不能用定长窗口——相邻短函数会把别家的 call_json_string 误算进来
+        # （2026-10-15 实证：GetModuleInfoList 插入后 GetModuleBaseAddr 被误判）。
+        brace = text.find("{", m.end())
+        if brace < 0:
+            continue
+        depth, i, n = 1, brace + 1, len(text)
+        end = n
+        while i < n:
+            c = text[i]
+            if c == '"':
+                i += 1
+                while i < n and text[i] != '"':
+                    if text[i] == "\\":
+                        i += 1
+                    i += 1
+            elif c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+            i += 1
+        if "call_json_string" in text[brace:end]:
             out.add(m.group(1))
     return out
 

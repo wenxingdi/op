@@ -1,9 +1,18 @@
 #include "ProcessMemory.h"
+
+#include "../base/JsonUtils.h"
+
 #include <Windows.h>
+#include <psapi.h>
+
+// 共享 onnx 分支的 CMake 不链系统库，按需 pragma 补链（同 OpCrypto 先例）。
+#pragma comment(lib, "psapi.lib")
+
 #include <cstring>
 #include <cwchar>
 #include <cwctype>
 #include <sstream>
+#include <vector>
 
 namespace op {
 
@@ -796,6 +805,115 @@ wstring ProcessMemory::GetModuleBaseAddr(HWND hwnd, const wstring &module) {
     if (addr == 0)
         return L"";
     return toUpperHex(addr);
+}
+
+// 进程句柄：本进程用伪句柄，远程用 BlackBone Attach 到的句柄（PROCESS_ALL_ACCESS）。
+// 调用前必须先 prepare_process。
+static HANDLE process_handle_of(const ProcessMemory &mem, HWND hwnd, blackbone::Process &proc) {
+    (void)mem;
+    return hwnd ? proc.core().handle() : GetCurrentProcess();
+}
+
+uint32_t ProcessMemory::GetModuleSize(HWND hwnd, const wstring &module) {
+    if (module.empty())
+        return 0;
+    if (!prepare_process(hwnd))
+        return 0;
+    HANDLE hp = process_handle_of(*this, _hwnd, _proc);
+    DWORD needed = 0;
+    if (!EnumProcessModules(hp, nullptr, 0, &needed) || needed == 0)
+        return 0;
+    std::vector<HMODULE> mods(needed / sizeof(HMODULE));
+    if (!EnumProcessModules(hp, mods.data(), needed, &needed))
+        return 0;
+    mods.resize(needed / sizeof(HMODULE));
+    for (HMODULE mod : mods) {
+        wchar_t base_name[MAX_PATH] = {0};
+        if (!GetModuleBaseNameW(hp, mod, base_name, MAX_PATH))
+            continue;
+        if (_wcsicmp(base_name, module.c_str()) != 0)
+            continue;
+        MODULEINFO mi = {};
+        if (!GetModuleInformation(hp, mod, &mi, sizeof(mi)))
+            return 0;
+        return mi.SizeOfImage;
+    }
+    return 0;
+}
+
+std::wstring ProcessMemory::GetModuleInfoList(HWND hwnd) {
+    std::wostringstream oss;
+    oss << L"{\"ok\":0,\"modules\":[]}";
+    if (!prepare_process(hwnd))
+        return oss.str();
+    HANDLE hp = process_handle_of(*this, _hwnd, _proc);
+    DWORD needed = 0;
+    if (!EnumProcessModules(hp, nullptr, 0, &needed) || needed == 0)
+        return oss.str();
+    std::vector<HMODULE> mods(needed / sizeof(HMODULE));
+    if (!EnumProcessModules(hp, mods.data(), needed, &needed))
+        return oss.str();
+    mods.resize(needed / sizeof(HMODULE));
+
+    oss.str(L"");
+    oss << L"{\"ok\":1,\"modules\":[";
+    bool first = true;
+    for (HMODULE mod : mods) {
+        wchar_t base_name[MAX_PATH] = {0};
+        wchar_t full_path[MAX_PATH] = {0};
+        MODULEINFO mi = {};
+        if (!GetModuleBaseNameW(hp, mod, base_name, MAX_PATH))
+            continue;
+        GetModuleFileNameExW(hp, mod, full_path, MAX_PATH);
+        if (!GetModuleInformation(hp, mod, &mi, sizeof(mi)))
+            continue;
+        if (!first)
+            oss << L',';
+        first = false;
+        oss << L"{\"name\":\"" << internal::json::EscapeString(base_name) << L"\",\"path\":\""
+            << internal::json::EscapeString(full_path) << L"\",\"base\":\"" << toUpperHex(reinterpret_cast<uintptr_t>(mi.lpBaseOfDll))
+            << L"\",\"size\":" << mi.SizeOfImage << L"}";
+    }
+    oss << L"]}";
+    return oss.str();
+}
+
+bool ProcessMemory::VirtualProtectEx(HWND hwnd, const wstring &address, size_t size, uint32_t new_protect,
+                                     uint32_t *old_protect) {
+    if (!old_protect || size == 0)
+        return false;
+    if (!prepare_process(hwnd))
+        return false;
+    const size_t addr = str2address(address);
+    if (addr == 0)
+        return false;
+    HANDLE hp = process_handle_of(*this, _hwnd, _proc);
+    DWORD oldp = 0;
+    if (!::VirtualProtectEx(hp, reinterpret_cast<LPVOID>(addr), size, new_protect, &oldp))
+        return false;
+    *old_protect = oldp;
+    return true;
+}
+
+std::wstring ProcessMemory::VirtualAllocEx(HWND hwnd, const wstring &address, size_t size, uint32_t alloc_type,
+                                           uint32_t protect) {
+    if (size == 0)
+        return L"";
+    if (!prepare_process(hwnd))
+        return L"";
+    LPVOID want = nullptr;
+    if (!address.empty()) {
+        const size_t addr = str2address(address);
+        if (addr == 0)
+            return L"";
+        want = reinterpret_cast<LPVOID>(addr);
+    }
+    HANDLE hp = process_handle_of(*this, _hwnd, _proc);
+    LPVOID out = ::VirtualAllocEx(hp, want, size, alloc_type ? alloc_type : (MEM_COMMIT | MEM_RESERVE),
+                                  protect ? protect : PAGE_READWRITE);
+    if (!out)
+        return L"";
+    return toUpperHex(reinterpret_cast<uintptr_t>(out));
 }
 
 } // namespace op

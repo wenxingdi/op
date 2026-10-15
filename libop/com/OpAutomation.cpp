@@ -1587,6 +1587,42 @@ STDMETHODIMP OpAutomation::GetModuleBaseAddr(LONGLONG hwnd, BSTR module_name, BS
     return CopyOutBstr(retstr, s);
 }
 
+STDMETHODIMP OpAutomation::GetModuleSize(LONGLONG hwnd, BSTR module_name, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+
+    obj.GetModuleSize(static_cast<LONG_PTR>(hwnd), module_name, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetModuleInfoList(LONGLONG hwnd, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+
+    wstring s;
+    obj.GetModuleInfoList(static_cast<LONG_PTR>(hwnd), s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::VirtualProtectEx(LONGLONG hwnd, BSTR address, LONG size, LONG new_protect, LONG *old_protect,
+                                            LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+
+    obj.VirtualProtectEx(static_cast<LONG_PTR>(hwnd), address, size, new_protect, old_protect, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::VirtualAllocEx(LONGLONG hwnd, BSTR address, LONG size, LONG alloc_type, LONG protect,
+                                          BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+
+    wstring s;
+    obj.VirtualAllocEx(static_cast<LONG_PTR>(hwnd), address, size, alloc_type, protect, s);
+    return CopyOutBstr(retstr, s);
+}
+
 STDMETHODIMP OpAutomation::FindColorBlockExS(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, LONG count,
                                              LONG height, LONG width, LONG mode, BSTR *retstr) {
     if (!retstr)

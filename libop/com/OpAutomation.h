@@ -473,6 +473,10 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(FindData)(LONGLONG hwnd, BSTR addr_range, BSTR string, BSTR *retstr);
     STDMETHOD(FindDataEx)(LONGLONG hwnd, BSTR addr_range, BSTR string, LONG step, LONG count, BSTR *retstr);
     STDMETHOD(GetModuleBaseAddr)(LONGLONG hwnd, BSTR module_name, BSTR *retstr);
+    STDMETHOD(GetModuleSize)(LONGLONG hwnd, BSTR module_name, LONG *ret);
+    STDMETHOD(GetModuleInfoList)(LONGLONG hwnd, BSTR *retstr);
+    STDMETHOD(VirtualProtectEx)(LONGLONG hwnd, BSTR address, LONG size, LONG new_protect, LONG *old_protect, LONG *ret);
+    STDMETHOD(VirtualAllocEx)(LONGLONG hwnd, BSTR address, LONG size, LONG alloc_type, LONG protect, BSTR *retstr);
     STDMETHOD(FindColorBlockExS)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, LONG count, LONG height,
                                  LONG width, LONG mode, BSTR *retstr);
     STDMETHOD(FindLineExS)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, LONG min_points, BSTR *retstr,

@@ -758,6 +758,19 @@ class OP_API Op {
                     _In_ long count, _Out_ std::wstring &retstr);
     // 取目标进程（hwnd=0 为本进程）模块基址，返回大写十六进制串；失败返回空。
     void GetModuleBaseAddr(_In_ LONG_PTR hwnd, _In_ const wchar_t *module, _Out_ std::wstring &retstr);
+    // ---- 内存三件套 + 模块列表（P2 第二十二批 2026-10-15，对齐 OLA 内存常用子集）----
+    // 模块大小（字节），失败/未找到返回 0。module 为模块基名（大小写不敏感）。
+    void GetModuleSize(_In_ LONG_PTR hwnd, _In_ const wchar_t *module, _Out_ long *ret);
+    // 模块列表 JSON：{"ok":1,"modules":[{"name":..,"path":..,"base":"HEX","size":n},...]}。
+    void GetModuleInfoList(_In_ LONG_PTR hwnd, _Out_ std::wstring &retstr);
+    // 修改地址保护属性，ret=1 成功 0 失败，old_protect 带回原属性（PAGE_* 常量）。
+    // address 支持表达式：十六进制/四则运算/<module>/多级指针 [addr+off]。
+    void VirtualProtectEx(_In_ LONG_PTR hwnd, _In_ const wchar_t *address, _In_ long size, _In_ long new_protect,
+                          _Out_ long *old_protect, _Out_ long *ret);
+    // 在目标进程分配内存，返回分配地址大写十六进制串；失败返回空。
+    // alloc_type/protect 传 0 用默认 MEM_COMMIT|MEM_RESERVE / PAGE_READWRITE。
+    void VirtualAllocEx(_In_ LONG_PTR hwnd, _In_ const wchar_t *address, _In_ long size, _In_ long alloc_type,
+                        _In_ long protect, _Out_ std::wstring &retstr);
 
     // ---- 文件模块（P1 新增 2026-10-15，参考 OLA 文件模块常用子集）----
     // 全部路径为宽字符绝对/相对路径；返回值约定与窗口系一致：ret=1 成功，0 失败（路径非法/不存在/拒绝访问）。
