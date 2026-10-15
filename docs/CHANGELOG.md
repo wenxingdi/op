@@ -3,6 +3,34 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第二十批（算法/系统补充：可行点吸附 + 坐标排序 + 调试权限 + 错误文本，feat）
+
+承接第十九批的欧拉算法/综合功能复查结论，新增 4 接口（Op → C API → COM
+idl 404-407 → 测试四层），另落地两处综合模块优化。全量回归 411 ran / 409
+PASS（唯一失败为基线环境 flake MouseKeyTest.WaitKeyScanAllWithWaitFindsKey）。
+
+- **feat(op): FindNearestFeasiblePoint**（欧拉同名对等）：目标点落障碍格时
+  从该格四方向 BFS 扩散吸附最近可走格（曼哈顿最近，首遇即返），界外起点
+  钳到界内最近边；游戏里目标被怪/障碍挡住时先吸附再寻路，成功率大幅提升。
+  网格已在内存，新增 pathtools::nearest_unblocked（PathTools.h）。
+- **feat(op): SortPosDistance**：坐标项按与基准点距离平方升序（stable_sort，
+  等距保序），格式与 FindNearestPos 相同（type 1 无 name / 0 带 name）。
+- **feat(op): EnableDebugPrivilege**：AdjustTokenPrivileges 启用
+  SeDebugPrivilege，内存模块读高权限进程的前置自救；部分生效用
+  ERROR_NOT_ALL_ASSIGNED 区分。
+- **feat(op): GetLastErrorString**：FormatMessageW 取当前线程错误码文本
+  （方法首语句先捕获 GetLastError，去尾随换行）。
+- **perf(op): FindNearestPos 去 wregex（O1）**：原实现每次调用构造
+  std::wregex + regex_replace 仅为逗号换空格；改单次扫描 split + swscanf，
+  顺带修掉 (-1,-1) 最近点被哨兵值吞掉的边角。SortPosDistance 与
+  FindNearestPos 共用 parse_pos_items。
+- **fix(op): OpRuntime 随机引擎 thread_local 化（O2）**：公开随机 API
+  进程级共享 mt19937 有跨线程数据竞争，对齐 Utils::thread_rng 口径。
+- **test**: algorithm_test.cpp 新增 4 用例（吸附/排序/调试权限可调用/
+  错误文本往返）；空句柄生成物重跑覆盖 4 新接口。
+
+遗留同第十九批：swig/python 与 Go 绑定待补。
+
 ### 2026-10-15 第十九批（P1 功能落地：文件模块 + 组合键 + 窗口 DPI + 进程终止 + 二维码，feat）
 
 按 `docs/2026-10/OP_vs_OLA全模块对比_20261015.md` 的 P1 建议，对照 OLA
