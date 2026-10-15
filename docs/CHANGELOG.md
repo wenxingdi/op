@@ -3,6 +3,23 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第十批（截图模块：帧头写入收拢基类 + 护栏/复位块收拢，refactor）
+
+逐模块分析与优化第 6 模块（截图），分析文档 `docs/2026-10/截图模块分析_20261015.md`。
+
+- **refactor(capture): fmtFrameInfo 收拢基类 + 护栏/复位块收拢 + 死代码清理**
+  （`libop/capture/`，提交 0aaf7e7，-149/+98）
+  C1 帧头写入收拢：`ICaptureBackend::writeFrameInfo` 统一 Gdi/Dxgi/Wgc 三份私有
+  实现；`FrameInfo::format` 加 inc 参数、修 32 位 GetTickCount 49 天回绕（统一
+  tick64），死代码转为唯一核心。C2 删 GdiCapture `_bfh` 死写入 + setlog 格式串修正。
+  C3 BindEx 三分支并两个。C4 提取 `with_attached_process`，HookCapture 四条
+  try{Attach…Detach}catch 路径收拢（日志措辞统一，功能语义等价）。C5 提取
+  `resetCaptureState`，WGC 两个 UnBind 路径 18 行重复复位收拢。
+- **实施插曲**：Wgc `resetCaptureState` 首漏头文件声明（C2065 ×11，补声明即过）；
+  教训同 O5——新增成员函数先查声明。
+- **回归**：全量 401 ran / 398 PASS / 2 FAILED（MouseKey 与 CaptureMode 均为改动前
+  即存在的已知环境 flake，边距一致）/ 1 SKIPPED；WgcTest/Dxgi/GDI 后端用例全过。
+
 ### 2026-10-15 第九批（OCR 提速：rec 批量推理 + PCA 惰性化，perf）
 
 逐模块分析与优化第 5 模块（OCR）提速方案落地，分析文档 `docs/2026-10/OCR模块分析_20261015.md` 末节。
