@@ -5,6 +5,7 @@
 #include "OnnxYoloEngine.h"
 #include "yolo_models.h"
 #include "../base/Utils.h"
+#include "../algorithm/MiniImage.h"
 #include <onnxruntime_cxx_api.h>
 #include <windows.h>
 #include <fstream>
@@ -20,17 +21,14 @@ using std::cout;
 using std::endl;
 
 namespace op::yolo {
+// 极简 BGR 工具链五件已单源化到 algorithm/MiniImage.h（与另一引擎 byte 级相同的副本删除）。
+using op::img::BGR;
+using op::img::make_bgr;
+using op::img::resize_bilinear;
+using op::img::to_bgr;
+using op::img::utf8_to_wstring;
 
 namespace {
-
-// UTF-8 字节串 -> wstring（--labels 类别名按 UTF-8 解码）
-std::wstring utf8_to_wstring(const std::string &s) {
-    if (s.empty()) return L"";
-    int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
-    std::wstring out(n, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), &out[0], n);
-    return out;
-}
 
 // 从当前 DLL 资源段加载内置模型（若有；方案B 下默认构建不含）
 std::vector<uint8_t> LoadYoloRes(int id) {
@@ -45,69 +43,6 @@ std::vector<uint8_t> LoadYoloRes(int id) {
     uint8_t *p = static_cast<uint8_t *>(LockResource(hg));
     DWORD sz = SizeofResource(h, hrs);
     return {p, p + sz};
-}
-
-// ---- 极简 BGR 图像容器（打包 HWC，每像素 3 字节）----
-struct BGR {
-    int h = 0, w = 0;
-    std::vector<uint8_t> d;
-    const uint8_t *at(int y, int x) const { return &d[(size_t(y) * w + x) * 3]; }
-    uint8_t *at(int y, int x) { return &d[(size_t(y) * w + x) * 3]; }
-};
-BGR make_bgr(int h, int w) {
-    BGR m;
-    m.h = h;
-    m.w = w;
-    m.d.assign(size_t(h) * w * 3, 0);
-    return m;
-}
-BGR to_bgr(byte *data, int w, int h, int bpp) {
-    BGR m = make_bgr(h, w);
-    if (bpp == 1) {
-        for (int i = 0; i < w * h; ++i) {
-            uint8_t g = data[i];
-            m.d[i * 3] = g;
-            m.d[i * 3 + 1] = g;
-            m.d[i * 3 + 2] = g;
-        }
-    } else if (bpp == 3) {
-        for (int i = 0; i < w * h; ++i) {
-            m.d[i * 3] = data[i * 3];
-            m.d[i * 3 + 1] = data[i * 3 + 1];
-            m.d[i * 3 + 2] = data[i * 3 + 2];
-        }
-    } else { // bpp == 4 : BGRA
-        for (int i = 0; i < w * h; ++i) {
-            m.d[i * 3] = data[i * 4];
-            m.d[i * 3 + 1] = data[i * 4 + 1];
-            m.d[i * 3 + 2] = data[i * 4 + 2];
-        }
-    }
-    return m;
-}
-BGR resize_bilinear(const BGR &s, int dh, int dw) {
-    BGR o = make_bgr(dh, dw);
-    if (s.h == 0 || s.w == 0) return o;
-    float sx = float(s.w) / dw, sy = float(s.h) / dh;
-    for (int y = 0; y < dh; ++y) {
-        float sy0 = sy * y;
-        int y0 = int(sy0), y1 = std::min(y0 + 1, s.h - 1);
-        float fy = sy0 - y0;
-        for (int x = 0; x < dw; ++x) {
-            float sx0 = sx * x;
-            int x0 = int(sx0), x1 = std::min(x0 + 1, s.w - 1);
-            float fx = sx0 - x0;
-            const uint8_t *a = s.at(y0, x0), *b = s.at(y0, x1);
-            const uint8_t *c = s.at(y1, x0), *e = s.at(y1, x1);
-            uint8_t *q = o.at(y, x);
-            for (int k = 0; k < 3; ++k) {
-                float v = a[k] * (1 - fx) * (1 - fy) + b[k] * fx * (1 - fy) +
-                          c[k] * (1 - fx) * fy + e[k] * fx * fy;
-                q[k] = uint8_t(std::round(v));
-            }
-        }
-    }
-    return o;
 }
 
 // letterbox：等比缩放进 SH×SW 画布（灰 114 填充），返回缩放系数与 pad 偏移
@@ -134,9 +69,11 @@ BGR letterbox(const BGR &img, int SH, int SW, float &scale, int &pad_x, int &pad
 bool ort_run(Ort::Session &sess, const std::vector<float> &in, const std::vector<int64_t> &shape,
              std::vector<float> &out, std::vector<int64_t> &oshape) {
     try {
-        std::vector<float> buf(in); // CreateTensor 需要非 const 指针
+        // 借用输入内存（同 OnnxOcrEngine::ort_run）：CreateTensor/Run 期间 ORT 不写
+        // 输入张量，省一次 640x640x3 float（约 4.7MB）memcpy。
         Ort::MemoryInfo mi = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-        Ort::Value v = Ort::Value::CreateTensor<float>(mi, buf.data(), buf.size(), shape.data(), shape.size());
+        Ort::Value v = Ort::Value::CreateTensor<float>(mi, const_cast<float *>(in.data()), in.size(),
+                                                       shape.data(), shape.size());
         Ort::AllocatorWithDefaultOptions alloc;
         auto iname = sess.GetInputNameAllocated(0, alloc);
         auto oname = sess.GetOutputNameAllocated(0, alloc);

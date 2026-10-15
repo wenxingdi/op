@@ -5,6 +5,7 @@
 #include "OnnxOcrEngine.h"
 #include "ocr_models.h"
 #include "../base/Utils.h"
+#include "../algorithm/MiniImage.h"
 #include <onnxruntime_cxx_api.h>
 #include <windows.h>
 #include <memory>
@@ -22,19 +23,15 @@ using std::cout;
 using std::endl;
 
 namespace op::ocr {
+// 极简 BGR 工具链五件已单源化到 algorithm/MiniImage.h（与另一引擎 byte 级相同的副本删除）。
+using op::img::BGR;
+using op::img::make_bgr;
+using op::img::resize_bilinear;
+using op::img::to_bgr;
+using op::img::utf8_to_wstring;
 
 namespace {
 const double PI = 3.14159265358979323846;
-
-// UTF-8 字节串 -> wstring。PP-OCR 的 keys/txt 均为 UTF-8 编码，必须用 CP_UTF8 解码；
-// 不能用 Utils::_s2wstring（它按 CP_ACP 解码，会令中文乱码）。
-std::wstring utf8_to_wstring(const std::string &s) {
-    if (s.empty()) return L"";
-    int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
-    std::wstring out(n, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), &out[0], n);
-    return out;
-}
 
 // 从当前 DLL 资源段加载模型 buffer（资源随 op_x64.dll / op_c_api_x64.dll 编译进去）
 std::vector<uint8_t> LoadRes(int id) {
@@ -51,44 +48,6 @@ std::vector<uint8_t> LoadRes(int id) {
     return {p, p + sz};
 }
 
-// ---- 极简 BGR 图像容器（打包 HWC，每像素 3 字节）----
-struct BGR {
-    int h = 0, w = 0;
-    std::vector<uint8_t> d;
-    const uint8_t *at(int y, int x) const { return &d[(size_t(y) * w + x) * 3]; }
-    uint8_t *at(int y, int x) { return &d[(size_t(y) * w + x) * 3]; }
-};
-BGR make_bgr(int h, int w) {
-    BGR m;
-    m.h = h;
-    m.w = w;
-    m.d.assign(size_t(h) * w * 3, 0);
-    return m;
-}
-BGR to_bgr(byte *data, int w, int h, int bpp) {
-    BGR m = make_bgr(h, w);
-    if (bpp == 1) {
-        for (int i = 0; i < w * h; ++i) {
-            uint8_t g = data[i];
-            m.d[i * 3] = g;
-            m.d[i * 3 + 1] = g;
-            m.d[i * 3 + 2] = g;
-        }
-    } else if (bpp == 3) {
-        for (int i = 0; i < w * h; ++i) {
-            m.d[i * 3] = data[i * 3];
-            m.d[i * 3 + 1] = data[i * 3 + 1];
-            m.d[i * 3 + 2] = data[i * 3 + 2];
-        }
-    } else { // bpp == 4 : BGRA
-        for (int i = 0; i < w * h; ++i) {
-            m.d[i * 3] = data[i * 4];
-            m.d[i * 3 + 1] = data[i * 4 + 1];
-            m.d[i * 3 + 2] = data[i * 4 + 2];
-        }
-    }
-    return m;
-}
 BGR crop(const BGR &s, int x0, int y0, int x1, int y1) {
     x0 = std::max(0, x0);
     y0 = std::max(0, y0);
@@ -104,30 +63,6 @@ BGR crop(const BGR &s, int x0, int y0, int x1, int y1) {
             q[1] = p[1];
             q[2] = p[2];
         }
-    return o;
-}
-BGR resize_bilinear(const BGR &s, int dh, int dw) {
-    BGR o = make_bgr(dh, dw);
-    if (s.h == 0 || s.w == 0) return o;
-    float sx = float(s.w) / dw, sy = float(s.h) / dh;
-    for (int y = 0; y < dh; ++y) {
-        float sy0 = sy * y;
-        int y0 = int(sy0), y1 = std::min(y0 + 1, s.h - 1);
-        float fy = sy0 - y0;
-        for (int x = 0; x < dw; ++x) {
-            float sx0 = sx * x;
-            int x0 = int(sx0), x1 = std::min(x0 + 1, s.w - 1);
-            float fx = sx0 - x0;
-            const uint8_t *a = s.at(y0, x0), *b = s.at(y0, x1);
-            const uint8_t *c = s.at(y1, x0), *e = s.at(y1, x1);
-            uint8_t *q = o.at(y, x);
-            for (int k = 0; k < 3; ++k) {
-                float v = a[k] * (1 - fx) * (1 - fy) + b[k] * fx * (1 - fy) +
-                          c[k] * (1 - fx) * fy + e[k] * fx * fy;
-                q[k] = uint8_t(std::round(v));
-            }
-        }
-    }
     return o;
 }
 // 将内容逆时针旋转 theta 度（围绕中心），空白填充为黑。
