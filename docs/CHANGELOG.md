@@ -3,6 +3,43 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第七批（窗口/内存模块：EnumWindowInternal 表驱动重构 + 特征化测试网，refactor/test）
+
+逐模块分析与优化第 4 模块（窗口/内存），分析文档 `docs/2026-10/窗口内存模块分析_20261015.md`。
+
+- **test(window): EnumWindow/EnumWindowByProcess 特征化测试 ×25**
+  （`tests/window_enum_test.cpp`，提交 fd2427f / dba3066）
+  重构前置网：自建窗口树（顶层/子/孙/隐藏/带 owner 各一）+ 父窗口级「精确集合」断言 +
+  桌面级「成员资格」断言，覆盖代表性 filter 组合与全部已知历史怪癖——进程版 filter=1-3
+  不递归（怪癖①）、filter 1-3 只对「自身匹配」的窗口递归致孙窗口不可达（怪癖②）、
+  case 16 无视传入 parent 强制桌面、case 0 与进程名互斥拒绝、filter>32 减 32 的 Z 序
+  标记解析（32/负值拒绝）。bit2/3/4 交叉组合（12/20/24/28 × 有无进程）补拍至全覆盖。
+  编写过程实抓 2 处认知偏差（filter=20 无 owner 位 / case 3 递归条件），按现状行为钉死。
+- **refactor(window): EnumWindowInternal 32 分支 switch 收拢为位标志单循环**
+  （`libop/window/WindowService.cpp`，提交 174b277，-1433/+88）
+  filter 0-31 共 32 个 case（约 1450 行）逐 case 通读核对后收拢为「位标志 + text_match
+  谓词 + 递归策略」单循环（约 110 行）。25 条特征化测试重构前后对拍全过；重构中实抓
+  1 处回归（filter=32 落入泛化路径，已按原 default 语义补 0-31 越界拒绝）。
+  归一化一处：case 6/7 的「首个进程」记账统一为其余 14 个 case 的 processpid!=pid
+  前置守卫写法——仅影响「≥2 个同名进程」场景，该场景所有变体的只取首进程语义本就因
+  ClearHwndText 被破坏（分析文档 W1 节有推演）。
+- **refactor(window): FindWindowByProcess 双分支合并 + FindChildWnd 去重 + SendString 统一**
+  （提交 8c89eb7，-213/+101）
+  W2 process_name 分支与 Pid 分支各 ~50 行近重复 → 进程匹配谓词 + 同一循环；
+  W3 FindChildWnd 4 份重复的「进程校验 + AppendHwndText/return」收拢为 on_match lambda
+  （顺手确认 skip 分支推进用的是 GW_HWNDNEXT，仅入口归一化是 GW_HWNDFIRST）；
+  W5 SendString/SendStringIme 提取 SendStringImpl(bool)（差异仅 WM_IME_CHAR 兜底是否限
+  >0x7f，接口不变）；顺手项 GetWindow flag=7 赋值写入 while 条件改显式判断。
+- **新发现记录（行为保持未修，待用户决策）**：FindChildWnd 查找模式（retstring=NULL，
+  FindWindowByProcess 子窗口查找用）深层命中被 `break; return nullptr;` 丢弃，
+  实际只能命中入口节点的直接子级——疑似上游缺陷。
+- **内存模块结论**：ProcessMemory.cpp 801 行通读无实质问题（地址表达式解析/FindData
+  分块扫描近年已有加固）；`parse_hex_word` 失败返回 0、`checkaddress` 只查方括号配对
+  两条历史语义微项记录不动。W4（get_cpu_usage 双开句柄）收益可忽略，不动。
+- **回归**：全量 gtest 401 ran / 397 PASS（+23 新用例）/ 3 失败均为环境/时序 flake
+  （2 条已知基线项 + WgcTest.NormalDxgiFirstCaptureAfterBindUsesFreshFrame 单跑即过，
+  与本批改动无涉——未触碰捕获链路）/ 1 SKIPPED（FurMark 缺席）。
+
 ### 2026-10-15 第六批（键鼠输入模块：空句柄防护 + 死代码清理 + 拟人化落地核对入档，fix/refactor/docs）
 
 逐模块分析与优化第 3 模块（键鼠输入，重点核对拟人化落地），分析文档 `docs/2026-10/键鼠输入模块分析_20261015.md`。
