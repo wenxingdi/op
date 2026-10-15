@@ -120,8 +120,8 @@ bool WindowService::GetWindow(HWND hwnd, LONG flag, HWND &rethwnd) {
     else if (flag == 7) // 获取顶层窗口
     {
         // rethwnd = (LONG)::GetForegroundWindow();
-        HWND next = NULL, current = hwnd;
-        while (next = ::GetParent(current))
+        HWND current = hwnd;
+        while (HWND next = ::GetParent(current))
             current = next;
         rethwnd = current;
         return ::IsWindow(current);

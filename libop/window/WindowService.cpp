@@ -82,108 +82,55 @@ WindowService::~WindowService(void) {
 
 HWND WindowService::FindChildWnd(HWND child_hwnd, const wchar_t *title, const wchar_t *classname, std::wstring *retstring,
                           bool isGW_OWNER, bool isVisible, const wchar_t *process_name) {
+    // 命中处置（原实现 4 个匹配分支逐份重复，收拢为一）：
+    // retstring 模式（EnumWindow 系）→ 追加 hwnd 并继续枚举；
+    // 查找模式（FindWindowByProcess）→ 返回 hwnd，命中即停。
+    // 带 process_name 时命中还需进程匹配（EnumProcessbyName 内部按 npid 成员资格判断）。
+    const auto on_match = [&](HWND hwnd) -> HWND {
+        if (process_name) {
+            DWORD pid = 0;
+            GetWindowThreadProcessId(hwnd, &pid);
+            if (!EnumProcessbyName(pid, process_name))
+                return nullptr;
+        }
+        if (retstring) {
+            AppendHwndText(retstring, retstringlen, hwnd);
+            return nullptr;
+        }
+        return hwnd;
+    };
+
     child_hwnd = ::GetWindow(child_hwnd, GW_HWNDFIRST);
     while (child_hwnd != NULL) {
-        if (isGW_OWNER) // 判断是否要匹配所有者窗口为0的窗口,即顶级窗口
-            if (::GetWindow(child_hwnd, GW_OWNER) != 0) {
-                child_hwnd = ::GetWindow(child_hwnd, GW_HWNDNEXT); // 获取下一个窗口
-                continue;
-            }
+        if (isGW_OWNER && ::GetWindow(child_hwnd, GW_OWNER) != 0) {
+            child_hwnd = ::GetWindow(child_hwnd, GW_HWNDNEXT); // 获取下一个窗口
+            continue;
+        }
 
-        if (isVisible) // 判断是否匹配可视窗口
-            if (::IsWindowVisible(child_hwnd) == false) {
-                child_hwnd = ::GetWindow(child_hwnd, GW_HWNDNEXT); // 获取下一个窗口
-                continue;
-            }
+        if (isVisible && !::IsWindowVisible(child_hwnd)) {
+            child_hwnd = ::GetWindow(child_hwnd, GW_HWNDNEXT); // 获取下一个窗口
+            continue;
+        }
+
+        bool matched = false;
         if (title == NULL && classname == NULL) {
-            if (process_name) {
-                DWORD pid = 0;
-                GetWindowThreadProcessId(child_hwnd, &pid);
-                if (EnumProcessbyName(pid, process_name)) {
-                    if (retstring)
-                        AppendHwndText(retstring, retstringlen, child_hwnd);
-                    else
-                        return child_hwnd;
-                }
-            } else {
-                if (retstring)
-                    AppendHwndText(retstring, retstringlen, child_hwnd);
-                else
-                    return child_hwnd;
-            }
+            matched = true;
         } else if (title != NULL && classname != NULL) {
             auto WindowClassName = WindowClassNameText(child_hwnd);
             auto WindowTitle = WindowTitleText(child_hwnd);
-            if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
-                const wchar_t *strfindclass = wcsstr(WindowClassName, classname); // 模糊匹配
-                const wchar_t *strfindtitle = wcsstr(WindowTitle, title);         // 模糊匹配
-                if (strfindclass && strfindtitle) {
-                    if (process_name) // EnumWindowByProcess
-                    {
-                        DWORD pid = 0;
-                        GetWindowThreadProcessId(child_hwnd, &pid);
-                        if (EnumProcessbyName(pid, process_name)) {
-                            if (retstring)
-                                AppendHwndText(retstring, retstringlen, child_hwnd);
-                            else
-                                return child_hwnd;
-                        }
-                    } else {
-                        if (retstring)
-                            AppendHwndText(retstring, retstringlen, child_hwnd);
-                        else
-                            return child_hwnd;
-                    }
-                }
-            }
-
+            matched = safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1 &&
+                      wcsstr(WindowClassName, classname) != NULL && wcsstr(WindowTitle, title) != NULL; // 模糊匹配
         } else if (title != NULL) {
             auto WindowTitle = WindowTitleText(child_hwnd);
-            if (safe_wcslen(WindowTitle) > 1) {
-                const wchar_t *strfind = wcsstr(WindowTitle, title); // 模糊匹配
-                if (strfind) {
-                    if (process_name) // EnumWindowByProcess
-                    {
-                        DWORD pid = 0;
-                        GetWindowThreadProcessId(child_hwnd, &pid);
-                        if (EnumProcessbyName(pid, process_name)) {
-                            if (retstring)
-                                AppendHwndText(retstring, retstringlen, child_hwnd);
-                            else
-                                return child_hwnd;
-                        }
-                    } else {
-                        if (retstring)
-                            AppendHwndText(retstring, retstringlen, child_hwnd);
-                        else
-                            return child_hwnd;
-                    }
-                }
-            }
-
-        } else if (classname != NULL) {
+            matched = safe_wcslen(WindowTitle) > 1 && wcsstr(WindowTitle, title) != NULL; // 模糊匹配
+        } else { // classname != NULL
             auto WindowClassName = WindowClassNameText(child_hwnd);
-            if (safe_wcslen(WindowClassName) > 1) {
-                const wchar_t *strfind = wcsstr(WindowClassName, classname); // 模糊匹配
-                if (strfind) {
-                    if (process_name) // EnumWindowByProcess
-                    {
-                        DWORD pid = 0;
-                        GetWindowThreadProcessId(child_hwnd, &pid);
-                        if (EnumProcessbyName(pid, process_name)) {
-                            if (retstring)
-                                AppendHwndText(retstring, retstringlen, child_hwnd);
-                            else
-                                return child_hwnd;
-                        }
-                    } else {
-                        if (retstring)
-                            AppendHwndText(retstring, retstringlen, child_hwnd);
-                        else
-                            return child_hwnd;
-                    }
-                }
-            }
+            matched = safe_wcslen(WindowClassName) > 1 && wcsstr(WindowClassName, classname) != NULL; // 模糊匹配
+        }
+
+        if (matched) {
+            if (HWND found = on_match(child_hwnd))
+                return found;
         }
 
         HWND grandchild_hwnd = ::GetWindow(child_hwnd, GW_CHILD);
@@ -1740,103 +1687,54 @@ bool WindowService::FindWindowByProcess(const wchar_t *class_name, const wchar_t
         enum_process_success_count = 0;
         if (EnumProcessbyName(0, process_name) == false)
             return false;
+    } else if (Pid == 0) {
+        return false; // 无进程名且 Pid 非法：两个分支都不命中，与原实现一致
+    }
 
-        HWND p = ::GetWindow(GetDesktopWindow(), GW_CHILD); // 获取桌面窗口的子窗口
-        p = ::GetWindow(p, GW_HWNDFIRST);
-        while (p != NULL) {
-            if (::IsWindowVisible(p) && ::GetWindow(p, GW_OWNER) == 0) {
-                DWORD pid = 0;
-                GetWindowThreadProcessId(p, &pid);
-                if (EnumProcessbyName(pid, process_name)) {
-                    if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1) {
+    // process_name 分支与 Pid 分支原各 ~50 行几乎相同，统一为：
+    // 「可见 + 无 owner 的桌面顶层窗口」→ 进程匹配（进程名=npid 成员资格 / Pid=相等）→ 类名或标题匹配 → 子窗口查找。
+    HWND p = ::GetWindow(GetDesktopWindow(), GW_CHILD); // 获取桌面窗口的子窗口
+    p = ::GetWindow(p, GW_HWNDFIRST);
+    while (p != NULL) {
+        if (::IsWindowVisible(p) && ::GetWindow(p, GW_OWNER) == 0) {
+            DWORD wnd_pid = 0;
+            GetWindowThreadProcessId(p, &wnd_pid);
+            const bool pid_match =
+                process_name ? (EnumProcessbyName(wnd_pid, process_name) != FALSE) : (Pid == wnd_pid);
+            if (pid_match) {
+                if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1) {
+                    rethwnd = p;
+                    bret = true;
+                    break;
+                }
+                auto WindowClassName = WindowClassNameText(p);
+                auto WindowTitle = WindowTitleText(p);
+                if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
+                    // wcsstr 的 needle 不能为 NULL：仅一侧条件存在时另一侧置空再匹配
+                    const wchar_t *strfindclass =
+                        (class_name && safe_wcslen(class_name) >= 1) ? wcsstr(WindowClassName, class_name) : nullptr;
+                    const wchar_t *strfindtitle =
+                        (title && safe_wcslen(title) >= 1) ? wcsstr(WindowTitle, title) : nullptr;
+                    if (strfindclass || strfindtitle) {
                         rethwnd = p;
                         bret = true;
                         break;
-                    } else {
-                        auto WindowClassName = WindowClassNameText(p);
-                        auto WindowTitle = WindowTitleText(p);
-                        if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
-                            // wcsstr 的 needle 不能为 NULL：仅一侧条件存在时另一侧置空再匹配
-                            const wchar_t *strfindclass = (class_name && safe_wcslen(class_name) >= 1)
-                                                               ? wcsstr(WindowClassName, class_name)
-                                                               : nullptr;
-                            const wchar_t *strfindtitle =
-                                (title && safe_wcslen(title) >= 1) ? wcsstr(WindowTitle, title) : nullptr;
-                            if (strfindclass || strfindtitle) {
-                                rethwnd = p;
-                                bret = true;
-                                break;
-                            }
-                        }
-
-                        HWND child_hwnd = ::GetWindow(p, GW_CHILD);
-                        if (child_hwnd != NULL) {
-                            const wchar_t *classname = NULL;
-                            const wchar_t *titles = NULL;
-                            if (safe_wcslen(class_name) > 0)
-                                classname = class_name;
-                            if (safe_wcslen(title) > 0)
-                                titles = title;
-                            HWND dret = FindChildWnd(child_hwnd, titles, classname, NULL, false, false, process_name);
-                            if (dret != nullptr) {
-                                rethwnd = dret;
-                                bret = true;
-                                break;
-                            }
-                        }
                     }
                 }
-            }
-            p = ::GetWindow(p, GW_HWNDNEXT); // 获取下一个窗口
-        }
-    } else if (Pid > 0) {
-        HWND p = ::GetWindow(GetDesktopWindow(), GW_CHILD); // 获取桌面窗口的子窗口
-        p = ::GetWindow(p, GW_HWNDFIRST);
-        while (p != NULL) {
-            if (::IsWindowVisible(p) && ::GetWindow(p, GW_OWNER) == 0) {
-                DWORD npid = 0;
-                GetWindowThreadProcessId(p, &npid);
-                if (Pid == npid) {
-                    if (safe_wcslen(class_name) < 1 && safe_wcslen(title) < 1) {
-                        rethwnd = p;
+                HWND child_hwnd = ::GetWindow(p, GW_CHILD);
+                if (child_hwnd != NULL) {
+                    const wchar_t *classname = safe_wcslen(class_name) > 0 ? class_name : NULL;
+                    const wchar_t *titles = safe_wcslen(title) > 0 ? title : NULL;
+                    HWND dret = FindChildWnd(child_hwnd, titles, classname, NULL, false, false, process_name);
+                    if (dret != nullptr) {
+                        rethwnd = dret;
                         bret = true;
                         break;
-                    } else {
-                        auto WindowClassName = WindowClassNameText(p);
-                        auto WindowTitle = WindowTitleText(p);
-                        if (safe_wcslen(WindowClassName) > 1 && safe_wcslen(WindowTitle) > 1) {
-                            // wcsstr 的 needle 不能为 NULL：仅一侧条件存在时另一侧置空再匹配
-                            const wchar_t *strfindclass = (class_name && safe_wcslen(class_name) >= 1)
-                                                               ? wcsstr(WindowClassName, class_name)
-                                                               : nullptr;
-                            const wchar_t *strfindtitle =
-                                (title && safe_wcslen(title) >= 1) ? wcsstr(WindowTitle, title) : nullptr;
-                            if (strfindclass || strfindtitle) {
-                                rethwnd = p;
-                                bret = true;
-                                break;
-                            }
-                        }
-                        HWND child_hwnd = ::GetWindow(p, GW_CHILD);
-                        if (child_hwnd != NULL) {
-                            const wchar_t *classname = NULL;
-                            const wchar_t *titles = NULL;
-                            if (safe_wcslen(class_name) > 0)
-                                classname = class_name;
-                            if (safe_wcslen(title) > 0)
-                                titles = title;
-                            HWND dret = FindChildWnd(child_hwnd, titles, classname, NULL, false, false, process_name);
-                            if (dret != nullptr) {
-                                rethwnd = dret;
-                                bret = true;
-                                break;
-                            }
-                        }
                     }
                 }
             }
-            p = ::GetWindow(p, GW_HWNDNEXT); // 获取下一个窗口
         }
+        p = ::GetWindow(p, GW_HWNDNEXT); // 获取下一个窗口
     }
 
     return bret;

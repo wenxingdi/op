@@ -158,6 +158,28 @@ bool SendCharMessage(HWND hwnd, UINT msg, wchar_t ch) {
     return ::PostMessageW(hwnd, msg, (WPARAM)ch, 0) != 0;
 }
 
+// SendString 与 SendStringIme 的唯一差异：WM_CHAR 投递失败后 WM_IME_CHAR 兜底的范围。
+// ime_fallback_all=true（SendStringIme）对任意字符兜底；false（SendString）仅对 >0x7f 的字符兜底。
+long SendStringImpl(HWND hwnd, const std::wstring &s, bool ime_fallback_all) {
+    if (!::IsWindow(hwnd))
+        return 0;
+
+    HWND target = ResolveInputTargetWindow(hwnd);
+    if (!::IsWindow(target))
+        return 0;
+
+    auto p = s.data();
+    for (size_t i = 0; i < s.length(); ++i) {
+        bool delivered = SendCharMessage(target, WM_CHAR, p[i]);
+        if (!delivered && (ime_fallback_all || p[i] > 0x7f))
+            delivered = SendCharMessage(target, WM_IME_CHAR, p[i]);
+        if (!delivered)
+            return 0;
+        ::Sleep(5);
+    }
+    return 1;
+}
+
 } // namespace
 
 bool WindowService::SendPaste(HWND hwnd) {
@@ -221,43 +243,11 @@ bool WindowService::GetClipboard(std::wstring &retstr) {
 }
 
 long WindowService::SendString(HWND hwnd, const std::wstring &s) {
-    if (!::IsWindow(hwnd))
-        return 0;
-
-    HWND target = ResolveInputTargetWindow(hwnd);
-    if (!::IsWindow(target))
-        return 0;
-
-    auto p = s.data();
-    for (size_t i = 0; i < s.length(); ++i) {
-        bool delivered = SendCharMessage(target, WM_CHAR, p[i]);
-        if (!delivered && p[i] > 0x7f)
-            delivered = SendCharMessage(target, WM_IME_CHAR, p[i]);
-        if (!delivered)
-            return 0;
-        ::Sleep(5);
-    }
-    return 1;
+    return SendStringImpl(hwnd, s, false);
 }
 
 long WindowService::SendStringIme(HWND hwnd, const std::wstring &s) {
-    if (!::IsWindow(hwnd))
-        return 0;
-
-    HWND target = ResolveInputTargetWindow(hwnd);
-    if (!::IsWindow(target))
-        return 0;
-
-    auto p = s.data();
-    for (size_t i = 0; i < s.length(); ++i) {
-        bool delivered = SendCharMessage(target, WM_CHAR, p[i]);
-        if (!delivered)
-            delivered = SendCharMessage(target, WM_IME_CHAR, p[i]);
-        if (!delivered)
-            return 0;
-        ::Sleep(5);
-    }
-    return 1;
+    return SendStringImpl(hwnd, s, true);
 }
 
 } // namespace op
