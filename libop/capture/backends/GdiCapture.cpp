@@ -107,19 +107,18 @@ long GdiCapture::BindEx(HWND hwnd, long render_type) {
     dx_ = pt.x - rc.left;
     dy_ = pt.y - rc.top;
 
+    // GDI 系各模式（gdi/gdi2/dx2 及未知回退）都取窗口 DC，仅 normal 取桌面 DC、
+    // dx2 额外记录色深（BitBlt 直读窗口 DC 快路径用）。
     if (render_type == RDT_NORMAL) {
         _hdc = ::GetDC(NULL);
-    } else if (_render_type == RDT_GDI) {
-        _hdc = ::GetDC(_hwnd);
-    } else if (RDT_GDI_DX2 == render_type) {
-        _hdc = ::GetDC(_hwnd);
-        _device_caps = GetDeviceCaps(_hdc, BITSPIXEL);
     } else {
         _hdc = ::GetDC(_hwnd);
+        if (RDT_GDI_DX2 == render_type)
+            _device_caps = GetDeviceCaps(_hdc, BITSPIXEL);
     }
 
     if (_hdc == NULL) {
-        setlog("hdc == NULL", _hdc);
+        setlog("GdiCapture::BindEx hdc == NULL hwnd=%p", _hwnd);
         return 0;
     }
 
@@ -218,10 +217,6 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
             return false;
         }
 
-        _bfh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
-        _bfh.bfSize = _bfh.bfOffBits + w * h * 4;
-        _bfh.bfType = static_cast<WORD>(0x4d42);
-
         _bih.biBitCount = 32; // 每个像素字节大小
         _bih.biCompression = BI_RGB;
         _bih.biHeight = h; // 高度
@@ -255,7 +250,7 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
         }
         _pmutex->lock();
         uchar *pshare = _shmem->data<byte>();
-        fmtFrameInfo(pshare, _hwnd, w, h);
+        writeFrameInfo(pshare, w, h);
         GetDIBits(_hmdc, _hbmpscreen, 0L, (DWORD)h, pshare + sizeof(FrameInfo), (LPBITMAPINFO)&_bih,
                   (DWORD)DIB_RGB_COLORS);
 
@@ -293,10 +288,6 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
             return false;
         }
 
-        _bfh.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
-        _bfh.bfSize = _bfh.bfOffBits + ww * wh * 4;
-        _bfh.bfType = static_cast<WORD>(0x4d42);
-
         _bih.biBitCount = 32; // 每个像素字节大小
         _bih.biCompression = BI_RGB;
         _bih.biHeight = wh; // 高度
@@ -317,7 +308,7 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
             _pmutex->lock();
             uchar *pshare = _shmem->data<byte>();
             // 头尺寸与实际写下的整窗载荷一致（共享段已按当前整窗容量扩容）。
-            fmtFrameInfo(pshare, _hwnd, ww, wh);
+            writeFrameInfo(pshare, ww, wh);
             GetDIBits(_hmdc, _hbmpscreen, 0L, (DWORD)wh, pshare + sizeof(FrameInfo),
                       (LPBITMAPINFO)&_bih, (DWORD)DIB_RGB_COLORS);
             _pmutex->unlock();
@@ -395,14 +386,5 @@ void GdiCapture::release_device_context() {
     _hdc = NULL;
 }
 
-void GdiCapture::fmtFrameInfo(void *dst, HWND hwnd, int w, int h) {
-    m_frameInfo.hwnd = (unsigned __int64)hwnd;
-    m_frameInfo.frameId++;
-    m_frameInfo.time = static_cast<unsigned int>(::GetTickCount64());
-    m_frameInfo.width = w;
-    m_frameInfo.height = h;
-    m_frameInfo.fmtChk();
-    memcpy(dst, &m_frameInfo, sizeof(m_frameInfo));
-}
 
 } // namespace op::capture

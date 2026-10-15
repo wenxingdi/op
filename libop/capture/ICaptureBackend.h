@@ -35,6 +35,10 @@ class ICaptureBackend : public std::enable_shared_from_this<ICaptureBackend> {
         return _pmutex;
     }
 
+    // 帧头写入收拢点：各后端共用（原 Gdi/Dxgi/Wgc 三份逐行相同的私有 fmtFrameInfo）。
+    // 帧序号等状态保存在基类 m_frameInfo，跨 requestCapture 调用保持连续。
+    void writeFrameInfo(void *dst, int w, int h, bool inc = true);
+
     long get_height() {
         return _height;
     }
@@ -70,6 +74,8 @@ class ICaptureBackend : public std::enable_shared_from_this<ICaptureBackend> {
     }
 
     HWND _hwnd;
+
+    FrameInfo m_frameInfo{}; // 帧头状态（帧序号连续性由基类持有，见 writeFrameInfo）
 
     SharedMemory *_shmem;
 

@@ -86,6 +86,30 @@ bool set_remote_dll_search_dir(blackbone::Process &proc, const wchar_t *dir) {
     }
 }
 
+// blackbone Attach/Detach + 双 catch 异常护栏，BindEx/UnBindEx/BindNox/UnBindNox
+// 四条路径共用（原 try{Attach…Detach}catch 骨架逐字重复 4 份）。attach 失败或
+// 异常时回调不执行并返回 0；回调返回 long，Detach 在回调返回后统一执行。
+// 与历史行为等价：回调内的 blackbone 调用抛异常同样被兜住打日志。
+template <typename Attach, typename Fn>
+long with_attached_process(const wchar_t *what, Attach &&attach, Fn &&fn) {
+    blackbone::Process proc;
+    long result = 0;
+    try {
+        const NTSTATUS hr = attach(proc);
+        if (NT_SUCCESS(hr)) {
+            result = fn(proc);
+            proc.Detach();
+        } else {
+            setlog(L"%s attach false. hr=0x%X", what, hr);
+        }
+    } catch (const std::exception &e) {
+        setlog("%S exception: %s", what, e.what());
+    } catch (...) {
+        setlog(L"%s unknown exception.", what);
+    }
+    return result;
+}
+
 // HookFrameView / isHookFrameReady / makeHookFrameView / hookFrameRow 已搬到
 // ../../hook/SharedFrame.h —— 它们原本定义在这里的匿名命名空间，而本文件依赖 blackbone
 // 编不进测试进程，导致帧校验这条链路长期零单测。搬走是纯搬运，语义未变。
@@ -172,33 +196,22 @@ long HookCapture::BindEx(HWND hwnd, long render_type) {
     DWORD id = 0;
     ::GetWindowThreadProcessId(_hwnd, &id);
 
-    // attach 进程。整个绑定跑在护栏里：Attach / 模块枚举 / 注入 / 远程 RPC 任一步
-    // 都可能抛（blackbone 的 RPC 在目标异常/退出时抛异常是已知形态）——与 UnBindEx 同款；
+    // attach 进程。Attach / 模块枚举 / 注入 / 远程 RPC 任一步都可能抛（blackbone
+    // 的 RPC 在目标异常/退出时抛异常是已知形态）——护栏收拢在 with_attached_process；
     // 此前 BindEx 无护栏，直连 libop 的宿主（如 op_test 真机用例）会被异常穿透成访问违例。
-    blackbone::Process proc;
-    long bind_ret = 0;
-    try {
-        const NTSTATUS hr = proc.Attach(id);
-        if (NT_SUCCESS(hr)) {
+    const long bind_ret = with_attached_process(
+        L"BindEx", [&](blackbone::Process &proc) { return proc.Attach(id); },
+        [&](blackbone::Process &proc) -> long {
             // GetMainModule() 在受保护进程 / PEB 读取失败时返回 nullptr，原先直接解引用 -> 访问违例。
             auto main_module = proc.modules().GetMainModule();
             if (!main_module) {
                 setlog(L"BindEx GetMainModule null. pid=%d hwnd=%p", id, _hwnd);
-                proc.Detach();
                 return 0;
             }
             const BOOL is64 = main_module->type == blackbone::eModType::mt_mod64;
             const wstring dllname = op::hook::ResolveHookModuleName(is64 != FALSE);
-            bind_ret = attach_display_hook(proc, hwnd, render_type, dllname, m_opPath);
-        } else {
-            setlog(L"attach false. pid=%d hwnd=%p hr=0x%X", id, _hwnd, hr);
-        }
-        proc.Detach();
-    } catch (const std::exception &e) {
-        setlog("BindEx exception: %s", e.what());
-    } catch (...) {
-        setlog("BindEx unknown exception.");
-    }
+            return attach_display_hook(proc, hwnd, render_type, dllname, m_opPath);
+        });
 
     if (bind_ret == -1) {
         setlog("UnknownError");
@@ -217,37 +230,29 @@ long HookCapture::UnBindEx() {
     DWORD id = 0;
     ::GetWindowThreadProcessId(_hwnd, &id);
 
-    blackbone::Process proc;
-    // 整个解绑过程跑在护栏里：Attach / 模块枚举 / 远程 RPC 任一步都可能抛。
-    // 此前异常会穿透调用方（C API 有 call_int 兜底，C++ 直连宿主直接崩）。
-    try {
-        const NTSTATUS hr = proc.Attach(id);
-        if (NT_SUCCESS(hr)) {
+    // 解绑护栏与 BindEx 共用 with_attached_process：Attach / 模块枚举 / 远程 RPC
+    // 任一步都可能抛。此前异常会穿透调用方（C API 有 call_int 兜底，C++ 直连宿主直接崩）。
+    with_attached_process(
+        L"UnBindEx", [&](blackbone::Process &proc) { return proc.Attach(id); },
+        [&](blackbone::Process &proc) -> long {
             // GetMainModule() 在目标 PEB 读取失败时返回 nullptr（受保护进程等），
             // 原先直接解引用 -> 访问违例。与 InputHookClient.cpp 的同类写法一起列为待修项。
             auto main_module = proc.modules().GetMainModule();
             if (!main_module) {
                 setlog(L"UnBindEx GetMainModule null. pid=%d hwnd=%p", id, _hwnd);
-            } else {
-                const BOOL is64 = main_module->type == blackbone::eModType::mt_mod64;
-                wstring dllname = op::hook::ResolveHookModuleName(is64 != FALSE);
-                using my_func_t = long(__stdcall *)(void);
-                auto pUnXHook = op::hook::MakeHookRemoteFunction<my_func_t>(proc, dllname, "ReleaseDisplayHook");
-                if (pUnXHook) {
-                    pUnXHook();
-                } else {
-                    setlog(L"get unhook ptr false.");
-                }
+                return 0;
             }
-        } else {
-            setlog("blackbone attach false in UnBindEx,errcode:%X,pid=%d,hwnd=%p", hr, id, _hwnd);
-        }
-        proc.Detach();
-    } catch (const std::exception &e) {
-        setlog("UnBindEx exception: %s", e.what());
-    } catch (...) {
-        setlog("UnBindEx unknown exception.");
-    }
+            const BOOL is64 = main_module->type == blackbone::eModType::mt_mod64;
+            wstring dllname = op::hook::ResolveHookModuleName(is64 != FALSE);
+            using my_func_t = long(__stdcall *)(void);
+            auto pUnXHook = op::hook::MakeHookRemoteFunction<my_func_t>(proc, dllname, "ReleaseDisplayHook");
+            if (pUnXHook) {
+                pUnXHook();
+            } else {
+                setlog(L"get unhook ptr false.");
+            }
+            return 1;
+        });
     // bind_release();
     return 1;
 }
@@ -280,33 +285,20 @@ long HookCapture::BindNox(HWND hwnd, long render_type) {
 
     // attach 进程（Nox 模拟器）。注入+设钩子与 BindEx 共用 attach_display_hook；
     // 旧版这里用裸 HWND 参数做 RPC，x64 宿主对 x86 目标存在句柄宽度错配（P0②），
-    // 共用后由 CallHookHwndIntFn 按目标位数压参，顺带修正。
-    blackbone::Process proc;
-    long bind_ret = 0;
-    try {
-        const NTSTATUS hr = proc.Attach(L"NoxVMHandle.exe");
-        if (NT_SUCCESS(hr)) {
-            bind_ret = attach_display_hook(proc, hwnd, render_type, L"op_x64.dll", m_opPath);
-        } else {
-            setlog(L"attach false. hr=0x%X", hr);
-        }
-        proc.Detach();
-    } catch (const std::exception &e) {
-        setlog("BindNox exception: %s", e.what());
-    } catch (...) {
-        setlog("BindNox unknown exception.");
-    }
-
-    return bind_ret;
+    // 共用后由 CallHookHwndIntFn 按目标位数压参，顺带修正。attach 护栏同样共用。
+    return with_attached_process(
+        L"BindNox", [&](blackbone::Process &proc) { return proc.Attach(L"NoxVMHandle.exe"); },
+        [&](blackbone::Process &proc) -> long {
+            return attach_display_hook(proc, hwnd, render_type, L"op_x64.dll", m_opPath);
+        });
 }
 
 long HookCapture::UnBindNox() {
-    // attach 进程。与 UnBindEx 同款异常护栏：blackbone 的 Attach/RPC 在目标退出时可抛。
-    blackbone::Process proc;
+    // 与 UnBindEx 同款护栏，共用 with_attached_process：Attach/RPC 在目标退出时可抛。
     const wstring dllname = L"op_x64.dll";
-    try {
-        const NTSTATUS hr = proc.Attach(L"NoxVMHandle.exe");
-        if (NT_SUCCESS(hr)) {
+    with_attached_process(
+        L"UnBindNox", [&](blackbone::Process &proc) { return proc.Attach(L"NoxVMHandle.exe"); },
+        [&](blackbone::Process &proc) -> long {
             using my_func_t = long(__stdcall *)(void);
             auto pUnXHook = op::hook::MakeHookRemoteFunction<my_func_t>(proc, dllname, "ReleaseDisplayHook");
             if (pUnXHook) {
@@ -314,15 +306,8 @@ long HookCapture::UnBindNox() {
             } else {
                 setlog(L"get unhook ptr false.");
             }
-        } else {
-            setlog("blackbone attach false in UnBindNox,errcode:%X,hwnd=%p", hr, _hwnd);
-        }
-        proc.Detach();
-    } catch (const std::exception &e) {
-        setlog("UnBindNox exception: %s", e.what());
-    } catch (...) {
-        setlog("UnBindNox unknown exception.");
-    }
+            return 1;
+        });
 
     return 1;
 }

@@ -32,14 +32,11 @@ class GdiCapture : public ICaptureBackend {
     // 位图句柄
     HBITMAP _hbmpscreen = NULL;
     HBITMAP _hbmp_old = NULL;
-    // bmp 文件头
-    BITMAPFILEHEADER _bfh = {0};
-    BITMAPINFOHEADER _bih = {0}; // 位图信息头
+    BITMAPINFOHEADER _bih = {0}; // 位图信息头（GetDIBits 用；原 _bfh 文件头无消费者，已删）
     int dx_, dy_;                // 去除标题栏
     // bytearray temp_src;
-    FrameInfo m_frameInfo;
     void release_device_context();
-    void fmtFrameInfo(void *dst, HWND hwnd, int w, int h);
+    // 帧头写入已收拢到基类 writeFrameInfo（原私有 fmtFrameInfo 三后端重复实现）。
     // 帧写共享段前确保容量（绑定后窗口 resize 放大时按需重建，防越界写）。
     bool ensureSharedFrameCapacity(int width, int height);
 };

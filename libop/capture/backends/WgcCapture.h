@@ -58,7 +58,6 @@ class WgcCapture : public ICaptureBackend {
     winrt::event_token closedToken_{};
     bool hasClosedToken_{false};
     std::atomic<bool> itemClosed_{false};
-    FrameInfo m_frameInfo{};
     long captureWidth_{0};
     long captureHeight_{0};
     long framePoolWidth_{0};
@@ -93,6 +92,8 @@ class WgcCapture : public ICaptureBackend {
     long BindExOnWindows10(HWND hwnd);
     long UnBindExInternal();
     long UnBindExOnWindows10();
+    // 两个 UnBind 路径共用的捕获状态复位（原两处逐行重复）。
+    void resetCaptureState();
     void runWin10Worker(HWND hwnd);
     bool waitForWin10WorkerInit(unsigned long timeout_ms);
     void closeWin10WorkerObjects();
@@ -105,7 +106,7 @@ class WgcCapture : public ICaptureBackend {
                             bool poll_latest = true);
     unsigned long long currentFrameSerial();
     bool hasCapturedFrame();
-    void fmtFrameInfo(void *dst, HWND hwnd, int w, int h, bool inc = true);
+    // 帧头写入已收拢到基类 writeFrameInfo（原私有 fmtFrameInfo 三后端重复实现）。
     bool isDeviceLost();
     bool recoverFromDeviceLoss();
     void revokeItemClosed();

@@ -271,6 +271,13 @@ long WgcCapture::UnBindExInternal() {
     item_ = nullptr;
     frameArrivedToken_ = {};
     hasFrameArrivedToken_ = false;
+    resetCaptureState();
+
+    return 0;
+}
+
+// 两个 UnBind 路径共用的捕获状态复位（原 UnBindExInternal/UnBindExOnWindows10 逐行重复）。
+void WgcCapture::resetCaptureState() {
     itemClosed_.store(false);
     hasFrame_ = false;
     sharedWidth_ = 0;
@@ -287,8 +294,6 @@ long WgcCapture::UnBindExInternal() {
     pendingRestored_ = false;
     lastClientWidth_ = 0;
     lastClientHeight_ = 0;
-
-    return 0;
 }
 
 long WgcCapture::UnBindExOnWindows10() {
@@ -314,22 +319,7 @@ long WgcCapture::UnBindExOnWindows10() {
         }
     }
 
-    itemClosed_.store(false);
-    hasFrame_ = false;
-    sharedWidth_ = 0;
-    sharedHeight_ = 0;
-    captureWidth_ = 0;
-    captureHeight_ = 0;
-    framePoolWidth_ = 0;
-    framePoolHeight_ = 0;
-    frameSerial_ = 0;
-    hasWindowState_ = false;
-    lastWindowIconic_ = false;
-    pendingMetricsChanged_ = false;
-    pendingBecameIconic_ = false;
-    pendingRestored_ = false;
-    lastClientWidth_ = 0;
-    lastClientHeight_ = 0;
+    resetCaptureState();
 
     return 0;
 }
@@ -729,7 +719,7 @@ bool WgcCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
                 return false;
             }
             _pmutex->lock();
-            fmtFrameInfo(_shmem->data<byte>(), _hwnd, _width, _height);
+            writeFrameInfo(_shmem->data<byte>(), _width, _height);
             _pmutex->unlock();
         }
 
@@ -1302,15 +1292,6 @@ bool WgcCapture::hasCapturedFrame() {
     return hasFrame_;
 }
 
-void WgcCapture::fmtFrameInfo(void *dst, HWND hwnd, int w, int h, bool inc) {
-    m_frameInfo.hwnd = (unsigned __int64)hwnd;
-    m_frameInfo.frameId = inc ? m_frameInfo.frameId + 1 : m_frameInfo.frameId;
-    m_frameInfo.time = static_cast<unsigned __int32>(::GetTickCount64());
-    m_frameInfo.width = w;
-    m_frameInfo.height = h;
-    m_frameInfo.fmtChk();
-    memcpy(dst, &m_frameInfo, sizeof(m_frameInfo));
-}
 
 } // namespace op::capture
 

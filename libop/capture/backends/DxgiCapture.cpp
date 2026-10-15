@@ -192,7 +192,7 @@ bool DxgiCapture::copyTextureToImage(ID3D11Texture2D *texture, int x1, int y1, i
     uint8_t *pData = static_cast<uint8_t *>(mappedResource.pData);
     if (_pmutex && _shmem) {
         _pmutex->lock();
-        fmtFrameInfo(_shmem->data<byte>(), _hwnd, w, h);
+        writeFrameInfo(_shmem->data<byte>(), w, h);
         _pmutex->unlock();
     }
 
@@ -408,14 +408,5 @@ bool DxgiCapture::GetDesktopFrame(ID3D11Texture2D **texture, DWORD timeout_ms, b
     return SUCCEEDED(lastTexture_.CopyTo(texture));
 }
 
-void DxgiCapture::fmtFrameInfo(void *dst, HWND hwnd, int w, int h, bool inc) {
-    m_frameInfo.hwnd = (unsigned __int64)hwnd;
-    m_frameInfo.frameId = inc ? m_frameInfo.frameId + 1 : m_frameInfo.frameId;
-    m_frameInfo.time = static_cast<unsigned __int32>(::GetTickCount64());
-    m_frameInfo.width = w;
-    m_frameInfo.height = h;
-    m_frameInfo.fmtChk();
-    memcpy(dst, &m_frameInfo, sizeof(m_frameInfo));
-}
 
 } // namespace op::capture

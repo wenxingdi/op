@@ -39,12 +39,11 @@ class DxgiCapture : public ICaptureBackend {
     POINT client_screen_origin_{};
     bool duplication_lost_{false};
     bool m_first{true};
-    FrameInfo m_frameInfo{};
     D3D11_TEXTURE2D_DESC m_desc{};
     bool refreshWindowMetrics();
     bool RebuildDuplication();
     bool copyTextureToImage(ID3D11Texture2D *texture, int x1, int y1, int w, int h, Image &img);
-    void fmtFrameInfo(void *dst, HWND hwnd, int w, int h, bool inc = true);
+    // 帧头写入已收拢到基类 writeFrameInfo（原私有 fmtFrameInfo 三后端重复实现）。
 };
 
 } // namespace op::capture

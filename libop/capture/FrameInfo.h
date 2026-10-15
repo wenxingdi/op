@@ -17,10 +17,12 @@ struct FrameInfo {
         chk = (hwnd >> 32) ^ (hwnd & 0xffffffffull) ^ frameId ^ time ^ width ^ height;
     }
 
-    void format(HWND hwnd_, int w_, int h_) {
+    // 帧头推进一格并落校验和。inc=false 时只更新 hwnd/尺寸/时间，帧序号不变
+    // （DXGI/WGC 覆写既有帧头时用）。时间统一取 GetTickCount64 截断到 u32。
+    void format(HWND hwnd_, int w_, int h_, bool inc = true) {
         hwnd = (unsigned __int64)hwnd_;
-        frameId++;
-        time = ::GetTickCount();
+        frameId = inc ? frameId + 1 : frameId;
+        time = static_cast<unsigned __int32>(::GetTickCount64());
         width = w_;
         height = h_;
         fmtChk();

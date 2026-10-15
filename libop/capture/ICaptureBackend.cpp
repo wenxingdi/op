@@ -107,6 +107,11 @@ void ICaptureBackend::getFrameInfo(FrameInfo &info) {
     _pmutex->unlock();
 }
 
+void ICaptureBackend::writeFrameInfo(void *dst, int w, int h, bool inc) {
+    m_frameInfo.format(_hwnd, w, h, inc);
+    memcpy(dst, &m_frameInfo, sizeof(m_frameInfo));
+}
+
 // byte* bkdisplay::get_data() {
 //	return _shmem->data<byte>();
 // }
