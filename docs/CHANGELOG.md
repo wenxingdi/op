@@ -3,6 +3,39 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第十五批（hook 注入引擎：热路径缓存+RPC骨架收拢+共享帧写入统一+D3D12设备失效，refactor/fix）
+
+逐模块分析与优化第 11 模块（hook），分析文档
+`docs/2026-10/hook模块分析_20261015.md`。本模块代码运行在目标进程内，
+改动按"语义可证明等价 / 成功结果缓存"标准实施。
+
+- **refactor(hook): 设备种类缓存（HK1）**：hkGetDeviceState/hkGetDeviceData
+  热路径原先每帧走一次 GetDeviceInfo（COM 虚调用 + 字符串拷贝），改为 8 槽
+  round-robin 指针→种类缓存（mutex 保护，release 时清空）。清单原述的 vtable
+  优先方案经分析否决（mouse/keyboard 设备 vtable 很可能相同，hook_dinput 的
+  按 vtable 去重分支为证）；残余风险（设备地址复用误命中）已写入代码注释。
+- **refactor(hook): InputHookClient 五处 RPC 骨架收拢（HK2）**：提
+  `attach_target` + `call_hook_export` 公共骨架，call_release_input_hook /
+  call_set_input_lock / call_set_input_attr / call_cursor_shape 四处收拢。
+  call_ping_hook 例外保留（导出存在但返回 0 与导出不存在需区分）。
+- **refactor(hook): gl_capture/egl_capture 合并（HK3）**：收为
+  `gl_capture_common(slots, dll, tag)`，两路各留一行转发；删除 egl 路径
+  一段 misplaced 的 DEBUG_HOOK 死块。
+- **refactor+fix(hook): 写共享帧收拢为 SharedFrameWriter RAII（HK4）**：
+  五后端重复块收为一次构造 + prepare() 调用 + 析构解锁；**行为统一**：
+  d3d9/10/12 打开共享内存失败从静默跳过改为记日志+关捕获（对齐多数派策略）。
+  原 helper 保留（测试在用）。
+- **fix(hook): D3D12Capture 设备变化失效重建（HK5）**：缓存 device，指针变化
+  时整套 Reset copyQueue/fence/commandAllocator/readbackResource（对齐 D3D11
+  N1 已论证的 TDR/换卡场景，防跨设备命令提交静默错帧）。
+- **refactor(hook): 键态/鼠标态微合并（HK6）**：hkGetKeyState/hkGetAsyncKeyState
+  收为 key_state_with_mirror 一行转发；fill_mouse_state 双分支合并为
+  DIMOUSESTATE2 + min(size, sizeof) memcpy。
+- **回归**：构建零错误；全量 401 ran / 399 PASS / 1 FAILED（MouseKeyTest.
+  WaitKeyScanAllWithWaitFindsKey 已知环境 flake）/ 1 SKIPPED（FurMark 缺席）；
+  DLL 同步副本全部一致。代码净 +52 行（+297/-245，新增缓存与 RAII 类的一次性
+  结构开销，消除五处写帧块/五处 RPC 骨架/整份 gl-egl 重复）。
+
 ### 2026-10-15 第十四批（opencv 找图引擎：同构代码收拢 ×4，refactor）
 
 逐模块分析与优化第 10 模块（opencv），分析文档
