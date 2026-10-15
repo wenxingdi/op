@@ -20,6 +20,8 @@
 #undef CopyFile
 #undef MoveFile
 #undef DeleteFile
+// DrawText 宏（UNICODE 下映射 DrawTextW）同理
+#undef DrawText
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
@@ -665,6 +667,42 @@ int OP_CALL OpEnableDebugPrivilege(op_handle handle) {
 
 const wchar_t *OP_CALL OpGetLastErrorString(op_handle handle) {
     return call_string(handle, [](op::Op &op, std::wstring &ret) { op.GetLastErrorString(ret); });
+}
+
+const wchar_t *OP_CALL OpMd5(op_handle handle, const wchar_t *text) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.Md5(safe_text(text), ret); });
+}
+
+const wchar_t *OP_CALL OpSha1(op_handle handle, const wchar_t *text) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.Sha1(safe_text(text), ret); });
+}
+
+const wchar_t *OP_CALL OpBase64Encode(op_handle handle, const wchar_t *text) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.Base64Encode(safe_text(text), ret); });
+}
+
+const wchar_t *OP_CALL OpBase64Decode(op_handle handle, const wchar_t *base64) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.Base64Decode(safe_text(base64), ret); });
+}
+
+int OP_CALL OpDrawRect(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, int width) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawRect(x1, y1, x2, y2, color, width, ret); });
+}
+
+int OP_CALL OpDrawLine(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, int width) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawLine(x1, y1, x2, y2, color, width, ret); });
+}
+
+int OP_CALL OpDrawText(op_handle handle, int x, int y, const wchar_t *text, const wchar_t *color, int font_size) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawText(x, y, safe_text(text), color, font_size, ret); });
+}
+
+int OP_CALL OpDrawClear(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.DrawClear(ret); });
+}
+
+int OP_CALL OpDrawSetVisible(op_handle handle, int show) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawSetVisible(show, ret); });
 }
 
 // Background binding

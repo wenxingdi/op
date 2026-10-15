@@ -15,6 +15,8 @@
 #undef CopyFile
 #undef MoveFile
 #undef DeleteFile
+// DrawText 宏（UNICODE 下映射 DrawTextW）同理
+#undef DrawText
 #include "op_i.h"
 // #include "Types.h"
 // #include "WindowService.h"
@@ -561,6 +563,15 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(SortPosDistance)(BSTR all_pos, LONG type, LONG x, LONG y, BSTR *retstr);
     STDMETHOD(EnableDebugPrivilege)(LONG *ret);
     STDMETHOD(GetLastErrorString)(BSTR *retstr);
+    STDMETHOD(Md5)(BSTR text, BSTR *retstr);
+    STDMETHOD(Sha1)(BSTR text, BSTR *retstr);
+    STDMETHOD(Base64Encode)(BSTR text, BSTR *retstr);
+    STDMETHOD(Base64Decode)(BSTR base64, BSTR *retstr);
+    STDMETHOD(DrawRect)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, LONG width, LONG *ret);
+    STDMETHOD(DrawLine)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, LONG width, LONG *ret);
+    STDMETHOD(DrawText)(LONG x, LONG y, BSTR text, BSTR color, LONG font_size, LONG *ret);
+    STDMETHOD(DrawClear)(LONG *ret);
+    STDMETHOD(DrawSetVisible)(LONG show, LONG *ret);
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(OpAutomation), OpAutomation)

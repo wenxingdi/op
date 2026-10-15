@@ -119,6 +119,15 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     EXPECT_EQ(OpIsElevated(nullptr), 0) << "OpIsElevated";
     EXPECT_EQ(OpEnableDebugPrivilege(nullptr), 0) << "OpEnableDebugPrivilege";
     expect_empty(OpGetLastErrorString(nullptr), "OpGetLastErrorString");
+    expect_empty(OpMd5(nullptr, L""), "OpMd5");
+    expect_empty(OpSha1(nullptr, L""), "OpSha1");
+    expect_empty(OpBase64Encode(nullptr, L""), "OpBase64Encode");
+    expect_empty(OpBase64Decode(nullptr, L""), "OpBase64Decode");
+    EXPECT_EQ(OpDrawRect(nullptr, 0, 0, 0, 0, L"", 0), 0) << "OpDrawRect";
+    EXPECT_EQ(OpDrawLine(nullptr, 0, 0, 0, 0, L"", 0), 0) << "OpDrawLine";
+    EXPECT_EQ(OpDrawText(nullptr, 0, 0, L"", L"", 0), 0) << "OpDrawText";
+    EXPECT_EQ(OpDrawClear(nullptr), 0) << "OpDrawClear";
+    EXPECT_EQ(OpDrawSetVisible(nullptr, 0), 0) << "OpDrawSetVisible";
     EXPECT_EQ(OpBindWindow(nullptr, 0, L"", L"", L"", 0), 0) << "OpBindWindow";
     EXPECT_EQ(OpBindWindowEx(nullptr, 0, 0, L"", L"", L"", 0), 0) << "OpBindWindowEx";
     EXPECT_EQ(OpUnBindWindow(nullptr), 0) << "OpUnBindWindow";

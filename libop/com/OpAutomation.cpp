@@ -1985,3 +1985,52 @@ STDMETHODIMP OpAutomation::GetLastErrorString(BSTR *retstr) {
     obj.GetLastErrorString(s);
     return CopyOutBstr(retstr, s);
 }
+
+STDMETHODIMP OpAutomation::Md5(BSTR text, BSTR *retstr) {
+    wstring s;
+    obj.Md5(text, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::Sha1(BSTR text, BSTR *retstr) {
+    wstring s;
+    obj.Sha1(text, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::Base64Encode(BSTR text, BSTR *retstr) {
+    wstring s;
+    obj.Base64Encode(text, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::Base64Decode(BSTR base64, BSTR *retstr) {
+    wstring s;
+    obj.Base64Decode(base64, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::DrawRect(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, LONG width, LONG *ret) {
+    obj.DrawRect(x1, y1, x2, y2, color, width, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawLine(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, LONG width, LONG *ret) {
+    obj.DrawLine(x1, y1, x2, y2, color, width, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawText(LONG x, LONG y, BSTR text, BSTR color, LONG font_size, LONG *ret) {
+    obj.DrawText(x, y, text, color, font_size, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawClear(LONG *ret) {
+    obj.DrawClear(ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawSetVisible(LONG show, LONG *ret) {
+    obj.DrawSetVisible(show, ret);
+    return S_OK;
+}

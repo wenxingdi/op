@@ -143,6 +143,16 @@ OP_C_API const wchar_t *OP_CALL OpGetMachineCode(op_handle handle);
 OP_C_API int OP_CALL OpIsElevated(op_handle handle);
 OP_C_API int OP_CALL OpEnableDebugPrivilege(op_handle handle);
 OP_C_API const wchar_t *OP_CALL OpGetLastErrorString(op_handle handle);
+OP_C_API const wchar_t *OP_CALL OpMd5(op_handle handle, const wchar_t *text);
+OP_C_API const wchar_t *OP_CALL OpSha1(op_handle handle, const wchar_t *text);
+OP_C_API const wchar_t *OP_CALL OpBase64Encode(op_handle handle, const wchar_t *text);
+OP_C_API const wchar_t *OP_CALL OpBase64Decode(op_handle handle, const wchar_t *base64);
+OP_C_API int OP_CALL OpDrawRect(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, int width);
+OP_C_API int OP_CALL OpDrawLine(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, int width);
+OP_C_API int OP_CALL OpDrawText(op_handle handle, int x, int y, const wchar_t *text, const wchar_t *color,
+                                int font_size);
+OP_C_API int OP_CALL OpDrawClear(op_handle handle);
+OP_C_API int OP_CALL OpDrawSetVisible(op_handle handle, int show);
 
 // Background binding
 OP_C_API int OP_CALL OpBindWindow(op_handle handle, intptr_t hwnd, const wchar_t *display, const wchar_t *mouse,

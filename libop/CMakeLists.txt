@@ -288,6 +288,8 @@ set(OP_CLASS_SOURCES
   "op/OpRuntime.cpp"
   "op/OpProcess.cpp"
   "op/OpFile.cpp"
+  "op/OpCrypto.cpp"
+  "op/OpDraw.cpp"
   "op/OpClipboard.cpp"
   "op/OpWindow.cpp"
   "op/OpInput.cpp"

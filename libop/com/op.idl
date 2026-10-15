@@ -290,6 +290,16 @@ interface IOpAutomation : IDispatch
 	[id(405)] HRESULT SortPosDistance([in] BSTR all_pos, [in] LONG type, [in] LONG x, [in] LONG y, [out, retval] BSTR* retstr);
 	[id(406)] HRESULT EnableDebugPrivilege([out, retval] LONG* ret);
 	[id(407)] HRESULT GetLastErrorString([out, retval] BSTR* retstr);
+	// 第二十一批（2026-10-15 晚）：摘要/编码三件套 + 屏幕绘制最小组
+	[id(408)] HRESULT Md5([in] BSTR text, [out, retval] BSTR* retstr);
+	[id(409)] HRESULT Sha1([in] BSTR text, [out, retval] BSTR* retstr);
+	[id(410)] HRESULT Base64Encode([in] BSTR text, [out, retval] BSTR* retstr);
+	[id(411)] HRESULT Base64Decode([in] BSTR base64, [out, retval] BSTR* retstr);
+	[id(412)] HRESULT DrawRect([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] LONG width, [out, retval] LONG* ret);
+	[id(413)] HRESULT DrawLine([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] LONG width, [out, retval] LONG* ret);
+	[id(414)] HRESULT DrawText([in] LONG x, [in] LONG y, [in] BSTR text, [in] BSTR color, [in] LONG font_size, [out, retval] LONG* ret);
+	[id(415)] HRESULT DrawClear([out, retval] LONG* ret);
+	[id(416)] HRESULT DrawSetVisible([in] LONG show, [out, retval] LONG* ret);
 	[id(300)] HRESULT CvLoadTemplate([in] BSTR name, [in] BSTR file_path, [out, retval] LONG* ret);
 	[id(301)] HRESULT CvLoadMaskedTemplate([in] BSTR name, [in] BSTR template_path, [in] BSTR mask_path, [out, retval] LONG* ret);
 	[id(302)] HRESULT CvRemoveTemplate([in] BSTR name, [out, retval] LONG* ret);

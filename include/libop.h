@@ -33,6 +33,8 @@
 #undef CopyFile
 #undef MoveFile
 #undef DeleteFile
+// DrawText 宏同理（UNICODE 下映射 DrawTextW）
+#undef DrawText
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -297,6 +299,25 @@ class OP_API Op {
     void EnableDebugPrivilege(_Out_ long *ret);
     // 取当前线程的 GetLastError 错误文本（调用本方法前的最后一次 Win32 错误）。无法解析返回空串。
     void GetLastErrorString(_Out_ std::wstring &ret);
+    // MD5/SHA1（UTF-8 编码后哈希），输出小写十六进制；空输入返回空串。
+    void Md5(_In_ const wchar_t *text, _Out_ std::wstring &ret);
+    void Sha1(_In_ const wchar_t *text, _Out_ std::wstring &ret);
+    // Base64 编码/解码（输入按 UTF-8 字节流处理）。解码遇非法串返回空串。
+    void Base64Encode(_In_ const wchar_t *text, _Out_ std::wstring &ret);
+    void Base64Decode(_In_ const wchar_t *base64, _Out_ std::wstring &ret);
+    //--------------------Draw overlay（调试可视化，进程级单例）-----------------------
+    // 在屏幕透明叠加层追加一个矩形/直线/文本框。color="RRGGBB"（与找色同格式）。返回 1=成功。
+    // 叠加层不可点击穿透由窗口样式保证；首次调用自动创建（专用线程 + 全屏分层窗口）。
+    void DrawRect(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ long width,
+                  _Out_ long *ret);
+    void DrawLine(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ long width,
+                  _Out_ long *ret);
+    void DrawText(_In_ long x, _In_ long y, _In_ const wchar_t *text, _In_ const wchar_t *color, _In_ long font_size,
+                  _Out_ long *ret);
+    // 清空叠加层全部图元并重绘。
+    void DrawClear(_Out_ long *ret);
+    // 显示/隐藏叠加层窗口（图元保留）。1=成功。
+    void DrawSetVisible(_In_ long show, _Out_ long *ret);
     //--------------------Background -----------------------
     // 兼容旧接口的单句柄绑定。显示和输入都使用同一个 hwnd。
     void BindWindow(_In_ LONG_PTR hwnd, _In_ const wchar_t *display, _In_ const wchar_t *mouse, _In_ const wchar_t *keypad,
