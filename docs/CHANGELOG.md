@@ -3,6 +3,20 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第十一批（YOLO/OCR：BGR 工具链单源化 + yolo 推理输入零拷贝，refactor/perf）
+
+逐模块分析与优化第 7 模块（YOLO），分析文档 `docs/2026-10/Yolo模块分析_20261015.md`。
+
+- **refactor(yolo/ocr): 极简 BGR 工具链单源化 + yolo ort_run 去 4.7MB 拷贝**
+  （提交 035fefe，-146/+113）
+  Y1 新建 `libop/algorithm/MiniImage.h`（op::img）：BGR/make_bgr/to_bgr/
+  resize_bilinear/utf8_to_wstring 五件自 OnnxOcrEngine 与 OnnxYoloEngine 匿名
+  命名空间收拢——原两份 byte 级相同（逐函数对比实证），纯搬运零行为变化。
+  Y2 yolo ort_run 输入 const_cast 借用（同 OCR 第八批 O1 依据），每次 detect
+  省约 4.7MB memcpy。OCR 自用图像件与 YOLO letterbox 各留本地。
+- **回归**：YOLO+OCR 合并专项 63 条全过；全量 401 ran / 398 PASS / 2 FAILED
+  （已知环境 flake）/ 1 SKIPPED。
+
 ### 2026-10-15 第十批（截图模块：帧头写入收拢基类 + 护栏/复位块收拢，refactor）
 
 逐模块分析与优化第 6 模块（截图），分析文档 `docs/2026-10/截图模块分析_20261015.md`。
