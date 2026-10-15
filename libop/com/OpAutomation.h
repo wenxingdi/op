@@ -557,6 +557,10 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(DecodeQRCode)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR *retstr);
     STDMETHOD(DecodeQRCodeFromFile)(BSTR file_name, BSTR *retstr);
     STDMETHOD(CreateQRCode)(BSTR text, BSTR file_name, LONG size, LONG *ret);
+    STDMETHOD(FindNearestFeasiblePoint)(LONG x, LONG y, BSTR *retstr);
+    STDMETHOD(SortPosDistance)(BSTR all_pos, LONG type, LONG x, LONG y, BSTR *retstr);
+    STDMETHOD(EnableDebugPrivilege)(LONG *ret);
+    STDMETHOD(GetLastErrorString)(BSTR *retstr);
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(OpAutomation), OpAutomation)

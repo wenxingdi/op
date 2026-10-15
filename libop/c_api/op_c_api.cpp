@@ -273,6 +273,10 @@ const wchar_t *OP_CALL OpAStarFindPathWay(op_handle handle, const wchar_t *point
                        [&](op::Op &op, std::wstring &ret) { op.AStarFindPathWay(safe_text(points), ret); });
 }
 
+const wchar_t *OP_CALL OpFindNearestFeasiblePoint(op_handle handle, int x, int y) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.FindNearestFeasiblePoint(x, y, ret); });
+}
+
 const wchar_t *OP_CALL OpSmoothPathByLOS(op_handle handle, const wchar_t *path) {
     return call_string(handle,
                        [&](op::Op &op, std::wstring &ret) { op.SmoothPathByLOS(safe_text(path), ret); });
@@ -327,6 +331,12 @@ const wchar_t *OP_CALL OpAStarFindPath(op_handle handle, int map_width, int map_
 const wchar_t *OP_CALL OpFindNearestPos(op_handle handle, const wchar_t *all_pos, int type, int x, int y) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) {
         op.FindNearestPos(safe_text(all_pos), type, x, y, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpSortPosDistance(op_handle handle, const wchar_t *all_pos, int type, int x, int y) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.SortPosDistance(safe_text(all_pos), type, x, y, ret);
     });
 }
 
@@ -647,6 +657,14 @@ const wchar_t *OP_CALL OpGetMachineCode(op_handle handle) {
 
 int OP_CALL OpIsElevated(op_handle handle) {
     return call_ret(handle, [](op::Op &op, long *ret) { op.IsElevated(ret); });
+}
+
+int OP_CALL OpEnableDebugPrivilege(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.EnableDebugPrivilege(ret); });
+}
+
+const wchar_t *OP_CALL OpGetLastErrorString(op_handle handle) {
+    return call_string(handle, [](op::Op &op, std::wstring &ret) { op.GetLastErrorString(ret); });
 }
 
 // Background binding

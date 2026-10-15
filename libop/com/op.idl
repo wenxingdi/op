@@ -285,6 +285,11 @@ interface IOpAutomation : IDispatch
 	[id(401)] HRESULT DecodeQRCode([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [out, retval] BSTR* retstr);
 	[id(402)] HRESULT DecodeQRCodeFromFile([in] BSTR file_name, [out, retval] BSTR* retstr);
 	[id(403)] HRESULT CreateQRCode([in] BSTR text, [in] BSTR file_name, [in] LONG size, [out, retval] LONG* ret);
+	// 第二十批（2026-10-15 晚）：算法补充 + 系统补充
+	[id(404)] HRESULT FindNearestFeasiblePoint([in] LONG x, [in] LONG y, [out, retval] BSTR* retstr);
+	[id(405)] HRESULT SortPosDistance([in] BSTR all_pos, [in] LONG type, [in] LONG x, [in] LONG y, [out, retval] BSTR* retstr);
+	[id(406)] HRESULT EnableDebugPrivilege([out, retval] LONG* ret);
+	[id(407)] HRESULT GetLastErrorString([out, retval] BSTR* retstr);
 	[id(300)] HRESULT CvLoadTemplate([in] BSTR name, [in] BSTR file_path, [out, retval] LONG* ret);
 	[id(301)] HRESULT CvLoadMaskedTemplate([in] BSTR name, [in] BSTR template_path, [in] BSTR mask_path, [out, retval] LONG* ret);
 	[id(302)] HRESULT CvRemoveTemplate([in] BSTR name, [out, retval] LONG* ret);

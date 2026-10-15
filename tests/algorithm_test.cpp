@@ -6,6 +6,8 @@
 
 #include <op_c_api.h>
 
+#include <Windows.h>
+
 #include <cmath>
 #include <string>
 #include <utility>
@@ -334,6 +336,54 @@ TEST(AlgorithmTest, PointInPolygonRayRule) {
     EXPECT_EQ(OpPointInPolygon(api.handle, L"3,3", L"0,0|10,0|10,10|6,10|6,6|0,6"), 1);
     // 顶点不足 3 返回 0。
     EXPECT_EQ(OpPointInPolygon(api.handle, L"5,5", L"0,0|10,10"), 0);
+}
+
+TEST(AlgorithmTest, FindNearestFeasiblePointSnapsToWalkable) {
+    CApiHandle api;
+    // 未设图返回空串。
+    EXPECT_STREQ(OpFindNearestFeasiblePoint(api.handle, 2, 8), L"");
+
+    auto map = MakeMapBgra(16, 16, VerticalWall(8, 0, 10));
+    ASSERT_EQ(OpSetAStarMapData(api.handle, 16, 16, map.data(), static_cast<int>(map.size()), 1, 0, 0), 1);
+    // 可走点原样返回（scale=1 格中心=原坐标）。
+    EXPECT_STREQ(OpFindNearestFeasiblePoint(api.handle, 2, 8), L"2,8");
+    // 墙格 (8,5) 四方向 BFS 首遇可走格 (9,5)（(7,5) 同为最近，方向序决定取右）。
+    EXPECT_STREQ(OpFindNearestFeasiblePoint(api.handle, 8, 5), L"9,5");
+    // 界外坐标钳到界内最近边后吸附。
+    EXPECT_STREQ(OpFindNearestFeasiblePoint(api.handle, 100, 8), L"15,8");
+}
+
+TEST(AlgorithmTest, SortPosDistanceStableAscending) {
+    CApiHandle api;
+    // type=1：按与 (0,0) 的距离平方升序。
+    EXPECT_STREQ(OpSortPosDistance(api.handle, L"50,50|10,10|30,10", 1, 0, 0), L"10,10|30,10|50,50");
+    // type=0：带 name，输出保持 "name,x,y" 格式。
+    EXPECT_STREQ(OpSortPosDistance(api.handle, L"c,50,50|a,10,10|b,30,10", 0, 0, 0), L"a,10,10|b,30,10|c,50,50");
+    // 等距保持输入顺序（稳定排序）。
+    EXPECT_STREQ(OpSortPosDistance(api.handle, L"1,0|-1,0", 1, 0, 0), L"1,0|-1,0");
+    // 空串/全非法项返回空串。
+    EXPECT_STREQ(OpSortPosDistance(api.handle, L"", 1, 0, 0), L"");
+    EXPECT_STREQ(OpSortPosDistance(api.handle, L"bad|alsbad", 1, 0, 0), L"");
+}
+
+TEST(SystemMiscTest, EnableDebugPrivilegeIsCallable) {
+    CApiHandle api;
+    // 测试进程通常未持 SeDebugPrivilege（非管理员或权限未授）：启用可能失败，
+    // 但接口必须可调用且不崩溃；管理员 CI 上应返回 1。
+    const int ret = OpEnableDebugPrivilege(api.handle);
+    EXPECT_TRUE(ret == 0 || ret == 1);
+}
+
+TEST(SystemMiscTest, GetLastErrorStringFormatsCode) {
+    CApiHandle api;
+    // 先制造一个确定性错误：设置错误码后立刻取文本。
+    ::SetLastError(ERROR_FILE_NOT_FOUND);
+    const wchar_t *msg = OpGetLastErrorString(api.handle);
+    ASSERT_TRUE(msg != nullptr);
+    EXPECT_NE(*msg, L'\0') << "ERROR_FILE_NOT_FOUND 应有对应文本（不依赖具体语言）";
+    // err==0（无错误）返回空串。
+    ::SetLastError(0);
+    EXPECT_STREQ(OpGetLastErrorString(api.handle), L"");
 }
 
 } // namespace

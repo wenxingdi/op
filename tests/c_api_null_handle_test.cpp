@@ -50,6 +50,7 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     EXPECT_EQ(OpSetAStarMapData(nullptr, 0, 0, nullptr, 0, 0, 0, 0), 0) << "OpSetAStarMapData";
     expect_empty(OpAStarFindPathBM(nullptr, 0, 0, 0, 0), "OpAStarFindPathBM");
     expect_empty(OpAStarFindPathWay(nullptr, L""), "OpAStarFindPathWay");
+    expect_empty(OpFindNearestFeasiblePoint(nullptr, 0, 0), "OpFindNearestFeasiblePoint");
     expect_empty(OpSmoothPathByLOS(nullptr, L""), "OpSmoothPathByLOS");
     expect_empty(OpSimplifyPath(nullptr, L"", 0.0), "OpSimplifyPath");
     EXPECT_EQ(OpIsLineBlocked(nullptr, 0, 0, 0, 0), 0) << "OpIsLineBlocked";
@@ -59,6 +60,7 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     EXPECT_EQ(OpSetScreenDataMode(nullptr, 0), 0) << "OpSetScreenDataMode";
     expect_empty(OpAStarFindPath(nullptr, 0, 0, L"", 0, 0, 0, 0), "OpAStarFindPath");
     expect_empty(OpFindNearestPos(nullptr, L"", 0, 0, 0), "OpFindNearestPos");
+    expect_empty(OpSortPosDistance(nullptr, L"", 0, 0, 0), "OpSortPosDistance");
     expect_empty(OpEnumWindow(nullptr, 0, L"", L"", 0), "OpEnumWindow");
     expect_empty(OpEnumWindowByProcess(nullptr, L"", L"", L"", 0), "OpEnumWindowByProcess");
     expect_empty(OpEnumProcess(nullptr, L""), "OpEnumProcess");
@@ -115,6 +117,8 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     EXPECT_EQ(OpGaiLu(nullptr, 0), 0) << "OpGaiLu";
     expect_empty(OpGetMachineCode(nullptr), "OpGetMachineCode");
     EXPECT_EQ(OpIsElevated(nullptr), 0) << "OpIsElevated";
+    EXPECT_EQ(OpEnableDebugPrivilege(nullptr), 0) << "OpEnableDebugPrivilege";
+    expect_empty(OpGetLastErrorString(nullptr), "OpGetLastErrorString");
     EXPECT_EQ(OpBindWindow(nullptr, 0, L"", L"", L"", 0), 0) << "OpBindWindow";
     EXPECT_EQ(OpBindWindowEx(nullptr, 0, 0, L"", L"", L"", 0), 0) << "OpBindWindowEx";
     EXPECT_EQ(OpUnBindWindow(nullptr), 0) << "OpUnBindWindow";

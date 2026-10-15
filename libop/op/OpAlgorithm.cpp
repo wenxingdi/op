@@ -9,9 +9,8 @@
 
 #include <cmath>
 #include <cwchar>
+#include <algorithm>
 #include <list>
-#include <regex>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -53,43 +52,76 @@ void op::Op::AStarFindPath(long mapWidth, long mapHeight, const wchar_t *disable
         path.pop_back();
 }
 
-void op::Op::FindNearestPos(const wchar_t *all_pos, long type, long x, long y, std::wstring &ret) {
-    double old = 1e9;
-    long rx = -1, ry = -1;
-    std::wstring best_name;
-    std::wstring s = std::regex_replace(all_pos, std::wregex(L","), L" ");
-    std::vector<std::wstring> items;
-    split(s, items, L"|");
-    for (const auto &item : items) {
-        long x2, y2;
-        bool ok = false;
-        std::wstring name;
-        std::wistringstream iss(item);
+namespace {
+
+// 坐标项：type=1 时 "x,y"（name 留空）；否则 "name,x,y"（name 不含空格/逗号）。
+// 解析失败（缺逗号/坐标非整数）的项跳过；全空返回空表。
+struct PosItem {
+    std::wstring name;
+    long x = 0;
+    long y = 0;
+    long long d2 = 0; // 与基准点的距离平方（排序用）
+};
+
+std::vector<PosItem> parse_pos_items(const wchar_t *all_pos, long type, long x, long y) {
+    std::vector<PosItem> items;
+    if (!all_pos)
+        return items;
+    std::vector<std::wstring> parts;
+    split(all_pos, parts, L"|");
+    for (const auto &part : parts) {
+        const auto comma = part.find(L',');
+        if (comma == std::wstring::npos)
+            continue;
+        PosItem it;
         if (type == 1) {
-            if (iss >> x2 >> y2) {
-                ok = true;
-            }
+            // type=1 无 name 段（%ld 自动跳过前导空白，容忍 "10, 20" 写法）
+            if (swscanf(part.c_str(), L"%ld,%ld", &it.x, &it.y) != 2)
+                continue;
         } else {
-            if (iss >> name >> x2 >> y2) {
-                ok = true;
-            }
+            it.name = part.substr(0, comma);
+            if (swscanf(part.c_str() + comma + 1, L"%ld,%ld", &it.x, &it.y) != 2)
+                continue;
         }
-        if (ok) {
-            double compareDis = (x - x2) * (x - x2) + (y - y2) * (y - y2);
-            if (compareDis < old) {
-                rx = x2;
-                ry = y2;
-                old = compareDis;
-                best_name = name;
-            }
-        }
+        const long long dx = static_cast<long long>(x) - it.x;
+        const long long dy = static_cast<long long>(y) - it.y;
+        it.d2 = dx * dx + dy * dy;
+        items.push_back(std::move(it));
     }
-    if (!best_name.empty()) {
-        ret = best_name + L"," + std::to_wstring(rx) + L"," + std::to_wstring(ry);
-    } else if (type == 1 && rx != -1) {
-        ret = std::to_wstring(rx) + L"," + std::to_wstring(ry);
+    return items;
+}
+
+std::wstring pos_item_to_string(const PosItem &it, long type) {
+    if (type == 1)
+        return std::to_wstring(it.x) + L"," + std::to_wstring(it.y);
+    return it.name + L"," + std::to_wstring(it.x) + L"," + std::to_wstring(it.y);
+}
+
+} // namespace
+
+void op::Op::FindNearestPos(const wchar_t *all_pos, long type, long x, long y, std::wstring &ret) {
+    const auto items = parse_pos_items(all_pos, type, x, y);
+    const PosItem *best = nullptr;
+    for (const auto &it : items) {
+        if (!best || it.d2 < best->d2)
+            best = &it;
+    }
+    if (best) {
+        ret = pos_item_to_string(*best, type);
     } else {
         ret.clear();
+    }
+}
+
+void op::Op::SortPosDistance(const wchar_t *all_pos, long type, long x, long y, std::wstring &ret) {
+    auto items = parse_pos_items(all_pos, type, x, y);
+    // 稳定排序：等距保持输入顺序
+    std::stable_sort(items.begin(), items.end(), [](const PosItem &a, const PosItem &b) { return a.d2 < b.d2; });
+    ret.clear();
+    for (size_t i = 0; i < items.size(); ++i) {
+        if (i)
+            ret.push_back(L'|');
+        ret += pos_item_to_string(items[i], type);
     }
 }
 
@@ -225,6 +257,24 @@ void op::Op::AStarFindPathWay(const wchar_t *points, std::wstring &path) {
         full.insert(full.end(), seg.begin(), seg.end());
     }
     path = pathtools::points_to_string(full);
+}
+
+// 找距离 (x,y) 最近的格中心可通行坐标（世界坐标 "x,y"）：落障碍格/界外时吸附最近可走格，
+// 游戏里目标点被怪/障碍物挡住时先吸附再寻路可大幅提升成功率。未设地图/全图皆墙返回空串。
+void op::Op::FindNearestFeasiblePoint(long x, long y, std::wstring &ret) {
+    ret.clear();
+    if (!m_context->astar_map.valid()) {
+        setlog(L"FindNearestFeasiblePoint: 未设置障碍地图，请先 SetAStarMap/SetAStarMapData");
+        return;
+    }
+    int gx = 0, gy = 0;
+    if (!pathtools::nearest_unblocked(m_context->astar_map, m_context->astar_map.world_to_grid_x(x),
+                                      m_context->astar_map.world_to_grid_y(y), gx, gy)) {
+        setlog(L"FindNearestFeasiblePoint: 地图全为障碍，无可通行格");
+        return;
+    }
+    ret = std::to_wstring(m_context->astar_map.grid_to_world_x(gx)) + L"," +
+          std::to_wstring(m_context->astar_map.grid_to_world_y(gy));
 }
 
 // 视线拉直：相邻可直视的路径点连线合并（贪心最远可见跳点），路径更自然、点击不抖。

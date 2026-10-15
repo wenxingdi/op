@@ -52,6 +52,7 @@ OP_C_API int OP_CALL OpSetAStarMapData(op_handle handle, int width, int height, 
                                        int size, int scale, int offset_x, int offset_y);
 OP_C_API const wchar_t *OP_CALL OpAStarFindPathBM(op_handle handle, int begin_x, int begin_y, int end_x, int end_y);
 OP_C_API const wchar_t *OP_CALL OpAStarFindPathWay(op_handle handle, const wchar_t *points);
+OP_C_API const wchar_t *OP_CALL OpFindNearestFeasiblePoint(op_handle handle, int x, int y);
 OP_C_API const wchar_t *OP_CALL OpSmoothPathByLOS(op_handle handle, const wchar_t *path);
 OP_C_API const wchar_t *OP_CALL OpSimplifyPath(op_handle handle, const wchar_t *path, double epsilon);
 OP_C_API int OP_CALL OpIsLineBlocked(op_handle handle, int x1, int y1, int x2, int y2);
@@ -66,6 +67,7 @@ OP_C_API const wchar_t *OP_CALL OpAStarFindPath(op_handle handle, int map_width,
                                                 const wchar_t *disable_points, int begin_x, int begin_y, int end_x,
                                                 int end_y);
 OP_C_API const wchar_t *OP_CALL OpFindNearestPos(op_handle handle, const wchar_t *all_pos, int type, int x, int y);
+OP_C_API const wchar_t *OP_CALL OpSortPosDistance(op_handle handle, const wchar_t *all_pos, int type, int x, int y);
 
 // Window and process
 OP_C_API const wchar_t *OP_CALL OpEnumWindow(op_handle handle, intptr_t parent, const wchar_t *title,
@@ -139,6 +141,8 @@ OP_C_API double OP_CALL OpGetRandomDouble(op_handle handle, double min, double m
 OP_C_API int OP_CALL OpGaiLu(op_handle handle, int p);
 OP_C_API const wchar_t *OP_CALL OpGetMachineCode(op_handle handle);
 OP_C_API int OP_CALL OpIsElevated(op_handle handle);
+OP_C_API int OP_CALL OpEnableDebugPrivilege(op_handle handle);
+OP_C_API const wchar_t *OP_CALL OpGetLastErrorString(op_handle handle);
 
 // Background binding
 OP_C_API int OP_CALL OpBindWindow(op_handle handle, intptr_t hwnd, const wchar_t *display, const wchar_t *mouse,

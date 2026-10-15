@@ -12,9 +12,11 @@
 #include <random>
 
 namespace {
-// 进程级共享的随机引擎: 用 random_device 播种一次, 保证多实例不取同一序列
+// 线程级随机引擎: thread_local 首次调用播种，与 Utils::thread_rng 同口径。
+// 公开随机 API（GetRandomNumber/GetRandomDouble/GaiLu）会被宿主的多个 worker
+// 线程并发调用，进程级共享 mt19937 有数据竞争；内部轨迹随机已是 thread_local。
 std::mt19937 &Rng() {
-    static std::mt19937 rng{std::random_device{}()};
+    static thread_local std::mt19937 rng{std::random_device{}()};
     return rng;
 }
 } // namespace
@@ -177,4 +179,46 @@ void op::Op::IsElevated(long *ret) {
         ::GetTokenInformation(token, TokenElevation, &elevation, sizeof(elevation), &len);
     ::CloseHandle(token);
     internal::set_result(ret, (ok && elevation.TokenIsElevated) ? 1L : 0L);
+}
+
+void op::Op::EnableDebugPrivilege(long *ret) {
+    internal::set_result(ret, 0L);
+    HANDLE token = nullptr;
+    if (::OpenProcessToken(::GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token) == FALSE)
+        return;
+    LUID luid = {};
+    if (::LookupPrivilegeValueW(nullptr, SE_DEBUG_NAME, &luid) == FALSE) {
+        ::CloseHandle(token);
+        return;
+    }
+    TOKEN_PRIVILEGES tp = {};
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Luid = luid;
+    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+    // AdjustTokenPrivileges 即使部分生效也返回 TRUE，须用 GetLastError 区分
+    if (::AdjustTokenPrivileges(token, FALSE, &tp, sizeof(tp), nullptr, nullptr) != FALSE &&
+        ::GetLastError() != ERROR_NOT_ALL_ASSIGNED) {
+        internal::set_result(ret, 1L);
+    }
+    ::CloseHandle(token);
+}
+
+void op::Op::GetLastErrorString(std::wstring &ret) {
+    ret.clear();
+    // 必须最先捕获：后续任何 Win32 调用都会覆盖线程错误码
+    const DWORD err = ::GetLastError();
+    if (err == 0)
+        return;
+    wchar_t *buf = nullptr;
+    const DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
+    const DWORD len = ::FormatMessageW(flags, nullptr, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                                       reinterpret_cast<LPWSTR>(&buf), 0, nullptr);
+    if (len > 0 && buf) {
+        ret.assign(buf, len);
+        // 去掉尾随的 \r\n
+        while (!ret.empty() && (ret.back() == L'\r' || ret.back() == L'\n'))
+            ret.pop_back();
+    }
+    if (buf)
+        ::LocalFree(buf);
 }

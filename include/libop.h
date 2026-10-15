@@ -137,6 +137,8 @@ class OP_API Op {
     // 从坐标列表中查找距离指定坐标最近的点。all_pos: type=1 时 "x,y|x,y"；否则 "name,x,y|..."（name 不含空格/逗号）。
     // 返回 "x,y"（type=1）或 "name,x,y"；列表无有效项返回空串；等距时取先出现的。
     void FindNearestPos(_In_ const wchar_t *all_pos, _In_ long type, _In_ long x, _In_ long y, _Out_ std::wstring &ret);
+    // 坐标点按与 (x,y) 的距离升序排序（欧氏距离平方比较）。格式与 FindNearestPos 相同，输出保持输入格式，等距保持输入顺序。
+    void SortPosDistance(_In_ const wchar_t *all_pos, _In_ long type, _In_ long x, _In_ long y, _Out_ std::wstring &ret);
     // 设置寻路障碍地图（位图文件，黑=障碍：亮度 (r+g+b)/3<128）。scale 降采样倍率（块内任一障碍像素则整格障碍）。
     // offset_x/offset_y：位图 (0,0) 对应的世界坐标（支持负值）。file 为空串清空地图。
     void SetAStarMap(_In_ const wchar_t *bitmap_file, _In_ long scale, _In_ long offset_x, _In_ long offset_y, _Out_ long *ret);
@@ -147,6 +149,9 @@ class OP_API Op {
     void AStarFindPathBM(_In_ long beginX, _In_ long beginY, _In_ long endX, _In_ long endY, _Out_ std::wstring &ret);
     // 多点途经寻路："x,y|x,y|..." 首点为起点，逐段寻路拼接（衔接点去重）；任一段不可达整体返回空串。
     void AStarFindPathWay(_In_ const wchar_t *points, _Out_ std::wstring &ret);
+    // 找距离 (x,y) 最近的格中心可通行坐标（世界坐标 "x,y"）：落障碍格时从该格 BFS 扩散找最近可走格。
+    // 未设地图/全图皆墙返回空串。欧拉 FindNearestFeasiblePoint 对等。
+    void FindNearestFeasiblePoint(_In_ long x, _In_ long y, _Out_ std::wstring &ret);
     // 视线拉直：贪心合并可直视的相邻路径点（需已设置障碍地图），路径更自然；未设图原样返回。
     void SmoothPathByLOS(_In_ const wchar_t *path, _Out_ std::wstring &ret);
     // RDP 路径抽稀：epsilon 为最大垂直偏差（世界坐标单位），<=0 原样返回。
@@ -288,6 +293,10 @@ class OP_API Op {
     void GetMachineCode(_Out_ std::wstring &ret);
     // 检测当前进程是否以管理员权限运行. 1是 0否
     void IsElevated(_Out_ long *ret);
+    // 为当前进程启用 SeDebugPrivilege（读高权限/提权进程内存的前置）。已启用或启用成功返回 1。
+    void EnableDebugPrivilege(_Out_ long *ret);
+    // 取当前线程的 GetLastError 错误文本（调用本方法前的最后一次 Win32 错误）。无法解析返回空串。
+    void GetLastErrorString(_Out_ std::wstring &ret);
     //--------------------Background -----------------------
     // 兼容旧接口的单句柄绑定。显示和输入都使用同一个 hwnd。
     void BindWindow(_In_ LONG_PTR hwnd, _In_ const wchar_t *display, _In_ const wchar_t *mouse, _In_ const wchar_t *keypad,

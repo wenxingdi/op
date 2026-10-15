@@ -1962,3 +1962,26 @@ STDMETHODIMP OpAutomation::CreateQRCode(BSTR text, BSTR file_name, LONG size, LO
     obj.CreateQRCode(text, file_name, size, ret);
     return S_OK;
 }
+
+STDMETHODIMP OpAutomation::FindNearestFeasiblePoint(LONG x, LONG y, BSTR *retstr) {
+    wstring s;
+    obj.FindNearestFeasiblePoint(x, y, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::SortPosDistance(BSTR all_pos, LONG type, LONG x, LONG y, BSTR *retstr) {
+    wstring s;
+    obj.SortPosDistance(all_pos, type, x, y, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::EnableDebugPrivilege(LONG *ret) {
+    obj.EnableDebugPrivilege(ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetLastErrorString(BSTR *retstr) {
+    wstring s;
+    obj.GetLastErrorString(s);
+    return CopyOutBstr(retstr, s);
+}

@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <queue>
 #include <string>
 #include <vector>
 
@@ -223,6 +224,56 @@ inline void rdp_simplify(const std::vector<PathPoint> &pts, double epsilon, std:
         if (keep[i])
             out.push_back(pts[i]);
     }
+}
+
+// 找距离 (gx,gy) 最近的非障碍格（四方向 BFS 扩散，首遇即曼哈顿最近）。
+// 起点在界内且非障碍时直接返回它自己；起点在界外时钳到界内最近边再扩散（偏差 ≤ 一格）。
+// 全图皆墙/地图无效返回 false。
+inline bool nearest_unblocked(const AStarMapState &m, int gx, int gy, int &out_gx, int &out_gy) {
+    if (!m.valid())
+        return false;
+    if (m.in_grid(gx, gy) && !m.is_blocked(gx, gy)) {
+        out_gx = gx;
+        out_gy = gy;
+        return true;
+    }
+    const int sx = gx < 0 ? 0 : (gx >= m.grid_w ? m.grid_w - 1 : gx);
+    const int sy = gy < 0 ? 0 : (gy >= m.grid_h ? m.grid_h - 1 : gy);
+    if (!m.is_blocked(sx, sy)) {
+        out_gx = sx;
+        out_gy = sy;
+        return true;
+    }
+    const size_t cells = static_cast<size_t>(m.grid_w) * m.grid_h;
+    std::vector<uint8_t> visited(cells, 0);
+    std::queue<int> q; // 存 y*grid_w+x
+    const int seed = sy * m.grid_w + sx;
+    visited[static_cast<size_t>(seed)] = 1;
+    q.push(seed);
+    static const int kDirs[4][2] = {{0, 1}, {0, -1}, {1, 0}, {-1, 0}};
+    while (!q.empty()) {
+        const int cur = q.front();
+        q.pop();
+        const int cx = cur % m.grid_w;
+        const int cy = cur / m.grid_w;
+        for (const auto &d : kDirs) {
+            const int nx = cx + d[0];
+            const int ny = cy + d[1];
+            if (!m.in_grid(nx, ny))
+                continue;
+            const int ni = ny * m.grid_w + nx;
+            if (visited[static_cast<size_t>(ni)])
+                continue;
+            if (!m.is_blocked(nx, ny)) {
+                out_gx = nx;
+                out_gy = ny;
+                return true;
+            }
+            visited[static_cast<size_t>(ni)] = 1;
+            q.push(ni);
+        }
+    }
+    return false; // 全图皆墙
 }
 
 // 射线法点在多边形判定（even-odd）。顶点数 <3 返回 false。
