@@ -978,63 +978,13 @@ bool thinMorphImage(const ImageHandle &source, ImageHandle &output) {
     return output.channels == 1;
 }
 
-bool thinZhangSuenMat(cv::Mat &image) {
-    if (image.empty() || image.type() != CV_8UC1) {
-        return false;
-    }
+namespace {
 
-    image /= 255;
-    cv::Mat marker = cv::Mat::zeros(image.size(), CV_8UC1);
-    bool changed = false;
-
-    do {
-        changed = false;
-        for (int step = 0; step < 2; ++step) {
-            marker.setTo(0);
-            for (int y = 1; y < image.rows - 1; ++y) {
-                for (int x = 1; x < image.cols - 1; ++x) {
-                    const uchar p1 = image.at<uchar>(y, x);
-                    if (p1 == 0) {
-                        continue;
-                    }
-
-                    const uchar p2 = image.at<uchar>(y - 1, x);
-                    const uchar p3 = image.at<uchar>(y - 1, x + 1);
-                    const uchar p4 = image.at<uchar>(y, x + 1);
-                    const uchar p5 = image.at<uchar>(y + 1, x + 1);
-                    const uchar p6 = image.at<uchar>(y + 1, x);
-                    const uchar p7 = image.at<uchar>(y + 1, x - 1);
-                    const uchar p8 = image.at<uchar>(y, x - 1);
-                    const uchar p9 = image.at<uchar>(y - 1, x - 1);
-
-                    // A 是 0->1 的跳变次数，B 是八邻域前景点数量。
-                    const int transitions = (p2 == 0 && p3 == 1) + (p3 == 0 && p4 == 1) +
-                                            (p4 == 0 && p5 == 1) + (p5 == 0 && p6 == 1) +
-                                            (p6 == 0 && p7 == 1) + (p7 == 0 && p8 == 1) +
-                                            (p8 == 0 && p9 == 1) + (p9 == 0 && p2 == 1);
-                    const int neighbors = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
-                    const bool keep_connectivity =
-                        step == 0 ? (p2 * p4 * p6 == 0 && p4 * p6 * p8 == 0)
-                                  : (p2 * p4 * p8 == 0 && p2 * p6 * p8 == 0);
-
-                    if (transitions == 1 && neighbors >= 2 && neighbors <= 6 && keep_connectivity) {
-                        marker.at<uchar>(y, x) = 1;
-                    }
-                }
-            }
-
-            if (cv::countNonZero(marker) > 0) {
-                image &= ~marker;
-                changed = true;
-            }
-        }
-    } while (changed);
-
-    image *= 255;
-    return true;
-}
-
-bool thinGuoHallMat(cv::Mat &image) {
+// 细化外壳：二值图 /=255 归一后按"两轮扫描 + marker 擦除"迭代至收敛，*=255 还原。
+// Zhang-Suen 与 Guo-Hall 仅"该像素是否擦除"的谓词不同，谓词由调用方注入，
+// 外壳（含八邻域取值、marker 合并、收敛条件）保持逐字节一致。
+template <typename ShouldErase>
+bool thinMatIterative(cv::Mat &image, ShouldErase &&should_erase) {
     if (image.empty() || image.type() != CV_8UC1) {
         return false;
     }
@@ -1062,15 +1012,7 @@ bool thinGuoHallMat(cv::Mat &image) {
                     const uchar p8 = image.at<uchar>(y, x - 1);
                     const uchar p9 = image.at<uchar>(y - 1, x - 1);
 
-                    // Guo-Hall 使用成对邻域保持连通性，对文字笔画通常更稳。
-                    const int transitions = (p2 == 0 && (p3 || p4)) + (p4 == 0 && (p5 || p6)) +
-                                            (p6 == 0 && (p7 || p8)) + (p8 == 0 && (p9 || p2));
-                    const int n1 = (p9 || p2) + (p3 || p4) + (p5 || p6) + (p7 || p8);
-                    const int n2 = (p2 || p3) + (p4 || p5) + (p6 || p7) + (p8 || p9);
-                    const int min_neighbors = std::min(n1, n2);
-                    const int m = step == 0 ? ((p6 || p7 || !p9) && p8) : ((p2 || p3 || !p5) && p4);
-
-                    if (transitions == 1 && min_neighbors >= 2 && min_neighbors <= 3 && m == 0) {
+                    if (should_erase(p2, p3, p4, p5, p6, p7, p8, p9, step)) {
                         marker.at<uchar>(y, x) = 1;
                     }
                 }
@@ -1085,6 +1027,40 @@ bool thinGuoHallMat(cv::Mat &image) {
 
     image *= 255;
     return true;
+}
+
+} // namespace
+
+bool thinZhangSuenMat(cv::Mat &image) {
+    // A 是 0->1 的跳变次数，B 是八邻域前景点数量。
+    return thinMatIterative(image, [](uchar p2, uchar p3, uchar p4, uchar p5, uchar p6, uchar p7,
+                                      uchar p8, uchar p9, int step) {
+        const int transitions = (p2 == 0 && p3 == 1) + (p3 == 0 && p4 == 1) +
+                                (p4 == 0 && p5 == 1) + (p5 == 0 && p6 == 1) +
+                                (p6 == 0 && p7 == 1) + (p7 == 0 && p8 == 1) +
+                                (p8 == 0 && p9 == 1) + (p9 == 0 && p2 == 1);
+        const int neighbors = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+        const bool keep_connectivity =
+            step == 0 ? (p2 * p4 * p6 == 0 && p4 * p6 * p8 == 0)
+                      : (p2 * p4 * p8 == 0 && p2 * p6 * p8 == 0);
+
+        return transitions == 1 && neighbors >= 2 && neighbors <= 6 && keep_connectivity;
+    });
+}
+
+bool thinGuoHallMat(cv::Mat &image) {
+    // Guo-Hall 使用成对邻域保持连通性，对文字笔画通常更稳。
+    return thinMatIterative(image, [](uchar p2, uchar p3, uchar p4, uchar p5, uchar p6, uchar p7,
+                                      uchar p8, uchar p9, int step) {
+        const int transitions = (p2 == 0 && (p3 || p4)) + (p4 == 0 && (p5 || p6)) +
+                                (p6 == 0 && (p7 || p8)) + (p8 == 0 && (p9 || p2));
+        const int n1 = (p9 || p2) + (p3 || p4) + (p5 || p6) + (p7 || p8);
+        const int n2 = (p2 || p3) + (p4 || p5) + (p6 || p7) + (p8 || p9);
+        const int min_neighbors = std::min(n1, n2);
+        const int m = step == 0 ? ((p6 || p7 || !p9) && p8) : ((p2 || p3 || !p5) && p4);
+
+        return transitions == 1 && min_neighbors >= 2 && min_neighbors <= 3 && m == 0;
+    });
 }
 
 bool thinImage(const ImageHandle &source, ImageHandle &output, ThinMode mode) {

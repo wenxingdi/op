@@ -394,6 +394,33 @@ opcv::Region rectToRegion(const cv::Rect &rect) {
     return region;
 }
 
+// gray 模式公共前导：先裁 ROI 再转灰度，为小区域匹配避免整图转换+复制的开销。
+// 裁剪后坐标系原点即 ROI 左上角，调用方须在结果出函数前加回 origin 偏移。
+// 返回 gray_source 地址；nullptr 表示前导失败（ROI 非法或灰度化失败），
+// 失败出口（result={} / results.clear() 等）由调用方各自处理。
+const opcv::ImageHandle *prepareGraySearchSource(
+    const opcv::ImageHandle &source,
+    const opcv::Region &region,
+    opcv::ImageHandle &gray_source,
+    opcv::Region &search_region,
+    int &origin_x,
+    int &origin_y) {
+    const cv::Rect gray_roi = clampRegion(region, source);
+    if (gray_roi.width <= 0 || gray_roi.height <= 0) {
+        return nullptr;
+    }
+
+    opcv::ImageHandle roi_image;
+    if (!crop(source, rectToRegion(gray_roi), roi_image) || !toGray(roi_image, gray_source)) {
+        return nullptr;
+    }
+
+    search_region = opcv::Region{0, 0, gray_roi.width, gray_roi.height};
+    origin_x = gray_roi.x;
+    origin_y = gray_roi.y;
+    return &gray_source;
+}
+
 // OpenCV 的 matchTemplate 仅对 TM_SQDIFF / TM_CCORR_NORMED 支持 mask，
 // 其余 method 传入 mask 会触发断言异常，调用前必须判定。
 bool matchMethodSupportsMask(int method) {
@@ -1596,88 +1623,6 @@ bool getScaledTemplateSnapshot(
     return templ.width > 0 && templ.height > 0;
 }
 
-bool probeScaleCandidate(
-    const opcv::ImageHandle &source,
-    const opcv::ImageHandle &templ,
-    const opcv::ImageHandle *mask,
-    const opcv::Region &region,
-    int method,
-    opcv::MatchColorMode color_mode,
-    double &score) {
-    score = 0.0;
-
-    const cv::Mat source_mat = createMatView(source);
-    const cv::Mat templ_mat = createMatView(templ);
-    if (source_mat.empty() || templ_mat.empty() || !isSupportedMatchMethod(method)) {
-        return false;
-    }
-
-    const cv::Rect roi = clampRegion(region, source);
-    if (roi.width <= 0 || roi.height <= 0 || templ.width > roi.width || templ.height > roi.height) {
-        return false;
-    }
-
-    cv::Rect probe_roi = roi;
-    cv::Mat probe_source = source_mat(probe_roi);
-    cv::Mat probe_templ = templ_mat;
-    cv::Mat probe_mask;
-    if (mask != nullptr) {
-        probe_mask = createMatView(*mask);
-        if (probe_mask.empty()) {
-            return false;
-        }
-    }
-
-    while (probe_templ.cols >= kPyramidMinCoarseTemplateSize * 2 &&
-           probe_templ.rows >= kPyramidMinCoarseTemplateSize * 2 &&
-           probe_source.cols / 2 >= std::max(1, probe_templ.cols / 2) &&
-           probe_source.rows / 2 >= std::max(1, probe_templ.rows / 2)) {
-        cv::Mat next_source;
-        cv::Mat next_templ;
-        cv::resize(probe_source, next_source, cv::Size(probe_source.cols / 2, probe_source.rows / 2), 0.0, 0.0,
-                   cv::INTER_AREA);
-        cv::resize(probe_templ, next_templ,
-                   cv::Size(std::max(1, static_cast<int>(std::lround(static_cast<double>(probe_templ.cols) / 2.0))),
-                            std::max(1, static_cast<int>(std::lround(static_cast<double>(probe_templ.rows) / 2.0)))),
-                   0.0, 0.0, cv::INTER_AREA);
-        probe_source = std::move(next_source);
-        probe_templ = std::move(next_templ);
-        if (!probe_mask.empty()) {
-            cv::Mat next_mask;
-            cv::resize(probe_mask, next_mask, probe_templ.size(), 0.0, 0.0, cv::INTER_NEAREST);
-            probe_mask = std::move(next_mask);
-        }
-    }
-
-    cv::Mat norm_source;
-    cv::Mat norm_templ;
-    if (!prepareMatchInputs(probe_source, probe_templ, color_mode, norm_source, norm_templ)) {
-        return false;
-    }
-
-    cv::Mat norm_mask;
-    if (!probe_mask.empty() && !prepareMaskInput(probe_mask, norm_templ, norm_mask)) {
-        return false;
-    }
-
-    cv::Mat match_result;
-    if (!runMatchTemplate(norm_source, norm_templ, match_result, method, norm_mask)) {
-        return false;
-    }
-    if (match_result.empty()) {
-        return false;
-    }
-
-    double min_score = 0.0;
-    double max_score = 0.0;
-    cv::Point min_location;
-    cv::Point max_location;
-    cv::minMaxLoc(match_result, &min_score, &max_score, &min_location, &max_location);
-    const bool lower_is_better = method == cv::TM_SQDIFF || method == cv::TM_SQDIFF_NORMED;
-    score = convertMatchScoreToSimilarity(method, static_cast<float>(lower_is_better ? min_score : max_score));
-    return true;
-}
-
 bool prepareScaleProbeSourceCache(
     const opcv::ImageHandle &source,
     const opcv::Region &region,
@@ -1815,7 +1760,10 @@ std::vector<ScaleProbeCandidate> probeAutomaticScaleCandidates(
 
     std::vector<ScaleProbeCandidate> probed;
     ScaleProbeSourceCache source_cache;
-    const bool has_source_cache = prepareScaleProbeSourceCache(source, region, source_cache);
+    // 缓存构建失败（源图为空/ROI 非法）时 levels 为空，下方 probe 统一判败跳过。
+    // 旧"无缓存再走独立重载"的前提与缓存构建完全相同（都要源 Mat 非空 + ROI 合法），
+    // 属不可达冗余，已随独立重载一并删除（CV3）。
+    prepareScaleProbeSourceCache(source, region, source_cache);
 
     for (size_t index = start_index; index < end_index; ++index) {
         opcv::ImageHandle templ;
@@ -1827,11 +1775,7 @@ std::vector<ScaleProbeCandidate> probeAutomaticScaleCandidates(
 
         double score = 0.0;
         const opcv::ImageHandle *mask_ptr = has_mask ? &mask : nullptr;
-        const bool probed_ok =
-            has_source_cache
-                ? probeScaleCandidate(source_cache, templ, mask_ptr, method, color_mode, score)
-                : probeScaleCandidate(source, templ, mask_ptr, region, method, color_mode, score);
-        if (!probed_ok) {
+        if (!probeScaleCandidate(source_cache, templ, mask_ptr, method, color_mode, score)) {
             continue;
         }
 
@@ -1950,6 +1894,56 @@ bool refineScaleCandidates(
     return true;
 }
 
+// "命中即停"并行分发骨架：以 min(hw, task_count) 个 worker 抢原子下标分发任务，
+// 任一任务命中即 CAS 置 found 并回调 onHit 写结果，其余 worker 收尾退出。
+// tryOne(index, local_match) 返回该任务是否命中；onHit(index, local_match)
+// 负责把结果写进调用方的结果体。三处并行入口（模板间 / 条带间 / 模板×条带）
+// 仅载荷不同，骨架逐字节一致，收拢为一份。
+template <typename TryOne, typename OnHit>
+bool runFirstHitParallel(size_t task_count, TryOne &&try_one, OnHit &&on_hit) {
+    if (task_count == 0) {
+        return false;
+    }
+
+    const size_t worker_count =
+        std::min(task_count, static_cast<size_t>(std::max(1u, std::thread::hardware_concurrency())));
+    std::atomic<size_t> next_index(0);
+    std::atomic<bool> found(false);
+    std::mutex result_mutex;
+
+    ThreadPool &pool = getOpenCvThreadPool();
+    std::vector<std::future<void>> tasks;
+    tasks.reserve(worker_count);
+    for (size_t worker = 0; worker < worker_count; ++worker) {
+        tasks.push_back(pool.enqueue([&]() {
+            while (!found.load(std::memory_order_acquire)) {
+                const size_t index = next_index.fetch_add(1, std::memory_order_relaxed);
+                if (index >= task_count) {
+                    break;
+                }
+
+                opcv::MatchResult local_match;
+                if (!try_one(index, local_match)) {
+                    continue;
+                }
+
+                bool expected = false;
+                if (found.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
+                    std::lock_guard<std::mutex> lock(result_mutex);
+                    on_hit(index, local_match);
+                }
+                break;
+            }
+        }));
+    }
+
+    for (auto &task : tasks) {
+        task.get();
+    }
+
+    return found.load(std::memory_order_acquire);
+}
+
 // 在非条带模式下并行查找任意模板；一旦任意模板命中，则返回该结果。
 bool findAnyNamedMatchParallel(
     const opcv::ImageHandle &source,
@@ -1965,46 +1959,18 @@ bool findAnyNamedMatchParallel(
         return false;
     }
 
-    const size_t worker_count =
-        std::min(template_names.size(), static_cast<size_t>(std::max(1u, std::thread::hardware_concurrency())));
-    std::atomic<size_t> next_index(0);
-    std::atomic<bool> found(false);
-    std::mutex result_mutex;
     opcv::NamedMatchResult found_result;
-
-    ThreadPool &pool = getOpenCvThreadPool();
-    std::vector<std::future<void>> tasks;
-    tasks.reserve(worker_count);
-    for (size_t worker = 0; worker < worker_count; ++worker) {
-        tasks.push_back(pool.enqueue([&, worker]() {
-            while (!found.load(std::memory_order_acquire)) {
-                const size_t index = next_index.fetch_add(1, std::memory_order_relaxed);
-                if (index >= template_names.size()) {
-                    break;
-                }
-
-                opcv::MatchResult local_match;
-                if (!findFirstNamedMatch(source, template_names[index], region, threshold, dir, method, color_mode,
-                                         local_match)) {
-                    continue;
-                }
-
-                bool expected = false;
-                if (found.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
-                    std::lock_guard<std::mutex> lock(result_mutex);
-                    found_result.name = template_names[index];
-                    found_result.match = local_match;
-                }
-                break;
-            }
-        }));
-    }
-
-    for (auto &task : tasks) {
-        task.get();
-    }
-
-    if (!found.load(std::memory_order_acquire)) {
+    const bool found = runFirstHitParallel(
+        template_names.size(),
+        [&](size_t index, opcv::MatchResult &local_match) {
+            return findFirstNamedMatch(source, template_names[index], region, threshold, dir, method, color_mode,
+                                       local_match);
+        },
+        [&](size_t index, const opcv::MatchResult &local_match) {
+            found_result.name = template_names[index];
+            found_result.match = local_match;
+        });
+    if (!found) {
         return false;
     }
 
@@ -2028,45 +1994,17 @@ bool findAnyStripMatch(
         return false;
     }
 
-    const size_t worker_count =
-        std::min(strips.size(), static_cast<size_t>(std::max(1u, std::thread::hardware_concurrency())));
-    std::atomic<size_t> next_index(0);
-    std::atomic<bool> found(false);
-    std::mutex result_mutex;
     opcv::MatchResult found_result;
-
-    ThreadPool &pool = getOpenCvThreadPool();
-    std::vector<std::future<void>> tasks;
-    tasks.reserve(worker_count);
-    for (size_t worker = 0; worker < worker_count; ++worker) {
-        tasks.push_back(pool.enqueue([&, worker]() {
-            while (!found.load(std::memory_order_acquire)) {
-                const size_t index = next_index.fetch_add(1, std::memory_order_relaxed);
-                if (index >= strips.size()) {
-                    break;
-                }
-
-                opcv::MatchResult local_match;
-                if (!findFirstNamedMatch(source, template_name, strips[index], threshold, dir, method, color_mode,
-                                         local_match)) {
-                    continue;
-                }
-
-                bool expected = false;
-                if (found.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
-                    std::lock_guard<std::mutex> lock(result_mutex);
-                    found_result = local_match;
-                }
-                break;
-            }
-        }));
-    }
-
-    for (auto &task : tasks) {
-        task.get();
-    }
-
-    if (!found.load(std::memory_order_acquire)) {
+    const bool found = runFirstHitParallel(
+        strips.size(),
+        [&](size_t index, opcv::MatchResult &local_match) {
+            return findFirstNamedMatch(source, template_name, strips[index], threshold, dir, method, color_mode,
+                                       local_match);
+        },
+        [&](size_t index, const opcv::MatchResult &local_match) {
+            found_result = local_match;
+        });
+    if (!found) {
         return false;
     }
 
@@ -2117,48 +2055,19 @@ bool findAnyNamedStripMatchParallel(
         return false;
     }
 
-    const size_t worker_count =
-        std::min(search_tasks.size(), static_cast<size_t>(std::max(1u, std::thread::hardware_concurrency())));
-    std::atomic<size_t> next_index(0);
-    std::atomic<bool> found(false);
-    std::mutex result_mutex;
     opcv::NamedMatchResult found_result;
-
-    ThreadPool &pool = getOpenCvThreadPool();
-    std::vector<std::future<void>> tasks;
-    tasks.reserve(worker_count);
-    for (size_t worker = 0; worker < worker_count; ++worker) {
-        tasks.push_back(pool.enqueue([&, worker]() {
-            while (!found.load(std::memory_order_acquire)) {
-                const size_t index = next_index.fetch_add(1, std::memory_order_relaxed);
-                if (index >= search_tasks.size()) {
-                    break;
-                }
-
-                const auto &search_task = search_tasks[index];
-                opcv::MatchResult local_match;
-                if (!findFirstNamedMatch(
-                        source, *search_task.template_name, search_task.strip_region, threshold, dir, method,
-                        color_mode, local_match)) {
-                    continue;
-                }
-
-                bool expected = false;
-                if (found.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
-                    std::lock_guard<std::mutex> lock(result_mutex);
-                    found_result.name = *search_task.template_name;
-                    found_result.match = local_match;
-                }
-                break;
-            }
-        }));
-    }
-
-    for (auto &task : tasks) {
-        task.get();
-    }
-
-    if (!found.load(std::memory_order_acquire)) {
+    const bool found = runFirstHitParallel(
+        search_tasks.size(),
+        [&](size_t index, opcv::MatchResult &local_match) {
+            const auto &search_task = search_tasks[index];
+            return findFirstNamedMatch(source, *search_task.template_name, search_task.strip_region, threshold, dir,
+                                       method, color_mode, local_match);
+        },
+        [&](size_t index, const opcv::MatchResult &local_match) {
+            found_result.name = *search_tasks[index].template_name;
+            found_result.match = local_match;
+        });
+    if (!found) {
         return false;
     }
 
@@ -2547,20 +2456,11 @@ bool MatchTemplate(
     int origin_x = 0;
     int origin_y = 0;
     if (color_mode == MatchColorMode::Gray) {
-        const cv::Rect gray_roi = clampRegion(region, source);
-        if (gray_roi.width <= 0 || gray_roi.height <= 0) {
+        search_source = prepareGraySearchSource(source, region, gray_source, search_region, origin_x, origin_y);
+        if (search_source == nullptr) {
             result = {};
             return false;
         }
-        opcv::ImageHandle roi_image;
-        if (!crop(source, rectToRegion(gray_roi), roi_image) || !toGray(roi_image, gray_source)) {
-            result = {};
-            return false;
-        }
-        search_source = &gray_source;
-        search_region = opcv::Region{0, 0, gray_roi.width, gray_roi.height};
-        origin_x = gray_roi.x;
-        origin_y = gray_roi.y;
     }
 
     if (normalized_strip_mode == StripMode::None) {
@@ -2754,18 +2654,10 @@ bool MatchTemplateRotated(
     int origin_x = 0;
     int origin_y = 0;
     if (color_mode == MatchColorMode::Gray) {
-        const cv::Rect gray_roi = clampRegion(region, source);
-        if (gray_roi.width <= 0 || gray_roi.height <= 0) {
+        search_source = prepareGraySearchSource(source, region, gray_source, search_region, origin_x, origin_y);
+        if (search_source == nullptr) {
             return false;
         }
-        opcv::ImageHandle roi_image;
-        if (!crop(source, rectToRegion(gray_roi), roi_image) || !toGray(roi_image, gray_source)) {
-            return false;
-        }
-        search_source = &gray_source;
-        search_region = opcv::Region{0, 0, gray_roi.width, gray_roi.height};
-        origin_x = gray_roi.x;
-        origin_y = gray_roi.y;
     }
 
     const cv::Rect roi = clampRegion(search_region, *search_source);
@@ -2866,20 +2758,11 @@ bool MatchAnyTemplate(
     int origin_x = 0;
     int origin_y = 0;
     if (color_mode == MatchColorMode::Gray) {
-        const cv::Rect gray_roi = clampRegion(region, source);
-        if (gray_roi.width <= 0 || gray_roi.height <= 0) {
+        search_source = prepareGraySearchSource(source, region, gray_source, search_region, origin_x, origin_y);
+        if (search_source == nullptr) {
             result = {};
             return false;
         }
-        opcv::ImageHandle roi_image;
-        if (!crop(source, rectToRegion(gray_roi), roi_image) || !toGray(roi_image, gray_source)) {
-            result = {};
-            return false;
-        }
-        search_source = &gray_source;
-        search_region = opcv::Region{0, 0, gray_roi.width, gray_roi.height};
-        origin_x = gray_roi.x;
-        origin_y = gray_roi.y;
     }
 
     if (normalized_strip_mode == StripMode::None) {
@@ -2981,20 +2864,11 @@ bool MatchAllTemplates(
     int origin_x = 0;
     int origin_y = 0;
     if (color_mode == MatchColorMode::Gray) {
-        const cv::Rect gray_roi = clampRegion(region, source);
-        if (gray_roi.width <= 0 || gray_roi.height <= 0) {
+        search_source = prepareGraySearchSource(source, region, gray_source, search_region, origin_x, origin_y);
+        if (search_source == nullptr) {
             results.clear();
             return false;
         }
-        opcv::ImageHandle roi_image;
-        if (!crop(source, rectToRegion(gray_roi), roi_image) || !toGray(roi_image, gray_source)) {
-            results.clear();
-            return false;
-        }
-        search_source = &gray_source;
-        search_region = opcv::Region{0, 0, gray_roi.width, gray_roi.height};
-        origin_x = gray_roi.x;
-        origin_y = gray_roi.y;
     }
     if (normalized_strip_mode == StripMode::None) {
         results.clear();
