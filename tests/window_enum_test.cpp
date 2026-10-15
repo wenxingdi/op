@@ -315,4 +315,79 @@ TEST_F(WindowEnumByProcessTest, Filter5_TitleWithinFirstLevel) {
     ExpectExactSet(EnumByProcess(L"Owned", L"", 5), {{tree_.owned, L"owned"}});
 }
 
+// ---- 组合位补充（W1b 前补拍：bit2/3/4 的交叉组合此前零覆盖）----
+
+// filter=8，parent=父窗口：owner 闸门 + 对每个孩子无条件递归子树（不带可见性要求）。
+TEST_F(WindowEnumTest, Filter8_UnderParentRecurseAlways) {
+    ExpectExactSet(Enum(reinterpret_cast<LONG_PTR>(tree_.parent), L"", L"", 8),
+                   {{tree_.kid_a, L"kid_a"}, {tree_.kid_b, L"kid_b（隐藏但 bit8 不查可见）"}, {tree_.grand, L"grand"}});
+}
+
+// filter=12 = 4+8：owner==0 的第一层孩子，不递归（bit2=只首层）。
+TEST_F(WindowEnumTest, Filter12_FirstLevelOwnerZeroNoRecurse) {
+    ExpectExactSet(Enum(reinterpret_cast<LONG_PTR>(tree_.parent), L"", L"", 12),
+                   {{tree_.kid_a, L"kid_a"}, {tree_.kid_b, L"kid_b"}});
+}
+
+// filter=20 = 4+16：可见的第一层孩子，不递归——grand 虽可见但被 bit2 挡住。
+TEST_F(WindowEnumTest, Filter20_FirstLevelVisibleNoRecurse) {
+    ExpectExactSet(Enum(reinterpret_cast<LONG_PTR>(tree_.parent), L"", L"", 20), {{tree_.kid_a, L"kid_a"}});
+}
+
+// filter=24 = 8+16（无 bit2）：owner+可见闸门，对通过者无条件递归——grand 经递归进入。
+TEST_F(WindowEnumTest, Filter24_UnderParentRecurseAlways) {
+    ExpectExactSet(Enum(reinterpret_cast<LONG_PTR>(tree_.parent), L"", L"", 24),
+                   {{tree_.kid_a, L"kid_a"}, {tree_.grand, L"grand"}});
+}
+
+// filter=28 = 4+8+16：owner+可见的第一层，不递归。
+TEST_F(WindowEnumTest, Filter28_FirstLevelOwnerZeroVisibleNoRecurse) {
+    ExpectExactSet(Enum(reinterpret_cast<LONG_PTR>(tree_.parent), L"", L"", 28), {{tree_.kid_a, L"kid_a"}});
+}
+
+// ByProcess filter=8：owner 闸门 + 递归子树；hidden_top 无可见位要求应入选，owned 因 owner 被排除。
+TEST_F(WindowEnumByProcessTest, Filter8_OwnerZeroWithProcess) {
+    const auto windows = EnumByProcess(L"", L"", 8);
+    ExpectContains(windows, tree_.parent, L"parent");
+    ExpectContains(windows, tree_.kid_a, L"kid_a");
+    ExpectContains(windows, tree_.kid_b, L"kid_b（bit8 不查可见）");
+    ExpectContains(windows, tree_.grand, L"grand");
+    ExpectContains(windows, tree_.hidden_top, L"hidden_top");
+    ExpectNotContains(windows, tree_.owned, L"owned（owner!=0）");
+}
+
+// ByProcess filter=12 = 4+8：owner 闸门 + 「首个进程」递归子树（(true,false,proc)）。
+TEST_F(WindowEnumByProcessTest, Filter12_OwnerZeroFirstProcess) {
+    const auto windows = EnumByProcess(L"", L"", 12);
+    ExpectContains(windows, tree_.parent, L"parent");
+    ExpectContains(windows, tree_.kid_a, L"kid_a");
+    ExpectContains(windows, tree_.kid_b, L"kid_b");
+    ExpectContains(windows, tree_.grand, L"grand");
+    ExpectContains(windows, tree_.hidden_top, L"hidden_top");
+    ExpectNotContains(windows, tree_.owned, L"owned（owner!=0）");
+}
+
+// ByProcess filter=20 = 4+16：可见闸门 + 「首个进程」递归子树；hidden_top/kid_b 因隐藏被排除。
+// 注意：bit3(8) 未置位，owned 不受 owner 限制、可见即入选。
+TEST_F(WindowEnumByProcessTest, Filter20_VisibleFirstProcess) {
+    const auto windows = EnumByProcess(L"", L"", 20);
+    ExpectContains(windows, tree_.parent, L"parent");
+    ExpectContains(windows, tree_.kid_a, L"kid_a");
+    ExpectContains(windows, tree_.grand, L"grand");
+    ExpectContains(windows, tree_.owned, L"owned（bit20 无 owner 位，可见即入选）");
+    ExpectNotContains(windows, tree_.hidden_top, L"hidden_top（隐藏）");
+    ExpectNotContains(windows, tree_.kid_b, L"kid_b（隐藏）");
+}
+
+// ByProcess filter=28 = 4+8+16：owner+可见 + 「首个进程」递归子树。
+TEST_F(WindowEnumByProcessTest, Filter28_OwnerZeroVisibleFirstProcess) {
+    const auto windows = EnumByProcess(L"", L"", 28);
+    ExpectContains(windows, tree_.parent, L"parent");
+    ExpectContains(windows, tree_.kid_a, L"kid_a");
+    ExpectContains(windows, tree_.grand, L"grand");
+    ExpectNotContains(windows, tree_.hidden_top, L"hidden_top（隐藏）");
+    ExpectNotContains(windows, tree_.kid_b, L"kid_b（隐藏）");
+    ExpectNotContains(windows, tree_.owned, L"owned（owner!=0）");
+}
+
 } // namespace
