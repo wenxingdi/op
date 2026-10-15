@@ -55,14 +55,12 @@ class BindingSession {
     // 返回当前绑定的显示窗口句柄。使用 BindWindowEx 时，输入句柄可能不同于这个句柄。
     virtual LONG_PTR GetBindWindow();
     virtual long IsBind();
-    // virtual long GetCursorPos(int& x, int& y);
 
     long GetDisplay();
     // 返回当前实际生效的图色模式名（"gdi2"/"dx.d3d11"/"normal.wgc" …），未绑定返回空串。
     // 与 GetDisplay() 的裸模式值互补：绑定失败/截图异常时用它确认走的是哪条链路。
     // 注意：不可命名为 display_mode_name——会同本文件匿名 namespace 里的自由函数冲突（成员函数隐藏它）。
     const wchar_t *GetDisplayMethodName() const;
-    /*byte* GetScreenData();*/
     void lock_data();
     void unlock_data();
     long get_height();

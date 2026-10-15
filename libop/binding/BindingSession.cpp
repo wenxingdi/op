@@ -6,7 +6,6 @@
 #include "../base/WindowsVersion.h"
 #include <algorithm>
 #include <cwctype>
-#include <tuple>
 #include <vector>
 
 #include "../capture/backends/DxgiCapture.h"
@@ -97,41 +96,42 @@ std::wstring window_class_name(HWND hwnd) {
     }
 }
 
-bool class_contains(const std::wstring &class_name, const wchar_t *needle) {
-    return to_lower_ascii(class_name).find(to_lower_ascii(needle)) != std::wstring::npos;
+bool class_contains(const std::wstring &class_name_lower, const wchar_t *needle) {
+    return class_name_lower.find(needle) != std::wstring::npos;
 }
 
-bool class_equals(const std::wstring &class_name, const wchar_t *needle) {
-    return to_lower_ascii(class_name) == to_lower_ascii(needle);
+bool class_equals(const std::wstring &class_name_lower, const wchar_t *needle) {
+    return class_name_lower == needle;
 }
 
 bool prefers_wgc(HWND hwnd) {
-    const std::wstring class_name = window_class_name(hwnd);
+    const std::wstring class_name = to_lower_ascii(window_class_name(hwnd));
     if (class_name.empty())
         return false;
 
-    const wchar_t *partial_matches[] = {L"Chrome", L"Mozilla", nullptr};
+    // needle 均为小写字面量：class_name 已整体小写化，直接比较（Win32 类名本就不区分大小写）。
+    const wchar_t *partial_matches[] = {L"chrome", L"mozilla", nullptr};
     for (const wchar_t **match = partial_matches; *match; ++match) {
         if (class_contains(class_name, *match))
             return true;
     }
 
     const wchar_t *whole_matches[] = {
-        L"ApplicationFrameWindow",
-        L"Windows.UI.Core.CoreWindow",
-        L"WinUIDesktopWin32WindowClass",
-        L"GAMINGSERVICESUI_HOSTING_WINDOW_CLASS",
-        L"XLMAIN",
-        L"PPTFrameClass",
-        L"screenClass",
-        L"PodiumParent",
-        L"OpusApp",
-        L"OMain",
-        L"Framework::CFrame",
+        L"applicationframewindow",
+        L"windows.ui.core.corewindow",
+        L"winuidesktopwin32windowclass",
+        L"gamingservicesui_hosting_window_class",
+        L"xlmain",
+        L"pptframeclass",
+        L"screenclass",
+        L"podiumparent",
+        L"opusapp",
+        L"omain",
+        L"framework::cframe",
         L"rctrl_renwnd32",
-        L"MSWinPub",
-        L"OfficeApp-Frame",
-        L"SDL_app",
+        L"mswinpub",
+        L"officeapp-frame",
+        L"sdl_app",
         nullptr,
     };
     for (const wchar_t **match = whole_matches; *match; ++match) {
@@ -157,58 +157,55 @@ std::vector<int> choose_auto_displays(HWND hwnd) {
     return displays;
 }
 
-const wchar_t *display_mode_name(int display) {
-    switch (display) {
-    case RDT_NORMAL:
-        return L"normal";
-    case RDT_NORMAL_DXGI:
-        return L"normal.dxgi";
-    case RDT_NORMAL_WGC:
-        return L"normal.wgc";
-    default:
-        return L"normal.auto";
+// display 模式名 ↔ RDT_* 单一映射表：BindWindowEx 的解析与 GetDisplayMethodName 的命名
+// 共用此表，避免两份手写 switch 双向漂移。
+struct DisplayModeEntry {
+    const wchar_t *name;
+    int mode;
+};
+constexpr DisplayModeEntry kDisplayModes[] = {
+    {L"normal", RDT_NORMAL},
+    {L"normal.dxgi", RDT_NORMAL_DXGI},
+    {L"normal.wgc", RDT_NORMAL_WGC},
+    {L"gdi", RDT_GDI},
+    {L"gdi2", RDT_GDI2},
+    {L"dx2", RDT_GDI_DX2},
+    {L"dx", RDT_DX_DEFAULT},
+    {L"dx.d3d9", RDT_DX_D3D9},
+    {L"dx.d3d10", RDT_DX_D3D10},
+    {L"dx.d3d11", RDT_DX_D3D11},
+    {L"dx.d3d12", RDT_DX_D3D12},
+    {L"opengl", RDT_GL_DEFAULT},
+    {L"opengl.std", RDT_GL_STD},
+    {L"opengl.nox", RDT_GL_NOX},
+    {L"opengl.es", RDT_GL_ES},
+    {L"opengl.fi", RDT_GL_FI},
+};
+
+// 名字 → 模式；未命中返回 false。
+bool display_mode_from_name(const std::wstring &s, int &mode) {
+    for (const auto &entry : kDisplayModes) {
+        if (s == entry.name) {
+            mode = entry.mode;
+            return true;
+        }
     }
+    return false;
 }
 
-// 完整模式名映射（供对外 GetDisplayMethod 使用）：上面的 display_mode_name 只覆盖
-// normal.auto 回退日志涉及的三种，对外查询需要全部 15 种模式名。
+// 模式 → 名字（对外查询用，未绑定/未知模式返回空串）。
 const wchar_t *display_mode_name_full(int display) {
-    switch (display) {
-    case RDT_NORMAL:
-        return L"normal";
-    case RDT_NORMAL_DXGI:
-        return L"normal.dxgi";
-    case RDT_NORMAL_WGC:
-        return L"normal.wgc";
-    case RDT_GDI:
-        return L"gdi";
-    case RDT_GDI2:
-        return L"gdi2";
-    case RDT_GDI_DX2:
-        return L"dx2";
-    case RDT_DX_DEFAULT:
-        return L"dx";
-    case RDT_DX_D3D9:
-        return L"dx.d3d9";
-    case RDT_DX_D3D10:
-        return L"dx.d3d10";
-    case RDT_DX_D3D11:
-        return L"dx.d3d11";
-    case RDT_DX_D3D12:
-        return L"dx.d3d12";
-    case RDT_GL_DEFAULT:
-        return L"opengl";
-    case RDT_GL_STD:
-        return L"opengl.std";
-    case RDT_GL_NOX:
-        return L"opengl.nox";
-    case RDT_GL_ES:
-        return L"opengl.es";
-    case RDT_GL_FI:
-        return L"opengl.fi";
-    default:
-        return L"";
+    for (const auto &entry : kDisplayModes) {
+        if (entry.mode == display)
+            return entry.name;
     }
+    return L"";
+}
+
+// auto 回退日志用的短名：normal 三候选之外的精确模式直接复用全名表。
+const wchar_t *display_mode_name(int display) {
+    const wchar_t *name = display_mode_name_full(display);
+    return name[0] != L'\0' ? name : L"normal.auto";
 }
 
 } // namespace
@@ -246,43 +243,11 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
     int display, mouse, keypad;
     std::vector<int> display_candidates;
     const bool auto_display = sdisplay == L"normal.auto";
-    // step 3.check display... mode
+    // step 3.check display... mode（模式名查表，见 kDisplayModes）
     if (auto_display) {
         display_candidates = choose_auto_displays(displayWnd);
         display = display_candidates.front();
-    } else if (sdisplay == L"normal")
-        display = RDT_NORMAL;
-    else if (sdisplay == L"normal.dxgi")
-        display = RDT_NORMAL_DXGI;
-    else if (sdisplay == L"normal.wgc")
-        display = RDT_NORMAL_WGC;
-    else if (sdisplay == L"gdi")
-        display = RDT_GDI;
-    else if (sdisplay == L"gdi2")
-        display = RDT_GDI2;
-    else if (sdisplay == L"dx2")
-        display = RDT_GDI_DX2;
-    else if (sdisplay == L"dx")
-        display = RDT_DX_DEFAULT;
-    else if (sdisplay == L"dx.d3d9")
-        display = RDT_DX_D3D9;
-    else if (sdisplay == L"dx.d3d10")
-        display = RDT_DX_D3D10;
-    else if (sdisplay == L"dx.d3d11")
-        display = RDT_DX_D3D11;
-    else if (sdisplay == L"dx.d3d12")
-        display = RDT_DX_D3D12;
-    else if (sdisplay == L"opengl")
-        display = RDT_GL_DEFAULT;
-    else if (sdisplay == L"opengl.std")
-        display = RDT_GL_STD;
-    else if (sdisplay == L"opengl.nox")
-        display = RDT_GL_NOX;
-    else if (sdisplay == L"opengl.es")
-        display = RDT_GL_ES;
-    else if (sdisplay == L"opengl.fi") // glFinish
-        display = RDT_GL_FI;
-    else {
+    } else if (!display_mode_from_name(sdisplay, display)) {
         setlog(L"error display mode: %s", sdisplay.c_str());
         ::SetLastError(BIND_FAIL_DISPLAY_MODE);
         return 0;
@@ -372,7 +337,43 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
         _dx_attr_from_suffix = false;
     }
 
-    auto prepare_backends = [&]() {
+    // 输入后端与显示候选无关：创建并绑定一次即可，auto 回退不再重复跨进程注入/重建。
+    // 旧的逐候选重建里，回退到第 2/3 个显示后端时会把鼠标键盘再 Bind 一遍，纯属浪费绑定延迟。
+    const bool dx_input = mouse == INPUT_TYPE::IN_DX || keypad == INPUT_TYPE::IN_DX;
+    _mouse = createMouse(mouse);
+    _keyboard = createKeypad(keypad);
+    bool backend_create_failed = !_mouse || !_keyboard;
+    long display_ret = 0;
+    long mouse_ret = 0;
+    long keypad_ret = 0;
+    if (!backend_create_failed) {
+        mouse_ret = _mouse->Bind(inputWnd, mouse);
+        keypad_ret = (mouse_ret == 1) ? _keyboard->Bind(inputWnd, keypad) : 0;
+        // dx 输入注入成功后再把通道开关下发给远端 Hook；默认值无需多做一次跨进程调用。
+        if (keypad_ret == 1 && dx_input) {
+            // 钩子活性回环：注入+SetInputHook 返 1 不等于钩子真能工作（权限边界/残留态可造成
+            // 静默假成功），绑定成功瞬间做一次轻量 RPC，钩子不应答则整次绑定判失败。
+            if (op::hook::input_hook_client::PingHook(inputWnd) != 1) {
+                setlog("input hook ping failed after bind. hwnd=%p", inputWnd);
+                mouse_ret = 0;
+                keypad_ret = 0;
+            } else if (_dx_attr != DX_ATTR_ALL &&
+                       op::hook::input_hook_client::SetInputAttr(inputWnd, _dx_attr) != 1) {
+                setlog("apply dx input attr failed. hwnd=%p attr=%d", inputWnd, _dx_attr);
+            }
+        }
+    }
+
+    // normal.auto 逐个尝试候选显示后端；输入后端已在上方就绪，这里每轮只重建 capture。
+    bool bind_ok = false;
+    for (size_t i = 0; i < display_candidates.size(); ++i) {
+        if (i > 0 && _capture) {
+            // 只释放显示后端：输入后端跨候选复用，不再随 reset_bind_state 清空。
+            _capture->UnBind();
+            _capture.reset();
+        }
+
+        display = display_candidates[i];
         _mode = mode;
         _display = display;
         _display_hwnd = displayWnd;
@@ -382,49 +383,13 @@ long BindingSession::BindWindowEx(LONG_PTR display_hwnd, LONG_PTR input_hwnd, co
         set_display_method(L"screen");
 
         _capture = createDisplay(display);
-        _mouse = createMouse(mouse);
-        _keyboard = createKeypad(keypad);
-        return _capture && _mouse && _keyboard;
-    };
-
-    auto try_bind = [&]() {
-        const long display_ret = _capture->Bind(displayWnd, display);
-        const long mouse_ret = display_ret == 1 ? _mouse->Bind(inputWnd, mouse) : 0;
-        const long keypad_ret = (display_ret == 1 && mouse_ret == 1) ? _keyboard->Bind(inputWnd, keypad) : 0;
-        // dx 输入注入成功后再把通道开关下发给远端 Hook；默认值无需多做一次跨进程调用。
-        const bool dx_input = mouse == INPUT_TYPE::IN_DX || keypad == INPUT_TYPE::IN_DX;
-        if (keypad_ret == 1 && dx_input) {
-            // 钩子活性回环：注入+SetInputHook 返 1 不等于钩子真能工作（权限边界/残留态可造成
-            // 静默假成功），绑定成功瞬间做一次轻量 RPC，钩子不应答则整次绑定判失败。
-            if (op::hook::input_hook_client::PingHook(inputWnd) != 1) {
-                setlog("input hook ping failed after bind. hwnd=%p", inputWnd);
-                return std::make_tuple(display_ret, 0L, 0L);
-            }
-            if (_dx_attr != DX_ATTR_ALL &&
-                op::hook::input_hook_client::SetInputAttr(inputWnd, _dx_attr) != 1)
-                setlog("apply dx input attr failed. hwnd=%p attr=%d", inputWnd, _dx_attr);
-        }
-        return std::make_tuple(display_ret, mouse_ret, keypad_ret);
-    };
-
-    // normal.auto 逐个尝试候选后端，前一个失败时释放资源再进入下一个。
-    long display_ret = 0;
-    long mouse_ret = 0;
-    long keypad_ret = 0;
-    bool bind_ok = false;
-    bool backend_create_failed = false;
-    for (size_t i = 0; i < display_candidates.size(); ++i) {
-        if (i > 0)
-            reset_bind_state(false);
-
-        display = display_candidates[i];
-        if (!prepare_backends()) {
+        if (!_capture) {
             setlog("create instance error!");
             backend_create_failed = true;
             continue;
         }
 
-        std::tie(display_ret, mouse_ret, keypad_ret) = try_bind();
+        display_ret = _capture->Bind(displayWnd, display);
         if (display_ret == 1 && mouse_ret == 1 && keypad_ret == 1) {
             bind_ok = true;
             break;
@@ -559,13 +524,6 @@ long BindingSession::IsBind() {
     return _is_bind;
 }
 
-// long bkbase::GetCursorPos(int& x, int& y) {
-//	POINT pt;
-//	auto r = ::GetCursorPos(&pt);
-//	x = pt.x; y = pt.y;
-//	return r;
-// }
-
 long BindingSession::GetDisplay() {
     return _display;
 }
@@ -576,31 +534,6 @@ const wchar_t *BindingSession::GetDisplayMethodName() const {
         return L"";
     return display_mode_name_full(_display);
 }
-
-// byte* bkbase::GetScreenData() {
-//	if (get_display_method().first == L"screen") {
-//		return _capture ? _capture->get_data() : nullptr;
-//	}
-//	else {
-//		if (get_display_method().first == L"pic") {
-//			return _pic.pdata;
-//		}
-//		if (get_display_method().first == L"mem") {
-//
-// #if OP64==1
-//			auto ptr= (byte*)_wtoi64(get_display_method().second.data());
-// #else
-//			auto ptr = (byte*)_wtoi(get_display_method().second.data());
-// #endif //
-//
-//			auto pbfh = (BITMAPFILEHEADER*)ptr;
-//			return ptr + pbfh->bfOffBits;
-//	}
-//		return nullptr;
-// }
-//
-//
-// }
 
 void BindingSession::lock_data() {
     if (_capture) {
@@ -635,12 +568,6 @@ long BindingSession::get_width() {
 }
 
 long BindingSession::RectConvert(long &x1, long &y1, long &x2, long &y2) {
-
-    /*if (_capture && (_display == RENDER_TYPE::NORMAL || _display == RENDER_TYPE::GDI)) {
-        x1 += _capture->_client_x; y1 += _capture->_client_y;
-        x2 += _capture->_client_x; y2 += _capture->_client_y;
-    }*/
-
     // WGC 在窗口最小化/恢复后尺寸会异步变化，裁剪前先给后端一次刷新机会。
     if (_capture) {
         _capture->refreshMetrics();
@@ -652,21 +579,6 @@ long BindingSession::RectConvert(long &x1, long &y1, long &x2, long &y2) {
         setlog(L"invalid rectangle:%d %d %d %d", x1, y1, x2, y2);
         return 0;
     }
-    // if (_capture) {
-    //	if (_display == RDT_NORMAL) {//cap rect
-    //		_capture->rect.left = x1;
-    //		_capture->rect.top = y1;
-    //		_capture->rect.right = x2;
-    //		_capture->rect.bottom = y2;
-    //	}
-    //	else {
-    //		_capture->rect.left = 0;
-    //		_capture->rect.top = 0;
-    //		_capture->rect.right = _capture->get_width();
-    //		_capture->rect.bottom =_capture->get_height();
-    //	}
-    //
-    // }
     return 1;
 }
 
@@ -732,7 +644,7 @@ long BindingSession::set_display_method(const wstring &method) {
             return 0;
         }
 
-        _pic = image;
+        _pic = std::move(image); // 移动接管，省一次全图深拷贝
         _display_method = {L"pic", file_path};
         return 1;
     }
@@ -745,7 +657,7 @@ long BindingSession::set_display_method(const wstring &method) {
             return 0;
         }
 
-        _pic = image;
+        _pic = std::move(image);
         _display_method = {L"mem", mem_arg};
         return 1;
     }
@@ -768,6 +680,7 @@ bool BindingSession::requestCapture(int x1, int y1, int w, int h, Image &img) {
             return false;
         }
         img.create(w, h);
+        // 源子矩形宽度 w 可能小于整图宽度 pw，行与行之间不连续，必须逐行拷贝。
         for (int i = 0; i < h; i++)
             memcpy(img.ptr<uchar>(i), _pic.ptr<uchar>(i + y1) + x1 * 4, w * 4);
         ok = true;

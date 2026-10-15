@@ -96,53 +96,26 @@ long GdiCapture::BindEx(HWND hwnd, long render_type) {
     _hwnd = hwnd;
     _render_type = render_type;
 
+    // 客户区尺寸与偏移对全部 GDI 系模式（normal/gdi/gdi2/dx2）一致，统一初始化。
+    RECT rc, rc2;
+    ::GetWindowRect(_hwnd, &rc);
+    ::GetClientRect(hwnd, &rc2);
+    _width = rc2.right - rc2.left;
+    _height = rc2.bottom - rc2.top;
+    POINT pt = {0};
+    ::ClientToScreen(hwnd, &pt);
+    dx_ = pt.x - rc.left;
+    dy_ = pt.y - rc.top;
+
     if (render_type == RDT_NORMAL) {
-        RECT rc, rc2;
-        ::GetWindowRect(_hwnd, &rc);
-        ::GetClientRect(hwnd, &rc2);
-
-        _width = rc2.right - rc2.left;
-        _height = rc2.bottom - rc2.top;
-        POINT pt = {0};
-        ::ClientToScreen(hwnd, &pt);
-        dx_ = pt.x - rc.left;
-        dy_ = pt.y - rc.top;
         _hdc = ::GetDC(NULL);
-    } else { // client size
-        RECT rc, rc2;
-        ::GetWindowRect(_hwnd, &rc);
-        ::GetClientRect(hwnd, &rc2);
-        _width = rc2.right - rc2.left;
-        _height = rc2.bottom - rc2.top;
-        POINT pt = {0};
-        ::ClientToScreen(hwnd, &pt);
-        dx_ = pt.x - rc.left;
-        dy_ = pt.y - rc.top;
-        /*setlog("dx=%d dy=%d", dx_, dy_);*/
-        if (_render_type == RDT_GDI) {
-            _hdc = ::GetDC(_hwnd);
-            // SetWindowLongA(topHwnd, GWL_EXSTYLE, dwExStyle | WS_EX_LAYERED);
-            // UpdateWindow(topHwnd);
-
-        } else if (RDT_GDI_DX2 == render_type) {
-            _hdc = ::GetDC(_hwnd);
-            _device_caps = GetDeviceCaps(_hdc, BITSPIXEL);
-        } else {
-            /*  HWND dx2TopHwnd = WindowService::GetTopWindowSp(_hwnd);
-              GetPropA(dx2TopHwnd, "opstyle");
-              long dx2ExStyle = GetWindowLongA(dx2TopHwnd, GWL_EXSTYLE);*/
-            /*if (GetPropA(dx2TopHwnd, "opstyle_flag")) {
-              dx2ExStyle = GetWindowLongA(dx2TopHwnd, GWL_EXSTYLE);
-            } else {
-              dx2ExStyle = GetWindowLongA(dx2TopHwnd, GWL_EXSTYLE);
-              SetPropA(dx2TopHwnd, "opstyle", (HANDLE)dx2ExStyle);
-              SetPropA(dx2TopHwnd, "opstyle_flag", (HANDLE)HANDLE_FLAG_INHERIT);
-            }
-          */
-            /* SetWindowLongA(dx2TopHwnd, GWL_EXSTYLE, dx2ExStyle | WS_EX_LAYERED);
-             UpdateWindow(dx2TopHwnd);*/
-            _hdc = ::GetDC(_hwnd);
-        }
+    } else if (_render_type == RDT_GDI) {
+        _hdc = ::GetDC(_hwnd);
+    } else if (RDT_GDI_DX2 == render_type) {
+        _hdc = ::GetDC(_hwnd);
+        _device_caps = GetDeviceCaps(_hdc, BITSPIXEL);
+    } else {
+        _hdc = ::GetDC(_hwnd);
     }
 
     if (_hdc == NULL) {
@@ -158,7 +131,6 @@ long GdiCapture::BindEx(HWND hwnd, long render_type) {
         return -2;
     }
 
-    // updata_screen();
     return 1;
 }
 

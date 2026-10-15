@@ -99,6 +99,55 @@ using op::hook::hookFrameRow;
 using op::hook::isHookFrameReady;
 using op::hook::makeHookFrameView;
 
+} // namespace
+
+namespace op::capture {
+
+// 注入（若未注入）并远程设置显示钩子。BindEx（按 pid attach）与 BindNox（按进程名 attach）
+// 共用这段逻辑，此前两份约 50 行逐字重复。返回钩子返回值（1=成功，<=0 失败）。
+// 句柄参数走 CallHookHwndIntFn：按目标进程位数压参，修正旧版 x64 宿主→x86 目标的
+// HWND 宽度错配（P0② 根因与修法见 HookRemoteCall.h 头注）。
+long attach_display_hook(blackbone::Process &proc, HWND hwnd, long render_type, const std::wstring &dllname,
+                         const std::wstring &op_path) {
+    bool injected = false;
+    // 判断是否已经注入
+    if (proc.modules().GetModule(dllname)) {
+        injected = true;
+    } else {
+        const wstring opFile = op_path + L"\\" + dllname;
+        if (::PathFileExistsW(opFile.data())) {
+            // 注入前补依赖搜索目录（见 set_remote_dll_search_dir 注释）。dir_ok=false 不代表未生效：
+            // blackbone RPC 执行成功后取结果可能抛异常被 catch（实际目录已设置，Inject 随之成功），
+            // 故恢复必须无条件执行，避免目标进程搜索路径残留 op 目录。
+            const bool dir_ok = set_remote_dll_search_dir(proc, op_path.c_str());
+            if (!dir_ok) {
+                setlog(L"SetDllDirectoryW(remote) reported failure, proceed anyway. pid=%d", proc.pid());
+            }
+            auto iret = proc.modules().Inject(opFile);
+            set_remote_dll_search_dir(proc, nullptr); // 恢复搜索路径，忽略结果
+            injected = (iret ? true : false);
+            if (!injected) {
+                setlog(L"Inject failed. pid=%d hwnd=%d status=0x%X dll=%s", proc.pid(), hwnd, iret.status,
+                       opFile.c_str());
+            }
+        } else {
+            setlog(L"file:<%s> not exists!", opFile.data());
+        }
+    }
+    if (!injected)
+        return 0;
+
+    auto cret = op::hook::CallHookHwndIntFn(proc, dllname, "SetDisplayHook",
+                                            reinterpret_cast<uintptr_t>(hwnd), render_type);
+    const long bind_ret = cret.result();
+    if (bind_ret != 1) {
+        setlog(L"SetDisplayHook remote call failed. hwnd=%p render_type=%d status=0x%X ret=%d", hwnd, render_type,
+               cret.status, (int)bind_ret);
+        release_remote_display_hook(proc, dllname);
+    }
+    return bind_ret;
+}
+
 HookCapture::HookCapture() : ICaptureBackend(), m_opPath(RuntimeEnvironment::getBasePath()) {
 }
 
@@ -110,85 +159,45 @@ HookCapture::~HookCapture() {
 long HookCapture::BindEx(HWND hwnd, long render_type) {
     // setlog("BindEx");
     _hwnd = hwnd;
+    if (render_type == RDT_GL_NOX)
+        return BindNox(hwnd, render_type);
+
+    _render_type = render_type;
+    RECT rc;
+    // 获取客户区大小
+    ::GetClientRect(hwnd, &rc);
+    _width = rc.right - rc.left;
+    _height = rc.bottom - rc.top;
+
+    DWORD id = 0;
+    ::GetWindowThreadProcessId(_hwnd, &id);
+
+    // attach 进程。整个绑定跑在护栏里：Attach / 模块枚举 / 注入 / 远程 RPC 任一步
+    // 都可能抛（blackbone 的 RPC 在目标异常/退出时抛异常是已知形态）——与 UnBindEx 同款；
+    // 此前 BindEx 无护栏，直连 libop 的宿主（如 op_test 真机用例）会被异常穿透成访问违例。
+    blackbone::Process proc;
     long bind_ret = 0;
-    if (render_type == RDT_GL_NOX) {
-        bind_ret = BindNox(hwnd, render_type);
-    } else {
-        _render_type = render_type;
-        RECT rc;
-        // 获取客户区大小
-        ::GetClientRect(hwnd, &rc);
-        _width = rc.right - rc.left;
-        _height = rc.bottom - rc.top;
-        // bind_init();
-        if (render_type == RDT_GL_NOX) {
-        }
-        DWORD id;
-        ::GetWindowThreadProcessId(_hwnd, &id);
-
-        // attach 进程
-        blackbone::Process proc;
-        NTSTATUS hr;
-
-        hr = proc.Attach(id);
-
-    if (NT_SUCCESS(hr)) {
-        // 与 UnBindEx 同款护栏：GetMainModule() 在受保护进程 / PEB 读取失败时返回 nullptr，
-        // 原先直接解引用 -> 访问违例。
-        auto main_module = proc.modules().GetMainModule();
-        if (!main_module) {
-            setlog(L"BindEx GetMainModule null. pid=%d hwnd=%p", id, _hwnd);
-            proc.Detach();
-            return 0;
-        }
-        BOOL is64 = main_module->type == blackbone::eModType::mt_mod64;
-        wstring dllname = op::hook::ResolveHookModuleName(is64 != FALSE);
-
-            bool injected = false;
-            // 判断是否已经注入
-            auto _dllptr = proc.modules().GetModule(dllname);
-            if (_dllptr) {
-                injected = true;
-            } else {
-                wstring opFile = m_opPath + L"\\" + dllname;
-                if (::PathFileExistsW(opFile.data())) {
-                    // 注入前补依赖搜索目录（见 set_remote_dll_search_dir 注释）。dir_ok=false 不代表未生效：
-                    // blackbone RPC 执行成功后取结果可能抛异常被 catch（实际目录已设置，Inject 随之成功），
-                    // 故恢复必须无条件执行，避免目标进程搜索路径残留 op 目录。
-                    const bool dir_ok = set_remote_dll_search_dir(proc, m_opPath.c_str());
-                    if (!dir_ok) {
-                        setlog(L"SetDllDirectoryW(remote) reported failure, proceed anyway. pid=%d", id);
-                    }
-                    auto iret = proc.modules().Inject(opFile);
-                    set_remote_dll_search_dir(proc, nullptr);  // 恢复搜索路径，忽略结果
-                    injected = (iret ? true : false);
-                    if (!injected) {
-                        setlog(L"Inject failed. pid=%d hwnd=%d status=0x%X dll=%s", id, _hwnd, iret.status,
-                               opFile.c_str());
-                    }
-                } else {
-                    setlog(L"file:<%s> not exists!", opFile.data());
-                }
+    try {
+        const NTSTATUS hr = proc.Attach(id);
+        if (NT_SUCCESS(hr)) {
+            // GetMainModule() 在受保护进程 / PEB 读取失败时返回 nullptr，原先直接解引用 -> 访问违例。
+            auto main_module = proc.modules().GetMainModule();
+            if (!main_module) {
+                setlog(L"BindEx GetMainModule null. pid=%d hwnd=%p", id, _hwnd);
+                proc.Detach();
+                return 0;
             }
-            if (injected) {
-                // 句柄宽度按目标位数自动选择（P0② 根因与修法见 HookRemoteCall.h 头注）。
-                auto cret = op::hook::CallHookHwndIntFn(proc, dllname, "SetDisplayHook",
-                                                        reinterpret_cast<uintptr_t>(hwnd), render_type);
-                bind_ret = cret.result();
-                if (bind_ret != 1) {
-                    setlog(L"SetDisplayHook remote call failed. hwnd=%p render_type=%d status=0x%X ret=%d",
-                           hwnd, render_type, cret.status, (int)bind_ret);
-                    release_remote_display_hook(proc, dllname);
-                }
-            } else {
-                setlog(L"Inject false.");
-            }
+            const BOOL is64 = main_module->type == blackbone::eModType::mt_mod64;
+            const wstring dllname = op::hook::ResolveHookModuleName(is64 != FALSE);
+            bind_ret = attach_display_hook(proc, hwnd, render_type, dllname, m_opPath);
         } else {
             setlog(L"attach false. pid=%d hwnd=%p hr=0x%X", id, _hwnd, hr);
         }
-
         proc.Detach();
-        // setlog("after Detach");
+    } catch (const std::exception &e) {
+        setlog("BindEx exception: %s", e.what());
+    } catch (...) {
+        setlog("BindEx unknown exception.");
     }
 
     if (bind_ret == -1) {
@@ -268,93 +277,52 @@ long HookCapture::BindNox(HWND hwnd, long render_type) {
     ::GetClientRect(hwnd, &rc);
     _width = rc.right - rc.left;
     _height = rc.bottom - rc.top;
-    // bind_init();
 
-    // attach 进程
+    // attach 进程（Nox 模拟器）。注入+设钩子与 BindEx 共用 attach_display_hook；
+    // 旧版这里用裸 HWND 参数做 RPC，x64 宿主对 x86 目标存在句柄宽度错配（P0②），
+    // 共用后由 CallHookHwndIntFn 按目标位数压参，顺带修正。
     blackbone::Process proc;
-    NTSTATUS hr = -1;
-
-    wstring dllname = L"op_x64.dll";
-
-    hr = proc.Attach(L"NoxVMHandle.exe");
-
     long bind_ret = 0;
-
-    if (NT_SUCCESS(hr)) {
-        /*_process.Resume();*/
-        bool injected = false;
-        // 判断是否已经注入
-        auto _dllptr = proc.modules().GetModule(dllname);
-        if (_dllptr) {
-            injected = true;
+    try {
+        const NTSTATUS hr = proc.Attach(L"NoxVMHandle.exe");
+        if (NT_SUCCESS(hr)) {
+            bind_ret = attach_display_hook(proc, hwnd, render_type, L"op_x64.dll", m_opPath);
         } else {
-            wstring opFile = m_opPath + L"\\" + dllname;
-            if (::PathFileExistsW(opFile.data())) {
-                const bool dir_ok = set_remote_dll_search_dir(proc, m_opPath.c_str());
-                if (!dir_ok) {
-                    setlog(L"SetDllDirectoryW(remote) reported failure, proceed anyway. pid=%d", proc.pid());
-                }
-                auto iret = proc.modules().Inject(opFile);
-                set_remote_dll_search_dir(proc, nullptr);  // 无条件恢复搜索路径
-                injected = (iret ? true : false);
-                if (!injected) {
-                    setlog(L"Inject failed. pid=%d hwnd=%d status=0x%X dll=%s", proc.pid(), _hwnd, iret.status,
-                           opFile.c_str());
-                }
-            } else {
-                setlog(L"file:<%s> not exists!", opFile.data());
-            }
+            setlog(L"attach false. hr=0x%X", hr);
         }
-        if (injected) {
-            using my_func_t = long(__stdcall *)(HWND, int);
-            auto pSetXHook = op::hook::MakeHookRemoteFunction<my_func_t>(proc, dllname, "SetDisplayHook");
-            if (pSetXHook) {
-                auto cret = pSetXHook(hwnd, render_type);
-                bind_ret = cret.result();
-                if (bind_ret != 1) {
-                    release_remote_display_hook(proc, dllname);
-                }
-            } else {
-                setlog(L"remote function not found.");
-            }
-        } else {
-            setlog(L"Inject false.");
-        }
-
-    } else {
-        setlog(L"attach false.");
+        proc.Detach();
+    } catch (const std::exception &e) {
+        setlog("BindNox exception: %s", e.what());
+    } catch (...) {
+        setlog("BindNox unknown exception.");
     }
-    proc.Detach();
 
     return bind_ret;
 }
 
 long HookCapture::UnBindNox() {
-
-    // attach 进程
+    // attach 进程。与 UnBindEx 同款异常护栏：blackbone 的 Attach/RPC 在目标退出时可抛。
     blackbone::Process proc;
-    NTSTATUS hr;
-
-    hr = proc.Attach(L"NoxVMHandle.exe");
-    wstring dllname = L"op_x64.dll";
-
-    if (NT_SUCCESS(hr)) {
-
-        using my_func_t = long(__stdcall *)(void);
-        auto pUnXHook = op::hook::MakeHookRemoteFunction<my_func_t>(proc, dllname, "ReleaseDisplayHook");
-        if (pUnXHook) {
-            pUnXHook();
-
-            /*BOOL fret = ::FreeLibrary((HMODULE)proc.modules().GetModule(dllname)->baseAddress);
-            if (!fret)setlog("fret=%d", fret);*/
+    const wstring dllname = L"op_x64.dll";
+    try {
+        const NTSTATUS hr = proc.Attach(L"NoxVMHandle.exe");
+        if (NT_SUCCESS(hr)) {
+            using my_func_t = long(__stdcall *)(void);
+            auto pUnXHook = op::hook::MakeHookRemoteFunction<my_func_t>(proc, dllname, "ReleaseDisplayHook");
+            if (pUnXHook) {
+                pUnXHook();
+            } else {
+                setlog(L"get unhook ptr false.");
+            }
         } else {
-            setlog(L"get unhook ptr false.");
+            setlog("blackbone attach false in UnBindNox,errcode:%X,hwnd=%p", hr, _hwnd);
         }
-    } else {
-        setlog("blackbone::MakeRemoteFunction false,errcode:%Xhwnd=%d", hr, _hwnd);
+        proc.Detach();
+    } catch (const std::exception &e) {
+        setlog("UnBindNox exception: %s", e.what());
+    } catch (...) {
+        setlog("UnBindNox unknown exception.");
     }
-
-    proc.Detach();
 
     return 1;
 }

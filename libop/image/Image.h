@@ -131,8 +131,26 @@ struct Image {
             memcpy(this->pdata, rhs.pdata, width * height * 4);
         }
     }
+    // move ctr：转移缓冲所有权，避免全图深拷贝（SetDisplay(pic:) 等场景）。
+    Image(Image &&rhs) noexcept : width(rhs.width), height(rhs.height), pdata(rhs.pdata) {
+        rhs.width = rhs.height = 0;
+        rhs.pdata = nullptr;
+    }
     ~Image() {
         release();
+    }
+
+    // move assign：先释放自有缓冲再接管对方所有权。
+    Image &operator=(Image &&rhs) noexcept {
+        if (this != &rhs) {
+            release();
+            width = rhs.width;
+            height = rhs.height;
+            pdata = rhs.pdata;
+            rhs.width = rhs.height = 0;
+            rhs.pdata = nullptr;
+        }
+        return *this;
     }
 
     void create(int w, int h) {

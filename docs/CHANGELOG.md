@@ -3,6 +3,39 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第四批（后台绑定模块：死代码清理 + 表单化 + 回退提效 + 异常护栏，refactor/perf/fix）
+
+逐模块分析与优化第 1 模块（后台绑定），分析文档 `docs/2026-10/后台绑定模块分析_20261015.md`。
+
+- **refactor(binding): 删除 BindingSession 注释死代码约 50 行**（`libop/binding/BindingSession.cpp/.h`）
+  `GetCursorPos`/`GetScreenData` 整段注释块、RectConvert 两处注释块；顺手删除不再使用的 `<tuple>` include。
+- **refactor(binding): display 模式串 15 项映射表单化**（`BindingSession.cpp`）
+  新增 `kDisplayModes[]`（name↔RDT_* 单源静态表）+ 三个查表函数，替换 15 连 if-else 解析和
+  `display_mode_name_full` 的手写 15 项 switch，消除双份手写表双向漂移风险。
+- **perf(binding): normal.auto 回退循环只重建 capture**（`BindingSession.cpp`）
+  原实现 mouse/keypad 后端随每个 display 候选重复创建+绑定（它们与显示后端无关，回退到第 2/3 候选时
+  白做一轮跨进程键鼠绑定）；改为循环外绑定一次输入后端，循环内仅按候选重建 capture。
+  dx 注入的 PingHook/SetInputAttr 也移到输入绑定后一次执行。
+- **perf(binding): prefers_wgc 消除重复小写**（`BindingSession.cpp`）
+  class_name 只 `to_lower` 一次，匹配数组字面量统一小写。
+- **perf(image): Image 补移动语义**（`libop/image/Image.h`）
+  新增 noexcept move 构造/赋值，`set_display_method` 两处 `_pic = image` 改 `std::move`，
+  SetDisplay(pic:) 省一次全图深拷贝。
+  注：本轮曾将 pic/mem 截图的逐行 memcpy 合并为单次 memcpy，回归发现**子矩形宽 < 整图宽时行不连续**，
+  已由 `ImageColorTest.FetchWordUsesProvidedWordName` 捕获并回退为逐行拷贝（见下"回归"）。
+- **refactor(capture): GdiCapture::BindEx 合并重复尺寸初始化**（`libop/capture/backends/GdiCapture.cpp`）
+  RDT_NORMAL/GDI/GDI_DX2 分支仅保留 GetDC 差异，其余尺寸初始化合并；删除 SetProp layered 试验残留的
+  ~13 行注释死代码。
+- **fix(capture): HookCapture 注入路径补异常护栏 + 抽共用助手**（`libop/capture/backends/HookCapture.cpp`）
+  ① BindEx 的 Attach/注入/RPC 原无 try/catch（UnBindEx 有），直连 libop 的宿主遇 blackbone 抛异常会崩，
+  现补齐对等护栏（BindNox/UnBindNox 同样补上）；② 删除 124-125 死空分支；
+  ③ BindEx/BindNox 重复的"注入+SetDisplayHook"约 50 行抽为 `attach_display_hook()` 共用；
+  ④ BindNox 的裸 HWND RPC 改用 `CallHookHwndIntFn`，修正 x64 宿主→x86 目标的句柄宽度错配。
+- **回归**：全量 gtest 372 PASS / 1 已知环境项失败（MouseKeyTest.WaitKeyScanAllWithWaitFindsKey）。
+  WgcTest 套件级联失败（9/10）经旧构建（4d57932）对照复现，确认为**既有环境问题**：
+  Win10 WGC 首次使用即在进程内 SEH 0xC0000005 一次，被 WgcCapture 的防护机制锁存后后续绑定 fast-fail，
+  与本批改动无关。过程中由 FetchWord 偏移用例捕获并回退了 B5 的单次 memcpy 误优化。
+
 ### 2026-10-15 第三批（免字库 OCR 归一入口 AutoOcr，feat）
 
 - **新增归一入口 `AutoOcr(x1,y1,x2,y2,color,sim)`**：color 为空 → 原图直识别（等同 `OcrAuto`）；
