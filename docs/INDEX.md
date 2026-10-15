@@ -93,6 +93,7 @@
 | [opencv模块分析_20261015.md](2026-10/opencv模块分析_20261015.md) | 逐模块专项第 10 弹：opencv 找图引擎问题清单（CV1 gray 前导 ×4 / CV2 三份并行 worker / CV3 冗余旧重载 / CV4 细化双份，CV6 金字塔粗层全量收集→峰值候选；无 bug） |
 | [hook模块分析_20261015.md](2026-10/hook模块分析_20261015.md) | 逐模块专项第 11 弹：hook 注入引擎问题清单（HK1 每帧 GetDeviceInfo 热路径浪费 / HK2 五处 RPC 骨架 / HK3 gl-egl 重复 / HK4 写共享内存块+策略统一 / HK5 D3D12 设备失效缺口；目标进程内运行） |
 | [com_c_api模块分析_20261015.md](2026-10/com_c_api模块分析_20261015.md) | 逐模块专项第 12 弹：com/+c_api/ 门面问题清单（CB1 GetScreenDataBmp x86 分支缺空指针校验为真 bug；CB2 字符串出参宏化 / CB3 c_api 多出参收拢均为低必要可选项；门面无效率压缩项） |
+| [ipc_network模块分析_20261015.md](2026-10/ipc_network模块分析_20261015.md) | 逐模块专项第 13 弹（收尾）：ipc/+network/ 清尾（network/ 369 行为 09-18 决策有意保留的死代码不动；IN1 Pipe 关闭清单重复 -4 行；IN2 Pipe 裸句柄 RAII 化可选建议不做；无 bug 无热点） |
 
 ## scripts/build/ + scripts/probes/ —— 脚本归档（入库）
 

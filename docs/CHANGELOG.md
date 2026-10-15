@@ -3,6 +3,23 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第十七批（ipc/+network/ 清尾：Pipe 关闭清单去重，refactor）
+
+逐模块分析与优化第 13 模块（ipc/ + network/，逐模块专项收尾弹），分析文档
+`docs/2026-10/ipc_network模块分析_20261015.md`。两模块合计 816 行，无 bug、
+无效率热点；network/ 369 行为 2026-09-18 决策（OCR/YOLO 不走 HTTP 远程后端）
+有意保留的死代码，不动。
+
+- **refactor(ipc): Pipe::close 收尾关闭清单去重（IN1）**：`_hwrite2`/`_hread2`
+  在 close() 开头已关（含 open 失败路径 -4 的兜底职责），收尾扫荡再关两行
+  纯属幂等冗余，删除并留归因注释（失败路径 -2/-3 的 `_hwrite` 靠收尾扫荡，
+  必须保留）。净 -2 行代码 +4 行注释。
+- **不做**：IN2（Pipe 六枚裸句柄 unique_handle 化，-25 行但动句柄生命周期/
+  继承正确性路径，唯一使用方为跑外部命令的冷路径，性价比不如不动）。
+- **回归**：构建零错误；全量 401 ran / 399 PASS / 1 FAILED（MouseKeyTest.
+  WaitKeyScanAllWithWaitFindsKey 已知环境 flake）/ 1 SKIPPED（FurMark 缺席）；
+  DLL 同步副本全部一致。
+
 ### 2026-10-15 第十六批（com/+c_api/ 门面：GetScreenDataBmp x86 空指针校验修复，fix）
 
 逐模块分析与优化第 12 模块（com/ + c_api/），分析文档
