@@ -168,21 +168,22 @@ HRESULT dx9_capture(LPDIRECT3DDEVICE9 pDevice) {
         return hr;
     }
     // 取像素
-    SharedMemory mem;
-    ProcessMutex mutex;
-    if (mem.open(DisplayHook::shared_res_name) && mutex.open(DisplayHook::mutex_name)) {
-        mutex.lock();
-        uchar *pshare = mem.data<byte>();
-        if (SharedFrameHasCapacity(mem, surface_Desc.Width, surface_Desc.Height)) {
-            reinterpret_cast<FrameInfo *>(pshare)->format(DisplayHook::render_hwnd, surface_Desc.Width,
-                                                          surface_Desc.Height);
-            CopyImageData(reinterpret_cast<char *>(pshare + sizeof(FrameInfo)),
-                          reinterpret_cast<const char *>(lockedRect.pBits), surface_Desc.Height, surface_Desc.Width,
-                          lockedRect.Pitch, IBF_B8G8R8A8);
-        } else {
-            WriteSharedFrameHeader(mem, DisplayHook::render_hwnd, surface_Desc.Width, surface_Desc.Height);
-        }
-        mutex.unlock();
+    static_assert(sizeof(FrameInfo) == 28);
+    // HK4: 共享帧写入收拢进 SharedFrameWriter（原实现打开失败静默跳过、无证据，现统一为
+    // "记日志 + 关捕获"）。
+    SharedFrameWriter frame(DisplayHook::shared_res_name, DisplayHook::mutex_name);
+    bool open_failed = false;
+    const auto pixels =
+        frame.prepare(DisplayHook::render_hwnd, surface_Desc.Width, surface_Desc.Height, &open_failed);
+    if (open_failed) {
+        setlog("dx9 shared frame open failed, disable capture");
+        DisplayHook::set_capture_enabled(false);
+        return hr;
+    }
+    if (!pixels.empty()) {
+        CopyImageData(reinterpret_cast<char *>(pixels.data()),
+                      reinterpret_cast<const char *>(lockedRect.pBits), surface_Desc.Height, surface_Desc.Width,
+                      lockedRect.Pitch, IBF_B8G8R8A8);
     }
 
     return hr;

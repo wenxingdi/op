@@ -18,21 +18,13 @@ namespace op::hook {
 
 using op::capture::FrameInfo;
 
-namespace {
+// N2 说明见 ApiResolver.h 的 CachedResolveApi 注释（"失败不得当终值缓存"语义）：
+// gl 与 egl 必须各一套槽 —— 它们查的是不同的 dll（opengl32.dll / libglesv2.dll），
+// 槽由各 capture 函数以数组形式传给 gl_capture_common。
 
-// N2: API 指针缓存槽。解析成功后落值，此后每帧只读一个 atomic（见 ApiResolver.h 的
-// CachedResolveApi 说明 —— 尤其是"失败不得当终值缓存"这条语义）。
-// gl 与 egl 必须各一套：它们查的是不同的 dll（opengl32.dll / libglesv2.dll）。
-std::atomic<void *> g_glPixelStorei{nullptr};
-std::atomic<void *> g_glReadBuffer{nullptr};
-std::atomic<void *> g_glReadPixels{nullptr};
-std::atomic<void *> g_eglPixelStorei{nullptr};
-std::atomic<void *> g_eglReadBuffer{nullptr};
-std::atomic<void *> g_eglReadPixels{nullptr};
-
-} // namespace
-
-long gl_capture() {
+// HK3: gl 与 egl 两路捕获逐行级重复（仅缓存槽 / dll 名 / 日志标签不同），收为一份。
+// slots 三个原子槽分别对应 glPixelStorei / glReadBuffer / glReadPixels。
+long gl_capture_common(std::atomic<void *> *slots, const char *dll, const char *tag) {
     using glPixelStorei_t = decltype(glPixelStorei) *;
     using glReadBuffer_t = decltype(glReadBuffer) *;
     using glReadPixels_t = decltype(glReadPixels) *;
@@ -41,14 +33,11 @@ long gl_capture() {
     // 的判断，等于凭白多一个可能让捕获静默停掉的失败点。删掉。
     // N2: 三个指针改走缓存 —— glBegin detour 一帧可命中数千次，原先每帧 3 次
     // GetModuleHandleA+GetProcAddress 是纯白付。失败语义与原先一致（下帧重试）。
-    auto pglPixelStorei =
-        reinterpret_cast<glPixelStorei_t>(CachedResolveApi(g_glPixelStorei, "opengl32.dll", "glPixelStorei"));
-    auto pglReadBuffer =
-        reinterpret_cast<glReadBuffer_t>(CachedResolveApi(g_glReadBuffer, "opengl32.dll", "glReadBuffer"));
-    auto pglReadPixels =
-        reinterpret_cast<glReadPixels_t>(CachedResolveApi(g_glReadPixels, "opengl32.dll", "glReadPixels"));
+    auto pglPixelStorei = reinterpret_cast<glPixelStorei_t>(CachedResolveApi(slots[0], dll, "glPixelStorei"));
+    auto pglReadBuffer = reinterpret_cast<glReadBuffer_t>(CachedResolveApi(slots[1], dll, "glReadBuffer"));
+    auto pglReadPixels = reinterpret_cast<glReadPixels_t>(CachedResolveApi(slots[2], dll, "glReadPixels"));
     if (!pglPixelStorei || !pglReadBuffer || !pglReadPixels) {
-        setlog("gl resolve opengl32 APIs failed, disable capture");
+        setlog("%s resolve %s APIs failed, disable capture", tag, dll);
         DisplayHook::set_capture_enabled(false);
         return 0;
     }
@@ -60,26 +49,31 @@ long gl_capture() {
     pglPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     pglReadBuffer(GL_FRONT);
 
-    SharedMemory mem;
-    ProcessMutex mutex;
-    if (mem.open(DisplayHook::shared_res_name) && mutex.open(DisplayHook::mutex_name)) {
-        mutex.lock();
-        uchar *pshare = mem.data<byte>();
-        if (SharedFrameHasCapacity(mem, width, height)) {
-            reinterpret_cast<FrameInfo *>(pshare)->format(DisplayHook::render_hwnd, width, height);
-            pglReadPixels(0, 0, width, height, GL_BGRA_EXT, GL_UNSIGNED_BYTE, pshare + sizeof(FrameInfo));
-        } else {
-            WriteSharedFrameHeader(mem, DisplayHook::render_hwnd, width, height);
-        }
-        mutex.unlock();
-    } else {
+    // HK4: 共享帧写入收拢进 SharedFrameWriter（GL 直接 ReadPixels 进像素区）。
+    static_assert(sizeof(FrameInfo) == 28);
+    SharedFrameWriter frame(DisplayHook::shared_res_name, DisplayHook::mutex_name);
+    bool open_failed = false;
+    const auto pixels = frame.prepare(DisplayHook::render_hwnd, width, height, &open_failed);
+    if (open_failed) {
+        setlog("%s shared frame open failed, disable capture", tag);
         DisplayHook::set_capture_enabled(false);
-#if DEBUG_HOOK
-        setlog(L"egl !mem.open(DisplayHook::%s)&&mutex.open(DisplayHook::%s)",
-               DisplayHook::shared_res_name.c_str(), DisplayHook::mutex_name.c_str());
-#endif // DEBUG_HOOK
+        return 0;
+    }
+    if (!pixels.empty()) {
+        pglReadPixels(0, 0, width, height, GL_BGRA_EXT, GL_UNSIGNED_BYTE, pixels.data());
     }
     return 0;
+}
+
+long gl_capture() {
+    static std::atomic<void *> slots[3] = {};
+    return gl_capture_common(slots, "opengl32.dll", "gl");
+}
+
+long egl_capture() {
+    static std::atomic<void *> slots[3] = {};
+    // N2: 与 gl 侧同语义（egl 路径走 eglSwapBuffers，帧率不高，但缓存策略保持一致）。
+    return gl_capture_common(slots, "libglesv2.dll", "egl");
 }
 
 void __stdcall gl_hkglBegin(GLenum mode) {
@@ -98,60 +92,6 @@ void __stdcall gl_hkwglSwapBuffers(HDC hdc) {
     if (DisplayHook::capture_enabled())
         gl_capture();
     ((wglSwapBuffers_t)DisplayHook::old_address.load(std::memory_order_acquire))(hdc);
-}
-
-long egl_capture() {
-    using glPixelStorei_t = decltype(glPixelStorei) *;
-    using glReadBuffer_t = decltype(glReadBuffer) *;
-    using glReadPixels_t = decltype(glReadPixels) *;
-
-    // H21: 同 gl_capture —— pglGetIntegerv 解析了但零调用，已删。
-    // N2: 同样改走缓存（egl 路径走 eglSwapBuffers，帧率不高，但与 gl 侧保持一致的语义）。
-    auto pglPixelStorei =
-        reinterpret_cast<glPixelStorei_t>(CachedResolveApi(g_eglPixelStorei, "libglesv2.dll", "glPixelStorei"));
-    auto pglReadBuffer =
-        reinterpret_cast<glReadBuffer_t>(CachedResolveApi(g_eglReadBuffer, "libglesv2.dll", "glReadBuffer"));
-    auto pglReadPixels =
-        reinterpret_cast<glReadPixels_t>(CachedResolveApi(g_eglReadPixels, "libglesv2.dll", "glReadPixels"));
-    if (!pglPixelStorei || !pglReadBuffer || !pglReadPixels) {
-        // 与 gl_capture 对齐：解析失败即停捕获，否则每帧重复解析这 4 个 API。
-        setlog("egl resolve libglesv2 APIs failed, disable capture");
-        DisplayHook::set_capture_enabled(false);
-#if DEBUG_HOOK
-        setlog(L"egl !mem.open(DisplayHook::%s)&&mutex.open(DisplayHook::%s)",
-               DisplayHook::shared_res_name.c_str(), DisplayHook::mutex_name.c_str());
-#endif // DEBUG_HOOK
-
-        return 0;
-    }
-    RECT rc;
-    ::GetClientRect(DisplayHook::render_hwnd, &rc);
-    int width = rc.right - rc.left, height = rc.bottom - rc.top;
-
-    pglPixelStorei(GL_PACK_ALIGNMENT, 1);
-    pglPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    pglReadBuffer(GL_FRONT);
-
-    SharedMemory mem;
-    ProcessMutex mutex;
-    if (mem.open(DisplayHook::shared_res_name) && mutex.open(DisplayHook::mutex_name)) {
-        mutex.lock();
-        uchar *pshare = mem.data<byte>();
-        if (SharedFrameHasCapacity(mem, width, height)) {
-            reinterpret_cast<FrameInfo *>(pshare)->format(DisplayHook::render_hwnd, width, height);
-            pglReadPixels(0, 0, width, height, GL_BGRA_EXT, GL_UNSIGNED_BYTE, pshare + sizeof(FrameInfo));
-        } else {
-            WriteSharedFrameHeader(mem, DisplayHook::render_hwnd, width, height);
-        }
-        mutex.unlock();
-    } else {
-        DisplayHook::set_capture_enabled(false);
-#if DEBUG_HOOK
-        setlog(L"egl !mem.open(DisplayHook::%s)&&mutex.open(DisplayHook::%s)",
-               DisplayHook::shared_res_name.c_str(), DisplayHook::mutex_name.c_str());
-#endif // DEBUG_HOOK
-    }
-    return 0;
 }
 
 unsigned int __stdcall gl_hkeglSwapBuffers(void *dpy, void *surface) {

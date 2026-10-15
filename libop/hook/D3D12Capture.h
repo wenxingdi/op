@@ -31,6 +31,10 @@ class D3D12Capture final {
     //（旧实现对 swapchain 对象首 8 字节解引用当队列指针，属野指针调用）。
     Microsoft::WRL::ComPtr<ID3D12CommandQueue> copyQueue_;
     Microsoft::WRL::ComPtr<ID3D12Fence> fence_;
+    // HK5: 上次读回用的设备。设备重建（TDR 恢复/切显卡/独占全屏重建 D3D 栈）后
+    // copyQueue_/fence_/commandAllocator_/readbackResource_ 全部属于已销毁设备，
+    // 必须整套 Reset（对照 D3D11 的 N1：跨设备资源混用 = 静默错帧/校验层报错）。
+    Microsoft::WRL::ComPtr<ID3D12Device> device_;
     HANDLE fenceEvent_ = NULL;
     UINT64 fenceValue_ = 0;
     /*H11: 围栏等待超时的日志只打一次，避免 GPU hang 时每帧刷日志*/

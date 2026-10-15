@@ -83,6 +83,22 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
         return;
     }
 
+    // HK5: 设备变化检测必须独立于尺寸判据 —— 换设备时交换链描述常常一字未变
+    // （分辨率/格式都没变），只看 readbackData* 会误判"可复用"（与 D3D11 N1 同理由）。
+    if (device_ && device_.Get() != device.Get()) {
+        if (readbackData_) {
+            readbackResource_->Unmap(0, nullptr);
+            readbackData_ = nullptr;
+        }
+        readbackResource_.Reset();
+        commandAllocator_.Reset();
+        copyQueue_.Reset();
+        fence_.Reset();
+        fenceValue_ = 0;
+        fenceTimeoutLogged_ = false;
+    }
+    device_ = device;
+
     // 首次调用时自建 DIRECT 拷贝队列与围栏（拷贝是独立队列，无需游戏原 queue）。
     if (!copyQueue_) {
         D3D12_COMMAND_QUEUE_DESC queueDesc = {};
@@ -177,26 +193,20 @@ void D3D12Capture::CaptureFrame(IDXGISwapChain *swapChain) {
         UINT frameWidth = readbackDataWidth_;
         UINT frameHeight = readbackDataHeight_;
 
-        SharedMemory mem;
-        ProcessMutex mutex;
-        if (mem.open(DisplayHook::shared_res_name) && mutex.open(DisplayHook::mutex_name)) {
-            mutex.lock();
-            uchar *pshare = mem.data<byte>();
-            if (SharedFrameHasCapacity(mem, frameWidth, frameHeight)) {
-                reinterpret_cast<FrameInfo *>(pshare)->format(DisplayHook::render_hwnd, frameWidth, frameHeight);
-                static_assert(sizeof(FrameInfo) == 28);
-
-                CopyImageData((char *)pshare + sizeof(FrameInfo), (char *)readbackData_, frameHeight, frameWidth,
-                              frameRowPitch, fmt);
-            } else {
-                WriteSharedFrameHeader(mem, DisplayHook::render_hwnd, frameWidth, frameHeight);
-            }
-            mutex.unlock();
-        } else {
-#if DEBUG_HOOK
-            setlog(L"!mem.open(DisplayHook::%s)&&mutex.open(DisplayHook::%s)", DisplayHook::shared_res_name.c_str(),
-                   DisplayHook::mutex_name.c_str());
-#endif // DEBUG_HOOK
+        static_assert(sizeof(FrameInfo) == 28);
+        // HK4: 共享帧写入收拢进 SharedFrameWriter（原实现打开失败静默跳过、无证据，现统一为
+        // "记日志 + 关捕获"）。
+        SharedFrameWriter frame(DisplayHook::shared_res_name, DisplayHook::mutex_name);
+        bool open_failed = false;
+        const auto pixels = frame.prepare(DisplayHook::render_hwnd, frameWidth, frameHeight, &open_failed);
+        if (open_failed) {
+            setlog("d3d12 shared frame open failed, disable capture");
+            DisplayHook::set_capture_enabled(false);
+            return;
+        }
+        if (!pixels.empty()) {
+            CopyImageData(reinterpret_cast<char *>(pixels.data()), reinterpret_cast<const char *>(readbackData_),
+                          frameHeight, frameWidth, frameRowPitch, fmt);
         }
         if (g_firstFrame.consume()) {
             setlog("d3d12 first frame: format=%d fmt=%d height=%u width=%u rowPitch=%u", static_cast<int>(desc.Format),

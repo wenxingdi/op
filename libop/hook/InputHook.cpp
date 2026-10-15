@@ -119,8 +119,7 @@ HRESULT __stdcall hkGetDeviceData(IDirectInputDevice8W *device, DWORD object_siz
                                   LPDWORD count, DWORD flags);
 SHORT WINAPI hkGetKeyState(int vk);
 SHORT WINAPI hkGetAsyncKeyState(int vk);
-BOOL WINAPI hkGetKeyboardState(PBYTE key_state);
-UINT WINAPI hkGetRawInputData(HRAWINPUT raw_input, UINT command, LPVOID data, PUINT size, UINT header_size);
+BOOL WINAPI hkGetKeyboardState(PBYTE key_state);UINT WINAPI hkGetRawInputData(HRAWINPUT raw_input, UINT command, LPVOID data, PUINT size, UINT header_size);
 UINT WINAPI hkGetRawInputBuffer(PRAWINPUT data, PUINT size, UINT header_size);
 BOOL WINAPI hkRegisterRawInputDevices(PCRAWINPUTDEVICE devices, UINT count, UINT size);
 UINT WINAPI hkGetRawInputDeviceInfoW(HANDLE device, UINT command, LPVOID data, PUINT size);
@@ -363,6 +362,60 @@ bool dinput_device_kind(IDirectInputDevice8W *device, bool &is_mouse, bool &is_k
     return is_mouse || is_keyboard;
 }
 
+// HK1: 设备种类缓存。GetDeviceInfo 是 COM 虚调用（填 DIDEVICEINSTANCEW 含字符串拷贝），
+// 而游戏每帧轮询 GetDeviceState/GetDeviceData 数次 ——  steady-state 不能每次付这个钱。
+// 种类在设备生命周期内固定（CreateDevice 时由设备类型决定），故"设备指针 → 种类"映射
+// 可安全缓存；只缓存 GetDeviceInfo 的成功结果，命中路径与原实现语义一致。
+// 唯一残余风险：旧设备销毁后新设备复用同一地址且种类不同 —— 窗口极小；release() 整体
+// 清空缓存，8 槽 round-robin 复写，真实进程里 dinput 设备通常两三个。
+struct DeviceKindEntry {
+    IDirectInputDevice8W *device = nullptr;
+    bool is_mouse = false;
+    bool is_keyboard = false;
+};
+std::mutex g_deviceKindMutex;
+std::array<DeviceKindEntry, 8> g_deviceKindCache;
+size_t g_deviceKindNextVictim = 0;
+
+// 返回 false = 缓存未命中且 GetDeviceInfo 也判不出种类（与原 dinput_device_kind 失败
+// 路径一致，调用方继续走 !known 的尺寸/虚表启发式）。
+bool known_device_kind(IDirectInputDevice8W *device, bool &is_mouse, bool &is_keyboard) {
+    is_mouse = false;
+    is_keyboard = false;
+    if (!device)
+        return false;
+
+    {
+        std::lock_guard<std::mutex> lock(g_deviceKindMutex);
+        for (const auto &entry : g_deviceKindCache) {
+            if (entry.device == device) {
+                is_mouse = entry.is_mouse;
+                is_keyboard = entry.is_keyboard;
+                return true;
+            }
+        }
+    }
+
+    if (!dinput_device_kind(device, is_mouse, is_keyboard))
+        return false;
+
+    std::lock_guard<std::mutex> lock(g_deviceKindMutex);
+    DeviceKindEntry &slot = g_deviceKindCache[g_deviceKindNextVictim];
+    g_deviceKindNextVictim = (g_deviceKindNextVictim + 1) % g_deviceKindCache.size();
+    slot.device = device;
+    slot.is_mouse = is_mouse;
+    slot.is_keyboard = is_keyboard;
+    return true;
+}
+
+void clear_device_kind_cache() {
+    std::lock_guard<std::mutex> lock(g_deviceKindMutex);
+    for (auto &entry : g_deviceKindCache) {
+        entry = DeviceKindEntry{};
+    }
+    g_deviceKindNextVictim = 0;
+}
+
 bool load_dinput_vtables() {
     using DirectInput8CreateFn = decltype(DirectInput8Create);
     // 按需加载：目标进程可能只是**还没**加载 dinput8（DirectInput 设备通常在进游戏场景、
@@ -508,28 +561,16 @@ void fill_mouse_state(DWORD size, LPVOID ptr) {
     InputHook::m_mouseState.lAxisY = 0;
     InputHook::m_wheelDelta = 0;
 
-    if (size == sizeof(DIMOUSESTATE)) {
-        DIMOUSESTATE state = {};
-        state.lX = dx;
-        state.lY = dy;
-        state.lZ = wheel;
-        state.rgbButtons[0] = InputHook::m_mouseState.abButtons[0];
-        state.rgbButtons[1] = InputHook::m_mouseState.abButtons[1];
-        state.rgbButtons[2] = InputHook::m_mouseState.abButtons[2];
-        state.rgbButtons[3] = InputHook::m_mouseState.abButtons[3];
-        memcpy(ptr, &state, sizeof(state));
-    } else {
-        DIMOUSESTATE2 state = {};
-        state.lX = dx;
-        state.lY = dy;
-        state.lZ = wheel;
-        state.rgbButtons[0] = InputHook::m_mouseState.abButtons[0];
-        state.rgbButtons[1] = InputHook::m_mouseState.abButtons[1];
-        state.rgbButtons[2] = InputHook::m_mouseState.abButtons[2];
-        state.rgbButtons[3] = InputHook::m_mouseState.abButtons[3];
-        state.rgbButtons[4] = InputHook::m_mouseState.abButtons[4];
-        memcpy(ptr, &state, sizeof(state));
+    // HK6: DIMOUSESTATE 是 DIMOUSESTATE2 的前缀子布局（lX/lY/lZ + rgbButtons 前置），
+    // 统一构建 DIMOUSESTATE2 后按调用方 size 截断拷贝，两个分支合并。
+    DIMOUSESTATE2 state = {};
+    state.lX = dx;
+    state.lY = dy;
+    state.lZ = wheel;
+    for (int i = 0; i < 5; ++i) {
+        state.rgbButtons[i] = InputHook::m_mouseState.abButtons[i];
     }
+    memcpy(ptr, &state, (std::min)(size, static_cast<DWORD>(sizeof(state))));
 }
 
 void fill_keyboard_state(LPVOID ptr) {
@@ -966,6 +1007,7 @@ int InputHook::release() {
     m_cursorMeta = 0;
     m_inputLock = 0;
     m_dxAttrs = DX_ATTR_ALL;
+    clear_device_kind_cache();
     return restored ? 1 : 0;
 }
 
@@ -1158,7 +1200,8 @@ HRESULT __stdcall hkPoll(IDirectInputDevice8W *) {
 HRESULT __stdcall hkGetDeviceState(IDirectInputDevice8W *device, DWORD size, LPVOID ptr) {
     bool is_mouse = false;
     bool is_keyboard = false;
-    const bool known_device = dinput_device_kind(device, is_mouse, is_keyboard);
+    // HK1: 先查设备种类缓存，steady-state 从一次 COM 调用降为指针比较 + 短锁。
+    const bool known_device = known_device_kind(device, is_mouse, is_keyboard);
 
     if (ptr && (is_keyboard || (!known_device && size == 256)) && size == 256) {
         fill_keyboard_state(ptr);
@@ -1182,7 +1225,8 @@ HRESULT __stdcall hkGetDeviceData(IDirectInputDevice8W *device, DWORD object_siz
                                   LPDWORD count, DWORD flags) {
     bool is_mouse = false;
     bool is_keyboard = false;
-    const bool known_device = dinput_device_kind(device, is_mouse, is_keyboard);
+    // HK1: 先查设备种类缓存（同 hkGetDeviceState）。
+    const bool known_device = known_device_kind(device, is_mouse, is_keyboard);
     if (is_keyboard)
         return read_dinput_events(g_keyboardEvents, object_size, data, count, flags);
     if (is_mouse)
@@ -1200,22 +1244,23 @@ HRESULT __stdcall hkGetDeviceData(IDirectInputDevice8W *device, DWORD object_siz
     return DIERR_NOTINITIALIZED;
 }
 
-SHORT WINAPI hkGetKeyState(int vk) {
+// HK6: GetKeyState / GetAsyncKeyState 两 detour 的公共体（原实现逐行相同，仅 raw 指针不同）：
+// 未锁定的键透传真实 API，锁定的键以脚本状态镜像覆盖高位。
+SHORT key_state_with_mirror(void *raw_fn, int vk) {
     SHORT original = 0;
-    if (!virtual_key_locked(vk) && g_getKeyStateRaw)
-        original = reinterpret_cast<GetKeyStateFn>(g_getKeyStateRaw)(vk);
+    if (!virtual_key_locked(vk) && raw_fn)
+        original = reinterpret_cast<GetKeyStateFn>(raw_fn)(vk);
     if (InputHook::isKeyDown(vk))
         return static_cast<SHORT>(original | 0x8000);
     return original;
 }
 
+SHORT WINAPI hkGetKeyState(int vk) {
+    return key_state_with_mirror(g_getKeyStateRaw, vk);
+}
+
 SHORT WINAPI hkGetAsyncKeyState(int vk) {
-    SHORT original = 0;
-    if (!virtual_key_locked(vk) && g_getAsyncKeyStateRaw)
-        original = reinterpret_cast<GetKeyStateFn>(g_getAsyncKeyStateRaw)(vk);
-    if (InputHook::isKeyDown(vk))
-        return static_cast<SHORT>(original | 0x8000);
-    return original;
+    return key_state_with_mirror(g_getAsyncKeyStateRaw, vk);
 }
 
 BOOL WINAPI hkGetKeyboardState(PBYTE key_state) {

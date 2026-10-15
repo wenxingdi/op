@@ -166,23 +166,21 @@ void dx10_capture(IDXGISwapChain *pswapchain) {
         DisplayHook::set_capture_enabled(false);
         return;
     }
+    static_assert(sizeof(FrameInfo) == 28);
 
-    SharedMemory mem;
-    ProcessMutex mutex;
-    if (mem.open(DisplayHook::shared_res_name) && mutex.open(DisplayHook::mutex_name)) {
-        mutex.lock();
-        if (SharedFrameHasCapacity(mem, textDesc.Width, textDesc.Height)) {
-            auto sharedFrame = make_shared_frame_span(mem, textDesc.Width, textDesc.Height);
-            write_shared_frame(sharedFrame, DisplayHook::render_hwnd, textDesc.Width, textDesc.Height, mapText.pData,
-                               textDesc.Height, textDesc.Width, mapText.RowPitch, fmt);
-        } else {
-            WriteSharedFrameHeader(mem, DisplayHook::render_hwnd, textDesc.Width, textDesc.Height);
-        }
-        mutex.unlock();
-    } else {
-#if DEBUG_HOOK
-        setlog("mem.open(DisplayHook::shared_res_name) && mutex.open(DisplayHook::mutex_name)");
-#endif // DEBUG_HOOK
+    // HK4: 共享帧写入收拢进 SharedFrameWriter（原实现打开失败静默跳过、无证据，现统一为
+    // "记日志 + 关捕获"）。
+    SharedFrameWriter frame(DisplayHook::shared_res_name, DisplayHook::mutex_name);
+    bool open_failed = false;
+    const auto pixels = frame.prepare(DisplayHook::render_hwnd, textDesc.Width, textDesc.Height, &open_failed);
+    if (open_failed) {
+        setlog("d3d10 shared frame open failed, disable capture");
+        DisplayHook::set_capture_enabled(false);
+        return;
+    }
+    if (!pixels.empty()) {
+        CopyImageData(reinterpret_cast<char *>(pixels.data()), reinterpret_cast<const char *>(mapText.pData),
+                      textDesc.Height, textDesc.Width, mapText.RowPitch, fmt);
     }
 }
 

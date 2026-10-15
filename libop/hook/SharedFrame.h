@@ -2,11 +2,13 @@
 
 #include "../capture/FrameInfo.h"
 #include "../ipc/SharedMemory.h"
+#include "../ipc/ProcessMutex.h"
 #include "DisplayHook.h" // CopyImageData 的声明在这里（历史位置），不在 DxCaptureCommon.h
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <span>
+#include <string>
 
 namespace op::hook {
 
@@ -104,5 +106,67 @@ inline void write_shared_frame(std::span<std::byte> sharedFrame, HWND hwnd, UINT
     CopyImageData(reinterpret_cast<char *>(pixelBytes.data()), static_cast<const char *>(source), sourceRows,
                   sourceCols, rowPitch, format);
 }
+
+// ---------------------------------------------------------------------------
+// HK4: 各捕获后端共用的共享帧写入骨架。
+//
+// 原先 dx9/dx10/dx11/dx12/gl/egl 六个后端各自抄写一份
+// "open 共享内存 + open 互斥锁 → 判容量 → 写帧头(+像素) → else 写裸帧头"，
+// 且**打开失败的策略四分五裂**：d3d9/d3d10/d3d12 静默跳过下帧再试，d3d11 与 gl/egl
+// 关捕获。持久失败时前者每帧白付 OpenFileMapping 且不留证据；这里统一收拢。
+//
+// 策略统一为"打开失败 = 记日志 + 关捕获"（多数派策略；共享内存名由 DisplayHook::setup
+// 先于捕获使能发布，打开失败基本只意味着宿主已消失，重试无意义）。
+// ---------------------------------------------------------------------------
+
+// 打开共享帧并持锁（RAII，析构自动解锁）。
+class SharedFrameWriter {
+  public:
+    SharedFrameWriter(const std::wstring &res_name, const std::wstring &mutex_name) {
+        if (mem_.open(res_name) && mutex_.open(mutex_name)) {
+            mutex_.lock();
+            locked_ = true;
+        }
+    }
+
+    ~SharedFrameWriter() {
+        if (locked_) {
+            mutex_.unlock();
+        }
+    }
+
+    SharedFrameWriter(const SharedFrameWriter &) = delete;
+    SharedFrameWriter &operator=(const SharedFrameWriter &) = delete;
+
+    // 校验容量并写帧头，返回像素区 span。
+    //   非空  = 成功，调用方写入像素；
+    //   空    = 容量不足（已写裸帧头）或打开失败；
+    //           打开失败时 *open_failed = true（调用方按"记日志 + 关捕获"处理），
+    //           容量不足时 *open_failed 保持 false。
+    std::span<std::byte> prepare(HWND hwnd, int width, int height, bool *open_failed = nullptr) {
+        if (open_failed != nullptr) {
+            *open_failed = false;
+        }
+        if (!locked_) {
+            if (open_failed != nullptr) {
+                *open_failed = true;
+            }
+            return {};
+        }
+        if (!SharedFrameHasCapacity(mem_, width, height)) {
+            WriteSharedFrameHeader(mem_, hwnd, width, height);
+            return {};
+        }
+
+        auto *base = mem_.data<std::byte>();
+        reinterpret_cast<op::capture::FrameInfo *>(base)->format(hwnd, width, height);
+        return {base + sizeof(op::capture::FrameInfo), static_cast<size_t>(width) * static_cast<size_t>(height) * 4};
+    }
+
+  private:
+    op::SharedMemory mem_;
+    op::ProcessMutex mutex_;
+    bool locked_ = false;
+};
 
 } // namespace op::hook

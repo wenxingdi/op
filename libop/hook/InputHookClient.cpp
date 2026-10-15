@@ -35,6 +35,33 @@ std::wstring resolve_hook_dll(blackbone::Process &proc) {
     return op::hook::ResolveHookModuleName(main_module->type == blackbone::eModType::mt_mod64);
 }
 
+// HK2: RPC 公共前置（attach + 解析 hook dll 名）。失败时按 what 记日志返回 false；
+// ping 类轻量回环传 what=nullptr，attach 失败静默（与旧行为一致）。
+bool attach_target(DWORD pid, HWND hwnd, const wchar_t *what, blackbone::Process &proc, std::wstring &dll_name) {
+    const NTSTATUS status = proc.Attach(pid);
+    if (!NT_SUCCESS(status)) {
+        if (what != nullptr) {
+            setlog(L"input hook %s attach failed. pid=%d hwnd=%p status=0x%X", what, pid, hwnd, status);
+        }
+        return false;
+    }
+    dll_name = resolve_hook_dll(proc);
+    return true;
+}
+
+// HK2: 解析远端导出并调用；解析失败记日志返回 0（日志格式与各调用点旧文案一致）。
+// 注意"导出存在但返回 0"与"导出不存在"都落 0 —— 调用方若区分两者（如 ping），
+// 需直接用 MakeHookRemoteFunction 判 remote 对象真假，不要用本 helper。
+template <typename T, typename... Args>
+long call_hook_export(blackbone::Process &proc, const std::wstring &dll_name, const char *name, Args... args) {
+    auto remote = op::hook::MakeHookRemoteFunction<T>(proc, dll_name, name);
+    if (!remote) {
+        setlog(L"remote function '%S' not found in %s.", name, dll_name.c_str());
+        return 0;
+    }
+    return remote(args...).result();
+}
+
 // out_pid：把内部已取到的目标 pid 透出给调用方缓存。宿主常见「窗口先销毁、随后才解绑」的
 // 收尾顺序，若解绑时再取一次 pid 会得到 0，导致远端 Hook 永久残留。
 // 返回 1 表示远端已装好；0 表示失败。
@@ -102,22 +129,13 @@ long call_release_input_hook(DWORD pid) {
     long ret = 0;
     try {
         blackbone::Process proc;
-        const NTSTATUS status = proc.Attach(pid);
-        if (!NT_SUCCESS(status)) {
-            setlog(L"input hook release attach failed. pid=%d status=0x%X", pid, status);
+        std::wstring dll_name;
+        // 用绑定阶段缓存的 pid 定位目标进程，不依赖 hwnd 是否仍然有效。
+        if (!attach_target(pid, nullptr, L"release", proc, dll_name))
             return 0;
-        }
 
-        const std::wstring dll_name = resolve_hook_dll(proc);
         using release_input_hook_t = long(__stdcall *)();
-        auto remote = op::hook::MakeHookRemoteFunction<release_input_hook_t>(proc, dll_name, "ReleaseInputHook");
-        if (remote) {
-            auto call_ret = remote();
-            ret = call_ret.result();
-        } else {
-            setlog(L"remote function 'ReleaseInputHook' not found in %s.", dll_name.c_str());
-        }
-
+        ret = call_hook_export<release_input_hook_t>(proc, dll_name, "ReleaseInputHook");
         proc.Detach();
     } catch (...) {
         setlog(L"input hook release RPC exception. pid=%d", pid);
@@ -135,22 +153,12 @@ long call_set_input_lock(HWND hwnd, int lock) {
     long ret = 0;
     try {
         blackbone::Process proc;
-        const NTSTATUS status = proc.Attach(pid);
-        if (!NT_SUCCESS(status)) {
-            setlog(L"input hook lock attach failed. pid=%d hwnd=%p status=0x%X", pid, hwnd, status);
+        std::wstring dll_name;
+        if (!attach_target(pid, hwnd, L"lock", proc, dll_name))
             return 0;
-        }
 
-        const std::wstring dll_name = resolve_hook_dll(proc);
         using set_input_lock_t = long(__stdcall *)(int);
-        auto remote = op::hook::MakeHookRemoteFunction<set_input_lock_t>(proc, dll_name, "SetInputLock");
-        if (remote) {
-            auto call_ret = remote(lock);
-            ret = call_ret.result();
-        } else {
-            setlog(L"remote function 'SetInputLock' not found in %s.", dll_name.c_str());
-        }
-
+        ret = call_hook_export<set_input_lock_t>(proc, dll_name, "SetInputLock", lock);
         proc.Detach();
     } catch (...) {
         setlog(L"input hook lock RPC exception. pid=%d hwnd=%p", pid, hwnd);
@@ -168,22 +176,12 @@ long call_set_input_attr(HWND hwnd, int attrs) {
     long ret = 0;
     try {
         blackbone::Process proc;
-        const NTSTATUS status = proc.Attach(pid);
-        if (!NT_SUCCESS(status)) {
-            setlog(L"input hook attr attach failed. pid=%d hwnd=%p status=0x%X", pid, hwnd, status);
+        std::wstring dll_name;
+        if (!attach_target(pid, hwnd, L"attr", proc, dll_name))
             return 0;
-        }
 
-        const std::wstring dll_name = resolve_hook_dll(proc);
         using set_input_attr_t = long(__stdcall *)(int);
-        auto remote = op::hook::MakeHookRemoteFunction<set_input_attr_t>(proc, dll_name, "SetInputAttr");
-        if (remote) {
-            auto call_ret = remote(attrs);
-            ret = call_ret.result();
-        } else {
-            setlog(L"remote function 'SetInputAttr' not found in %s.", dll_name.c_str());
-        }
-
+        ret = call_hook_export<set_input_attr_t>(proc, dll_name, "SetInputAttr", attrs);
         proc.Detach();
     } catch (...) {
         setlog(L"input hook attr RPC exception. pid=%d hwnd=%p", pid, hwnd);
@@ -203,15 +201,16 @@ long call_ping_hook(HWND hwnd) {
     long ret = 0;
     try {
         blackbone::Process proc;
-        const NTSTATUS status = proc.Attach(pid);
-        if (!NT_SUCCESS(status))
+        std::wstring dll_name;
+        if (!attach_target(pid, hwnd, nullptr, proc, dll_name))
             return 0;
 
-        const std::wstring dll_name = resolve_hook_dll(proc);
         using ping_t = unsigned long(__stdcall *)();
+        // 只验证"导出可解析"，返回值无意义 —— 所以不用 call_hook_export（它会把
+        // "导出存在但返回 0"与"导出不存在"混同为 0）。
         auto remote = op::hook::MakeHookRemoteFunction<ping_t>(proc, dll_name, "GetInputCursorShapeHashLow");
         if (remote) {
-            remote(); // 只验证可调用性，返回值无意义
+            remote();
             ret = 1;
         }
         proc.Detach();
@@ -229,13 +228,10 @@ bool call_cursor_shape(HWND hwnd, unsigned long long &hash, unsigned long long &
 
     try {
         blackbone::Process proc;
-        const NTSTATUS status = proc.Attach(pid);
-        if (!NT_SUCCESS(status)) {
-            setlog(L"input hook cursor attach failed. pid=%d hwnd=%p status=0x%X", pid, hwnd, status);
+        std::wstring dll_name;
+        if (!attach_target(pid, hwnd, L"cursor", proc, dll_name))
             return false;
-        }
 
-        const std::wstring dll_name = resolve_hook_dll(proc);
         using cursor_part_t = unsigned long(__stdcall *)();
         auto hash_low = op::hook::MakeHookRemoteFunction<cursor_part_t>(proc, dll_name, "GetInputCursorShapeHashLow");
         auto hash_high = op::hook::MakeHookRemoteFunction<cursor_part_t>(proc, dll_name, "GetInputCursorShapeHashHigh");

@@ -166,26 +166,20 @@ void dx11_capture(IDXGISwapChain *swapchain) {
         DisplayHook::set_capture_enabled(false);
         return;
     }
+    static_assert(sizeof(FrameInfo) == 28);
 
-    SharedMemory mem;
-    ProcessMutex mutex;
-    if (mem.open(DisplayHook::shared_res_name) && mutex.open(DisplayHook::mutex_name)) {
-        mutex.lock();
-        if (SharedFrameHasCapacity(mem, textDesc.Width, textDesc.Height)) {
-            auto sharedFrame = make_shared_frame_span(mem, textDesc.Width, textDesc.Height);
-            write_shared_frame(sharedFrame, DisplayHook::render_hwnd, textDesc.Width, textDesc.Height, mapSubres.pData,
-                               textDesc.Height, textDesc.Width, mapSubres.RowPitch, fmt);
-        } else {
-            WriteSharedFrameHeader(mem, DisplayHook::render_hwnd, textDesc.Width, textDesc.Height);
-        }
-        static_assert(sizeof(FrameInfo) == 28);
-        mutex.unlock();
-    } else {
+    SharedFrameWriter frame(DisplayHook::shared_res_name, DisplayHook::mutex_name);
+    bool open_failed = false;
+    const auto pixels = frame.prepare(DisplayHook::render_hwnd, textDesc.Width, textDesc.Height, &open_failed);
+    if (open_failed) {
+        // HK4: 与全部后端统一——打开失败意味着宿主已消失，记证 + 关捕获（原 d3d11 即此策略）。
+        setlog("d3d11 shared frame open failed, disable capture");
         DisplayHook::set_capture_enabled(false);
-#if DEBUG_HOOK
-        setlog(L"!mem.open(DisplayHook::%s)&&mutex.open(DisplayHook::%s)", DisplayHook::shared_res_name.c_str(),
-               DisplayHook::mutex_name.c_str());
-#endif // DEBUG_HOOK
+        return;
+    }
+    if (!pixels.empty()) {
+        CopyImageData(reinterpret_cast<char *>(pixels.data()), reinterpret_cast<const char *>(mapSubres.pData),
+                      textDesc.Height, textDesc.Width, mapSubres.RowPitch, fmt);
     }
     if (g_firstFrame.consume()) {
         setlog("d3d11 first frame: format=%d fmt=%d height=%u width=%u depthPitch=%u rowPitch=%u",
