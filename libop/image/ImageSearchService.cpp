@@ -926,23 +926,15 @@ long ImageSearchService::autoocr_ex(const wstring &color, double sim, wstring &o
         return a.left_top.x < b.left_top.x;
     });
     long find_ct = 0;
-    wchar_t confbuf[16];
+    wchar_t itembuf[96];
     for (auto &it : res) {
         if (it.confidence < sim - 1e-9)
             continue;
         if (find_ct >= _max_return_obj_ct)
             break; // 先判上限再收集（修正 off-by-one）
-        swprintf(confbuf, 16, L"%.2f", it.confidence);
-        out_str += std::to_wstring(it.left_top.x + _x1 + _dx);
-        out_str += L",";
-        out_str += std::to_wstring(it.left_top.y + _y1 + _dy);
-        out_str += L",";
-        out_str += std::to_wstring(it.right_bottom.x + _x1 + _dx);
-        out_str += L",";
-        out_str += std::to_wstring(it.right_bottom.y + _y1 + _dy);
-        out_str += L",";
-        out_str += confbuf;
-        out_str += L",";
+        swprintf(itembuf, 96, L"%d,%d,%d,%d,%.2f,", it.left_top.x + _x1 + _dx, it.left_top.y + _y1 + _dy,
+                 it.right_bottom.x + _x1 + _dx, it.right_bottom.y + _y1 + _dy, it.confidence);
+        out_str += itembuf;
         out_str += it.text;
         out_str += L"|";
         ++find_ct;
@@ -1287,18 +1279,17 @@ long ImageSearchService::OcrEx(const wstring &color, double sim, std::wstring &r
         vocr_rec_t res;
         int find_ct = 0;
         HttpOcrService::getInstance()->ocr(_src.pdata, _src.width, _src.height, 4, res);
+        wchar_t coordbuf[64];
         for (auto &it : res) {
-            if (it.confidence >= sim - 1e-9) {
-                retstr += std::to_wstring(it.left_top.x + _x1 + _dx);
-                retstr += L",";
-                retstr += std::to_wstring(it.left_top.y + _y1 + _dy);
-                retstr += L",";
-                retstr += it.text;
-                retstr += L"|";
-                ++find_ct;
-                if (find_ct > _max_return_obj_ct)
-                    break;
-            }
+            if (it.confidence < sim - 1e-9)
+                continue;
+            if (find_ct >= _max_return_obj_ct)
+                break; // 先判上限再收集（与 autoocr_ex 一致，修正原 off-by-one 实返上限+1）
+            swprintf(coordbuf, 64, L"%d,%d,", it.left_top.x + _x1 + _dx, it.left_top.y + _y1 + _dy);
+            retstr += coordbuf;
+            retstr += it.text;
+            retstr += L"|";
+            ++find_ct;
         }
         if (!retstr.empty() && retstr.back() == L'|')
             retstr.pop_back();

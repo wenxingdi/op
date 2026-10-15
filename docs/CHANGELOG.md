@@ -3,6 +3,33 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15（OCR 并发解锁 + 找图死代码精简 + OcrEx 上限修正，perf/fix/refactor）
+
+- **perf(ocr): 管理器锁外推，并发 OCR 不再串行化**（`libop/ocr/OcrService.cpp/.h`）
+  原实现 `HttpOcrService::ocr()/ocr_line()` 从入口到返回全程持有 `m_mutex`，130ms+ 的推理本体被锁包住，
+  多线程/多 Op 实例并发 OCR 被完全串行化（实施文档原设计即"引擎可重入、锁外调用"，但代码未落实）。
+  现改为：锁内只做引擎选择/懒初始化 + `shared_ptr` 快照（`m_engine` 从 unique_ptr 升级），
+  推理在锁外执行；并发 `release()`/重 `init` 不会销毁在飞的引擎实例。
+- **fix(image): `OcrEx` 免字库路径返回上限 off-by-one**（`libop/image/ImageSearchService.cpp`）
+  原"先拼串收集、后判 `find_ct > _max_return_obj_ct`"实际可返回上限+1 条；
+  改与同文件 `autoocr_ex` 一致的先判后收。5.2.0 修 FindColorEx 同款时漏网的一条。
+- **refactor(image): 删除找图死代码变体**（`libop/image/ImageSearchAlgorithms.cpp/.h`，净 -120 行）
+  服务层只走 `FindPicTh/FindPicExTh` 的 `PicMatchTemplate*`（预处理+线程池）重载；
+  非线程版 `FindPic/FindPicEx`、裸 `Image*` 双重重载及 `prepare_pic_views` 在 libop/tests/bindings
+  全仓无调用方，删除。消除双份维护源（旧实现是 Th 版的陈旧副本，行为漂移风险）。
+- **style(image): `FindColorNum` 去 goto**（`libop/image/ImageSearchAlgorithms.cpp`）
+  `goto _quick_break` 改为 64 位计数 + 循环条件早退，行为不变。
+- **test(探针): 新增 `scripts/probes/_t_ocr_concurrency.py`**（E-A 回归，A/B 反向验证已坐实）
+  `--threads=1` 判别器：无锁时两线程单线程段天然重叠（实测比值 1.54~1.62 PASS），
+  锁回归时严格 ≈2（同探针打旧 DLL 实测 1.87 FAIL）。
+  注意：本机 i5-13400 单路 ORT 默认占满 16 逻辑核即近内存带宽饱和（numpy 4 线程对照也只有 ~2×），
+  **默认线程数下并发提速在本机测不出**，需 `--threads=1/2` 或有余量的机器才体现；
+  锁外推的价值首先是消除人为串行点与锁代价。
+- **回归**：全量 gtest 371 PASS（2 条已知环境项：键鼠域 1 条 + WGC 历史 flaky 1 条，均有 9 月记录佐证）；
+  `OcrFixture` 内置引擎 25/25；`ImageColorTest` AutoOcr/FindPic/FindColorNum 6/6；
+  `_t_dict_ocr.py` 49 PASS/0 FAIL；`run_optest.py` 仅键鼠域已知环境项 1 条 FAIL。
+  构建后已跑 `OPTool/sync_op_dll.py` 同步三处发布件。
+
 ### 2026-10-14（版本号 5.2.0 + 绑定诊断闭环 + 轨迹参数族验证，feat）
 
 - **版本号升到 5.2.0**（`Ver()` 返回 `5.2.0`）：`libop/CMakeLists.txt` 的 `OP_VERSION` 定义（构建生效值）、

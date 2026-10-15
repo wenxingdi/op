@@ -102,19 +102,10 @@ class ImageSearchAlgorithms {
     long FindMultiColorEx(std::vector<color_df_t> &first_color, std::vector<pt_cr_df_t> &offset_color, double sim,
                           long dir, std::wstring &retstr);
 
-    long FindPic(std::vector<Image *> &pics, color_t dfcolor, double sim, long dir, long &x, long &y);
-
-    long FindPic(std::vector<PicMatchTemplate *> &pics, color_t dfcolor, double sim, long dir, long &x, long &y);
-
-    long FindPicTh(std::vector<Image *> &pics, color_t dfcolor, double sim, long dir, long &x, long &y);
-
+    // 找图只有一套实现：预处理模板 + 线程池分块扫描（PicMatchTemplate* 重载）。
+    // 服务层经 files2mats 走缓存的 PicMatchTemplate，非线程版与裸 Image* 重载已无调用方，已删除
+    // （2026-10-15 精简批），消除双份维护源。
     long FindPicTh(std::vector<PicMatchTemplate *> &pics, color_t dfcolor, double sim, long dir, long &x, long &y);
-
-    long FindPicEx(std::vector<Image *> &pics, color_t dfcolor, double sim, long dir, vpoint_desc_t &vpd);
-
-    long FindPicEx(std::vector<PicMatchTemplate *> &pics, color_t dfcolor, double sim, long dir, vpoint_desc_t &vpd);
-
-    long FindPicExTh(std::vector<Image *> &pics, color_t dfcolor, double sim, long dir, vpoint_desc_t &vpd);
 
     long FindPicExTh(std::vector<PicMatchTemplate *> &pics, color_t dfcolor, double sim, long dir, vpoint_desc_t &vpd);
 

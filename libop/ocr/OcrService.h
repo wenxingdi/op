@@ -66,7 +66,9 @@ private:
   int init_unlocked(const std::wstring &engine, const std::wstring &dllName,
                     const std::vector<std::string> &argv);
   std::mutex m_mutex;
-  std::unique_ptr<OcrEngine> m_engine; // 当前选中的引擎（默认内置 OnnxOcrEngine）
+  // shared_ptr 而非 unique_ptr：ocr()/ocr_line() 锁内取快照后在锁外调用引擎（引擎可重入），
+  // 并发推理期间 release()/重 init 不会销毁正在使用的引擎实例。
+  std::shared_ptr<OcrEngine> m_engine; // 当前选中的引擎（默认内置 OnnxOcrEngine）
   bool m_lazy_failed = false;          // 懒初始化已尝试且失败：只试一次，后续快速返回 -1
 };
 
