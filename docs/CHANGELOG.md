@@ -3,6 +3,27 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第十四批（opencv 找图引擎：同构代码收拢 ×4，refactor）
+
+逐模块分析与优化第 10 模块（opencv），分析文档
+`docs/2026-10/opencv模块分析_20261015.md`。
+
+- **refactor(opencv): gray 前导 ×4 收拢 + 三处并行 worker 统一 + 删冗余
+  缩放探测重载 + 细化双份合并**（CV1-CV4）
+  CV1 MatchTemplate/MatchTemplateRotated/MatchAnyTemplate/MatchAllTemplates 四处
+  逐行相同的"裁 ROI + 转灰度 + origin 回加"前导收为 `prepareGraySearchSource`，
+  失败出口保留在各调用方；CV2 findAnyNamedMatchParallel/findAnyStripMatch/
+  findAnyNamedStripMatchParallel 三处"命中即停"worker 循环收为泛型
+  `runFirstHitParallel`，顺带清掉未使用的 worker 形参；CV3 删除
+  `probeScaleCandidate` 独立旧重载及 fallback 分支（前提与缓存构建相同、不可达），
+  调用点只走 ScaleProbeSourceCache 版；CV4 Zhang-Suen/Guo-Hall 细化外壳收为
+  `thinMatIterative`（谓词 lambda 注入，谓词表达式逐字节保留）。
+  代码净 -150 行（+144/-294）。
+- **不做**：CV6 金字塔粗层全量收集换峰值版——粗层面积有界（≤ 约 50 万像素），
+  成本占比小，属行为邻近改动，按用户"非必要不做"裁定跳过。
+- **回归**：全量 401 ran / 399 PASS / 1 FAILED（MouseKeyTest.WaitKeyScanAllWithWaitFindsKey
+  已知环境 flake）/ 1 SKIPPED（FurMark 缺席）；DLL 同步副本全部一致。
+
 ### 2026-10-15 第十三批（base 地基：双份实现收拢 + 日志输出修正，refactor/fix）
 
 逐模块分析与优化第 9 模块（base），分析文档 `docs/2026-10/base模块分析_20261015.md`。
