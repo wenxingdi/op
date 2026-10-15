@@ -3,6 +3,20 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第十三批（base 地基：双份实现收拢 + 日志输出修正，refactor/fix）
+
+逐模块分析与优化第 9 模块（base），分析文档 `docs/2026-10/base模块分析_20261015.md`。
+
+- **refactor(base): split/大小写宽窄双份模板化 + PTY/PTX 与 GET_RENDER_* 统一 +
+  setlog 双换行修正**（提交 e5722e9，-38/+43）
+  B1 六函数收为 split_impl/case_convert_impl 内部模板（split 尾空段丢弃语义保持；
+  窄串经 unsigned char 转发消 UB）。B2 删 Utils.h 重复拆包 helper PTY/PTX，
+  image 系 16 处调用统一为 GET_RENDER_TYPE/FLAG。B3 setlog 删 stringstream 内
+  重复 endl（原日志每条间多空一行）。B4 GetLastErrorAsString 对
+  FormatMessageA 失败加 nullptr 防御。
+- **回归**：Utils 专项 15 条全过；全量 401 ran / 399 PASS / 1 FAILED（MouseKey
+  已知环境 flake）/ 1 SKIPPED；DLL 同步副本全部一致。
+
 ### 2026-10-15 第十二批（op 主接口层：同构代码收拢 + SetPath bug 修复，refactor/fix）
 
 逐模块分析与优化第 8 模块（op 主接口层），分析文档 `docs/2026-10/op模块分析_20261015.md`。
