@@ -3,6 +3,27 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第十二批（op 主接口层：同构代码收拢 + SetPath bug 修复，refactor/fix）
+
+逐模块分析与优化第 8 模块（op 主接口层），分析文档 `docs/2026-10/op模块分析_20261015.md`。
+
+- **fix(runtime): SetPath 相对路径成功分支写入解析结果而非原始串**（OP8）
+  `OpRuntime.cpp` 第二成功分支原写 `curr_path = path`（原始入参），首分支写
+  `= fpath`（`/`→`\` 规范化后）。相对路径 SetPath("sub") 成功后 GetPath 会返回
+  "sub" 而非 "C:\base\sub"，后续 Path2GlobalPath 相对解析基准错误。该分支无测试
+  钉住，属行为修正。改 `curr_path = fpath`。
+- **refactor(op): 同构代码五处收拢**（提交 89de555，-407/+359，净 -48）
+  OP4 OpMemory 15 个包装提取 `memory_call` 模板助手（hwnd 归一 + ProcessMemory
+  临时对象 + 异常兜底）；OP5 OpWindow 几何锁三函数提取 `geo_lock_entry_locked`/
+  `geo_lock_drop_locked` 锁内助手（disable 不新建空条目语义保持）；OP1 五个
+  parse_cv_* 模式解析器收为静态 {别名,枚举值} 表 + `match_cv_alias`；OP2
+  cv_pipeline_apply_step 七组无参步骤别名 if 链收为别名→函数指针映射表；OP3
+  两个 build_cv_*_json 合并为 `build_cv_results_json` 框架 + 元素 lambda，
+  8 个 MatchTemplate 变体提取 `cv_match_capture_run` 骨架。
+- **回归**：OpenCv/Memory/WindowState 专项 65 条全过；全量 401 ran / 399 PASS /
+  1 FAILED（MouseKey 已知环境 flake，边距一致）/ 1 SKIPPED（FurMark 缺席）。
+  DLL 同步副本全部一致。
+
 ### 2026-10-15 第十一批（YOLO/OCR：BGR 工具链单源化 + yolo 推理输入零拷贝，refactor/perf）
 
 逐模块分析与优化第 7 模块（YOLO），分析文档 `docs/2026-10/Yolo模块分析_20261015.md`。
