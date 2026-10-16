@@ -3,6 +3,15 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-16 第三十批（feat(bind)：swig/python 绑定补齐 + CMake 探测修复）
+
+无新增导出（仍为 316）。本批兑现上批遗留"swig/python 绑定待补"：绑定层从
+10-15 14:15 后**漂移 53 个方法**（JSON 族 11 / HTTP 族 3 / 文件系统 / Draw /
+QR / 算法辅助 / 进程内存等全部批次），pip 包 `op-plugins` 静默缺 API 达一天。
+**收尾验证：全量回归 441/441 通过（0 失败）**；首轮跑出的 WGC 套件 5 失败 +
+MouseKey/Clipboard 2 失败经单跑重试与历史记录比对，确认为既有环境 flake
+（WGC 捕获本机偶发不稳、MouseKey 物理鼠标态依赖、剪贴板竞态），与本批无关。
+
 - **fix(docs)**: API 目录补收 `Ver`——`parse_header` 原只认 void/long 返回型，
   `std::wstring Ver()` 漏收（309→310）。**function-calling 真机闭环验证暴露**：
   api_llm.json 的 6 工具子集驱动 agnes-2.5-flash 三轮自主决策，pyop 实机执行
@@ -14,17 +23,12 @@
   py 启动器 / 常见安装位），全失效才降级警告。踩坑记录：PS 数组 `$a[1..0]` 是降序取值
   （得 $null+$a[0]）、原生 stderr 在 Stop 偏好下直接抛异常、ps1 编辑后必须保留 BOM。
 - **docs(api)**: 新增大模型 function-calling 版 API 目录——`gen_api_reference.py`
-  同步产出 `docs/api_llm.json`（309 接口分组，每函数带 OpenAI/Anthropic 通用
+  同步产出 `docs/api_llm.json`（310 接口分组，每函数带 OpenAI/Anthropic 通用
   tool_schema，出参聚成返回值不入 properties）+ `docs/api_llm.md`（21KB 紧凑速查，
   适合整体塞上下文）。JSON 族 11 + HTTP 族 3 参数语义全补齐（大模型对接主通道），
   注解覆盖率 94.0→95.8%。接口面变更后重跑脚本三产物一并刷新。
-
-### 2026-10-16 第三十批（feat(bind)：swig/python 绑定补齐 + CMake 探测修复）
-
-无新增导出（仍为 316）。本批兑现上批遗留"swig/python 绑定待补"：绑定层从
-10-15 14:15 后**漂移 53 个方法**（JSON 族 11 / HTTP 族 3 / 文件系统 / Draw /
-QR / 算法辅助 / 进程内存等全部批次），pip 包 `op-plugins` 静默缺 API 达一天。
-
+- **docs(llm)**: function-calling 进阶章节写入大模型对接示例（三段式可抄代码 +
+  OpenAI 包装层 400 坑 + 工具子集裁剪建议），示例逐字实跑通过；INDEX 摘要同步。
 - **chore(tool)**: swig 装机走 `pip install "swig==4.4.1"`（pip 自带 Windows
   二进制）。本机踩坑记录：winget 的 msstore 源连不上、sourceforge 直链
   16KB/120s 级慢、清华/USTC 镜像无 swig 目录、GitHub API 拉不到资产——pip 是唯一可靠源。
