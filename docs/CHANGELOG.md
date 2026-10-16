@@ -22,6 +22,12 @@ decode_qrcode 等），手册 `in_ctypes_binding` 标注与覆盖率核对统一
 - **chore(release) 打 stable-2 标签 + 冷备份**：`v2026.10.16-stable-2`（op→9c3629e，
   OPTool 无新提交同点续标），备份 `backup/2026-10-16_stable_3`——manifest 47 项
   sha1 校验通过，op-repo.bundle `git bundle verify` 完整历史可用。
+- **收尾验证：全量回归 477 项 474 过**（0 实质失败）——首轮 2 个失败
+  （WgcTest.NormalDxgiFirstCaptureAfterBindUsesFreshFrame /
+  CaptureModeTest.DownCpuAddsDelayAfterEachCapture）单跑重试全过，与第三十批记录
+  一致确认为既有环境 flake（WGC 本机偶发不稳 + 时序用例受并行负载干扰）；
+  1 项跳过（BindUnbindFurMarkIfPresent，本机无 FurMark）；同步门禁新 ctypes 段
+  在回归入口实测拦截生效、全绿。
 - **真机抽验（bin/x64/op_c_api_x64.dll，ctypes 路径）**：Md5/Sha1/Base64 与标准值一致；
   JSON 族 11 函数（valid/str/num/bool/size/keys/set×3/append/delete）行为全对；
   文件族 write/read/exists/size/name flag0~3/copy/folder 全对；get_window_scale 真实
