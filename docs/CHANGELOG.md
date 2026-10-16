@@ -3,6 +3,40 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-16 第二十八批（P3 第二项：HTTP 小族 OpHttp* 3 接口，feat）
+
+承接 OLA 对比 P3 批排期，新增 3 接口（Op → C API → COM idl 437-439 → 测试四层），
+导出总数 313 → 316。**P3 清单按"体积小只留高必要性"原则收敛后，JSON 与 HTTP
+为保留项，其余（热键监听/注册表/XML）砍掉**，本批收官 P3。
+全量回归 442 ran / 439 PASS（失败为已实证基线：WaitKeyScanAll 恒失败、
+DownCpuAddsDelay 时序 flake，非本批引入）。**真实大模型 API 实测通过**：
+ctypes 走 op_c_api_x64.dll 对 agnes-2.5-flash 与 deepseek-flash 各发一次
+chat/completions 并用 OpJsonGetString 取出回复（'pong' / reasoning+正文），
+OpHttpPost + JSON 族闭环成立。
+
+- **feat(op): HttpGet/HttpPost/HttpDownloadFile**：系统 WinHTTP 直连（零第三方
+  依赖，HTTPS/TLS 与系统代理自动继承），请求/响应体 UTF-8；headers_json 为
+  JSON 对象文本（复用本仓库 JSON 族解析器，设计自洽）。非 2xx 也返回响应体
+  （错误 JSON 可见），传输失败空串。
+- **feat(network): 新增 HttpRequest.h/.cpp**（与旧 HttpClient——ANSI 版、已移出
+  构建的 OCR/YOLO 远程后端——完全独立，旧文件不动）。下载走原始字节流式落盘；
+  超时四阶段同值（钳 1000-300000）。
+- **实现坑**（已记入手册/注释）：(a) WinHttpQueryHeaders 带 WINHTTP_QUERY_FLAG_NUMBER
+  时输出 DWORD 不是字符串，按 wchar 读会拿到乱码状态码导致下载必失败；
+  (b) WinHTTP 四阶段超时对"已连接但服务器不吐首字节"的等待不生效（本机实测
+  1000ms 超时配 4s 延迟服务器仍等满 4s），测试改用 TEST-NET 黑洞地址验证连接
+  阶段超时，首字节限制写进手册"约定与限制"；(c) c_api 字符串返回共享
+  string_result 缓冲——HTTP 返回值立刻接 JSON 族调用会被覆盖，测试侧先拷贝
+  （对 C API 用户是通用已知约定）。
+- **test**: http_request_test.cpp 新增 8 用例：进程内嵌 WinSock 回环 HTTP 服务器
+  （127.0.0.1 动态端口，回显请求行/头/体供断言）。覆盖 GET 往返、自定义头透传
+  （Authorization/X-Custom）、POST UTF-8 中文体 + Content-Type + JSON 族闭环取
+  字段、非 2xx 带响应体、连接超时、64KB 二进制下载字节比对、非法输入（空
+  URL/非法 headers/拒连）、空句柄契约。
+- 空句柄生成器重跑：3 函数自动纳入。
+
+遗留同前批：swig/python 与 Go 绑定待补（本机无 swig）。
+
 ### 2026-10-16 第二十七批（P3 第一批：JSON 族 OpJson* 11 接口，feat）
 
 承接 OLA 对比 P3 批排期，新增 11 接口（Op → C API → COM idl 426-436 → 测试四层），
