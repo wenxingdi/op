@@ -763,6 +763,69 @@ PARAM_DOCS = {
         "etjson": "检测结果 JSON 数组：每个元素含类别/置信度/包围盒 {class,score,x,y,w,h}",
     },
     "YoloDetectFromFile": {"file_name": "待检测图片路径", "etjson": "同 YoloDetect"},
+    # ---------- JSON / HTTP（2026-10-16，大模型对接主通道）----------
+    "JsonIsValid": {"json_text": "待校验 JSON 文本", "ret": "1=合法 JSON，0=非法"},
+    "JsonGetString": {
+        "json_text": "JSON 文本（如 OP 各 etjson 返回值或用户自有数据）",
+        "path": "取值路径 <code>\"a.b[0].c\"</code>（兼容 <code>\"a.b.0\"</code> 写法）",
+        "retstr": "路径处的字符串值；类型不符/不存在返回空串",
+        "ret": "1=成功 0=失败",
+    },
+    "JsonGetNumber": {
+        "json_text": "JSON 文本", "path": "取值路径（同 JsonGetString）",
+        "value": "出参：路径处的数值", "ret": "1=成功 0=失败",
+    },
+    "JsonGetBool": {
+        "json_text": "JSON 文本", "path": "取值路径（同 JsonGetString）",
+        "value": "出参：路径处的布尔值", "ret": "1=成功 0=失败",
+    },
+    "JsonGetSize": {
+        "json_text": "JSON 文本", "path": "数组/对象路径（同 JsonGetString）",
+        "value": "出参：元素个数", "ret": "1=成功 0=失败",
+    },
+    "JsonGetKeys": {
+        "json_text": "JSON 文本", "path": "对象路径（同 JsonGetString）",
+        "retstr": "出参：键名串，| 连接", "ret": "1=成功 0=失败",
+    },
+    "JsonSetString": {
+        "json_text": "JSON 文本", "path": "写入路径（同 JsonGetString）", "value": "要写入的字符串",
+        "retstr": "出参：写入后的完整新 JSON 串；失败返回空串", "ret": "1=成功 0=失败",
+    },
+    "JsonSetNumber": {
+        "json_text": "JSON 文本", "path": "写入路径（同 JsonGetString）", "value": "要写入的数值",
+        "retstr": "同 JsonSetString", "ret": "1=成功 0=失败",
+    },
+    "JsonSetBool": {
+        "json_text": "JSON 文本", "path": "写入路径（同 JsonGetString）", "value": "要写入的布尔值（1/0）",
+        "retstr": "同 JsonSetString", "ret": "1=成功 0=失败",
+    },
+    "JsonAppend": {
+        "json_text": "JSON 文本", "path": "数组路径（同 JsonGetString），新元素追加到该数组末尾",
+        "raw_json": "要追加的原始 JSON 片段文本",
+        "retstr": "出参：追加后的完整新 JSON 串；父路径不可达返回空串", "ret": "1=成功 0=失败",
+    },
+    "JsonDelete": {
+        "json_text": "JSON 文本", "path": "要删除的对象键或数组元素路径",
+        "retstr": "出参：删除后的完整新 JSON 串；父路径不可达返回空串", "ret": "1=成功 0=失败",
+    },
+    "HttpGet": {
+        "url": "完整 URL（https://…，系统 WinHTTP 直连，TLS/系统代理自动继承）",
+        "headers_json": "请求头 JSON 对象文本，如 <code>{\"Authorization\":\"Bearer sk-xxx\"}</code>；无请求头传 <code>\"{}\"</code>",
+        "timeout_ms": "超时毫秒；<=0 用 30000，钳 1000~300000",
+        "retstr": "响应体（UTF-8）；非 2xx 也带响应体（错误 JSON 可见）；传输失败空串",
+        "ret": "1=2xx 成功；非 2xx ret=0 但 retstr 仍有响应体",
+    },
+    "HttpPost": {
+        "url": "完整 URL", "body": "请求体（UTF-8；JSON 体请先自行序列化，常配合 JsonSet* 组包）",
+        "headers_json": "同 HttpGet，Content-Type 也放这里（如 <code>{\"Content-Type\":\"application/json\"}</code>）",
+        "timeout_ms": "同 HttpGet",
+        "retstr": "响应体（UTF-8），同 HttpGet 语义",
+        "ret": "同 HttpGet",
+    },
+    "HttpDownloadFile": {
+        "url": "完整 URL", "file_name": "落盘路径（父目录须已存在）",
+        "timeout_ms": "同 HttpGet", "ret": "1=下载成功",
+    },
     # ---------- Memory ----------
     "WriteData": {"data": "要写入的字节数据", "size": "字节数"},
     "ReadData": {"size": "读取字节数", "etstr": "读出的数据（16 进制串）"},
@@ -893,6 +956,139 @@ TYPE_CN = {
     "int64_t": "int64 整数", "size_t": "size_t 指针/长度", "void": "void",
     "unsigned long": "ulong (PID)", "LONG_PTR": "LONG_PTR 句柄/指针",
 }
+
+
+# ---------------------------------------------------------------------------
+# LLM 产物：api_llm.json（function-calling 工具目录）+ api_llm.md（紧凑速查）。
+# 参数语义注解原本是 HTML（<code>/<b>/<br>），这里转纯文本后嵌入 JSON。
+# ---------------------------------------------------------------------------
+import html as _html
+import json as _json
+
+_TAG_BR_RE = re.compile(r"<br\s*/?>", re.I)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def html_to_text(s):
+    """参数注解 HTML → 纯文本（保留换行，实体反转义）。"""
+    if not s:
+        return ""
+    s = _TAG_BR_RE.sub("\n", s)
+    s = _TAG_RE.sub("", s)
+    s = _html.unescape(s)
+    lines = [re.sub(r"[ \t]+", " ", l).strip() for l in s.splitlines()]
+    return "\n".join(l for l in lines if l).strip()
+
+
+# C/C++ 类型 → JSON Schema 类型（tool-calling 用）
+def json_type(ctype):
+    c = ctype.replace("const ", "").strip()
+    if c in ("long", "int", "int64_t", "size_t", "unsigned long", "LONG_PTR",
+             "double", "float", "short", "unsigned int", "unsigned char"):
+        return "number"
+    if "*" in c or c in ("std::wstring", "std::string", "std::wstring &", "std::string &"):
+        return "string"
+    return "string"
+
+
+def param_doc_text(fn, p):
+    fdoc = PARAM_DOCS.get(fn["name"], {})
+    raw = fdoc.get(p["name"]) or GLOBAL_PARAM_DOCS.get(p["name"], "")
+    return html_to_text(raw)
+
+
+def fn_to_llm(fn):
+    ins = [p for p in fn["params"] if p["dir"] in ("in", "inout")]
+    outs = [p for p in fn["params"] if p["dir"] == "out"]
+    desc = html_to_text(fn["desc"])
+
+    params = [{
+        "name": p["name"], "type": p["type"], "dir": p["dir"],
+        "json_type": json_type(p["type"]),
+        "doc": param_doc_text(fn, p),
+    } for p in fn["params"]]
+
+    ret_items = []
+    for p in outs:
+        d = param_doc_text(fn, p)
+        pname = "ret" if p["name"] in ("ret", "bret", "rettitle", "retx", "rety") else p["name"]
+        ret_items.append({"name": pname, "type": p["type"], "doc": d})
+    if fn["ret"] == "long" and not any(r["name"] == "ret" for r in ret_items):
+        ret_items.insert(0, {"name": "ret", "type": "long",
+                             "doc": html_to_text(GLOBAL_PARAM_DOCS.get("ret", ""))})
+
+    # function-calling 工具 schema（OpenAI/Anthropic 通用）：入参为 properties，出参在返回值里
+    properties, required = {}, []
+    for p in ins:
+        pd = {"type": json_type(p["type"]), "description": param_doc_text(fn, p) or p["type"]}
+        properties[p["name"]] = pd
+        required.append(p["name"])
+    tool_schema = {
+        "name": fn["name"],
+        "description": (desc or f"OP 插件接口 {fn['name']}")[:1024],
+        "parameters": {"type": "object", "properties": properties, "required": required},
+    }
+    ret_doc = "；".join(f"{r['name']}: {r['doc']}" for r in ret_items if r["doc"]) \
+        or "；".join(r["name"] for r in ret_items)
+    return {
+        "group": fn["group"],
+        "group_name": GROUP_NAME.get(fn["group"], fn["group"]),
+        "name": fn["name"],
+        "signature": py_sig(fn),
+        "description": desc,
+        "params": params,
+        "returns": ret_items,
+        "returns_summary": ret_doc,
+        "tool_schema": tool_schema,
+    }
+
+
+def emit_llm_json(fns, gen_time):
+    groups = []
+    for gkey in GROUP_ORDER:
+        gfs = [f for f in fns if f["group"] == gkey]
+        if not gfs:
+            continue
+        groups.append({
+            "key": gkey, "name": GROUP_NAME[gkey], "description": GROUP_DESC[gkey],
+            "functions": [fn_to_llm(f) for f in gfs],
+        })
+    doc = {
+        "meta": {
+            "title": "OP 插件 API 目录（大模型 function-calling 版）",
+            "source": "include/libop.h",
+            "generated": gen_time,
+            "generator": "scripts/gen_api_reference.py",
+            "total_functions": len(fns),
+            "usage": {
+                "python": "from op import Op; op = Op(dll_path=r'D:\\op\\bin\\x64\\op_c_api_x64.dll'); "
+                          "ret = op.find_pic(x1, y1, x2, y2, files, delta_color, sim, dir)",
+                "note": "出参（dir=out）不作为调用入参，聚在返回值元组中，顺序同 signature 的 → 后列表。"
+                        "坐标为物理像素；绑定窗口后为客户区坐标系。字符串均为 UTF-16 文本。",
+            },
+        },
+        "groups": groups,
+    }
+    return _json.dumps(doc, ensure_ascii=False, indent=1)
+
+
+def emit_llm_md(fns, gen_time):
+    out = ["# OP 插件 API 速查（LLM 上下文版）", "",
+           f"> 源：`include/libop.h` · {len(fns)} 个接口 · 生成于 {gen_time} · "
+           f"由 scripts/gen_api_reference.py 生成（勿手改）", "",
+           "调用约定：出参不传入，聚成返回值元组（顺序 = signature 的 → 后列表）；"
+           "坐标为物理像素，绑定窗口后为客户区坐标；字符串 UTF-16。", ""]
+    for gkey in GROUP_ORDER:
+        gfs = [f for f in fns if f["group"] == gkey]
+        if not gfs:
+            continue
+        out.append(f"## {GROUP_NAME[gkey]}（{len(gfs)}）")
+        out.append("")
+        for fn in gfs:
+            one = html_to_text(fn["desc"]).splitlines()[0] if fn["desc"] else ""
+            out.append(f"- `{py_sig(fn)}` — {one}")
+        out.append("")
+    return "\n".join(out)
 
 
 def esc(s):
@@ -1053,6 +1249,8 @@ document.querySelectorAll('.copy').forEach(b=>b.addEventListener('click',()=>{
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=os.path.join(ROOT, "docs", "api_reference.html"))
+    ap.add_argument("--llm-json", default=os.path.join(ROOT, "docs", "api_llm.json"))
+    ap.add_argument("--llm-md", default=os.path.join(ROOT, "docs", "api_llm.md"))
     ap.add_argument("--header", default=HEADER)
     a = ap.parse_args()
     fns = parse_header(a.header)
@@ -1063,6 +1261,15 @@ def main():
     out = render(fns, os.path.relpath(a.header, ROOT), gen_time)
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     open(a.out, "w", encoding="utf-8").write(out)
+    # LLM 产物：function-calling JSON 目录 + 紧凑速查 MD
+    if a.llm_json:
+        lj = emit_llm_json(fns, gen_time)
+        open(a.llm_json, "w", encoding="utf-8").write(lj)
+        print("->", os.path.relpath(a.llm_json, ROOT), f"({len(lj)//1024} KB)")
+    if a.llm_md:
+        lm = emit_llm_md(fns, gen_time)
+        open(a.llm_md, "w", encoding="utf-8").write(lm)
+        print("->", os.path.relpath(a.llm_md, ROOT), f"({len(lm)//1024} KB)")
     # 统计输出 + 注解覆盖率
     from collections import Counter
     c = Counter(f["group"] for f in fns)
