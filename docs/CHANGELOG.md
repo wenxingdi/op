@@ -12,6 +12,12 @@ QR / 算法辅助 / 进程内存等全部批次），pip 包 `op-plugins` 静默
 MouseKey/Clipboard 2 失败经单跑重试与历史记录比对，确认为既有环境 flake
 （WGC 捕获本机偶发不稳、MouseKey 物理鼠标态依赖、剪贴板竞态），与本批无关。
 
+- **docs(api) Python 对照使用**：手册（HTML/JSON）每函数新增
+  `python_example`（pyop 主路径，含返回值注释，310 全覆盖，真机抽验
+  可执行）+ `python_ctypes_name`/`in_ctypes_binding`（缩写感知 snake 换算
+  与 bindings/python 全量核对：242 覆盖/68 未覆盖如实标注，HTML 未覆盖标橙）。
+  速览区改 pyop/ctypes 双路径。**暴露 bindings/python 落后 libop.h 68 个
+  函数（近三批新增），补齐列入待办**。
 - **docs(api) 明确性审计归零**：系统性审计 api_llm.json vs libop.h——
   结构完整性无问题（310/310 全覆盖，SAL 方向解析正确，抽查 EnumWindow/
   ClientToScreen/GetClientRect 的 tool_schema 与真身逐一对上）；真实缺口在
