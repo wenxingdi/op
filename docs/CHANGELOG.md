@@ -3,6 +3,38 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-16 第二十七批（P3 第一批：JSON 族 OpJson* 11 接口，feat）
+
+承接 OLA 对比 P3 批排期，新增 11 接口（Op → C API → COM idl 426-436 → 测试四层），
+导出总数 302 → 313。全量回归 434 ran / 431 PASS（失败为已实证基线：
+WaitKeyScanAll 恒失败、DownCpuAddsDelayAfterEachCapture 时序 flake 单独复跑通过，
+非本批引入）。
+
+- **feat(op): Json* 11 接口**（对齐 OLA JSON 模块用途，18 接口压到 11）：采用
+  无句柄路径直取式设计——所有函数收 JSON 文本 + 路径（`a.b[0].c`，兼容 `a.b.0`，
+  空路径=根），无需解析句柄与释放。OLA 的 JsonStringify/JsonFree/JsonGetArrayItem
+  等被路径语义吸收。核心用途：给 OP 自身几十个 JSON 返回值接口（YOLO/CV/OCR/
+  模块列表）补解析侧，脚本宿主无 JSON 库时调用链闭合。
+- **feat(json): 新增 libop/json/JsonValue.h/.cpp**：自包含递归下降解析器 + DOM +
+  序列化 + 路径导航，不引第三方库。对象保插入序、重复键原地覆盖；Number 统一
+  double，整数无损时按整数输出（42.0 → 42）；\uXXXX 解析含代理对拼合（wchar_t
+  16 位平台存 UTF-16 码元对）；深度上限 200 防栈溢出；序列化字符串复用
+  internal::json::EscapeString（控制字符 \u00XX，兼容严格服务端）。
+- **语义要点**：Set 系路径不存在自动创建中间对象/数组（Null 节点原地转型，
+  数组越界 Null 填充），null/空输入文本视为空文档可从零构建；Append 元素经
+  完整 JSON 校验；Delete 数组 erase 下标；GetSize 数组长度/对象键数，-1 非集合
+  （空句柄按 null-handle 统一惯例返 0，两者分层）。写类失败一律返回空串。
+- **test**: json_value_test.cpp 新增 8 用例：IsValid 正反（尾随内容/尾逗号/
+  前导零/非法转义）、类型化路径直取（含 .0 兼容）、\u4e2d\u6587 + emoji 代理对
+  往返、GetSize/GetKeys、Set 自动建路径 + 转义往返 + 整数序列化、Append 建数组
+  + 非法元素拒收、Delete 键/元素/越界、空句柄 11 函数契约。
+  **实现坑**：(a) ParsePath 段首 flush 遗漏——'.' 时必须先落盘当前键否则
+  "user.name" 黏成 "username"；(b) gtest EXPECT_EQ 对 `const wchar_t*` 比的是
+  指针不是内容，字符串断言一律 EXPECT_STREQ。
+- 空句柄生成器重跑：11 函数自动纳入（走 call_string，失败值空串分类正确）。
+
+遗留同前批：swig/python 与 Go 绑定待补（本机无 swig）。
+
 ### 2026-10-16 第二十六批（P2 #12：OCR 预热 OpOcrWarmup，feat）
 
 承接 OLA 对比 P2 批排期，新增 1 接口（Op → C API → COM idl 425 → 测试四层），
