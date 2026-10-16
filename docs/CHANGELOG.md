@@ -3,6 +3,12 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+- **fix(docs)**: API 目录补收 `Ver`——`parse_header` 原只认 void/long 返回型，
+  `std::wstring Ver()` 漏收（309→310）。**function-calling 真机闭环验证暴露**：
+  api_llm.json 的 6 工具子集驱动 agnes-2.5-flash 三轮自主决策，pyop 实机执行
+  Ver=5.2.0 / 屏宽 3840 / 随机数 / JSON 校验取值全对；HTTP 步模型传字面量
+  `${OP_LLM_KEY}` 被服务端拒——OP 侧按文档语义返回 ret=0+错误体，闭环本身成立。
+  探针用完即删，key 不落仓库。
 - **chore(test)**: 回归脚本前置绑定同步门禁——`run_tests.ps1` 跑 op_test 前先跑
   `check_swig_sync.py`，漂移 exit 4 拦下；python 探测三级兜底（PATH shim 实测可执行 /
   py 启动器 / 常见安装位），全失效才降级警告。踩坑记录：PS 数组 `$a[1..0]` 是降序取值
