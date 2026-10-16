@@ -190,8 +190,10 @@ set(OP_IMAGE_SOURCES
 # HTTP 远程后端整体隐藏（2026-09-18 决策：YOLO 依赖自训模型，不走 HTTP 服务）。
 # 如需恢复：取消下列注释 + 在 OcrService.cpp / YoloDetector.cpp 定义
 # OP_ENABLE_HTTP_OCR_BACKEND / OP_ENABLE_HTTP_YOLO_BACKEND（代码以条件宏保留）。
+# 2026-10-16：HttpRequest.cpp（P3 第二项 HTTP 小族，WinHTTP 宽字符版）入构建，
+# 与旧 HttpClient.cpp（ANSI 版，已隐藏）无关，不冲突。
 set(OP_NETWORK_SOURCES
-  # "network/HttpClient.cpp"
+  "network/HttpRequest.cpp"
 )
 
 # ---- ONNX Runtime 可用性探测（特意放在源列表之前：列表要据此裁剪）--------------
@@ -305,6 +307,7 @@ set(OP_CLASS_SOURCES
   "op/OpYolo.cpp"
   "op/OpMemory.cpp"
   "op/OpJson.cpp"
+  "op/OpHttp.cpp"
 )
 
 set(OP_OPENCV_SOURCES "")

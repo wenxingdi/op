@@ -2189,3 +2189,24 @@ STDMETHODIMP OpAutomation::JsonDelete(BSTR json_text, BSTR path, BSTR *retstr) {
         s.clear();
     return CopyOutBstr(retstr, s);
 }
+
+//-----------------------http（P3 第二项 2026-10-16，WinHTTP 系统直连）-------------------------
+
+STDMETHODIMP OpAutomation::HttpGet(BSTR url, BSTR headers_json, LONG timeout_ms, BSTR *retstr) {
+    wstring s;
+    long ok = 0;
+    obj.HttpGet(url, headers_json, timeout_ms, s, &ok);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::HttpPost(BSTR url, BSTR body, BSTR headers_json, LONG timeout_ms, BSTR *retstr) {
+    wstring s;
+    long ok = 0;
+    obj.HttpPost(url, body, headers_json, timeout_ms, s, &ok);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::HttpDownloadFile(BSTR url, BSTR file_name, LONG timeout_ms, LONG *ret) {
+    obj.HttpDownloadFile(url, file_name, timeout_ms, ret);
+    return S_OK;
+}

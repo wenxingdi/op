@@ -344,6 +344,9 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_empty(OpJsonSetBool(nullptr, L"", L"", 0), "OpJsonSetBool");
     expect_empty(OpJsonAppend(nullptr, L"", L"", L""), "OpJsonAppend");
     expect_empty(OpJsonDelete(nullptr, L"", L""), "OpJsonDelete");
+    expect_empty(OpHttpGet(nullptr, L"", L"", 0), "OpHttpGet");
+    expect_empty(OpHttpPost(nullptr, L"", L"", L"", 0), "OpHttpPost");
+    EXPECT_EQ(OpHttpDownloadFile(nullptr, L"", L"", 0), 0) << "OpHttpDownloadFile";
 }
 
 TEST(CApiNullHandle, FreeFunctionsAreSafe) {

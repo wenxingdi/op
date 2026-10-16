@@ -533,6 +533,17 @@ OP_C_API const wchar_t *OP_CALL OpJsonAppend(op_handle handle, const wchar_t *js
 // 删除对象键或数组元素，返回新 JSON 串；失败返回空串
 OP_C_API const wchar_t *OP_CALL OpJsonDelete(op_handle handle, const wchar_t *json_text, const wchar_t *path);
 
+// ---- HTTP 小族（P3 第二项新增 2026-10-16，WinHTTP 系统直连）：对接大模型 API 用 ----
+// headers_json 为 JSON 对象文本（如 {"Authorization":"Bearer sk-xxx"}）；timeout<=0 用 30000。
+// 非 2xx 也返回响应体（错误 JSON 可见）；传输失败返回空串。
+OP_C_API const wchar_t *OP_CALL OpHttpGet(op_handle handle, const wchar_t *url, const wchar_t *headers_json,
+                                          int timeout_ms);
+OP_C_API const wchar_t *OP_CALL OpHttpPost(op_handle handle, const wchar_t *url, const wchar_t *body,
+                                           const wchar_t *headers_json, int timeout_ms);
+// 下载到文件（原始字节流式落盘），1 成功 0 失败
+OP_C_API int OP_CALL OpHttpDownloadFile(op_handle handle, const wchar_t *url, const wchar_t *file_name,
+                                        int timeout_ms);
+
 #ifdef __cplusplus
 }
 #endif

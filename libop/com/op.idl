@@ -392,6 +392,11 @@ interface IOpAutomation : IDispatch
 	[id(434)] HRESULT JsonSetBool([in] BSTR json_text, [in] BSTR path, [in] LONG value, [out, retval] BSTR* retstr);
 	[id(435)] HRESULT JsonAppend([in] BSTR json_text, [in] BSTR path, [in] BSTR raw_json, [out, retval] BSTR* retstr);
 	[id(436)] HRESULT JsonDelete([in] BSTR json_text, [in] BSTR path, [out, retval] BSTR* retstr);
+	// HTTP 小族（P3 第二项 2026-10-16，WinHTTP 系统直连）：对接大模型 API。
+	// headers_json 为 JSON 对象文本；非 2xx 也返回响应体；传输失败空串。
+	[id(437)] HRESULT HttpGet([in] BSTR url, [in] BSTR headers_json, [in] LONG timeout_ms, [out, retval] BSTR* retstr);
+	[id(438)] HRESULT HttpPost([in] BSTR url, [in] BSTR body, [in] BSTR headers_json, [in] LONG timeout_ms, [out, retval] BSTR* retstr);
+	[id(439)] HRESULT HttpDownloadFile([in] BSTR url, [in] BSTR file_name, [in] LONG timeout_ms, [out, retval] LONG* ret);
 
 
 

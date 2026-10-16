@@ -866,6 +866,20 @@ class OP_API Op {
     // 删除对象键或数组元素，返回新 JSON 串；父路径不可达返回空串。
     void JsonDelete(_In_ const wchar_t *json_text, _In_ const wchar_t *path, _Out_ std::wstring &retstr,
                     _Out_ long *ret);
+
+    //----------------------http（P3 第二项 2026-10-16）-------------------------
+    // 系统 WinHTTP 直连（零第三方依赖），用途：脚本对接大模型等 OpenAI 兼容 API——
+    // OpHttpPost + Json 族即构成完整闭环。请求/响应体 UTF-8；headers_json 为 JSON
+    // 对象文本（如 {"Authorization":"Bearer sk-xxx"}），复用 JSON 族解析。
+    // 非 2xx 不算传输失败：ret=0 但 retstr 带回响应体（错误 JSON 可见）；传输失败空串。
+    // timeout_ms<=0 用 30000，钳 1000-300000。
+    void HttpGet(_In_ const wchar_t *url, _In_ const wchar_t *headers_json, _In_ long timeout_ms,
+                 _Out_ std::wstring &retstr, _Out_ long *ret);
+    void HttpPost(_In_ const wchar_t *url, _In_ const wchar_t *body, _In_ const wchar_t *headers_json,
+                  _In_ long timeout_ms, _Out_ std::wstring &retstr, _Out_ long *ret);
+    // 下载到文件（原始字节流式落盘）。parent 目录须已存在。ret=1 成功。
+    void HttpDownloadFile(_In_ const wchar_t *url, _In_ const wchar_t *file_name, _In_ long timeout_ms,
+                          _Out_ long *ret);
 };
 
 } // namespace op

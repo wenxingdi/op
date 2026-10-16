@@ -174,6 +174,8 @@ set(OP_TEST_SOURCES
   "ocr_warmup_test.cpp"
   # P3 第一批（2026-10-16）：JSON 族 OpJson* 11 接口，路径直取 + 写回往返 + 空句柄。
   "json_value_test.cpp"
+  # P3 第二项（2026-10-16）：HTTP 小族 OpHttp* 3 接口，进程内嵌 WinSock 回环服务器。
+  "http_request_test.cpp"
   # inject_dll 失败上报（2026-09-28 真机暴露：DllInjector 的 -1~-7 被透传，
   # 而对外约定 0=失败非 0=成功 ⇒ 永远无法上报失败）。本测试只注入本进程已加载模块，无需外部进程。
   # run_app(mode=1) 工作目录推导（2026-09-28 真机暴露：裸文件名被截成目录 →

@@ -2026,5 +2026,31 @@ const wchar_t *OP_CALL OpJsonDelete(op_handle handle, const wchar_t *json_text, 
     });
 }
 
+// ---- HTTP 小族（P3 第二项新增 2026-10-16）----
+
+const wchar_t *OP_CALL OpHttpGet(op_handle handle, const wchar_t *url, const wchar_t *headers_json,
+                                 int timeout_ms) {
+    // 语义：非 2xx 也返回响应体（错误 JSON 可见），由调用方用 Json 族判错；
+    // 传输失败返回空串。因此这里不区分 ok。
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        long ok = 0;
+        op.HttpGet(safe_text(url), safe_text(headers_json), timeout_ms, ret, &ok);
+    });
+}
+
+const wchar_t *OP_CALL OpHttpPost(op_handle handle, const wchar_t *url, const wchar_t *body,
+                                  const wchar_t *headers_json, int timeout_ms) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        long ok = 0;
+        op.HttpPost(safe_text(url), safe_text(body), safe_text(headers_json), timeout_ms, ret, &ok);
+    });
+}
+
+int OP_CALL OpHttpDownloadFile(op_handle handle, const wchar_t *url, const wchar_t *file_name, int timeout_ms) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.HttpDownloadFile(safe_text(url), safe_text(file_name), timeout_ms, ret);
+    });
+}
+
 #undef OP_WIDEN_TEXT
 #undef OP_WIDEN_TEXT2

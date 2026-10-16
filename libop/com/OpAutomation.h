@@ -597,6 +597,11 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(JsonSetBool)(BSTR json_text, BSTR path, LONG value, BSTR *retstr);
     STDMETHOD(JsonAppend)(BSTR json_text, BSTR path, BSTR raw_json, BSTR *retstr);
     STDMETHOD(JsonDelete)(BSTR json_text, BSTR path, BSTR *retstr);
+    //-----------------------http（P3 第二项 2026-10-16，WinHTTP 系统直连）-------------------------
+    // headers_json 为 JSON 对象文本；非 2xx 也返回响应体（错误 JSON 可见），传输失败空串。
+    STDMETHOD(HttpGet)(BSTR url, BSTR headers_json, LONG timeout_ms, BSTR *retstr);
+    STDMETHOD(HttpPost)(BSTR url, BSTR body, BSTR headers_json, LONG timeout_ms, BSTR *retstr);
+    STDMETHOD(HttpDownloadFile)(BSTR url, BSTR file_name, LONG timeout_ms, LONG *ret);
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(OpAutomation), OpAutomation)
