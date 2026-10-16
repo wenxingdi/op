@@ -1,6 +1,6 @@
 # OP 插件 API 速查（LLM 上下文版）
 
-> 源：`include/libop.h` · 310 个接口 · 生成于 2026-10-16 12:09 · 由 scripts/gen_api_reference.py 生成（勿手改）
+> 源：`include/libop.h` · 310 个接口 · 生成于 2026-10-16 12:33 · 由 scripts/gen_api_reference.py 生成（勿手改）
 
 调用约定：出参不传入，聚成返回值元组（顺序 = signature 的 → 后列表）；坐标为物理像素，绑定窗口后为客户区坐标；字符串 UTF-16。
 
@@ -11,7 +11,7 @@
 - `GetPath() → (et)` — 获取目录
 - `GetBasePath() → (et)` — 获取插件目录
 - `GetID() → (ret)` — 返回当前对象的ID值，这个值对于每个对象是唯一存在的。可以用来判定两个对象是否一致
-- `GetLastError() → (ret)` — 
+- `GetLastError() → (ret)` — 取最近一次失败调用的内部错误码（0=无错误）；定位问题配合 SetShowErrorMsg(2) 日志
 - `SetShowErrorMsg(show_type) → (ret)` — 设置是否弹出错误信息,默认是打开 0:关闭，1:显示为信息框，2:保存到文件,3:输出到标准输出
 - `Sleep(millseconds) → (ret)` — sleep
 - `InjectDll(process_name, dll_name) → (ret)` — Process
@@ -82,12 +82,12 @@
 - `EnableDebugPrivilege() → (ret)` — 为当前进程启用 SeDebugPrivilege（读高权限/提权进程内存的前置）。已启用或启用成功返回 1。
 - `GetLastErrorString() → (et)` — 取当前线程的 GetLastError 错误文本（调用本方法前的最后一次 Win32 错误）。无法解析返回空串。
 - `Md5(text) → (et)` — MD5/SHA1（UTF-8 编码后哈希），输出小写十六进制；空输入返回空串。
-- `Sha1(text) → (et)` — 
+- `Sha1(text) → (et)` — 计算文本的 SHA-1 摘要（hex 串）
 - `Base64Encode(text) → (et)` — Base64 编码/解码（输入按 UTF-8 字节流处理）。解码遇非法串返回空串。
-- `Base64Decode(base64) → (et)` — 
+- `Base64Decode(base64) → (et)` — Base64 解码，返回原文本
 - `DrawRect(x1, y1, x2, y2, color, width) → (ret)` — 在屏幕透明叠加层追加一个矩形/直线/文本框。color="RRGGBB"（与找色同格式）。返回 1=成功。
-- `DrawLine(x1, y1, x2, y2, color, width) → (ret)` — 
-- `DrawText(x, y, text, color, font_size) → (ret)` — 
+- `DrawLine(x1, y1, x2, y2, color, width) → (ret)` — 在屏幕标注层画直线（调试标注用；DrawClear 清除）
+- `DrawText(x, y, text, color, font_size) → (ret)` — 在屏幕标注层绘制文本（调试标注用）
 - `DrawClear() → (ret)` — 清空叠加层全部图元并重绘。
 - `DrawSetVisible(show) → (ret)` — 显示/隐藏叠加层窗口（图元保留）。1=成功。
 
@@ -149,7 +149,7 @@
 - `KeyUpChar(vk_code) → (ret)` — 弹起来虚拟键vk_code
 - `WaitKey(vk_code, time_out) → (ret)` — 等待指定的按键按下 (前台,不是后台)
 - `KeyPress(vk_code) → (ret)` — 发送字符串
-- `KeyPressChar(vk_code) → (ret)` — 
+- `KeyPressChar(vk_code) → (ret)` — 按下并弹起指定键（键名描述串，如 "enter"/"f1"/"ctrl+a"）
 - `SetKeypadDelay(type, delay) → (ret)` — 设置按键时,键盘按下和弹起的时间间隔
 - `KeyPressStr(key_str, delay) → (ret)` — 根据指定的字符串序列，依次按顺序按下其中的字符
 
@@ -170,57 +170,57 @@
 - `FindColorBlockExS(x1, y1, x2, y2, color, sim, count, height, width, mode) → (etstr)` — 颜色块增强版：mode=0 raw（同 FindColorBlockEx）；mode=1 重合窗口聚类合并，每个色块只返回一个左上角坐标
 - `GetColor(x, y) → (et)` — 获取(x,y)的颜色
 - `SetDisplayInput(mode) → (ret)` — 设置图像输入方式，默认窗口截图
-- `LoadPic(file_name) → (ret)` — 
-- `FreePic(file_name) → (ret)` — 
+- `LoadPic(file_name) → (ret)` — 显式加载图片进全局缓存（FindPic 引用缓存名；源文件变更后须重新 Load 刷新）
+- `FreePic(file_name) → (ret)` — 从全局缓存释放指定图片
 - `LoadMemPic(file_name, data, size) → (ret)` — 从内存加载要查找的图片
 - `GetPicSize(pic_name) → (width, height, ret)` — 获取指定图片的尺寸，如果指定的图片已经被加入缓存，则从缓存中获取信息.此接口也会把此图片加入缓存
-- `GetScreenData(x1, y1, x2, y2) → (data, ret)` — 
-- `GetScreenDataBmp(x1, y1, x2, y2) → (data, size, ret)` — 
-- `GetScreenFrameInfo() → (frame_id, time)` — 
+- `GetScreenData(x1, y1, x2, y2) → (data, ret)` — 取区域 32 位原始像素内存指针（BGRA 字节序，同 Win32 DIB；生命周期到下一次截图操作前）
+- `GetScreenDataBmp(x1, y1, x2, y2) → (data, size, ret)` — 取区域标准 BMP 格式内存数据指针（含文件头）
+- `GetScreenFrameInfo() → (frame_id, time)` — 查询最近一帧的序号与时间戳（dx 显示模式调试用）
 - `IsDisplayDead(x1, y1, x2, y2, check_times, interval_ms) → (ret)` — 卡屏检测（P2 第二十四批 2026-10-16，对齐 OLA IsDisplayDead）：
 - `GetFPS() → (ret)` — 获取绑定窗口当前帧率。采样窗口约 1 秒,按 frameId 增量/经过毫秒换算。
-- `MatchPicName(pic_name) → (etstr)` — 
+- `MatchPicName(pic_name) → (etstr)` — 宽松匹配缓存中的图片名（可省扩展名/大小写差异），返回匹配到的完整名
 
 ## OpenCV 视觉（38）
 
-- `CvLoadTemplate(name, file_path) → (ret)` — 
-- `CvLoadMaskedTemplate(name, template_path, mask_path) → (ret)` — 
-- `CvRemoveTemplate(name) → (ret)` — 
-- `CvRemoveAllTemplates() → (ret)` — 
-- `CvHasTemplate(name) → (ret)` — 
-- `CvGetTemplateCount() → (ret)` — 
-- `CvGetAllTemplateNames() → (etstr)` — 
-- `CvGetOpenCvVersion() → (etstr)` — 
-- `CvLoadTemplateList(template_list) → (ret)` — 
-- `CvToGray(src_file, dst_file) → (ret)` — 
-- `CvToBinary(src_file, dst_file) → (ret)` — 
-- `CvToEdge(src_file, dst_file) → (ret)` — 
-- `CvToOutline(src_file, dst_file) → (ret)` — 
-- `CvDenoise(src_file, dst_file) → (ret)` — 
-- `CvEqualize(src_file, dst_file) → (ret)` — 
-- `CvCLAHE(src_file, dst_file, clip_limit, tile_grid_size) → (ret)` — 
-- `CvBlur(src_file, dst_file, mode, kernel_size) → (ret)` — 
-- `CvSharpen(src_file, dst_file, strength) → (ret)` — 
-- `CvCropValid(src_file, dst_file) → (ret)` — 
+- `CvLoadTemplate(name, file_path) → (ret)` — 加载模板图片并命名，供 CvMatch* 匹配系按名引用
+- `CvLoadMaskedTemplate(name, template_path, mask_path) → (ret)` — 加载带掩码模板：白色=参与匹配区域，黑色=忽略
+- `CvRemoveTemplate(name) → (ret)` — 移除并释放指定模板
+- `CvRemoveAllTemplates() → (ret)` — 移除全部已加载模板
+- `CvHasTemplate(name) → (ret)` — 查询模板是否已加载
+- `CvGetTemplateCount() → (ret)` — 已加载模板数量
+- `CvGetAllTemplateNames() → (etstr)` — 全部已加载模板名（| 连接）
+- `CvGetOpenCvVersion() → (etstr)` — OpenCV 版本串
+- `CvLoadTemplateList(template_list) → (ret)` — 批量加载模板："name,path|name,path|..."，任一项缺逗号或空串则整体失败
+- `CvToGray(src_file, dst_file) → (ret)` — 转灰度图
+- `CvToBinary(src_file, dst_file) → (ret)` — Otsu 自动阈值二值化
+- `CvToEdge(src_file, dst_file) → (ret)` — 边缘提取
+- `CvToOutline(src_file, dst_file) → (ret)` — 轮廓提取
+- `CvDenoise(src_file, dst_file) → (ret)` — 中值滤波去噪
+- `CvEqualize(src_file, dst_file) → (ret)` — 直方图均衡
+- `CvCLAHE(src_file, dst_file, clip_limit, tile_grid_size) → (ret)` — 对比度受限自适应直方图均衡（clip_limit 典型 2~4，tile_grid_size 典型 8）
+- `CvBlur(src_file, dst_file, mode, kernel_size) → (ret)` — 模糊（mode：gaussian/median/bilateral/box）
+- `CvSharpen(src_file, dst_file, strength) → (ret)` — 锐化（strength 0~100）
+- `CvCropValid(src_file, dst_file) → (ret)` — 自动裁掉纯色边缘
 - `CvRotate(src_file, dst_file, angle_deg) → (ret)` — 旋转（角度制，正角逆时针）：90 倍数走无损路径；任意角扩画布白边。ret=1 成功。
 - `CvFlip(src_file, dst_file, mode) → (ret)` — 翻转：mode 0 上下 / 1 左右 / 2 双向（=旋转 180°）。ret=1 成功。
-- `CvConnectedComponents(src_file, min_area) → (etjson, ret)` — 
-- `CvFindContours(src_file, min_area) → (etjson, ret)` — 
-- `CvPreprocessPipeline(src_file, dst_file, pipeline) → (ret)` — 
+- `CvConnectedComponents(src_file, min_area) → (etjson, ret)` — 连通域分析，返回 JSON 数组（每元素含 x/y/w/h/area）
+- `CvFindContours(src_file, min_area) → (etjson, ret)` — 轮廓查找，返回 JSON 数组（外接矩形与轮廓点）
+- `CvPreprocessPipeline(src_file, dst_file, pipeline) → (ret)` — 预处理流水线：| 分隔多步，步骤可带 "步骤名:参数1,参数2"
 - `CvMatchTemplateRot(x, y, width, height, template_name, angles, threshold, method, color_mode) → (etjson, ret)` — 多角度模板匹配：angles 形如 "0|15|-15"（空串走默认角度集）；retjson 额外带命中角度 angle。
-- `CvCrop(src_file, x, y, width, height, dst_file) → (ret)` — 
-- `CvResize(src_file, width, height, dst_file) → (ret)` — 
-- `CvThreshold(src_file, dst_file, threshold, max_value, mode) → (ret)` — 
-- `CvInRange(src_file, dst_file, color_space, lower, upper) → (ret)` — 
-- `CvMorphology(src_file, dst_file, mode, kernel_size, iterations) → (ret)` — 
-- `CvThin(src_file, dst_file, mode) → (ret)` — 
-- `CvMatchTemplate(x, y, width, height, template_name, threshold, dir, strip_mode, method, color_mode) → (etjson, ret)` — 
-- `CvMatchTemplateScale(x, y, width, height, template_name, scales, threshold, method, color_mode) → (etjson, ret)` — 
-- `CvMatchAnyTemplate(x, y, width, height, template_names, threshold, dir, strip_mode, method, color_mode) → (etjson, ret)` — 
-- `CvMatchAllTemplates(x, y, width, height, template_names, threshold, dir, strip_mode, method, color_mode) → (etjson, ret)` — 
-- `CvFeatureMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)` — 
-- `CvEdgeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)` — 
-- `CvShapeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)` — 
+- `CvCrop(src_file, x, y, width, height, dst_file) → (ret)` — 裁剪到指定矩形
+- `CvResize(src_file, width, height, dst_file) → (ret)` — 缩放到指定宽高
+- `CvThreshold(src_file, dst_file, threshold, max_value, mode) → (ret)` — 阈值化（mode：binary/binary_inv/otsu/otsu_inv/adaptive/adaptive_inv）
+- `CvInRange(src_file, dst_file, color_space, lower, upper) → (ret)` — 颜色区间过滤（color_space：bgr/hsv/gray，lower/upper 为各通道下限/上限串）
+- `CvMorphology(src_file, dst_file, mode, kernel_size, iterations) → (ret)` — 形态学运算（mode：erode/dilate/open/close）
+- `CvThin(src_file, dst_file, mode) → (ret)` — 线条细化（mode：zhang_suen/guo_hall/morph）
+- `CvMatchTemplate(x, y, width, height, template_name, threshold, dir, strip_mode, method, color_mode) → (etjson, ret)` — 模板匹配，返回命中 JSON 数组 [{x,y,width,height,score},...]
+- `CvMatchTemplateScale(x, y, width, height, template_name, scales, threshold, method, color_mode) → (etjson, ret)` — 多缩放比模板匹配（scales 逗号分隔，如 "0.8,0.9,1.0,1.1"），结果含实际 scale
+- `CvMatchAnyTemplate(x, y, width, height, template_names, threshold, dir, strip_mode, method, color_mode) → (etjson, ret)` — 多模板任一命中即返回首个
+- `CvMatchAllTemplates(x, y, width, height, template_names, threshold, dir, strip_mode, method, color_mode) → (etjson, ret)` — 多模板全部各搜一遍，结果含模板名
+- `CvFeatureMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)` — 特征点匹配，返回命中 JSON 数组
+- `CvEdgeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)` — 边缘匹配，返回命中 JSON 数组
+- `CvShapeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)` — 形状匹配，返回命中 JSON 数组
 
 ## OCR 文字识别（81）
 
@@ -276,9 +276,9 @@
 - `CreateFolder(folder_name) → (ret)` — 创建文件夹（含多级父目录，已存在视为成功）
 - `DeleteFolder(folder_name) → (ret)` — 递归删除文件夹及其全部内容；路径非法/不存在返回 0
 - `GetFileList(folder, wildcard) → (etstr)` — 遍历文件夹，wildcard 支持 * ?（空=全部）。返回全路径 "p1|p2|..."，无匹配返回空串。
-- `CopyFile(src_file, dst_file) → (ret)` — 
-- `MoveFile(src_file, dst_file) → (ret)` — 
-- `DeleteFile(file_name) → (ret)` — 
+- `CopyFile(src_file, dst_file) → (ret)` — 复制文件（覆盖目标）
+- `MoveFile(src_file, dst_file) → (ret)` — 移动/重命名文件
+- `DeleteFile(file_name) → (ret)` — 删除文件
 - `GetFileSize(file_name) → (size, ret)` — 文件大小（字节，int64）。ret=1 成功，0 失败。
 - `ReadFileString(file_name) → (etstr)` — 读取文本文件全部内容（按 UTF-8 解码；BOM 自动剔除）。失败/空文件返回空串。
 - `WriteStringToFile(file_name, content) → (ret)` — 写入文本文件（UTF-8 带 BOM，覆盖写）。ret=1 成功。
@@ -287,7 +287,7 @@
 - `KeyPressHotkey(combo) → (ret)` — 发送组合键，combo 形如 "ctrl+alt+a" / "shift+f1" / "win+d"。修饰键支持 ctrl/control/alt/shift/win，主键支持
 - `GetWindowScale(hwnd) → (etstr)` — 取窗口实际缩放系数（1.00=96DPI 无缩放），两位小数字符串如 "1.25"；失败返回空串。
 - `TerminateProcess(pid) → (ret)` — 按 PID 终止进程（不限树）；TerminateProcessTree 先父后子递归终止整棵进程树。
-- `TerminateProcessTree(pid) → (ret)` — 
+- `TerminateProcessTree(pid) → (ret)` — 结束进程及其整棵子进程树
 - `DecodeQRCode(x1, y1, x2, y2) → (etstr)` — 识别绑定窗口客户区区域内二维码文本，未识别返回空串
 - `DecodeQRCodeFromFile(file_name) → (etstr)` — 识别图片文件中的二维码文本
 - `CreateQRCode(text, file_name, size) → (ret)` — 生成二维码保存为图片（PNG/BMP 由扩展名决定），size 为边长像素（<=0 用 256）。ret=1 成功。
@@ -298,19 +298,19 @@
 - `JsonGetSize(json_text, path) → ret` — 数组长度/对象键数；非集合或不存在返回 -1。
 - `JsonGetKeys(json_text, path) → (etstr, ret)` — 对象键名序列化为 JSON 数组文本（如 ["a","b"]）；非对象/不存在返回空串且 ret=0。
 - `JsonSetString(json_text, path, value) → (etstr, ret)` — 写入路径（不存在自动创建中间对象/数组），返回新 JSON 串；失败返回空串。
-- `JsonSetNumber(json_text, path, value) → (etstr, ret)` — 
-- `JsonSetBool(json_text, path, value) → (etstr, ret)` — 
+- `JsonSetNumber(json_text, path, value) → (etstr, ret)` — 向 JSON 文本路径处写入数值，返回新 JSON 串；父路径不可达返回空串
+- `JsonSetBool(json_text, path, value) → (etstr, ret)` — 向 JSON 文本路径处写入布尔值，返回新 JSON 串；父路径不可达返回空串
 - `JsonAppend(json_text, path, raw_json) → (etstr, ret)` — 数组追加元素（raw_json 为元素文本，如 "abc"/123/{"k":1}；路径不存在先建数组）。
 - `JsonDelete(json_text, path) → (etstr, ret)` — 删除对象键或数组元素，返回新 JSON 串；父路径不可达返回空串。
 - `HttpGet(url, headers_json, timeout_ms) → (etstr, ret)` — 系统 WinHTTP 直连（零第三方依赖），用途：脚本对接大模型等 OpenAI 兼容 API——
-- `HttpPost(url, body, headers_json, timeout_ms) → (etstr, ret)` — 
+- `HttpPost(url, body, headers_json, timeout_ms) → (etstr, ret)` — POST 请求（系统 WinHTTP 直连，UTF-8；headers_json 放 Content-Type）；非 2xx 也返回响应体，传输失败空串
 - `HttpDownloadFile(url, file_name, timeout_ms) → (ret)` — 下载到文件（原始字节流式落盘）。parent 目录须已存在。ret=1 成功。
 
 ## YOLO 目标检测（3）
 
 - `SetYoloEngine(path_of_engine, dll_name, argv) → ret` — 选择 YOLO 引擎并加载模型。统一入口：path_of_engine 直接传 .onnx 模型文件路径
-- `YoloDetect(x1, y1, x2, y2, conf, iou) → (etjson, ret)` — 
-- `YoloDetectFromFile(file_name, conf, iou) → (etjson, ret)` — 
+- `YoloDetect(x1, y1, x2, y2, conf, iou) → (etjson, ret)` — 在区域运行 YOLO 目标检测，返回 JSON 数组 [{class,score,x,y,w,h},...]
+- `YoloDetectFromFile(file_name, conf, iou) → (etjson, ret)` — 对图片文件运行 YOLO 检测，返回同 YoloDetect
 
 ## Algorithm 算法（13）
 
@@ -333,13 +333,13 @@
 - `WriteData(hwnd, address, data, size) → (ret)` — 内存读写（大漠兼容）。hwnd=0 时优先作用于已绑定窗口；未绑定才是本进程，
 - `ReadData(hwnd, address, size) → (etstr)` — 读取数据（大写十六进制串；失败返回空串。size 超 data 实际字节时补零，详见日志）
 - `ReadInt(hwnd, address, type) → (ret)` — 大漠兼容内存接口
-- `WriteInt(hwnd, address, type, value) → (ret)` — 
-- `ReadFloat(hwnd, address) → (ret)` — 
-- `WriteFloat(hwnd, address, value) → (ret)` — 
-- `ReadDouble(hwnd, address) → (ret)` — 
-- `WriteDouble(hwnd, address, value) → (ret)` — 
-- `ReadString(hwnd, address, type, len) → (etstr)` — 
-- `WriteString(hwnd, address, type, value) → (ret)` — 
+- `WriteInt(hwnd, address, type, value) → (ret)` — 向内存地址写整数（type 选位宽：同 ReadInt）
+- `ReadFloat(hwnd, address) → (ret)` — 读内存 float
+- `WriteFloat(hwnd, address, value) → (ret)` — 写内存 float
+- `ReadDouble(hwnd, address) → (ret)` — 读内存 double
+- `WriteDouble(hwnd, address, value) → (ret)` — 写内存 double
+- `ReadString(hwnd, address, type, len) → (etstr)` — 读内存字符串（type：0=ANSI 1=Unicode；len 字符数，超限截断）
+- `WriteString(hwnd, address, type, value) → (ret)` — 写内存字符串（type 同 ReadString）
 - `FindData(hwnd, addr_range, string) → (etstr)` — 特征码搜索内存：pattern 十六进制串支持 ?? 通配；range "start-end" 十六进制，空=全部已提交可读区。
-- `FindDataEx(hwnd, addr_range, string, step, count) → (etstr)` — 
+- `FindDataEx(hwnd, addr_range, string, step, count) → (etstr)` — 特征码搜索加强版：步进与最大返回数可控（step=1 逐字节最准最慢）
 - `GetModuleBaseAddr(hwnd, module) → (etstr)` — 取目标进程（hwnd=0 为本进程）模块基址，返回大写十六进制串；失败返回空。

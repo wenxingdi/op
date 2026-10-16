@@ -2,7 +2,7 @@
  "meta": {
   "title": "OP 插件 API 目录（大模型 function-calling 版）",
   "source": "include/libop.h",
-  "generated": "2026-10-16 12:09",
+  "generated": "2026-10-16 12:33",
   "generator": "scripts/gen_api_reference.py",
   "total_functions": 310,
   "usage": {
@@ -192,7 +192,7 @@
      "group_name": "Runtime 运行时",
      "name": "GetLastError",
      "signature": "GetLastError() → (ret)",
-     "description": "",
+     "description": "取最近一次失败调用的内部错误码（0=无错误）；定位问题配合 SetShowErrorMsg(2) 日志",
      "params": [
       {
        "name": "ret",
@@ -212,7 +212,7 @@
      "returns_summary": "ret: 最近一次失败的内部错误码（0=无错误）；定位问题需配合 set_show_error_msg(2) 日志",
      "tool_schema": {
       "name": "GetLastError",
-      "description": "OP 插件接口 GetLastError",
+      "description": "取最近一次失败调用的内部错误码（0=无错误）；定位问题配合 SetShowErrorMsg(2) 日志",
       "parameters": {
        "type": "object",
        "properties": {},
@@ -465,7 +465,7 @@
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "图片全局缓存的最大张数（上限保护，防长时运行内存膨胀）"
       },
       {
        "name": "ret",
@@ -491,7 +491,7 @@
        "properties": {
         "max_count": {
          "type": "number",
-         "description": "long"
+         "description": "图片全局缓存的最大张数（上限保护，防长时运行内存膨胀）"
         }
        },
        "required": [
@@ -3913,7 +3913,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "要计算 MD5 摘要的文本"
       },
       {
        "name": "et",
@@ -3939,7 +3939,7 @@
        "properties": {
         "text": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "要计算 MD5 摘要的文本"
         }
        },
        "required": [
@@ -3953,14 +3953,14 @@
      "group_name": "Window 窗口",
      "name": "Sha1",
      "signature": "Sha1(text) → (et)",
-     "description": "",
+     "description": "计算文本的 SHA-1 摘要（hex 串）",
      "params": [
       {
        "name": "text",
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "要计算 SHA-1 摘要的文本"
       },
       {
        "name": "et",
@@ -3980,13 +3980,13 @@
      "returns_summary": "et: 出参：字符串结果（COM 为 BSTR 出参 / C-API 返回 const wchar_t*）",
      "tool_schema": {
       "name": "Sha1",
-      "description": "OP 插件接口 Sha1",
+      "description": "计算文本的 SHA-1 摘要（hex 串）",
       "parameters": {
        "type": "object",
        "properties": {
         "text": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "要计算 SHA-1 摘要的文本"
         }
        },
        "required": [
@@ -4007,7 +4007,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "要 Base64 编码的原文本"
       },
       {
        "name": "et",
@@ -4033,7 +4033,7 @@
        "properties": {
         "text": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "要 Base64 编码的原文本"
         }
        },
        "required": [
@@ -4047,14 +4047,14 @@
      "group_name": "Window 窗口",
      "name": "Base64Decode",
      "signature": "Base64Decode(base64) → (et)",
-     "description": "",
+     "description": "Base64 解码，返回原文本",
      "params": [
       {
        "name": "base64",
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "Base64 文本"
       },
       {
        "name": "et",
@@ -4074,13 +4074,13 @@
      "returns_summary": "et: 出参：字符串结果（COM 为 BSTR 出参 / C-API 返回 const wchar_t*）",
      "tool_schema": {
       "name": "Base64Decode",
-      "description": "OP 插件接口 Base64Decode",
+      "description": "Base64 解码，返回原文本",
       "parameters": {
        "type": "object",
        "properties": {
         "base64": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "Base64 文本"
         }
        },
        "required": [
@@ -4201,7 +4201,7 @@
      "group_name": "Window 窗口",
      "name": "DrawLine",
      "signature": "DrawLine(x1, y1, x2, y2, color, width) → (ret)",
-     "description": "",
+     "description": "在屏幕标注层画直线（调试标注用；DrawClear 清除）",
      "params": [
       {
        "name": "x1",
@@ -4263,7 +4263,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "DrawLine",
-      "description": "OP 插件接口 DrawLine",
+      "description": "在屏幕标注层画直线（调试标注用；DrawClear 清除）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -4308,7 +4308,7 @@
      "group_name": "Window 窗口",
      "name": "DrawText",
      "signature": "DrawText(x, y, text, color, font_size) → (ret)",
-     "description": "",
+     "description": "在屏幕标注层绘制文本（调试标注用）",
      "params": [
       {
        "name": "x",
@@ -4329,7 +4329,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "要绘制的文本"
       },
       {
        "name": "color",
@@ -4343,7 +4343,7 @@
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "字号（像素）"
       },
       {
        "name": "ret",
@@ -4363,7 +4363,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "DrawText",
-      "description": "OP 插件接口 DrawText",
+      "description": "在屏幕标注层绘制文本（调试标注用）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -4377,7 +4377,7 @@
         },
         "text": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "要绘制的文本"
         },
         "color": {
          "type": "string",
@@ -4385,7 +4385,7 @@
         },
         "font_size": {
          "type": "number",
-         "description": "long"
+         "description": "字号（像素）"
         }
        },
        "required": [
@@ -4443,7 +4443,7 @@
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "1=显示屏幕标注层 0=隐藏"
       },
       {
        "name": "ret",
@@ -4469,7 +4469,7 @@
        "properties": {
         "show": {
          "type": "number",
-         "description": "long"
+         "description": "1=显示屏幕标注层 0=隐藏"
         }
        },
        "required": [
@@ -6975,7 +6975,7 @@
      "group_name": "Input 键鼠输入",
      "name": "KeyPressChar",
      "signature": "KeyPressChar(vk_code) → (ret)",
-     "description": "",
+     "description": "按下并弹起指定键（键名描述串，如 \"enter\"/\"f1\"/\"ctrl+a\"）",
      "params": [
       {
        "name": "vk_code",
@@ -7002,7 +7002,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "KeyPressChar",
-      "description": "OP 插件接口 KeyPressChar",
+      "description": "按下并弹起指定键（键名描述串，如 \"enter\"/\"f1\"/\"ctrl+a\"）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -8968,7 +8968,7 @@
      "group_name": "Image 图色",
      "name": "LoadPic",
      "signature": "LoadPic(file_name) → (ret)",
-     "description": "",
+     "description": "显式加载图片进全局缓存（FindPic 引用缓存名；源文件变更后须重新 Load 刷新）",
      "params": [
       {
        "name": "file_name",
@@ -8995,7 +8995,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "LoadPic",
-      "description": "OP 插件接口 LoadPic",
+      "description": "显式加载图片进全局缓存（FindPic 引用缓存名；源文件变更后须重新 Load 刷新）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -9015,7 +9015,7 @@
      "group_name": "Image 图色",
      "name": "FreePic",
      "signature": "FreePic(file_name) → (ret)",
-     "description": "",
+     "description": "从全局缓存释放指定图片",
      "params": [
       {
        "name": "file_name",
@@ -9042,7 +9042,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "FreePic",
-      "description": "OP 插件接口 FreePic",
+      "description": "从全局缓存释放指定图片",
       "parameters": {
        "type": "object",
        "properties": {
@@ -9204,7 +9204,7 @@
      "group_name": "Image 图色",
      "name": "GetScreenData",
      "signature": "GetScreenData(x1, y1, x2, y2) → (data, ret)",
-     "description": "",
+     "description": "取区域 32 位原始像素内存指针（BGRA 字节序，同 Win32 DIB；生命周期到下一次截图操作前）",
      "params": [
       {
        "name": "x1",
@@ -9264,7 +9264,7 @@
      "returns_summary": "data: 出参：32 位原始像素内存指针（4 字节/像素；BGRA 字节序=B 在低地址，同 Win32 DIB，非 RRGGBB 字符串），生命周期到下一次截图操作前；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "GetScreenData",
-      "description": "OP 插件接口 GetScreenData",
+      "description": "取区域 32 位原始像素内存指针（BGRA 字节序，同 Win32 DIB；生命周期到下一次截图操作前）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -9299,7 +9299,7 @@
      "group_name": "Image 图色",
      "name": "GetScreenDataBmp",
      "signature": "GetScreenDataBmp(x1, y1, x2, y2) → (data, size, ret)",
-     "description": "",
+     "description": "取区域标准 BMP 格式内存数据指针（含文件头）",
      "params": [
       {
        "name": "x1",
@@ -9371,7 +9371,7 @@
      "returns_summary": "data: 出参：标准 BMP 格式内存数据指针（含文件头）；size: 出参：BMP 数据字节数；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "GetScreenDataBmp",
-      "description": "OP 插件接口 GetScreenDataBmp",
+      "description": "取区域标准 BMP 格式内存数据指针（含文件头）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -9406,7 +9406,7 @@
      "group_name": "Image 图色",
      "name": "GetScreenFrameInfo",
      "signature": "GetScreenFrameInfo() → (frame_id, time)",
-     "description": "",
+     "description": "查询最近一帧的序号与时间戳（dx 显示模式调试用）",
      "params": [
       {
        "name": "frame_id",
@@ -9438,7 +9438,7 @@
      "returns_summary": "frame_id: 出参：最近一帧的序号；time: 出参：最近一帧的时间戳（dx 显示模式调试用）",
      "tool_schema": {
       "name": "GetScreenFrameInfo",
-      "description": "OP 插件接口 GetScreenFrameInfo",
+      "description": "查询最近一帧的序号与时间戳（dx 显示模式调试用）",
       "parameters": {
        "type": "object",
        "properties": {},
@@ -9486,14 +9486,14 @@
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "连续截图比对次数"
       },
       {
        "name": "interval_ms",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "每次比对间隔毫秒；区域连续 check_times 次帧哈希全同=卡死返回 1，有变化/失败返回 0"
       },
       {
        "name": "ret",
@@ -9535,11 +9535,11 @@
         },
         "check_times": {
          "type": "number",
-         "description": "long"
+         "description": "连续截图比对次数"
         },
         "interval_ms": {
          "type": "number",
-         "description": "long"
+         "description": "每次比对间隔毫秒；区域连续 check_times 次帧哈希全同=卡死返回 1，有变化/失败返回 0"
         }
        },
        "required": [
@@ -9591,7 +9591,7 @@
      "group_name": "Image 图色",
      "name": "MatchPicName",
      "signature": "MatchPicName(pic_name) → (etstr)",
-     "description": "",
+     "description": "宽松匹配缓存中的图片名（可省扩展名/大小写差异），返回匹配到的完整名",
      "params": [
       {
        "name": "pic_name",
@@ -9618,7 +9618,7 @@
      "returns_summary": "etstr: 出参：字符串结果",
      "tool_schema": {
       "name": "MatchPicName",
-      "description": "OP 插件接口 MatchPicName",
+      "description": "宽松匹配缓存中的图片名（可省扩展名/大小写差异），返回匹配到的完整名",
       "parameters": {
        "type": "object",
        "properties": {
@@ -9645,7 +9645,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvLoadTemplate",
      "signature": "CvLoadTemplate(name, file_path) → (ret)",
-     "description": "",
+     "description": "加载模板图片并命名，供 CvMatch* 匹配系按名引用",
      "params": [
       {
        "name": "name",
@@ -9679,7 +9679,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvLoadTemplate",
-      "description": "OP 插件接口 CvLoadTemplate",
+      "description": "加载模板图片并命名，供 CvMatch* 匹配系按名引用",
       "parameters": {
        "type": "object",
        "properties": {
@@ -9704,7 +9704,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvLoadMaskedTemplate",
      "signature": "CvLoadMaskedTemplate(name, template_path, mask_path) → (ret)",
-     "description": "",
+     "description": "加载带掩码模板：白色=参与匹配区域，黑色=忽略",
      "params": [
       {
        "name": "name",
@@ -9745,7 +9745,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvLoadMaskedTemplate",
-      "description": "OP 插件接口 CvLoadMaskedTemplate",
+      "description": "加载带掩码模板：白色=参与匹配区域，黑色=忽略",
       "parameters": {
        "type": "object",
        "properties": {
@@ -9775,7 +9775,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvRemoveTemplate",
      "signature": "CvRemoveTemplate(name) → (ret)",
-     "description": "",
+     "description": "移除并释放指定模板",
      "params": [
       {
        "name": "name",
@@ -9802,7 +9802,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvRemoveTemplate",
-      "description": "OP 插件接口 CvRemoveTemplate",
+      "description": "移除并释放指定模板",
       "parameters": {
        "type": "object",
        "properties": {
@@ -9822,7 +9822,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvRemoveAllTemplates",
      "signature": "CvRemoveAllTemplates() → (ret)",
-     "description": "",
+     "description": "移除全部已加载模板",
      "params": [
       {
        "name": "ret",
@@ -9842,7 +9842,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvRemoveAllTemplates",
-      "description": "OP 插件接口 CvRemoveAllTemplates",
+      "description": "移除全部已加载模板",
       "parameters": {
        "type": "object",
        "properties": {},
@@ -9855,7 +9855,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvHasTemplate",
      "signature": "CvHasTemplate(name) → (ret)",
-     "description": "",
+     "description": "查询模板是否已加载",
      "params": [
       {
        "name": "name",
@@ -9882,7 +9882,7 @@
      "returns_summary": "ret: 1=已加载 0=未加载",
      "tool_schema": {
       "name": "CvHasTemplate",
-      "description": "OP 插件接口 CvHasTemplate",
+      "description": "查询模板是否已加载",
       "parameters": {
        "type": "object",
        "properties": {
@@ -9902,7 +9902,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvGetTemplateCount",
      "signature": "CvGetTemplateCount() → (ret)",
-     "description": "",
+     "description": "已加载模板数量",
      "params": [
       {
        "name": "ret",
@@ -9922,7 +9922,7 @@
      "returns_summary": "ret: 已加载模板数量",
      "tool_schema": {
       "name": "CvGetTemplateCount",
-      "description": "OP 插件接口 CvGetTemplateCount",
+      "description": "已加载模板数量",
       "parameters": {
        "type": "object",
        "properties": {},
@@ -9935,7 +9935,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvGetAllTemplateNames",
      "signature": "CvGetAllTemplateNames() → (etstr)",
-     "description": "",
+     "description": "全部已加载模板名（| 连接）",
      "params": [
       {
        "name": "etstr",
@@ -9955,7 +9955,7 @@
      "returns_summary": "etstr: 全部已加载模板名，| 连接",
      "tool_schema": {
       "name": "CvGetAllTemplateNames",
-      "description": "OP 插件接口 CvGetAllTemplateNames",
+      "description": "全部已加载模板名（| 连接）",
       "parameters": {
        "type": "object",
        "properties": {},
@@ -9968,7 +9968,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvGetOpenCvVersion",
      "signature": "CvGetOpenCvVersion() → (etstr)",
-     "description": "",
+     "description": "OpenCV 版本串",
      "params": [
       {
        "name": "etstr",
@@ -9988,7 +9988,7 @@
      "returns_summary": "etstr: OpenCV 版本串",
      "tool_schema": {
       "name": "CvGetOpenCvVersion",
-      "description": "OP 插件接口 CvGetOpenCvVersion",
+      "description": "OpenCV 版本串",
       "parameters": {
        "type": "object",
        "properties": {},
@@ -10001,7 +10001,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvLoadTemplateList",
      "signature": "CvLoadTemplateList(template_list) → (ret)",
-     "description": "",
+     "description": "批量加载模板：\"name,path|name,path|...\"，任一项缺逗号或空串则整体失败",
      "params": [
       {
        "name": "template_list",
@@ -10028,7 +10028,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvLoadTemplateList",
-      "description": "OP 插件接口 CvLoadTemplateList",
+      "description": "批量加载模板：\"name,path|name,path|...\"，任一项缺逗号或空串则整体失败",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10048,7 +10048,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvToGray",
      "signature": "CvToGray(src_file, dst_file) → (ret)",
-     "description": "",
+     "description": "转灰度图",
      "params": [
       {
        "name": "src_file",
@@ -10082,7 +10082,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvToGray",
-      "description": "OP 插件接口 CvToGray",
+      "description": "转灰度图",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10107,7 +10107,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvToBinary",
      "signature": "CvToBinary(src_file, dst_file) → (ret)",
-     "description": "",
+     "description": "Otsu 自动阈值二值化",
      "params": [
       {
        "name": "src_file",
@@ -10141,7 +10141,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvToBinary",
-      "description": "OP 插件接口 CvToBinary",
+      "description": "Otsu 自动阈值二值化",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10166,7 +10166,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvToEdge",
      "signature": "CvToEdge(src_file, dst_file) → (ret)",
-     "description": "",
+     "description": "边缘提取",
      "params": [
       {
        "name": "src_file",
@@ -10200,7 +10200,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvToEdge",
-      "description": "OP 插件接口 CvToEdge",
+      "description": "边缘提取",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10225,7 +10225,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvToOutline",
      "signature": "CvToOutline(src_file, dst_file) → (ret)",
-     "description": "",
+     "description": "轮廓提取",
      "params": [
       {
        "name": "src_file",
@@ -10259,7 +10259,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvToOutline",
-      "description": "OP 插件接口 CvToOutline",
+      "description": "轮廓提取",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10284,7 +10284,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvDenoise",
      "signature": "CvDenoise(src_file, dst_file) → (ret)",
-     "description": "",
+     "description": "中值滤波去噪",
      "params": [
       {
        "name": "src_file",
@@ -10318,7 +10318,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvDenoise",
-      "description": "OP 插件接口 CvDenoise",
+      "description": "中值滤波去噪",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10343,7 +10343,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvEqualize",
      "signature": "CvEqualize(src_file, dst_file) → (ret)",
-     "description": "",
+     "description": "直方图均衡",
      "params": [
       {
        "name": "src_file",
@@ -10377,7 +10377,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvEqualize",
-      "description": "OP 插件接口 CvEqualize",
+      "description": "直方图均衡",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10402,7 +10402,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvCLAHE",
      "signature": "CvCLAHE(src_file, dst_file, clip_limit, tile_grid_size) → (ret)",
-     "description": "",
+     "description": "对比度受限自适应直方图均衡（clip_limit 典型 2~4，tile_grid_size 典型 8）",
      "params": [
       {
        "name": "src_file",
@@ -10450,7 +10450,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvCLAHE",
-      "description": "OP 插件接口 CvCLAHE",
+      "description": "对比度受限自适应直方图均衡（clip_limit 典型 2~4，tile_grid_size 典型 8）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10485,7 +10485,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvBlur",
      "signature": "CvBlur(src_file, dst_file, mode, kernel_size) → (ret)",
-     "description": "",
+     "description": "模糊（mode：gaussian/median/bilateral/box）",
      "params": [
       {
        "name": "src_file",
@@ -10533,7 +10533,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvBlur",
-      "description": "OP 插件接口 CvBlur",
+      "description": "模糊（mode：gaussian/median/bilateral/box）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10568,7 +10568,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvSharpen",
      "signature": "CvSharpen(src_file, dst_file, strength) → (ret)",
-     "description": "",
+     "description": "锐化（strength 0~100）",
      "params": [
       {
        "name": "src_file",
@@ -10609,7 +10609,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvSharpen",
-      "description": "OP 插件接口 CvSharpen",
+      "description": "锐化（strength 0~100）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10639,7 +10639,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvCropValid",
      "signature": "CvCropValid(src_file, dst_file) → (ret)",
-     "description": "",
+     "description": "自动裁掉纯色边缘",
      "params": [
       {
        "name": "src_file",
@@ -10673,7 +10673,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvCropValid",
-      "description": "OP 插件接口 CvCropValid",
+      "description": "自动裁掉纯色边缘",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10719,7 +10719,7 @@
        "type": "double",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "旋转角度（度）"
       },
       {
        "name": "ret",
@@ -10753,7 +10753,7 @@
         },
         "angle_deg": {
          "type": "number",
-         "description": "double"
+         "description": "旋转角度（度）"
         }
        },
        "required": [
@@ -10790,7 +10790,7 @@
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "翻转模式（cv::flip 语义）：0=绕 x 轴（上下翻转） 1=绕 y 轴（左右翻转） -1=两者"
       },
       {
        "name": "ret",
@@ -10824,7 +10824,7 @@
         },
         "mode": {
          "type": "number",
-         "description": "long"
+         "description": "翻转模式（cv::flip 语义）：0=绕 x 轴（上下翻转） 1=绕 y 轴（左右翻转） -1=两者"
         }
        },
        "required": [
@@ -10840,7 +10840,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvConnectedComponents",
      "signature": "CvConnectedComponents(src_file, min_area) → (etjson, ret)",
-     "description": "",
+     "description": "连通域分析，返回 JSON 数组（每元素含 x/y/w/h/area）",
      "params": [
       {
        "name": "src_file",
@@ -10886,7 +10886,7 @@
      "returns_summary": "etjson: 连通域 JSON 数组：每个元素含 x/y/w/h/area；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvConnectedComponents",
-      "description": "OP 插件接口 CvConnectedComponents",
+      "description": "连通域分析，返回 JSON 数组（每元素含 x/y/w/h/area）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10911,7 +10911,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvFindContours",
      "signature": "CvFindContours(src_file, min_area) → (etjson, ret)",
-     "description": "",
+     "description": "轮廓查找，返回 JSON 数组（外接矩形与轮廓点）",
      "params": [
       {
        "name": "src_file",
@@ -10957,7 +10957,7 @@
      "returns_summary": "etjson: 轮廓 JSON 数组：每个元素含外接矩形与轮廓点；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvFindContours",
-      "description": "OP 插件接口 CvFindContours",
+      "description": "轮廓查找，返回 JSON 数组（外接矩形与轮廓点）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -10982,7 +10982,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvPreprocessPipeline",
      "signature": "CvPreprocessPipeline(src_file, dst_file, pipeline) → (ret)",
-     "description": "",
+     "description": "预处理流水线：| 分隔多步，步骤可带 \"步骤名:参数1,参数2\"",
      "params": [
       {
        "name": "src_file",
@@ -11023,7 +11023,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvPreprocessPipeline",
-      "description": "OP 插件接口 CvPreprocessPipeline",
+      "description": "预处理流水线：| 分隔多步，步骤可带 \"步骤名:参数1,参数2\"",
       "parameters": {
        "type": "object",
        "properties": {
@@ -11095,7 +11095,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "角度串 | 分隔（如 \"0|15|-15\"），空串走默认角度集；结果 retjson 额外带命中角度 angle"
       },
       {
        "name": "threshold",
@@ -11109,14 +11109,14 @@
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "同 CvMatchTemplate（0~5，默认 5=TM_CCOEFF_NORMED）"
       },
       {
        "name": "color_mode",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "同 CvMatchTemplate：0=彩色匹配 1=灰度匹配"
       },
       {
        "name": "etjson",
@@ -11174,7 +11174,7 @@
         },
         "angles": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "角度串 | 分隔（如 \"0|15|-15\"），空串走默认角度集；结果 retjson 额外带命中角度 angle"
         },
         "threshold": {
          "type": "number",
@@ -11182,11 +11182,11 @@
         },
         "method": {
          "type": "number",
-         "description": "long"
+         "description": "同 CvMatchTemplate（0~5，默认 5=TM_CCOEFF_NORMED）"
         },
         "color_mode": {
          "type": "number",
-         "description": "long"
+         "description": "同 CvMatchTemplate：0=彩色匹配 1=灰度匹配"
         }
        },
        "required": [
@@ -11208,7 +11208,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvCrop",
      "signature": "CvCrop(src_file, x, y, width, height, dst_file) → (ret)",
-     "description": "",
+     "description": "裁剪到指定矩形",
      "params": [
       {
        "name": "src_file",
@@ -11270,7 +11270,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvCrop",
-      "description": "OP 插件接口 CvCrop",
+      "description": "裁剪到指定矩形",
       "parameters": {
        "type": "object",
        "properties": {
@@ -11315,7 +11315,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvResize",
      "signature": "CvResize(src_file, width, height, dst_file) → (ret)",
-     "description": "",
+     "description": "缩放到指定宽高",
      "params": [
       {
        "name": "src_file",
@@ -11363,7 +11363,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvResize",
-      "description": "OP 插件接口 CvResize",
+      "description": "缩放到指定宽高",
       "parameters": {
        "type": "object",
        "properties": {
@@ -11398,7 +11398,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvThreshold",
      "signature": "CvThreshold(src_file, dst_file, threshold, max_value, mode) → (ret)",
-     "description": "",
+     "description": "阈值化（mode：binary/binary_inv/otsu/otsu_inv/adaptive/adaptive_inv）",
      "params": [
       {
        "name": "src_file",
@@ -11453,7 +11453,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvThreshold",
-      "description": "OP 插件接口 CvThreshold",
+      "description": "阈值化（mode：binary/binary_inv/otsu/otsu_inv/adaptive/adaptive_inv）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -11493,7 +11493,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvInRange",
      "signature": "CvInRange(src_file, dst_file, color_space, lower, upper) → (ret)",
-     "description": "",
+     "description": "颜色区间过滤（color_space：bgr/hsv/gray，lower/upper 为各通道下限/上限串）",
      "params": [
       {
        "name": "src_file",
@@ -11548,7 +11548,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvInRange",
-      "description": "OP 插件接口 CvInRange",
+      "description": "颜色区间过滤（color_space：bgr/hsv/gray，lower/upper 为各通道下限/上限串）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -11588,7 +11588,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvMorphology",
      "signature": "CvMorphology(src_file, dst_file, mode, kernel_size, iterations) → (ret)",
-     "description": "",
+     "description": "形态学运算（mode：erode/dilate/open/close）",
      "params": [
       {
        "name": "src_file",
@@ -11643,7 +11643,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvMorphology",
-      "description": "OP 插件接口 CvMorphology",
+      "description": "形态学运算（mode：erode/dilate/open/close）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -11683,7 +11683,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvThin",
      "signature": "CvThin(src_file, dst_file, mode) → (ret)",
-     "description": "",
+     "description": "线条细化（mode：zhang_suen/guo_hall/morph）",
      "params": [
       {
        "name": "src_file",
@@ -11724,7 +11724,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvThin",
-      "description": "OP 插件接口 CvThin",
+      "description": "线条细化（mode：zhang_suen/guo_hall/morph）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -11754,7 +11754,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvMatchTemplate",
      "signature": "CvMatchTemplate(x, y, width, height, template_name, threshold, dir, strip_mode, method, color_mode) → (etjson, ret)",
-     "description": "",
+     "description": "模板匹配，返回命中 JSON 数组 [{x,y,width,height,score},...]",
      "params": [
       {
        "name": "x",
@@ -11856,7 +11856,7 @@
      "returns_summary": "etjson: 命中结果 JSON 数组：[{x,y,width,height,score},...]；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvMatchTemplate",
-      "description": "OP 插件接口 CvMatchTemplate",
+      "description": "模板匹配，返回命中 JSON 数组 [{x,y,width,height,score},...]",
       "parameters": {
        "type": "object",
        "properties": {
@@ -11921,7 +11921,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvMatchTemplateScale",
      "signature": "CvMatchTemplateScale(x, y, width, height, template_name, scales, threshold, method, color_mode) → (etjson, ret)",
-     "description": "",
+     "description": "多缩放比模板匹配（scales 逗号分隔，如 \"0.8,0.9,1.0,1.1\"），结果含实际 scale",
      "params": [
       {
        "name": "x",
@@ -12016,7 +12016,7 @@
      "returns_summary": "etjson: 命中结果 JSON 数组（含实际使用的 scale）；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvMatchTemplateScale",
-      "description": "OP 插件接口 CvMatchTemplateScale",
+      "description": "多缩放比模板匹配（scales 逗号分隔，如 \"0.8,0.9,1.0,1.1\"），结果含实际 scale",
       "parameters": {
        "type": "object",
        "properties": {
@@ -12076,7 +12076,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvMatchAnyTemplate",
      "signature": "CvMatchAnyTemplate(x, y, width, height, template_names, threshold, dir, strip_mode, method, color_mode) → (etjson, ret)",
-     "description": "",
+     "description": "多模板任一命中即返回首个",
      "params": [
       {
        "name": "x",
@@ -12178,7 +12178,7 @@
      "returns_summary": "etjson: 命中结果 JSON 数组；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvMatchAnyTemplate",
-      "description": "OP 插件接口 CvMatchAnyTemplate",
+      "description": "多模板任一命中即返回首个",
       "parameters": {
        "type": "object",
        "properties": {
@@ -12243,7 +12243,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvMatchAllTemplates",
      "signature": "CvMatchAllTemplates(x, y, width, height, template_names, threshold, dir, strip_mode, method, color_mode) → (etjson, ret)",
-     "description": "",
+     "description": "多模板全部各搜一遍，结果含模板名",
      "params": [
       {
        "name": "x",
@@ -12345,7 +12345,7 @@
      "returns_summary": "etjson: 命中结果 JSON 数组（含模板名）；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvMatchAllTemplates",
-      "description": "OP 插件接口 CvMatchAllTemplates",
+      "description": "多模板全部各搜一遍，结果含模板名",
       "parameters": {
        "type": "object",
        "properties": {
@@ -12410,7 +12410,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvFeatureMatchTemplate",
      "signature": "CvFeatureMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)",
-     "description": "",
+     "description": "特征点匹配，返回命中 JSON 数组",
      "params": [
       {
        "name": "x",
@@ -12484,7 +12484,7 @@
      "returns_summary": "etjson: 命中结果 JSON 数组；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvFeatureMatchTemplate",
-      "description": "OP 插件接口 CvFeatureMatchTemplate",
+      "description": "特征点匹配，返回命中 JSON 数组",
       "parameters": {
        "type": "object",
        "properties": {
@@ -12529,7 +12529,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvEdgeMatchTemplate",
      "signature": "CvEdgeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)",
-     "description": "",
+     "description": "边缘匹配，返回命中 JSON 数组",
      "params": [
       {
        "name": "x",
@@ -12603,7 +12603,7 @@
      "returns_summary": "etjson: 命中结果 JSON 数组；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvEdgeMatchTemplate",
-      "description": "OP 插件接口 CvEdgeMatchTemplate",
+      "description": "边缘匹配，返回命中 JSON 数组",
       "parameters": {
        "type": "object",
        "properties": {
@@ -12648,7 +12648,7 @@
      "group_name": "OpenCV 视觉",
      "name": "CvShapeMatchTemplate",
      "signature": "CvShapeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)",
-     "description": "",
+     "description": "形状匹配，返回命中 JSON 数组",
      "params": [
       {
        "name": "x",
@@ -12722,7 +12722,7 @@
      "returns_summary": "etjson: 命中结果 JSON 数组；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CvShapeMatchTemplate",
-      "description": "OP 插件接口 CvShapeMatchTemplate",
+      "description": "形状匹配，返回命中 JSON 数组",
       "parameters": {
        "type": "object",
        "properties": {
@@ -16161,7 +16161,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "颜色格式串（RGB hex RRGGBB[-偏色] 或 @背景色），同 AutoOcr 系"
       },
       {
        "name": "sim",
@@ -16198,7 +16198,7 @@
         },
         "color_format": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "颜色格式串（RGB hex RRGGBB[-偏色] 或 @背景色），同 AutoOcr 系"
         },
         "sim": {
          "type": "number",
@@ -16648,7 +16648,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "模块名（如 game.exe）"
       },
       {
        "name": "ret",
@@ -16678,7 +16678,7 @@
         },
         "module": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "模块名（如 game.exe）"
         }
        },
        "required": [
@@ -16768,14 +16768,14 @@
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "新保护属性（Win32 PAGE_* 常量数值，如 0x40=PAGE_EXECUTE_READWRITE）"
       },
       {
        "name": "old_protect",
        "type": "long*",
        "dir": "out",
        "json_type": "string",
-       "doc": ""
+       "doc": "出参：原保护属性"
       },
       {
        "name": "ret",
@@ -16789,7 +16789,7 @@
       {
        "name": "old_protect",
        "type": "long*",
-       "doc": ""
+       "doc": "出参：原保护属性"
       },
       {
        "name": "ret",
@@ -16797,7 +16797,7 @@
        "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
       }
      ],
-     "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+     "returns_summary": "old_protect: 出参：原保护属性；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "VirtualProtectEx",
       "description": "修改地址保护属性，ret=1 成功 0 失败，old_protect 带回原属性（PAGE_* 常量）。\naddress 支持表达式：十六进制/四则运算//多级指针 [addr+off]。",
@@ -16818,7 +16818,7 @@
         },
         "new_protect": {
          "type": "number",
-         "description": "long"
+         "description": "新保护属性（Win32 PAGE_* 常量数值，如 0x40=PAGE_EXECUTE_READWRITE）"
         }
        },
        "required": [
@@ -16863,14 +16863,14 @@
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "分配类型（Win32 MEM_* 常量组合数值，如 0x3000=MEM_COMMIT|MEM_RESERVE）"
       },
       {
        "name": "protect",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "保护属性（Win32 PAGE_* 常量数值，如 0x40=PAGE_EXECUTE_READWRITE）"
       },
       {
        "name": "etstr",
@@ -16908,11 +16908,11 @@
         },
         "alloc_type": {
          "type": "number",
-         "description": "long"
+         "description": "分配类型（Win32 MEM_* 常量组合数值，如 0x3000=MEM_COMMIT|MEM_RESERVE）"
         },
         "protect": {
          "type": "number",
-         "description": "long"
+         "description": "保护属性（Win32 PAGE_* 常量数值，如 0x40=PAGE_EXECUTE_READWRITE）"
         }
        },
        "required": [
@@ -16984,7 +16984,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "要创建的文件夹路径"
       },
       {
        "name": "ret",
@@ -17010,7 +17010,7 @@
        "properties": {
         "folder_name": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "要创建的文件夹路径"
         }
        },
        "required": [
@@ -17031,7 +17031,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "要删除的文件夹路径"
       },
       {
        "name": "ret",
@@ -17057,7 +17057,7 @@
        "properties": {
         "folder_name": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "要删除的文件夹路径"
         }
        },
        "required": [
@@ -17078,14 +17078,14 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "目标文件夹路径"
       },
       {
        "name": "wildcard",
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "文件名通配符过滤（如 *.txt）"
       },
       {
        "name": "etstr",
@@ -17111,11 +17111,11 @@
        "properties": {
         "folder": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "目标文件夹路径"
         },
         "wildcard": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "文件名通配符过滤（如 *.txt）"
         }
        },
        "required": [
@@ -17130,7 +17130,7 @@
      "group_name": "OCR 文字识别",
      "name": "CopyFile",
      "signature": "CopyFile(src_file, dst_file) → (ret)",
-     "description": "",
+     "description": "复制文件（覆盖目标）",
      "params": [
       {
        "name": "src_file",
@@ -17164,7 +17164,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "CopyFile",
-      "description": "OP 插件接口 CopyFile",
+      "description": "复制文件（覆盖目标）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -17189,7 +17189,7 @@
      "group_name": "OCR 文字识别",
      "name": "MoveFile",
      "signature": "MoveFile(src_file, dst_file) → (ret)",
-     "description": "",
+     "description": "移动/重命名文件",
      "params": [
       {
        "name": "src_file",
@@ -17223,7 +17223,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "MoveFile",
-      "description": "OP 插件接口 MoveFile",
+      "description": "移动/重命名文件",
       "parameters": {
        "type": "object",
        "properties": {
@@ -17248,7 +17248,7 @@
      "group_name": "OCR 文字识别",
      "name": "DeleteFile",
      "signature": "DeleteFile(file_name) → (ret)",
-     "description": "",
+     "description": "删除文件",
      "params": [
       {
        "name": "file_name",
@@ -17275,7 +17275,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "DeleteFile",
-      "description": "OP 插件接口 DeleteFile",
+      "description": "删除文件",
       "parameters": {
        "type": "object",
        "properties": {
@@ -17415,7 +17415,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "要写入的文本（以 UTF-8 编码覆盖写整个文件）"
       },
       {
        "name": "ret",
@@ -17445,7 +17445,7 @@
         },
         "content": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "要写入的文本（以 UTF-8 编码覆盖写整个文件）"
         }
        },
        "required": [
@@ -17467,14 +17467,14 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "文件路径"
       },
       {
        "name": "flag",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "0=文件名含扩展名 1=纯名（去扩展名） 2=仅扩展名（含点；无扩展名返回空） 3=所在目录"
       },
       {
        "name": "etstr",
@@ -17500,11 +17500,11 @@
        "properties": {
         "file_path": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "文件路径"
         },
         "flag": {
          "type": "number",
-         "description": "long"
+         "description": "0=文件名含扩展名 1=纯名（去扩展名） 2=仅扩展名（含点；无扩展名返回空） 3=所在目录"
         }
        },
        "required": [
@@ -17573,7 +17573,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "组合键描述串（如 \"ctrl+alt+a\" \"shift+f1\" \"win+d\"）"
       },
       {
        "name": "ret",
@@ -17599,7 +17599,7 @@
        "properties": {
         "combo": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "组合键描述串（如 \"ctrl+alt+a\" \"shift+f1\" \"win+d\"）"
         }
        },
        "required": [
@@ -17707,7 +17707,7 @@
      "group_name": "OCR 文字识别",
      "name": "TerminateProcessTree",
      "signature": "TerminateProcessTree(pid) → (ret)",
-     "description": "",
+     "description": "结束进程及其整棵子进程树",
      "params": [
       {
        "name": "pid",
@@ -17734,7 +17734,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "TerminateProcessTree",
-      "description": "OP 插件接口 TerminateProcessTree",
+      "description": "结束进程及其整棵子进程树",
       "parameters": {
        "type": "object",
        "properties": {
@@ -17891,7 +17891,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "要编码进二维码的文本"
       },
       {
        "name": "file_name",
@@ -17905,7 +17905,7 @@
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": "数据长度（字节）"
+       "doc": "二维码边长像素（<=0 用 256）"
       },
       {
        "name": "ret",
@@ -17931,7 +17931,7 @@
        "properties": {
         "text": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "要编码进二维码的文本"
         },
         "file_name": {
          "type": "string",
@@ -17939,7 +17939,7 @@
         },
         "size": {
          "type": "number",
-         "description": "数据长度（字节）"
+         "description": "二维码边长像素（<=0 用 256）"
         }
        },
        "required": [
@@ -18414,7 +18414,7 @@
      "group_name": "OCR 文字识别",
      "name": "JsonSetNumber",
      "signature": "JsonSetNumber(json_text, path, value) → (etstr, ret)",
-     "description": "",
+     "description": "向 JSON 文本路径处写入数值，返回新 JSON 串；父路径不可达返回空串",
      "params": [
       {
        "name": "json_text",
@@ -18467,7 +18467,7 @@
      "returns_summary": "etstr: 出参：字符串结果；ret: 1=成功 0=失败",
      "tool_schema": {
       "name": "JsonSetNumber",
-      "description": "OP 插件接口 JsonSetNumber",
+      "description": "向 JSON 文本路径处写入数值，返回新 JSON 串；父路径不可达返回空串",
       "parameters": {
        "type": "object",
        "properties": {
@@ -18497,7 +18497,7 @@
      "group_name": "OCR 文字识别",
      "name": "JsonSetBool",
      "signature": "JsonSetBool(json_text, path, value) → (etstr, ret)",
-     "description": "",
+     "description": "向 JSON 文本路径处写入布尔值，返回新 JSON 串；父路径不可达返回空串",
      "params": [
       {
        "name": "json_text",
@@ -18550,7 +18550,7 @@
      "returns_summary": "etstr: 出参：字符串结果；ret: 1=成功 0=失败",
      "tool_schema": {
       "name": "JsonSetBool",
-      "description": "OP 插件接口 JsonSetBool",
+      "description": "向 JSON 文本路径处写入布尔值，返回新 JSON 串；父路径不可达返回空串",
       "parameters": {
        "type": "object",
        "properties": {
@@ -18817,7 +18817,7 @@
      "group_name": "OCR 文字识别",
      "name": "HttpPost",
      "signature": "HttpPost(url, body, headers_json, timeout_ms) → (etstr, ret)",
-     "description": "",
+     "description": "POST 请求（系统 WinHTTP 直连，UTF-8；headers_json 放 Content-Type）；非 2xx 也返回响应体，传输失败空串",
      "params": [
       {
        "name": "url",
@@ -18877,7 +18877,7 @@
      "returns_summary": "etstr: 出参：字符串结果；ret: 同 HttpGet",
      "tool_schema": {
       "name": "HttpPost",
-      "description": "OP 插件接口 HttpPost",
+      "description": "POST 请求（系统 WinHTTP 直连，UTF-8；headers_json 放 Content-Type）；非 2xx 也返回响应体，传输失败空串",
       "parameters": {
        "type": "object",
        "properties": {
@@ -19054,7 +19054,7 @@
      "group_name": "YOLO 目标检测",
      "name": "YoloDetect",
      "signature": "YoloDetect(x1, y1, x2, y2, conf, iou) → (etjson, ret)",
-     "description": "",
+     "description": "在区域运行 YOLO 目标检测，返回 JSON 数组 [{class,score,x,y,w,h},...]",
      "params": [
       {
        "name": "x1",
@@ -19128,7 +19128,7 @@
      "returns_summary": "etjson: 检测结果 JSON 数组：每个元素含类别/置信度/包围盒 {class,score,x,y,w,h}；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "YoloDetect",
-      "description": "OP 插件接口 YoloDetect",
+      "description": "在区域运行 YOLO 目标检测，返回 JSON 数组 [{class,score,x,y,w,h},...]",
       "parameters": {
        "type": "object",
        "properties": {
@@ -19173,7 +19173,7 @@
      "group_name": "YOLO 目标检测",
      "name": "YoloDetectFromFile",
      "signature": "YoloDetectFromFile(file_name, conf, iou) → (etjson, ret)",
-     "description": "",
+     "description": "对图片文件运行 YOLO 检测，返回同 YoloDetect",
      "params": [
       {
        "name": "file_name",
@@ -19226,7 +19226,7 @@
      "returns_summary": "etjson: 同 YoloDetect；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "YoloDetectFromFile",
-      "description": "OP 插件接口 YoloDetectFromFile",
+      "description": "对图片文件运行 YOLO 检测，返回同 YoloDetect",
       "parameters": {
        "type": "object",
        "properties": {
@@ -19472,14 +19472,14 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "待排序点串（格式同 FindNearestPos）"
       },
       {
        "name": "type",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "1=纯坐标点串；其他=带名称点串（输出保持输入格式，等距保持输入顺序）"
       },
       {
        "name": "x",
@@ -19519,11 +19519,11 @@
        "properties": {
         "all_pos": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "待排序点串（格式同 FindNearestPos）"
         },
         "type": {
          "type": "number",
-         "description": "long"
+         "description": "1=纯坐标点串；其他=带名称点串（输出保持输入格式，等距保持输入顺序）"
         },
         "x": {
          "type": "number",
@@ -19555,28 +19555,28 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "障碍位图路径：黑=障碍（亮度均值<128）；空串=清空地图"
       },
       {
        "name": "scale",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "降采样倍率：每 scale×scale 像素块为一格，块内任一障碍像素则整格障碍"
       },
       {
        "name": "offset_x",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "位图 (0,0) 对应的世界横坐标（支持负值）"
       },
       {
        "name": "offset_y",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "位图 (0,0) 对应的世界纵坐标（支持负值）"
       },
       {
        "name": "ret",
@@ -19602,19 +19602,19 @@
        "properties": {
         "bitmap_file": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "障碍位图路径：黑=障碍（亮度均值<128）；空串=清空地图"
         },
         "scale": {
          "type": "number",
-         "description": "long"
+         "description": "降采样倍率：每 scale×scale 像素块为一格，块内任一障碍像素则整格障碍"
         },
         "offset_x": {
          "type": "number",
-         "description": "long"
+         "description": "位图 (0,0) 对应的世界横坐标（支持负值）"
         },
         "offset_y": {
          "type": "number",
-         "description": "long"
+         "description": "位图 (0,0) 对应的世界纵坐标（支持负值）"
         }
        },
        "required": [
@@ -19638,49 +19638,49 @@
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": "宽度（像素）"
+       "doc": "地图像素宽"
       },
       {
        "name": "height",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": "高度（像素）"
+       "doc": "地图像素高"
       },
       {
        "name": "bgra_data",
        "type": "void*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "内存位图数据（32bpp BGRA，top-down 行序）"
       },
       {
        "name": "size",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": "数据长度（字节）"
+       "doc": "bgra_data 字节数"
       },
       {
        "name": "scale",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "同 SetAStarMap 的降采样倍率"
       },
       {
        "name": "offset_x",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "同 SetAStarMap"
       },
       {
        "name": "offset_y",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "同 SetAStarMap"
       },
       {
        "name": "ret",
@@ -19706,31 +19706,31 @@
        "properties": {
         "width": {
          "type": "number",
-         "description": "宽度（像素）"
+         "description": "地图像素宽"
         },
         "height": {
          "type": "number",
-         "description": "高度（像素）"
+         "description": "地图像素高"
         },
         "bgra_data": {
          "type": "string",
-         "description": "void*"
+         "description": "内存位图数据（32bpp BGRA，top-down 行序）"
         },
         "size": {
          "type": "number",
-         "description": "数据长度（字节）"
+         "description": "bgra_data 字节数"
         },
         "scale": {
          "type": "number",
-         "description": "long"
+         "description": "同 SetAStarMap 的降采样倍率"
         },
         "offset_x": {
          "type": "number",
-         "description": "long"
+         "description": "同 SetAStarMap"
         },
         "offset_y": {
          "type": "number",
-         "description": "long"
+         "description": "同 SetAStarMap"
         }
        },
        "required": [
@@ -19757,28 +19757,28 @@
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "起点格横坐标（世界坐标系）"
       },
       {
        "name": "beginY",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "起点格纵坐标"
       },
       {
        "name": "endX",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "终点格横坐标"
       },
       {
        "name": "endY",
        "type": "long",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "终点格纵坐标"
       },
       {
        "name": "et",
@@ -19804,19 +19804,19 @@
        "properties": {
         "beginX": {
          "type": "number",
-         "description": "long"
+         "description": "起点格横坐标（世界坐标系）"
         },
         "beginY": {
          "type": "number",
-         "description": "long"
+         "description": "起点格纵坐标"
         },
         "endX": {
          "type": "number",
-         "description": "long"
+         "description": "终点格横坐标"
         },
         "endY": {
          "type": "number",
-         "description": "long"
+         "description": "终点格纵坐标"
         }
        },
        "required": [
@@ -19840,7 +19840,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "途经点串 \"x,y|x,y|...\"：按顺序逐段寻路并拼接"
       },
       {
        "name": "et",
@@ -19866,7 +19866,7 @@
        "properties": {
         "points": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "途经点串 \"x,y|x,y|...\"：按顺序逐段寻路并拼接"
         }
        },
        "required": [
@@ -20000,7 +20000,7 @@
        "type": "double",
        "dir": "in",
        "json_type": "number",
-       "doc": ""
+       "doc": "路径简化容差（像素，越大保留点越少）"
       },
       {
        "name": "et",
@@ -20030,7 +20030,7 @@
         },
         "epsilon": {
          "type": "number",
-         "description": "double"
+         "description": "路径简化容差（像素，越大保留点越少）"
         }
        },
        "required": [
@@ -20163,14 +20163,14 @@
        "type": "long*",
        "dir": "out",
        "json_type": "string",
-       "doc": ""
+       "doc": "出参：最近点的横坐标"
       },
       {
        "name": "ny",
        "type": "long*",
        "dir": "out",
        "json_type": "string",
-       "doc": ""
+       "doc": "出参：最近点的纵坐标"
       },
       {
        "name": "ret",
@@ -20189,12 +20189,12 @@
       {
        "name": "nx",
        "type": "long*",
-       "doc": ""
+       "doc": "出参：最近点的横坐标"
       },
       {
        "name": "ny",
        "type": "long*",
-       "doc": ""
+       "doc": "出参：最近点的纵坐标"
       },
       {
        "name": "ret",
@@ -20202,7 +20202,7 @@
        "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
       }
      ],
-     "returns_summary": "index: 序号（从 0 开始）；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+     "returns_summary": "index: 序号（从 0 开始）；nx: 出参：最近点的横坐标；ny: 出参：最近点的纵坐标；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "FindNearestPathPoint",
       "description": "点到路径最近点：输出 0 基索引与最近点坐标；path 非法/为空返回 0。",
@@ -20242,14 +20242,14 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "待判点 \"x,y\""
       },
       {
        "name": "polygon",
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": ""
+       "doc": "多边形顶点串 \"x,y|x,y|...\""
       },
       {
        "name": "ret",
@@ -20275,11 +20275,11 @@
        "properties": {
         "point": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "待判点 \"x,y\""
         },
         "polygon": {
          "type": "string",
-         "description": "const wchar_t*"
+         "description": "多边形顶点串 \"x,y|x,y|...\""
         }
        },
        "required": [
@@ -20526,7 +20526,7 @@
      "group_name": "Memory 内存",
      "name": "WriteInt",
      "signature": "WriteInt(hwnd, address, type, value) → (ret)",
-     "description": "",
+     "description": "向内存地址写整数（type 选位宽：同 ReadInt）",
      "params": [
       {
        "name": "hwnd",
@@ -20574,7 +20574,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "WriteInt",
-      "description": "OP 插件接口 WriteInt",
+      "description": "向内存地址写整数（type 选位宽：同 ReadInt）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -20609,7 +20609,7 @@
      "group_name": "Memory 内存",
      "name": "ReadFloat",
      "signature": "ReadFloat(hwnd, address) → (ret)",
-     "description": "",
+     "description": "读内存 float",
      "params": [
       {
        "name": "hwnd",
@@ -20643,7 +20643,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "ReadFloat",
-      "description": "OP 插件接口 ReadFloat",
+      "description": "读内存 float",
       "parameters": {
        "type": "object",
        "properties": {
@@ -20668,7 +20668,7 @@
      "group_name": "Memory 内存",
      "name": "WriteFloat",
      "signature": "WriteFloat(hwnd, address, value) → (ret)",
-     "description": "",
+     "description": "写内存 float",
      "params": [
       {
        "name": "hwnd",
@@ -20709,7 +20709,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "WriteFloat",
-      "description": "OP 插件接口 WriteFloat",
+      "description": "写内存 float",
       "parameters": {
        "type": "object",
        "properties": {
@@ -20739,7 +20739,7 @@
      "group_name": "Memory 内存",
      "name": "ReadDouble",
      "signature": "ReadDouble(hwnd, address) → (ret)",
-     "description": "",
+     "description": "读内存 double",
      "params": [
       {
        "name": "hwnd",
@@ -20773,7 +20773,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "ReadDouble",
-      "description": "OP 插件接口 ReadDouble",
+      "description": "读内存 double",
       "parameters": {
        "type": "object",
        "properties": {
@@ -20798,7 +20798,7 @@
      "group_name": "Memory 内存",
      "name": "WriteDouble",
      "signature": "WriteDouble(hwnd, address, value) → (ret)",
-     "description": "",
+     "description": "写内存 double",
      "params": [
       {
        "name": "hwnd",
@@ -20839,7 +20839,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "WriteDouble",
-      "description": "OP 插件接口 WriteDouble",
+      "description": "写内存 double",
       "parameters": {
        "type": "object",
        "properties": {
@@ -20869,7 +20869,7 @@
      "group_name": "Memory 内存",
      "name": "ReadString",
      "signature": "ReadString(hwnd, address, type, len) → (etstr)",
-     "description": "",
+     "description": "读内存字符串（type：0=ANSI 1=Unicode；len 字符数，超限截断）",
      "params": [
       {
        "name": "hwnd",
@@ -20917,7 +20917,7 @@
      "returns_summary": "etstr: 出参：字符串结果",
      "tool_schema": {
       "name": "ReadString",
-      "description": "OP 插件接口 ReadString",
+      "description": "读内存字符串（type：0=ANSI 1=Unicode；len 字符数，超限截断）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -20952,7 +20952,7 @@
      "group_name": "Memory 内存",
      "name": "WriteString",
      "signature": "WriteString(hwnd, address, type, value) → (ret)",
-     "description": "",
+     "description": "写内存字符串（type 同 ReadString）",
      "params": [
       {
        "name": "hwnd",
@@ -21000,7 +21000,7 @@
      "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
      "tool_schema": {
       "name": "WriteString",
-      "description": "OP 插件接口 WriteString",
+      "description": "写内存字符串（type 同 ReadString）",
       "parameters": {
        "type": "object",
        "properties": {
@@ -21106,7 +21106,7 @@
      "group_name": "Memory 内存",
      "name": "FindDataEx",
      "signature": "FindDataEx(hwnd, addr_range, string, step, count) → (etstr)",
-     "description": "",
+     "description": "特征码搜索加强版：步进与最大返回数可控（step=1 逐字节最准最慢）",
      "params": [
       {
        "name": "hwnd",
@@ -21161,7 +21161,7 @@
      "returns_summary": "etstr: 出参：字符串结果",
      "tool_schema": {
       "name": "FindDataEx",
-      "description": "OP 插件接口 FindDataEx",
+      "description": "特征码搜索加强版：步进与最大返回数可控（step=1 逐字节最准最慢）",
       "parameters": {
        "type": "object",
        "properties": {

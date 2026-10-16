@@ -844,6 +844,140 @@ PARAM_DOCS = {
         "count": "最大返回结果数",
     },
     "GetModuleBaseAddr": {"module": "模块名（如 <code>game.exe</code>）", "etstr": "模块基址（16 进制串）"},
+    # ---------- 尾部批次补注解（2026-10-16 明确性审计清零，语义经源码/idl 逐条核对）----------
+    "SetPicCacheMax": {"max_count": "图片全局缓存的最大张数（上限保护，防长时运行内存膨胀）"},
+    "Md5": {"text": "要计算 MD5 摘要的文本"},
+    "Sha1": {"text": "要计算 SHA-1 摘要的文本"},
+    "Base64Encode": {"text": "要 Base64 编码的原文本"},
+    "Base64Decode": {"base64": "Base64 文本"},
+    "DrawText": {"text": "要绘制的文本", "font_size": "字号（像素）"},
+    "DrawSetVisible": {"show": "1=显示屏幕标注层 0=隐藏"},
+    "IsDisplayDead": {
+        "check_times": "连续截图比对次数",
+        "interval_ms": "每次比对间隔毫秒；区域连续 check_times 次帧哈希全同=卡死返回 1，有变化/失败返回 0",
+    },
+    "CvRotate": {"angle_deg": "旋转角度（度）"},
+    "CvFlip": {"mode": "翻转模式（cv::flip 语义）：0=绕 x 轴（上下翻转） 1=绕 y 轴（左右翻转） -1=两者"},
+    "CvMatchTemplateRot": {"angles": "角度串 | 分隔（如 <code>\"0|15|-15\"</code>），空串走默认角度集；结果 retjson 额外带命中角度 angle",
+                            "method": "同 CvMatchTemplate（0~5，默认 5=TM_CCOEFF_NORMED）",
+                            "color_mode": "同 CvMatchTemplate：0=彩色匹配 1=灰度匹配"},
+    "CreateQRCode": {"size": "二维码边长像素（<=0 用 256）", "text": "要编码进二维码的文本"},
+    "OcrAutoColorFromFile": {"color_format": "颜色格式串（RGB hex <code>RRGGBB[-偏色]</code> 或 <code>@背景色</code>），同 AutoOcr 系"},
+    "GetModuleSize": {"module": "模块名（如 <code>game.exe</code>）"},
+    "VirtualProtectEx": {
+        "new_protect": "新保护属性（Win32 PAGE_* 常量数值，如 <code>0x40</code>=PAGE_EXECUTE_READWRITE）",
+        "old_protect": "出参：原保护属性",
+    },
+    "VirtualAllocEx": {
+        "alloc_type": "分配类型（Win32 MEM_* 常量组合数值，如 <code>0x3000</code>=MEM_COMMIT|MEM_RESERVE）",
+        "protect": "保护属性（Win32 PAGE_* 常量数值，如 <code>0x40</code>=PAGE_EXECUTE_READWRITE）",
+    },
+    "CreateFolder": {"folder_name": "要创建的文件夹路径"},
+    "DeleteFolder": {"folder_name": "要删除的文件夹路径"},
+    "GetFileList": {"folder": "目标文件夹路径", "wildcard": "文件名通配符过滤（如 <code>*.txt</code>）"},
+    "WriteStringToFile": {"content": "要写入的文本（以 UTF-8 编码覆盖写整个文件）"},
+    "GetFileName": {
+        "file_path": "文件路径",
+        "flag": "0=文件名含扩展名 1=纯名（去扩展名） 2=仅扩展名（含点；无扩展名返回空） 3=所在目录",
+    },
+    "KeyPressHotkey": {"combo": "组合键描述串（如 <code>\"ctrl+alt+a\"</code> <code>\"shift+f1\"</code> <code>\"win+d\"</code>）"},
+    "SortPosDistance": {
+        "all_pos": "待排序点串（格式同 FindNearestPos）",
+        "type": "1=纯坐标点串；其他=带名称点串（输出保持输入格式，等距保持输入顺序）",
+    },
+    "SetAStarMap": {
+        "bitmap_file": "障碍位图路径：黑=障碍（亮度均值&lt;128）；<b>空串=清空地图</b>",
+        "scale": "降采样倍率：每 scale×scale 像素块为一格，块内任一障碍像素则整格障碍",
+        "offset_x": "位图 (0,0) 对应的世界横坐标（支持负值）",
+        "offset_y": "位图 (0,0) 对应的世界纵坐标（支持负值）",
+    },
+    "SetAStarMapData": {
+        "width": "地图像素宽", "height": "地图像素高",
+        "bgra_data": "内存位图数据（32bpp BGRA，top-down 行序）",
+        "size": "bgra_data 字节数",
+        "scale": "同 SetAStarMap 的降采样倍率",
+        "offset_x": "同 SetAStarMap", "offset_y": "同 SetAStarMap",
+    },
+    "AStarFindPathBM": {
+        "beginX": "起点格横坐标（世界坐标系）", "beginY": "起点格纵坐标",
+        "endX": "终点格横坐标", "endY": "终点格纵坐标",
+    },
+    "AStarFindPathWay": {"points": "途经点串 <code>\"x,y|x,y|...\"</code>：按顺序逐段寻路并拼接"},
+    "SimplifyPath": {"epsilon": "路径简化容差（像素，越大保留点越少）"},
+    "FindNearestPathPoint": {"nx": "出参：最近点的横坐标", "ny": "出参：最近点的纵坐标"},
+    "PointInPolygon": {
+        "point": "待判点 <code>\"x,y\"</code>",
+        "polygon": "多边形顶点串 <code>\"x,y|x,y|...\"</code>",
+    },
+}
+
+# 源文件（libop.h）无注释函数的兜底一句话描述（2026-10-16 审计补全，64 条）。
+# 内容与 op.idl 契约注释 / 实现语义一致；若上游回头补了头注释，以头注释为准（desc 非空不启用本表）。
+FN_DESC = {
+    "GetLastError": "取最近一次失败调用的内部错误码（0=无错误）；定位问题配合 SetShowErrorMsg(2) 日志",
+    "Sha1": "计算文本的 SHA-1 摘要（hex 串）",
+    "Base64Decode": "Base64 解码，返回原文本",
+    "DrawLine": "在屏幕标注层画直线（调试标注用；DrawClear 清除）",
+    "DrawText": "在屏幕标注层绘制文本（调试标注用）",
+    "KeyPressChar": "按下并弹起指定键（键名描述串，如 \"enter\"/\"f1\"/\"ctrl+a\"）",
+    "LoadPic": "显式加载图片进全局缓存（FindPic 引用缓存名；源文件变更后须重新 Load 刷新）",
+    "FreePic": "从全局缓存释放指定图片",
+    "GetScreenData": "取区域 32 位原始像素内存指针（BGRA 字节序，同 Win32 DIB；生命周期到下一次截图操作前）",
+    "GetScreenDataBmp": "取区域标准 BMP 格式内存数据指针（含文件头）",
+    "GetScreenFrameInfo": "查询最近一帧的序号与时间戳（dx 显示模式调试用）",
+    "MatchPicName": "宽松匹配缓存中的图片名（可省扩展名/大小写差异），返回匹配到的完整名",
+    "CvLoadTemplate": "加载模板图片并命名，供 CvMatch* 匹配系按名引用",
+    "CvLoadMaskedTemplate": "加载带掩码模板：白色=参与匹配区域，黑色=忽略",
+    "CvRemoveTemplate": "移除并释放指定模板",
+    "CvRemoveAllTemplates": "移除全部已加载模板",
+    "CvHasTemplate": "查询模板是否已加载",
+    "CvGetTemplateCount": "已加载模板数量",
+    "CvGetAllTemplateNames": "全部已加载模板名（| 连接）",
+    "CvGetOpenCvVersion": "OpenCV 版本串",
+    "CvLoadTemplateList": "批量加载模板：\"name,path|name,path|...\"，任一项缺逗号或空串则整体失败",
+    "CvToGray": "转灰度图",
+    "CvToBinary": "Otsu 自动阈值二值化",
+    "CvToEdge": "边缘提取",
+    "CvToOutline": "轮廓提取",
+    "CvDenoise": "中值滤波去噪",
+    "CvEqualize": "直方图均衡",
+    "CvCLAHE": "对比度受限自适应直方图均衡（clip_limit 典型 2~4，tile_grid_size 典型 8）",
+    "CvBlur": "模糊（mode：gaussian/median/bilateral/box）",
+    "CvSharpen": "锐化（strength 0~100）",
+    "CvCropValid": "自动裁掉纯色边缘",
+    "CvConnectedComponents": "连通域分析，返回 JSON 数组（每元素含 x/y/w/h/area）",
+    "CvFindContours": "轮廓查找，返回 JSON 数组（外接矩形与轮廓点）",
+    "CvPreprocessPipeline": "预处理流水线：| 分隔多步，步骤可带 \"步骤名:参数1,参数2\"",
+    "CvCrop": "裁剪到指定矩形",
+    "CvResize": "缩放到指定宽高",
+    "CvThreshold": "阈值化（mode：binary/binary_inv/otsu/otsu_inv/adaptive/adaptive_inv）",
+    "CvInRange": "颜色区间过滤（color_space：bgr/hsv/gray，lower/upper 为各通道下限/上限串）",
+    "CvMorphology": "形态学运算（mode：erode/dilate/open/close）",
+    "CvThin": "线条细化（mode：zhang_suen/guo_hall/morph）",
+    "CvMatchTemplate": "模板匹配，返回命中 JSON 数组 [{x,y,width,height,score},...]",
+    "CvMatchTemplateScale": "多缩放比模板匹配（scales 逗号分隔，如 \"0.8,0.9,1.0,1.1\"），结果含实际 scale",
+    "CvMatchAnyTemplate": "多模板任一命中即返回首个",
+    "CvMatchAllTemplates": "多模板全部各搜一遍，结果含模板名",
+    "CvFeatureMatchTemplate": "特征点匹配，返回命中 JSON 数组",
+    "CvEdgeMatchTemplate": "边缘匹配，返回命中 JSON 数组",
+    "CvShapeMatchTemplate": "形状匹配，返回命中 JSON 数组",
+    "CopyFile": "复制文件（覆盖目标）",
+    "MoveFile": "移动/重命名文件",
+    "DeleteFile": "删除文件",
+    "TerminateProcessTree": "结束进程及其整棵子进程树",
+    "JsonSetNumber": "向 JSON 文本路径处写入数值，返回新 JSON 串；父路径不可达返回空串",
+    "JsonSetBool": "向 JSON 文本路径处写入布尔值，返回新 JSON 串；父路径不可达返回空串",
+    "HttpPost": "POST 请求（系统 WinHTTP 直连，UTF-8；headers_json 放 Content-Type）；非 2xx 也返回响应体，传输失败空串",
+    "YoloDetect": "在区域运行 YOLO 目标检测，返回 JSON 数组 [{class,score,x,y,w,h},...]",
+    "YoloDetectFromFile": "对图片文件运行 YOLO 检测，返回同 YoloDetect",
+    "WriteInt": "向内存地址写整数（type 选位宽：同 ReadInt）",
+    "ReadFloat": "读内存 float",
+    "WriteFloat": "写内存 float",
+    "ReadDouble": "读内存 double",
+    "WriteDouble": "写内存 double",
+    "ReadString": "读内存字符串（type：0=ANSI 1=Unicode；len 字符数，超限截断）",
+    "WriteString": "写内存字符串（type 同 ReadString）",
+    "FindDataEx": "特征码搜索加强版：步进与最大返回数可控（step=1 逐字节最准最慢）",
 }
 
 
@@ -1256,6 +1390,13 @@ def main():
     ap.add_argument("--header", default=HEADER)
     a = ap.parse_args()
     fns = parse_header(a.header)
+    # 源文件无注释的函数用 FN_DESC 兜底（HTML 与 LLM 两路共用）
+    for f in fns:
+        if not f["desc"] and f["name"] in FN_DESC:
+            f["desc"] = FN_DESC[f["name"]]
+    n_fallback = sum(1 for f in fns if not f["desc"])
+    if n_fallback:
+        print(f"WARN 无描述且 FN_DESC 未覆盖: {n_fallback} 个")
     dup = [n for n in {f["name"] for f in fns} if sum(1 for f in fns if f["name"] == n) > 1]
     if dup:
         print("WARN duplicate:", dup)
