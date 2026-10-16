@@ -3,6 +3,28 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-16 第二十五批（P2 #11：鼠标光标图像 OpGetCursorImage，feat）
+
+承接 OLA 对比 P2 批排期，新增 1 接口（Op → C API → COM idl 424 → 测试四层），
+全量回归 426 ran / 423 PASS（失败为基线环境 flake：WaitKeyScanAll、
+DownCpuAddsDelayAfterEachCapture 时序 flake）。
+
+- **feat(op): GetCursorImage**（欧拉 GetCursorImage 对等）：当前系统光标
+  渲染为 32bpp BMP（top-down BGRA 含 alpha），Base64 输出——文本安全，
+  COM/python 绑定免 SAFEARRAY。光标不可见/无桌面会话返回空串；宽高/热点
+  等元数据继续用 GetCursorShape 配套取。
+- **refactor(input)**: CursorShape.cpp 抽出 render_cursor_bgra 渲染核心
+  （CopyIcon → GetIconInfo → 32bpp DIB → DrawIconEx → BGRA），FromCursor
+  （哈希路径）与新增 cursor_image::FromSystem（BMP 路径）共用；新增
+  wrap_bgra_as_bmp 序列化。单色光标（掩码高度=2x）与非单色走同一渲染。
+- **test**: cursor_image_test.cpp 新增 2 用例：Base64 解码后按固定偏移解析
+  BMP 头（魔数/偏移/尺寸/32bpp/top-down/像素区长度），宽高与
+  GetCursorShape 元数据交叉验证；空句柄返回空串。无桌面会话允许 SKIP。
+  实现坑：测试侧 #pragma pack(1) 结构体在本编译单元未生效（sizeof 与
+  BMP 实际布局不符），改用偏移手工解析，不依赖打包指令。
+
+遗留同前批：swig/python 与 Go 绑定待补（本机无 swig）。
+
 ### 2026-10-16 第二十四批（P2 #8：卡屏检测 OpIsDisplayDead，feat）
 
 承接 OLA 对比 P2 批排期，新增 1 接口（Op → C API → COM idl 423 → 测试四层），
