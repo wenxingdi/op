@@ -13,6 +13,12 @@ decode_qrcode 等），手册 `in_ctypes_binding` 标注与覆盖率核对统一
 
 - **ctypes 覆盖 242→310/310**：HTML 橙色"未覆盖"标注清零，api_llm.json 逐函数
   `in_ctypes_binding: true`。注解覆盖仍 100%（1177/1177）。
+- **chore(test) 同步门禁补 ctypes 拦截**：`check_swig_sync.py` 新增第二段——
+  libop.h 方法提取从 void-only 正则（304，漏 long/指针/string 返回的 6 个）升级为
+  全返回型（310，含 JsonIsValid/SetOcrEngine/Ver），swig 三段与 ctypes 段共用该
+  集合；api.py 缺任一期望方法即漂移退出（run_tests.ps1 既有 exit 4 拦下），
+  多出的公开方法（close/handle、C 层废弃别名包装）只 WARN 不拦截。
+  命名特殊表 `_PY_SNAKE_SPECIAL` 与 gen_api_reference.py 保持一致（两处同步改）。
 - **真机抽验（bin/x64/op_c_api_x64.dll，ctypes 路径）**：Md5/Sha1/Base64 与标准值一致；
   JSON 族 11 函数（valid/str/num/bool/size/keys/set×3/append/delete）行为全对；
   文件族 write/read/exists/size/name flag0~3/copy/folder 全对；get_window_scale 真实
