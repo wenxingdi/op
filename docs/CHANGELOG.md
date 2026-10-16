@@ -3,6 +3,29 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-16 第三十批（feat(bind)：swig/python 绑定补齐 + CMake 探测修复）
+
+无新增导出（仍为 316）。本批兑现上批遗留"swig/python 绑定待补"：绑定层从
+10-15 14:15 后**漂移 53 个方法**（JSON 族 11 / HTTP 族 3 / 文件系统 / Draw /
+QR / 算法辅助 / 进程内存等全部批次），pip 包 `op-plugins` 静默缺 API 达一天。
+
+- **chore(tool)**: swig 装机走 `pip install "swig==4.4.1"`（pip 自带 Windows
+  二进制）。本机踩坑记录：winget 的 msstore 源连不上、sourceforge 直链
+  16KB/120s 级慢、清华/USTC 镜像无 swig 目录、GitHub API 拉不到资产——pip 是唯一可靠源。
+- **fix(cmake)**: `build_swig_py` 探测块原本在 `project()` 之前，NMake 生成器下
+  `_op_target_is_64bit` 恒 FALSE（位数信号未就绪），x64 被误判 x86 → pyop 永不编。
+  整块移到 project() 之后的位数重判（第 169 行）之后。这也是 minhook 当初同款坑，
+  修过 minhook 没修到 swig 块。
+- **feat(bind)**: swig 4.4.1 重新生成 `op_wrap.cxx`/`pyop.py`/`_binding.py`，
+  `check_swig_sync.py` 四层全绿（304 方法全覆盖，pyop def 330 / wrapper 324）。
+  x64 实编 `_pyop.pyd`（链本机 Python 3.12，PYTHON64_ROOT 显式指定防链错），
+  install 落 `bin/x64`；真机 `import pyop` 通过：OpVer 5.2.0、JSON 族
+  （JsonIsValid 真假样本行为正确）、HTTP 族符号齐、AutoOcr* 废弃别名与
+  OcrAutoColor* 新名并存、连接失败路径返回 `['',0]` 解释器存活。
+- **docs**: BUILD_GUIDE 新增 §3.1 Python 绑定（装机/再生成/自检/编译/批次流程五要素），
+  "libop.h 变更必须同批带绑定产物"写入流程。
+- 绑定重新生成 + `check_swig_sync.py` 零漂移，自本批起纳入批次验收流程。
+
 ### 2026-10-16 第二十九批（完整性维护批：x86 更新 + api_reference 重生成 + WaitKeyScanAll 修复）
 
 无新增导出（仍为 316）。全量回归 442 ran / **441 PASS 0 FAILED**——套件自基线迭代以来

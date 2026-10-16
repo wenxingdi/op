@@ -103,6 +103,27 @@ python scripts/build/_wb_build.py op_c_api_x64    # 只编 C-API DLL（OPTool �
 - **新增 .cpp 文件**必须先登记进 `CMakeLists.txt` 对应的目标源列表，再构建，否则不参与编译。
 - 日志：`build/nmake-x64-Release/_wb_build_out.txt`。
 
+### 3.1 Python 绑定（swig/pyop）
+
+- **装 swig（一次性）**：`pip install "swig==4.4.1"`（pip 自带 Windows 二进制，
+  无需 sourceforge 安装包；winget/镜像下载在本机均不可靠）。装完 `swig -version` 应显示 4.4.1。
+- **接口面变更后重新生成（必做，否则 pip 包静默缺 API）**：
+
+  ```bat
+  cd swig
+  swig -c++ -python op.i
+  copy /Y pyop.py ..\python\pyop\_binding.py
+  ```
+
+  入库产物三层：`swig/op_wrap.cxx` + `swig/pyop.py` + `python/pyop/_binding.py`（后两者必须逐字节一致）。
+- **自检**：`python scripts/check_swig_sync.py` 退出码 0 = 三层同步。
+- **编译**：CMake 开关 `build_swig_py`（默认 ON）。NMake 下探测在 `project()` 之后执行，
+  64 位需 `python312.dll` + `libs/python312.lib` 齐备；可用环境变量 `PYTHON64_ROOT` 指定
+  目标 Python 家目录（不指定则自动探测，注意别链到其它套 Python）。编出 `_pyop.pyd` + `pyop.py`，
+  install 落到 `bin/x64`。使用：`cd bin/x64 && python -c "import pyop; op=pyop.Op(); print(op.Ver())"`。
+- **批次流程**：凡 `include/libop.h` 增删方法，本批提交必须同时带上重新生成的绑定产物，
+  并跑 `check_swig_sync.py` 确认零漂移（历史事故：漂移 12 个方法无人发现）。
+
 ## 4. 跑测试
 
 ```powershell
