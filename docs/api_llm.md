@@ -1,6 +1,6 @@
 # OP 插件 API 速查（LLM 上下文版）
 
-> 源：`include/libop.h` · 310 个接口 · 生成于 2026-10-16 12:33 · 由 scripts/gen_api_reference.py 生成（勿手改）
+> 源：`include/libop.h` · 310 个接口 · 生成于 2026-10-16 12:42 · 由 scripts/gen_api_reference.py 生成（勿手改）
 
 调用约定：出参不传入，聚成返回值元组（顺序 = signature 的 → 后列表）；坐标为物理像素，绑定窗口后为客户区坐标；字符串 UTF-16。
 

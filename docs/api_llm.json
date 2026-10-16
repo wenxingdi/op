@@ -2,12 +2,13 @@
  "meta": {
   "title": "OP 插件 API 目录（大模型 function-calling 版）",
   "source": "include/libop.h",
-  "generated": "2026-10-16 12:33",
+  "generated": "2026-10-16 12:42",
   "generator": "scripts/gen_api_reference.py",
   "total_functions": 310,
   "usage": {
-   "python": "from op import Op; op = Op(dll_path=r'D:\\op\\bin\\x64\\op_c_api_x64.dll'); ret = op.find_pic(x1, y1, x2, y2, files, delta_color, sim, dir)",
-   "note": "出参（dir=out）不作为调用入参，聚在返回值元组中，顺序同 signature 的 → 后列表。坐标为物理像素；绑定窗口后为客户区坐标系。字符串均为 UTF-16 文本。"
+   "python_pyop": "import pyop  # swig 绑定（pip 包 op-plugins），方法名保持 PascalCase；bin/x64/pyop.py + _pyop.pyd 置于工作目录或 sys.path\nop = pyop.Op()\nx, y, ret = op.FindPic(x1, y1, x2, y2, files, delta_color, sim, dir)",
+   "python_ctypes": "from op import Op  # ctypes 包装（pip install -e bindings/python），方法名 snake_case（见每函数 python_ctypes_name 字段）\nop = Op(dll_path=r'D:\\op\\bin\\x64\\op_c_api_x64.dll')\nx, y, ret = op.find_pic(x1, y1, x2, y2, files, delta_color, sim, dir)",
+   "note": "出参（dir=out）不作为调用入参，聚在返回值元组中，顺序同 signature 的 → 后列表。坐标为物理像素；绑定窗口后为客户区坐标系。字符串均为 UTF-16 文本。每函数另带 python_example（pyop 风格逐函数调用示例，含返回值注释）。"
   }
  },
  "groups": [
@@ -21,6 +22,9 @@
      "group_name": "Runtime 运行时",
      "name": "Ver",
      "signature": "Ver() → string",
+     "python_example": "op.Ver()  # → str",
+     "python_ctypes_name": "version",
+     "in_ctypes_binding": true,
      "description": "1.版本号Version",
      "params": [],
      "returns": [
@@ -46,6 +50,9 @@
      "group_name": "Runtime 运行时",
      "name": "SetPath",
      "signature": "SetPath(path) → (ret)",
+     "python_example": "op.SetPath(path)  # → (ret)",
+     "python_ctypes_name": "set_path",
+     "in_ctypes_binding": true,
      "description": "设置目录",
      "params": [
       {
@@ -93,6 +100,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetPath",
      "signature": "GetPath() → (et)",
+     "python_example": "op.GetPath()  # → (et)",
+     "python_ctypes_name": "get_path",
+     "in_ctypes_binding": true,
      "description": "获取目录",
      "params": [
       {
@@ -126,6 +136,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetBasePath",
      "signature": "GetBasePath() → (et)",
+     "python_example": "op.GetBasePath()  # → (et)",
+     "python_ctypes_name": "get_base_path",
+     "in_ctypes_binding": true,
      "description": "获取插件目录",
      "params": [
       {
@@ -159,6 +172,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetID",
      "signature": "GetID() → (ret)",
+     "python_example": "op.GetID()  # → (ret)",
+     "python_ctypes_name": "get_id",
+     "in_ctypes_binding": true,
      "description": "返回当前对象的ID值，这个值对于每个对象是唯一存在的。可以用来判定两个对象是否一致",
      "params": [
       {
@@ -192,6 +208,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetLastError",
      "signature": "GetLastError() → (ret)",
+     "python_example": "op.GetLastError()  # → (ret)",
+     "python_ctypes_name": "get_last_error",
+     "in_ctypes_binding": true,
      "description": "取最近一次失败调用的内部错误码（0=无错误）；定位问题配合 SetShowErrorMsg(2) 日志",
      "params": [
       {
@@ -225,6 +244,9 @@
      "group_name": "Runtime 运行时",
      "name": "SetShowErrorMsg",
      "signature": "SetShowErrorMsg(show_type) → (ret)",
+     "python_example": "op.SetShowErrorMsg(show_type)  # → (ret)",
+     "python_ctypes_name": "set_show_error_msg",
+     "in_ctypes_binding": true,
      "description": "设置是否弹出错误信息,默认是打开 0:关闭，1:显示为信息框，2:保存到文件,3:输出到标准输出",
      "params": [
       {
@@ -272,6 +294,9 @@
      "group_name": "Runtime 运行时",
      "name": "Sleep",
      "signature": "Sleep(millseconds) → (ret)",
+     "python_example": "op.Sleep(millseconds)  # → (ret)",
+     "python_ctypes_name": "sleep",
+     "in_ctypes_binding": true,
      "description": "sleep",
      "params": [
       {
@@ -319,6 +344,9 @@
      "group_name": "Runtime 运行时",
      "name": "InjectDll",
      "signature": "InjectDll(process_name, dll_name) → (ret)",
+     "python_example": "op.InjectDll(process_name, dll_name)  # → (ret)",
+     "python_ctypes_name": "inject_dll",
+     "in_ctypes_binding": true,
      "description": "Process\ninject dll",
      "params": [
       {
@@ -378,6 +406,9 @@
      "group_name": "Runtime 运行时",
      "name": "EnablePicCache",
      "signature": "EnablePicCache(enable) → (ret)",
+     "python_example": "op.EnablePicCache(enable)  # → (ret)",
+     "python_ctypes_name": "enable_pic_cache",
+     "in_ctypes_binding": true,
      "description": "设置是否开启或者关闭插件内部的图片缓存机制",
      "params": [
       {
@@ -425,6 +456,9 @@
      "group_name": "Runtime 运行时",
      "name": "ClearPicCache",
      "signature": "ClearPicCache() → (ret)",
+     "python_example": "op.ClearPicCache()  # → (ret)",
+     "python_ctypes_name": "clear_pic_cache",
+     "in_ctypes_binding": true,
      "description": "清空进程级图片缓存（FindPic 自动缓存与显式加载共用）",
      "params": [
       {
@@ -458,6 +492,9 @@
      "group_name": "Runtime 运行时",
      "name": "SetPicCacheMax",
      "signature": "SetPicCacheMax(max_count) → (ret)",
+     "python_example": "op.SetPicCacheMax(max_count)  # → (ret)",
+     "python_ctypes_name": "set_pic_cache_max",
+     "in_ctypes_binding": true,
      "description": "设置进程级图片缓存条目上限；max_count<=0 表示不设上限，默认 500，满时整体清空重存",
      "params": [
       {
@@ -505,6 +542,9 @@
      "group_name": "Runtime 运行时",
      "name": "CapturePre",
      "signature": "CapturePre(file_name) → (ret)",
+     "python_example": "op.CapturePre(file_name)  # → (ret)",
+     "python_ctypes_name": "capture_pre",
+     "in_ctypes_binding": true,
      "description": "取上次操作的图色区域，保存为file(24位位图)",
      "params": [
       {
@@ -552,6 +592,9 @@
      "group_name": "Runtime 运行时",
      "name": "SetScreenDataMode",
      "signature": "SetScreenDataMode(mode) → (ret)",
+     "python_example": "op.SetScreenDataMode(mode)  # → (ret)",
+     "python_ctypes_name": "set_screen_data_mode",
+     "in_ctypes_binding": true,
      "description": "设置屏幕数据模式，0:从上到下(默认),1:从下到上",
      "params": [
       {
@@ -599,6 +642,9 @@
      "group_name": "Runtime 运行时",
      "name": "RunApp",
      "signature": "RunApp(cmdline, mode) → (pid, ret)",
+     "python_example": "op.RunApp(cmdline, mode)  # → (pid, ret)",
+     "python_ctypes_name": "run_app",
+     "in_ctypes_binding": true,
      "description": "运行可执行文件/快捷方式/文档/网址。mode：\n0 = ShellExecute 启动（默认，对齐大漠），工作目录 = 继承调用方\n1 = ShellExecute 启动，工作目录 = 程序所在目录（带自校验的启动器类游戏须用此值）\n2 = CreateProcess 启动，工作目录 = 继承调用方\n3 = CreateProcess 启动，工作目录 = 程序所在目录",
      "params": [
       {
@@ -670,6 +716,9 @@
      "group_name": "Runtime 运行时",
      "name": "WinExec",
      "signature": "WinExec(cmdline, cmdshow) → (ret)",
+     "python_example": "op.WinExec(cmdline, cmdshow)  # → (ret)",
+     "python_ctypes_name": "win_exec",
+     "in_ctypes_binding": true,
      "description": "运行可执行文件，可指定显示模式",
      "params": [
       {
@@ -729,6 +778,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetCmdStr",
      "signature": "GetCmdStr(cmd, millseconds) → (etstr)",
+     "python_example": "op.GetCmdStr(cmd, millseconds)  # → (etstr)",
+     "python_ctypes_name": "get_cmd_str",
+     "in_ctypes_binding": true,
      "description": "运行命令行并返回结果",
      "params": [
       {
@@ -788,6 +840,9 @@
      "group_name": "Runtime 运行时",
      "name": "SetClipboard",
      "signature": "SetClipboard(str) → (ret)",
+     "python_example": "op.SetClipboard(str)  # → (ret)",
+     "python_ctypes_name": "set_clipboard",
+     "in_ctypes_binding": true,
      "description": "设置剪贴板数据",
      "params": [
       {
@@ -835,6 +890,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetClipboard",
      "signature": "GetClipboard() → (et)",
+     "python_example": "op.GetClipboard()  # → (et)",
+     "python_ctypes_name": "get_clipboard",
+     "in_ctypes_binding": true,
      "description": "获取剪贴板数据",
      "params": [
       {
@@ -868,6 +926,9 @@
      "group_name": "Runtime 运行时",
      "name": "Delay",
      "signature": "Delay(mis) → (ret)",
+     "python_example": "op.Delay(mis)  # → (ret)",
+     "python_ctypes_name": "delay",
+     "in_ctypes_binding": true,
      "description": "延时指定的毫秒,过程中不阻塞UI操作",
      "params": [
       {
@@ -915,6 +976,9 @@
      "group_name": "Runtime 运行时",
      "name": "Delays",
      "signature": "Delays(mis_min, mis_max) → (ret)",
+     "python_example": "op.Delays(mis_min, mis_max)  # → (ret)",
+     "python_ctypes_name": "delays",
+     "in_ctypes_binding": true,
      "description": "延时指定范围内随机毫秒,过程中不阻塞UI操作",
      "params": [
       {
@@ -974,6 +1038,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetScreenWidth",
      "signature": "GetScreenWidth() → (ret)",
+     "python_example": "op.GetScreenWidth()  # → (ret)",
+     "python_ctypes_name": "get_screen_width",
+     "in_ctypes_binding": true,
      "description": "获取屏幕宽度(像素)",
      "params": [
       {
@@ -1007,6 +1074,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetScreenHeight",
      "signature": "GetScreenHeight() → (ret)",
+     "python_example": "op.GetScreenHeight()  # → (ret)",
+     "python_ctypes_name": "get_screen_height",
+     "in_ctypes_binding": true,
      "description": "获取屏幕高度(像素)",
      "params": [
       {
@@ -1040,6 +1110,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetScreenDepth",
      "signature": "GetScreenDepth() → (ret)",
+     "python_example": "op.GetScreenDepth()  # → (ret)",
+     "python_ctypes_name": "get_screen_depth",
+     "in_ctypes_binding": true,
      "description": "获取屏幕色深(位/像素, 如 32)",
      "params": [
       {
@@ -1073,6 +1146,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetDPI",
      "signature": "GetDPI() → (ret)",
+     "python_example": "op.GetDPI()  # → (ret)",
+     "python_ctypes_name": "get_dpi",
+     "in_ctypes_binding": true,
      "description": "获取系统 DPI 缩放值(96=100%)",
      "params": [
       {
@@ -1106,6 +1182,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetTime",
      "signature": "GetTime() → (et)",
+     "python_example": "op.GetTime()  # → (et)",
+     "python_ctypes_name": "get_time",
+     "in_ctypes_binding": true,
      "description": "获取当前系统时间, 格式 \"yyyy-MM-dd HH:mm:ss\"",
      "params": [
       {
@@ -1139,6 +1218,9 @@
      "group_name": "Runtime 运行时",
      "name": "Beep",
      "signature": "Beep(freq, dur) → (ret)",
+     "python_example": "op.Beep(freq, dur)  # → (ret)",
+     "python_ctypes_name": "beep",
+     "in_ctypes_binding": true,
      "description": "蜂鸣器发声. freq: 频率Hz(37..32767), dur: 时长ms. 返回1成功",
      "params": [
       {
@@ -1198,6 +1280,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetRandomNumber",
      "signature": "GetRandomNumber(min, max) → (ret)",
+     "python_example": "op.GetRandomNumber(min, max)  # → (ret)",
+     "python_ctypes_name": "get_random_number",
+     "in_ctypes_binding": true,
      "description": "获取 [min, max] 区间内随机整数(闭区间, 含两端)",
      "params": [
       {
@@ -1257,6 +1342,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetRandomDouble",
      "signature": "GetRandomDouble(min, max) → (ret)",
+     "python_example": "op.GetRandomDouble(min, max)  # → (ret)",
+     "python_ctypes_name": "get_random_double",
+     "in_ctypes_binding": true,
      "description": "获取 [min, max] 区间内随机浮点数",
      "params": [
       {
@@ -1316,6 +1404,9 @@
      "group_name": "Runtime 运行时",
      "name": "GaiLu",
      "signature": "GaiLu(p) → (ret)",
+     "python_example": "op.GaiLu(p)  # → (ret)",
+     "python_ctypes_name": "gai_lu",
+     "in_ctypes_binding": true,
      "description": "概率判定: 以 1/p 的概率返回1, 否则返回0. p<=0 返回0, p==1 恒返回1(拟人化核心)",
      "params": [
       {
@@ -1363,6 +1454,9 @@
      "group_name": "Runtime 运行时",
      "name": "GetMachineCode",
      "signature": "GetMachineCode() → (et)",
+     "python_example": "op.GetMachineCode()  # → (et)",
+     "python_ctypes_name": "get_machine_code",
+     "in_ctypes_binding": true,
      "description": "获取本机机器码(注册表 MachineGuid), 失败返回空串",
      "params": [
       {
@@ -1396,6 +1490,9 @@
      "group_name": "Runtime 运行时",
      "name": "IsElevated",
      "signature": "IsElevated() → (ret)",
+     "python_example": "op.IsElevated()  # → (ret)",
+     "python_ctypes_name": "is_elevated",
+     "in_ctypes_binding": true,
      "description": "检测当前进程是否以管理员权限运行. 1是 0否",
      "params": [
       {
@@ -1436,6 +1533,9 @@
      "group_name": "Window 窗口",
      "name": "EnumWindow",
      "signature": "EnumWindow(parent, title, class_name, filter) → (et)",
+     "python_example": "op.EnumWindow(parent, title, class_name, filter)  # → (et)",
+     "python_ctypes_name": "enum_window",
+     "in_ctypes_binding": true,
      "description": "根据指定条件,枚举系统中符合条件的窗口",
      "params": [
       {
@@ -1519,6 +1619,9 @@
      "group_name": "Window 窗口",
      "name": "EnumWindowByProcess",
      "signature": "EnumWindowByProcess(process_name, title, class_name, filter) → (et)",
+     "python_example": "op.EnumWindowByProcess(process_name, title, class_name, filter)  # → (et)",
+     "python_ctypes_name": "enum_window_by_process",
+     "in_ctypes_binding": true,
      "description": "根据指定进程以及其它条件,枚举系统中符合条件的窗口",
      "params": [
       {
@@ -1602,6 +1705,9 @@
      "group_name": "Window 窗口",
      "name": "EnumProcess",
      "signature": "EnumProcess(name) → (et)",
+     "python_example": "op.EnumProcess(name)  # → (et)",
+     "python_ctypes_name": "enum_process",
+     "in_ctypes_binding": true,
      "description": "根据指定进程名,枚举系统中符合条件的进程PID",
      "params": [
       {
@@ -1649,6 +1755,9 @@
      "group_name": "Window 窗口",
      "name": "ClientToScreen",
      "signature": "ClientToScreen(hwnd, x, y) → (ret)",
+     "python_example": "op.ClientToScreen(hwnd, x, y)  # → (ret)",
+     "python_ctypes_name": "client_to_screen",
+     "in_ctypes_binding": true,
      "description": "把窗口坐标转换为屏幕坐标",
      "params": [
       {
@@ -1720,6 +1829,9 @@
      "group_name": "Window 窗口",
      "name": "FindWindow",
      "signature": "FindWindow(class_name, title) → (ret)",
+     "python_example": "op.FindWindow(class_name, title)  # → (ret)",
+     "python_ctypes_name": "find_window",
+     "in_ctypes_binding": true,
      "description": "查找符合类名或者标题名的顶层可见窗口",
      "params": [
       {
@@ -1779,6 +1891,9 @@
      "group_name": "Window 窗口",
      "name": "FindWindowByProcess",
      "signature": "FindWindowByProcess(process_name, class_name, title) → (ret)",
+     "python_example": "op.FindWindowByProcess(process_name, class_name, title)  # → (ret)",
+     "python_ctypes_name": "find_window_by_process",
+     "in_ctypes_binding": true,
      "description": "根据指定的进程名字，来查找可见窗口",
      "params": [
       {
@@ -1850,6 +1965,9 @@
      "group_name": "Window 窗口",
      "name": "FindWindowByProcessId",
      "signature": "FindWindowByProcessId(process_id, class_name, title) → (ret)",
+     "python_example": "op.FindWindowByProcessId(process_id, class_name, title)  # → (ret)",
+     "python_ctypes_name": "find_window_by_process_id",
+     "in_ctypes_binding": true,
      "description": "根据指定的进程Id，来查找可见窗口",
      "params": [
       {
@@ -1921,6 +2039,9 @@
      "group_name": "Window 窗口",
      "name": "FindWindowEx",
      "signature": "FindWindowEx(parent, class_name, title) → (ret)",
+     "python_example": "op.FindWindowEx(parent, class_name, title)  # → (ret)",
+     "python_ctypes_name": "find_window_ex",
+     "in_ctypes_binding": true,
      "description": "查找符合类名或者标题名的顶层可见窗口,如果指定了parent,则在parent的第一层子窗口中查找",
      "params": [
       {
@@ -1992,6 +2113,9 @@
      "group_name": "Window 窗口",
      "name": "GetClientRect",
      "signature": "GetClientRect(hwnd) → (x1, y1, x2, y2, ret)",
+     "python_example": "op.GetClientRect(hwnd)  # → (x1, y1, x2, y2, ret)",
+     "python_ctypes_name": "get_client_rect",
+     "in_ctypes_binding": true,
      "description": "获取窗口客户区域在屏幕上的位置",
      "params": [
       {
@@ -2087,6 +2211,9 @@
      "group_name": "Window 窗口",
      "name": "GetClientSize",
      "signature": "GetClientSize(hwnd) → (width, height, ret)",
+     "python_example": "op.GetClientSize(hwnd)  # → (width, height, ret)",
+     "python_ctypes_name": "get_client_size",
+     "in_ctypes_binding": true,
      "description": "获取窗口客户区域的宽度和高度",
      "params": [
       {
@@ -2158,6 +2285,9 @@
      "group_name": "Window 窗口",
      "name": "GetForegroundFocus",
      "signature": "GetForegroundFocus() → (ret)",
+     "python_example": "op.GetForegroundFocus()  # → (ret)",
+     "python_ctypes_name": "get_foreground_focus",
+     "in_ctypes_binding": true,
      "description": "获取顶层活动窗口中具有输入焦点的窗口句柄",
      "params": [
       {
@@ -2191,6 +2321,9 @@
      "group_name": "Window 窗口",
      "name": "GetForegroundWindow",
      "signature": "GetForegroundWindow() → (ret)",
+     "python_example": "op.GetForegroundWindow()  # → (ret)",
+     "python_ctypes_name": "get_foreground_window",
+     "in_ctypes_binding": true,
      "description": "获取顶层活动窗口,可以获取到按键自带插件无法获取到的句柄",
      "params": [
       {
@@ -2224,6 +2357,9 @@
      "group_name": "Window 窗口",
      "name": "GetMousePointWindow",
      "signature": "GetMousePointWindow() → (ret)",
+     "python_example": "op.GetMousePointWindow()  # → (ret)",
+     "python_ctypes_name": "get_mouse_point_window",
+     "in_ctypes_binding": true,
      "description": "获取鼠标指向的可见窗口句柄",
      "params": [
       {
@@ -2257,6 +2393,9 @@
      "group_name": "Window 窗口",
      "name": "GetPointWindow",
      "signature": "GetPointWindow(x, y) → (ret)",
+     "python_example": "op.GetPointWindow(x, y)  # → (ret)",
+     "python_ctypes_name": "get_point_window",
+     "in_ctypes_binding": true,
      "description": "获取给定坐标的可见窗口句柄",
      "params": [
       {
@@ -2316,6 +2455,9 @@
      "group_name": "Window 窗口",
      "name": "GetProcessInfo",
      "signature": "GetProcessInfo(pid) → (et)",
+     "python_example": "op.GetProcessInfo(pid)  # → (et)",
+     "python_ctypes_name": "get_process_info",
+     "in_ctypes_binding": true,
      "description": "根据指定的pid获取进程详细信息",
      "params": [
       {
@@ -2363,6 +2505,9 @@
      "group_name": "Window 窗口",
      "name": "GetSpecialWindow",
      "signature": "GetSpecialWindow(flag) → (ret)",
+     "python_example": "op.GetSpecialWindow(flag)  # → (ret)",
+     "python_ctypes_name": "get_special_window",
+     "in_ctypes_binding": true,
      "description": "获取特殊窗口",
      "params": [
       {
@@ -2410,6 +2555,9 @@
      "group_name": "Window 窗口",
      "name": "GetWindow",
      "signature": "GetWindow(hwnd, flag) → (ret)",
+     "python_example": "op.GetWindow(hwnd, flag)  # → (ret)",
+     "python_ctypes_name": "get_window",
+     "in_ctypes_binding": true,
      "description": "获取给定窗口相关的窗口句柄",
      "params": [
       {
@@ -2469,6 +2617,9 @@
      "group_name": "Window 窗口",
      "name": "GetWindowClass",
      "signature": "GetWindowClass(hwnd) → (et)",
+     "python_example": "op.GetWindowClass(hwnd)  # → (et)",
+     "python_ctypes_name": "get_window_class",
+     "in_ctypes_binding": true,
      "description": "获取窗口的类名",
      "params": [
       {
@@ -2516,6 +2667,9 @@
      "group_name": "Window 窗口",
      "name": "GetWindowProcessId",
      "signature": "GetWindowProcessId(hwnd) → (ret)",
+     "python_example": "op.GetWindowProcessId(hwnd)  # → (ret)",
+     "python_ctypes_name": "get_window_process_id",
+     "in_ctypes_binding": true,
      "description": "获取指定窗口所在的进程ID",
      "params": [
       {
@@ -2563,6 +2717,9 @@
      "group_name": "Window 窗口",
      "name": "GetWindowProcessPath",
      "signature": "GetWindowProcessPath(hwnd) → (et)",
+     "python_example": "op.GetWindowProcessPath(hwnd)  # → (et)",
+     "python_ctypes_name": "get_window_process_path",
+     "in_ctypes_binding": true,
      "description": "获取指定窗口所在的进程的exe文件全路径",
      "params": [
       {
@@ -2610,6 +2767,9 @@
      "group_name": "Window 窗口",
      "name": "GetWindowRect",
      "signature": "GetWindowRect(hwnd) → (x1, y1, x2, y2, ret)",
+     "python_example": "op.GetWindowRect(hwnd)  # → (x1, y1, x2, y2, ret)",
+     "python_ctypes_name": "get_window_rect",
+     "in_ctypes_binding": true,
      "description": "获取窗口在屏幕上的位置",
      "params": [
       {
@@ -2705,6 +2865,9 @@
      "group_name": "Window 窗口",
      "name": "GetWindowState",
      "signature": "GetWindowState(hwnd, flag) → (ret)",
+     "python_example": "op.GetWindowState(hwnd, flag)  # → (ret)",
+     "python_ctypes_name": "get_window_state",
+     "in_ctypes_binding": true,
      "description": "获取指定窗口的一些属性",
      "params": [
       {
@@ -2764,6 +2927,9 @@
      "group_name": "Window 窗口",
      "name": "GetWindowTitle",
      "signature": "GetWindowTitle(hwnd) → (ettitle)",
+     "python_example": "op.GetWindowTitle(hwnd)  # → (ettitle)",
+     "python_ctypes_name": "get_window_title",
+     "in_ctypes_binding": true,
      "description": "获取窗口的标题",
      "params": [
       {
@@ -2811,6 +2977,9 @@
      "group_name": "Window 窗口",
      "name": "MoveWindow",
      "signature": "MoveWindow(hwnd, x, y) → (ret)",
+     "python_example": "op.MoveWindow(hwnd, x, y)  # → (ret)",
+     "python_ctypes_name": "move_window",
+     "in_ctypes_binding": true,
      "description": "移动指定窗口到指定位置",
      "params": [
       {
@@ -2882,6 +3051,9 @@
      "group_name": "Window 窗口",
      "name": "ScreenToClient",
      "signature": "ScreenToClient(hwnd, x, y) → (ret)",
+     "python_example": "op.ScreenToClient(hwnd, x, y)  # → (ret)",
+     "python_ctypes_name": "screen_to_client",
+     "in_ctypes_binding": true,
      "description": "把屏幕坐标转换为窗口坐标",
      "params": [
       {
@@ -2953,6 +3125,9 @@
      "group_name": "Window 窗口",
      "name": "SendPaste",
      "signature": "SendPaste(hwnd) → (ret)",
+     "python_example": "op.SendPaste(hwnd)  # → (ret)",
+     "python_ctypes_name": "send_paste",
+     "in_ctypes_binding": true,
      "description": "向指定窗口发送粘贴命令",
      "params": [
       {
@@ -3000,6 +3175,9 @@
      "group_name": "Window 窗口",
      "name": "SetClientSize",
      "signature": "SetClientSize(hwnd, width, hight) → (ret)",
+     "python_example": "op.SetClientSize(hwnd, width, hight)  # → (ret)",
+     "python_ctypes_name": "set_client_size",
+     "in_ctypes_binding": true,
      "description": "设置窗口客户区域的宽度和高度",
      "params": [
       {
@@ -3071,6 +3249,9 @@
      "group_name": "Window 窗口",
      "name": "SetWindowState",
      "signature": "SetWindowState(hwnd, flag) → (ret)",
+     "python_example": "op.SetWindowState(hwnd, flag)  # → (ret)",
+     "python_ctypes_name": "set_window_state",
+     "in_ctypes_binding": true,
      "description": "设置窗口的状态",
      "params": [
       {
@@ -3130,6 +3311,9 @@
      "group_name": "Window 窗口",
      "name": "SetWindowSize",
      "signature": "SetWindowSize(hwnd, width, height) → (ret)",
+     "python_example": "op.SetWindowSize(hwnd, width, height)  # → (ret)",
+     "python_ctypes_name": "set_window_size",
+     "in_ctypes_binding": true,
      "description": "设置窗口的大小",
      "params": [
       {
@@ -3201,6 +3385,9 @@
      "group_name": "Window 窗口",
      "name": "LayoutWindows",
      "signature": "LayoutWindows(hwnds, layout_type, columns, start_x, start_y, gap_x, gap_y, size_mode, window_width, window_height, anchor_mode) → (ret)",
+     "python_example": "op.LayoutWindows(hwnds, layout_type, columns, start_x, start_y, gap_x, gap_y, size_mode, window_width, window_height, anchor_mode)  # → (ret)",
+     "python_ctypes_name": "layout_windows",
+     "in_ctypes_binding": true,
      "description": "按指定布局批量排列多个窗口。hwnds 格式例如 \"123|456|789\"（正整数 hwnd 竖线分隔，含 0/非法项整体拒绝）。\nlayout_type: 0=宫格 1=对角线 2=层叠（层叠时 gap_x/gap_y 语义为层叠步距，经典值 32）。\n失败返回 0，原因经 set_show_error_msg(2) 落 __op.log；任一窗口失败时前面已排列的窗口保持不动。",
      "params": [
       {
@@ -3368,6 +3555,9 @@
      "group_name": "Window 窗口",
      "name": "SetWindowText",
      "signature": "SetWindowText(hwnd, title) → (ret)",
+     "python_example": "op.SetWindowText(hwnd, title)  # → (ret)",
+     "python_ctypes_name": "set_window_text",
+     "in_ctypes_binding": true,
      "description": "设置窗口的标题",
      "params": [
       {
@@ -3427,6 +3617,9 @@
      "group_name": "Window 窗口",
      "name": "SetWindowTransparent",
      "signature": "SetWindowTransparent(hwnd, trans) → (ret)",
+     "python_example": "op.SetWindowTransparent(hwnd, trans)  # → (ret)",
+     "python_ctypes_name": "set_window_transparent",
+     "in_ctypes_binding": true,
      "description": "设置窗口的透明度",
      "params": [
       {
@@ -3486,6 +3679,9 @@
      "group_name": "Window 窗口",
      "name": "SendString",
      "signature": "SendString(hwnd, str) → (ret)",
+     "python_example": "op.SendString(hwnd, str)  # → (ret)",
+     "python_ctypes_name": "send_string",
+     "in_ctypes_binding": true,
      "description": "向指定窗口发送文本数据",
      "params": [
       {
@@ -3545,6 +3741,9 @@
      "group_name": "Window 窗口",
      "name": "SendStringIme",
      "signature": "SendStringIme(hwnd, str) → (ret)",
+     "python_example": "op.SendStringIme(hwnd, str)  # → (ret)",
+     "python_ctypes_name": "send_string_ime",
+     "in_ctypes_binding": true,
      "description": "向指定窗口发送文本数据-输入法",
      "params": [
       {
@@ -3604,6 +3803,9 @@
      "group_name": "Window 窗口",
      "name": "LockWindowPosition",
      "signature": "LockWindowPosition(hwnd, enable) → (ret)",
+     "python_example": "op.LockWindowPosition(hwnd, enable)  # → (ret)",
+     "python_ctypes_name": "lock_window_position",
+     "in_ctypes_binding": true,
      "description": "锁定/解锁窗口位置:锁定后外部移动该窗口会被守护线程自动拉回(50ms 轮询),解锁后停止",
      "params": [
       {
@@ -3663,6 +3865,9 @@
      "group_name": "Window 窗口",
      "name": "LockWindowSize",
      "signature": "LockWindowSize(hwnd, enable) → (ret)",
+     "python_example": "op.LockWindowSize(hwnd, enable)  # → (ret)",
+     "python_ctypes_name": "lock_window_size",
+     "in_ctypes_binding": true,
      "description": "锁定/解锁窗口尺寸:锁定后外部缩放该窗口会被自动拉回",
      "params": [
       {
@@ -3722,6 +3927,9 @@
      "group_name": "Window 窗口",
      "name": "DisableMinMax",
      "signature": "DisableMinMax(hwnd, enable) → (ret)",
+     "python_example": "op.DisableMinMax(hwnd, enable)  # → (ret)",
+     "python_ctypes_name": "disable_min_max",
+     "in_ctypes_binding": true,
      "description": "禁止/恢复窗口的最大最小化按钮(修改 GWL_STYLE,恢复时还原锁定前的原始样式)",
      "params": [
       {
@@ -3781,6 +3989,9 @@
      "group_name": "Window 窗口",
      "name": "SetIme",
      "signature": "SetIme(hwnd, enable) → (ret)",
+     "python_example": "op.SetIme(hwnd, enable)  # → (ret)",
+     "python_ctypes_name": "set_ime",
+     "in_ctypes_binding": true,
      "description": "设置指定窗口的输入法开关:enable=0 关闭输入,1 恢复",
      "params": [
       {
@@ -3840,6 +4051,9 @@
      "group_name": "Window 窗口",
      "name": "EnableDebugPrivilege",
      "signature": "EnableDebugPrivilege() → (ret)",
+     "python_example": "op.EnableDebugPrivilege()  # → (ret)",
+     "python_ctypes_name": "enable_debug_privilege",
+     "in_ctypes_binding": false,
      "description": "为当前进程启用 SeDebugPrivilege（读高权限/提权进程内存的前置）。已启用或启用成功返回 1。",
      "params": [
       {
@@ -3873,6 +4087,9 @@
      "group_name": "Window 窗口",
      "name": "GetLastErrorString",
      "signature": "GetLastErrorString() → (et)",
+     "python_example": "op.GetLastErrorString()  # → (et)",
+     "python_ctypes_name": "get_last_error_string",
+     "in_ctypes_binding": false,
      "description": "取当前线程的 GetLastError 错误文本（调用本方法前的最后一次 Win32 错误）。无法解析返回空串。",
      "params": [
       {
@@ -3906,6 +4123,9 @@
      "group_name": "Window 窗口",
      "name": "Md5",
      "signature": "Md5(text) → (et)",
+     "python_example": "op.Md5(text)  # → (et)",
+     "python_ctypes_name": "md5",
+     "in_ctypes_binding": false,
      "description": "MD5/SHA1（UTF-8 编码后哈希），输出小写十六进制；空输入返回空串。",
      "params": [
       {
@@ -3953,6 +4173,9 @@
      "group_name": "Window 窗口",
      "name": "Sha1",
      "signature": "Sha1(text) → (et)",
+     "python_example": "op.Sha1(text)  # → (et)",
+     "python_ctypes_name": "sha1",
+     "in_ctypes_binding": false,
      "description": "计算文本的 SHA-1 摘要（hex 串）",
      "params": [
       {
@@ -4000,6 +4223,9 @@
      "group_name": "Window 窗口",
      "name": "Base64Encode",
      "signature": "Base64Encode(text) → (et)",
+     "python_example": "op.Base64Encode(text)  # → (et)",
+     "python_ctypes_name": "base64_encode",
+     "in_ctypes_binding": false,
      "description": "Base64 编码/解码（输入按 UTF-8 字节流处理）。解码遇非法串返回空串。",
      "params": [
       {
@@ -4047,6 +4273,9 @@
      "group_name": "Window 窗口",
      "name": "Base64Decode",
      "signature": "Base64Decode(base64) → (et)",
+     "python_example": "op.Base64Decode(base64)  # → (et)",
+     "python_ctypes_name": "base64_decode",
+     "in_ctypes_binding": false,
      "description": "Base64 解码，返回原文本",
      "params": [
       {
@@ -4094,6 +4323,9 @@
      "group_name": "Window 窗口",
      "name": "DrawRect",
      "signature": "DrawRect(x1, y1, x2, y2, color, width) → (ret)",
+     "python_example": "op.DrawRect(x1, y1, x2, y2, color, width)  # → (ret)",
+     "python_ctypes_name": "draw_rect",
+     "in_ctypes_binding": false,
      "description": "在屏幕透明叠加层追加一个矩形/直线/文本框。color=\"RRGGBB\"（与找色同格式）。返回 1=成功。\n叠加层不可点击穿透由窗口样式保证；首次调用自动创建（专用线程 + 全屏分层窗口）。",
      "params": [
       {
@@ -4201,6 +4433,9 @@
      "group_name": "Window 窗口",
      "name": "DrawLine",
      "signature": "DrawLine(x1, y1, x2, y2, color, width) → (ret)",
+     "python_example": "op.DrawLine(x1, y1, x2, y2, color, width)  # → (ret)",
+     "python_ctypes_name": "draw_line",
+     "in_ctypes_binding": false,
      "description": "在屏幕标注层画直线（调试标注用；DrawClear 清除）",
      "params": [
       {
@@ -4308,6 +4543,9 @@
      "group_name": "Window 窗口",
      "name": "DrawText",
      "signature": "DrawText(x, y, text, color, font_size) → (ret)",
+     "python_example": "op.DrawText(x, y, text, color, font_size)  # → (ret)",
+     "python_ctypes_name": "draw_text",
+     "in_ctypes_binding": false,
      "description": "在屏幕标注层绘制文本（调试标注用）",
      "params": [
       {
@@ -4403,6 +4641,9 @@
      "group_name": "Window 窗口",
      "name": "DrawClear",
      "signature": "DrawClear() → (ret)",
+     "python_example": "op.DrawClear()  # → (ret)",
+     "python_ctypes_name": "draw_clear",
+     "in_ctypes_binding": false,
      "description": "清空叠加层全部图元并重绘。",
      "params": [
       {
@@ -4436,6 +4677,9 @@
      "group_name": "Window 窗口",
      "name": "DrawSetVisible",
      "signature": "DrawSetVisible(show) → (ret)",
+     "python_example": "op.DrawSetVisible(show)  # → (ret)",
+     "python_ctypes_name": "draw_set_visible",
+     "in_ctypes_binding": false,
      "description": "显示/隐藏叠加层窗口（图元保留）。1=成功。",
      "params": [
       {
@@ -4490,6 +4734,9 @@
      "group_name": "Binding 后台绑定",
      "name": "BindWindow",
      "signature": "BindWindow(hwnd, display, mouse, keypad, mode) → (ret)",
+     "python_example": "op.BindWindow(hwnd, display, mouse, keypad, mode)  # → (ret)",
+     "python_ctypes_name": "bind_window",
+     "in_ctypes_binding": true,
      "description": "兼容旧接口的单句柄绑定。显示和输入都使用同一个 hwnd。",
      "params": [
       {
@@ -4585,6 +4832,9 @@
      "group_name": "Binding 后台绑定",
      "name": "BindWindowEx",
      "signature": "BindWindowEx(display_hwnd, input_hwnd, display, mouse, keypad, mode) → (ret)",
+     "python_example": "op.BindWindowEx(display_hwnd, input_hwnd, display, mouse, keypad, mode)  # → (ret)",
+     "python_ctypes_name": "bind_window_ex",
+     "in_ctypes_binding": true,
      "description": "扩展绑定接口。显示截图使用 display_hwnd，鼠标和键盘输入使用 input_hwnd。",
      "params": [
       {
@@ -4692,6 +4942,9 @@
      "group_name": "Binding 后台绑定",
      "name": "UnBindWindow",
      "signature": "UnBindWindow() → (ret)",
+     "python_example": "op.UnBindWindow()  # → (ret)",
+     "python_ctypes_name": "un_bind_window",
+     "in_ctypes_binding": false,
      "description": "解绑窗口",
      "params": [
       {
@@ -4725,6 +4978,9 @@
      "group_name": "Binding 后台绑定",
      "name": "LockInput",
      "signature": "LockInput(lock) → (ret)",
+     "python_example": "op.LockInput(lock)  # → (ret)",
+     "python_ctypes_name": "lock_input",
+     "in_ctypes_binding": true,
      "description": "临时锁定目标窗口的外部输入。只对 dx 鼠标、dx 键盘有效。",
      "params": [
       {
@@ -4772,6 +5028,9 @@
      "group_name": "Binding 后台绑定",
      "name": "DownCpu",
      "signature": "DownCpu(type, rate) → (ret)",
+     "python_example": "op.DownCpu(type, rate)  # → (ret)",
+     "python_ctypes_name": "down_cpu",
+     "in_ctypes_binding": true,
      "description": "绑定降载(降低多开 CPU 占用):每次截图成功后强制延时 rate 毫秒(0-100,自动钳制),0 表示关闭。\ntype: 0=推荐档,1=高效档(当前实现相同,预留语义)。随 BindingSession 生命周期,解绑不重置。",
      "params": [
       {
@@ -4831,6 +5090,9 @@
      "group_name": "Binding 后台绑定",
      "name": "SetDxAttr",
      "signature": "SetDxAttr(attr, value) → (ret)",
+     "python_example": "op.SetDxAttr(attr, value)  # → (ret)",
+     "python_ctypes_name": "set_dx_attr",
+     "in_ctypes_binding": true,
      "description": "设置 dx 输入通道开关。只对 dx 鼠标、dx 键盘有效。\nattr=0 时 value 是完整掩码；attr 取 1(DirectInput)/2(RawInput)/4(窗口消息) 或其组合时，\nvalue 非 0 表示打开这些通道，0 表示关闭。默认 7（三通道全开）。",
      "params": [
       {
@@ -4890,6 +5152,9 @@
      "group_name": "Binding 后台绑定",
      "name": "GetDxAttr",
      "signature": "GetDxAttr() → (ret)",
+     "python_example": "op.GetDxAttr()  # → (ret)",
+     "python_ctypes_name": "get_dx_attr",
+     "in_ctypes_binding": true,
      "description": "获取当前的 dx 输入通道开关掩码。",
      "params": [
       {
@@ -4923,6 +5188,9 @@
      "group_name": "Binding 后台绑定",
      "name": "GetBindWindow",
      "signature": "GetBindWindow() → (ret)",
+     "python_example": "op.GetBindWindow()  # → (ret)",
+     "python_ctypes_name": "get_bind_window",
+     "in_ctypes_binding": true,
      "description": "获取当前对象已经绑定的显示窗口句柄. 无绑定返回0",
      "params": [
       {
@@ -4956,6 +5224,9 @@
      "group_name": "Binding 后台绑定",
      "name": "IsBind",
      "signature": "IsBind() → (ret)",
+     "python_example": "op.IsBind()  # → (ret)",
+     "python_ctypes_name": "is_bind",
+     "in_ctypes_binding": true,
      "description": "判定当前对象是否已绑定窗口.",
      "params": [
       {
@@ -4989,6 +5260,9 @@
      "group_name": "Binding 后台绑定",
      "name": "GetDisplayMethod",
      "signature": "GetDisplayMethod() → (et)",
+     "python_example": "op.GetDisplayMethod()  # → (et)",
+     "python_ctypes_name": "get_display_method",
+     "in_ctypes_binding": true,
      "description": "获取当前实际生效的图色模式名（\"normal\"/\"gdi2\"/\"dx2\"/\"dx.d3d11\"/\"normal.wgc\"/\"opengl.nox\" …）。\n未绑定返回空串。normal.auto 绑定成功后返回自动选中并成功的那一个。\n用途：截图黑屏/找图错位时先确认走的是哪条链路；配合 BindWindowEx 失败后的 GetLastError()\n原因码（0x2001+，见 BindFailReason）定位绑定问题。",
      "params": [
       {
@@ -5029,6 +5303,9 @@
      "group_name": "Input 键鼠输入",
      "name": "GetCursorPos",
      "signature": "GetCursorPos() → (x, y, ret)",
+     "python_example": "op.GetCursorPos()  # → (x, y, ret)",
+     "python_ctypes_name": "get_cursor_pos",
+     "in_ctypes_binding": true,
      "description": "获取鼠标位置.",
      "params": [
       {
@@ -5086,6 +5363,9 @@
      "group_name": "Input 键鼠输入",
      "name": "GetCursorShape",
      "signature": "GetCursorShape() → (et)",
+     "python_example": "op.GetCursorShape()  # → (et)",
+     "python_ctypes_name": "get_cursor_shape",
+     "in_ctypes_binding": true,
      "description": "获取当前鼠标形状: visible,hash,width,height,hotX,hotY.",
      "params": [
       {
@@ -5119,6 +5399,9 @@
      "group_name": "Input 键鼠输入",
      "name": "GetCursorImage",
      "signature": "GetCursorImage() → (et)",
+     "python_example": "op.GetCursorImage()  # → (et)",
+     "python_ctypes_name": "get_cursor_image",
+     "in_ctypes_binding": false,
      "description": "获取当前鼠标光标图像：32bpp BMP 的 Base64（top-down BGRA 含 alpha）。\n失败（光标不可见/无桌面会话）返回空串；宽高/热点等元数据用 GetCursorShape 配套取。",
      "params": [
       {
@@ -5152,6 +5435,9 @@
      "group_name": "Input 键鼠输入",
      "name": "MoveR",
      "signature": "MoveR(x, y) → (ret)",
+     "python_example": "op.MoveR(x, y)  # → (ret)",
+     "python_ctypes_name": "move_r",
+     "in_ctypes_binding": true,
      "description": "鼠标相对于上次的位置移动rx,ry.",
      "params": [
       {
@@ -5211,6 +5497,9 @@
      "group_name": "Input 键鼠输入",
      "name": "MoveTo",
      "signature": "MoveTo(x, y) → (ret)",
+     "python_example": "op.MoveTo(x, y)  # → (ret)",
+     "python_ctypes_name": "move_to",
+     "in_ctypes_binding": true,
      "description": "把鼠标移动到目的点(x,y)",
      "params": [
       {
@@ -5270,6 +5559,9 @@
      "group_name": "Input 键鼠输入",
      "name": "MoveToEx",
      "signature": "MoveToEx(x, y, w, h) → (et)",
+     "python_example": "op.MoveToEx(x, y, w, h)  # → (et)",
+     "python_ctypes_name": "move_to_ex",
+     "in_ctypes_binding": true,
      "description": "把鼠标移动到目的范围内的任意一点",
      "params": [
       {
@@ -5353,6 +5645,9 @@
      "group_name": "Input 键鼠输入",
      "name": "MoveToSmooth",
      "signature": "MoveToSmooth(x, y, duration) → (ret)",
+     "python_example": "op.MoveToSmooth(x, y, duration)  # → (ret)",
+     "python_ctypes_name": "move_to_smooth",
+     "in_ctypes_binding": true,
      "description": "按模拟轨迹移动到指定点",
      "params": [
       {
@@ -5424,6 +5719,9 @@
      "group_name": "Input 键鼠输入",
      "name": "MoveToExSmooth",
      "signature": "MoveToExSmooth(x, y, w, h, duration) → (et)",
+     "python_example": "op.MoveToExSmooth(x, y, w, h, duration)  # → (et)",
+     "python_ctypes_name": "move_to_ex_smooth",
+     "in_ctypes_binding": true,
      "description": "在目标范围内随机取点，并按模拟轨迹移动过去",
      "params": [
       {
@@ -5519,6 +5817,9 @@
      "group_name": "Input 键鼠输入",
      "name": "MovePath",
      "signature": "MovePath(path, duration) → (ret)",
+     "python_example": "op.MovePath(path, duration)  # → (ret)",
+     "python_ctypes_name": "move_path",
+     "in_ctypes_binding": true,
      "description": "按 x,y|x,y 格式提供的路径移动",
      "params": [
       {
@@ -5578,6 +5879,9 @@
      "group_name": "Input 键鼠输入",
      "name": "DragPath",
      "signature": "DragPath(path, duration) → (ret)",
+     "python_example": "op.DragPath(path, duration)  # → (ret)",
+     "python_ctypes_name": "drag_path",
+     "in_ctypes_binding": true,
      "description": "按 x,y|x,y 格式提供的路径拖拽",
      "params": [
       {
@@ -5637,6 +5941,9 @@
      "group_name": "Input 键鼠输入",
      "name": "SetMouseTrajectory",
      "signature": "SetMouseTrajectory(mode, min_duration, max_duration, jitter, start_delay, end_delay) → (ret)",
+     "python_example": "op.SetMouseTrajectory(mode, min_duration, max_duration, jitter, start_delay, end_delay)  # → (ret)",
+     "python_ctypes_name": "set_mouse_trajectory",
+     "in_ctypes_binding": true,
      "description": "设置模拟轨迹参数，只影响 Smooth 和 Path 系列鼠标移动",
      "params": [
       {
@@ -5744,6 +6051,9 @@
      "group_name": "Input 键鼠输入",
      "name": "LeftClick",
      "signature": "LeftClick() → (ret)",
+     "python_example": "op.LeftClick()  # → (ret)",
+     "python_ctypes_name": "left_click",
+     "in_ctypes_binding": true,
      "description": "按下鼠标左键",
      "params": [
       {
@@ -5777,6 +6087,9 @@
      "group_name": "Input 键鼠输入",
      "name": "LeftDoubleClick",
      "signature": "LeftDoubleClick() → (ret)",
+     "python_example": "op.LeftDoubleClick()  # → (ret)",
+     "python_ctypes_name": "left_double_click",
+     "in_ctypes_binding": true,
      "description": "双击鼠标左键",
      "params": [
       {
@@ -5810,6 +6123,9 @@
      "group_name": "Input 键鼠输入",
      "name": "LeftDown",
      "signature": "LeftDown() → (ret)",
+     "python_example": "op.LeftDown()  # → (ret)",
+     "python_ctypes_name": "left_down",
+     "in_ctypes_binding": true,
      "description": "按住鼠标左键",
      "params": [
       {
@@ -5843,6 +6159,9 @@
      "group_name": "Input 键鼠输入",
      "name": "LeftUp",
      "signature": "LeftUp() → (ret)",
+     "python_example": "op.LeftUp()  # → (ret)",
+     "python_ctypes_name": "left_up",
+     "in_ctypes_binding": true,
      "description": "弹起鼠标左键",
      "params": [
       {
@@ -5876,6 +6195,9 @@
      "group_name": "Input 键鼠输入",
      "name": "MiddleClick",
      "signature": "MiddleClick(ret)",
+     "python_example": "op.MiddleClick(ret)",
+     "python_ctypes_name": "middle_click",
+     "in_ctypes_binding": true,
      "description": "按下鼠标中键",
      "params": [
       {
@@ -5910,6 +6232,9 @@
      "group_name": "Input 键鼠输入",
      "name": "MiddleDoubleClick",
      "signature": "MiddleDoubleClick(ret)",
+     "python_example": "op.MiddleDoubleClick(ret)",
+     "python_ctypes_name": "middle_double_click",
+     "in_ctypes_binding": true,
      "description": "双击鼠标中键",
      "params": [
       {
@@ -5944,6 +6269,9 @@
      "group_name": "Input 键鼠输入",
      "name": "MiddleDown",
      "signature": "MiddleDown() → (ret)",
+     "python_example": "op.MiddleDown()  # → (ret)",
+     "python_ctypes_name": "middle_down",
+     "in_ctypes_binding": true,
      "description": "按住鼠标中键",
      "params": [
       {
@@ -5977,6 +6305,9 @@
      "group_name": "Input 键鼠输入",
      "name": "MiddleUp",
      "signature": "MiddleUp() → (ret)",
+     "python_example": "op.MiddleUp()  # → (ret)",
+     "python_ctypes_name": "middle_up",
+     "in_ctypes_binding": true,
      "description": "弹起鼠标中键",
      "params": [
       {
@@ -6010,6 +6341,9 @@
      "group_name": "Input 键鼠输入",
      "name": "RightClick",
      "signature": "RightClick(ret)",
+     "python_example": "op.RightClick(ret)",
+     "python_ctypes_name": "right_click",
+     "in_ctypes_binding": true,
      "description": "按下鼠标右键",
      "params": [
       {
@@ -6044,6 +6378,9 @@
      "group_name": "Input 键鼠输入",
      "name": "RightDoubleClick",
      "signature": "RightDoubleClick(ret)",
+     "python_example": "op.RightDoubleClick(ret)",
+     "python_ctypes_name": "right_double_click",
+     "in_ctypes_binding": true,
      "description": "双击鼠标右键",
      "params": [
       {
@@ -6078,6 +6415,9 @@
      "group_name": "Input 键鼠输入",
      "name": "RightDown",
      "signature": "RightDown() → (ret)",
+     "python_example": "op.RightDown()  # → (ret)",
+     "python_ctypes_name": "right_down",
+     "in_ctypes_binding": true,
      "description": "按住鼠标右键",
      "params": [
       {
@@ -6111,6 +6451,9 @@
      "group_name": "Input 键鼠输入",
      "name": "RightUp",
      "signature": "RightUp(ret)",
+     "python_example": "op.RightUp(ret)",
+     "python_ctypes_name": "right_up",
+     "in_ctypes_binding": true,
      "description": "弹起鼠标右键",
      "params": [
       {
@@ -6145,6 +6488,9 @@
      "group_name": "Input 键鼠输入",
      "name": "XButton1Click",
      "signature": "XButton1Click(ret)",
+     "python_example": "op.XButton1Click(ret)",
+     "python_ctypes_name": "x_button1_click",
+     "in_ctypes_binding": false,
      "description": "按下鼠标侧键1",
      "params": [
       {
@@ -6179,6 +6525,9 @@
      "group_name": "Input 键鼠输入",
      "name": "XButton1DoubleClick",
      "signature": "XButton1DoubleClick(ret)",
+     "python_example": "op.XButton1DoubleClick(ret)",
+     "python_ctypes_name": "x_button1_double_click",
+     "in_ctypes_binding": false,
      "description": "双击鼠标侧键1",
      "params": [
       {
@@ -6213,6 +6562,9 @@
      "group_name": "Input 键鼠输入",
      "name": "XButton1Down",
      "signature": "XButton1Down(ret)",
+     "python_example": "op.XButton1Down(ret)",
+     "python_ctypes_name": "x_button1_down",
+     "in_ctypes_binding": false,
      "description": "按住鼠标侧键1",
      "params": [
       {
@@ -6247,6 +6599,9 @@
      "group_name": "Input 键鼠输入",
      "name": "XButton1Up",
      "signature": "XButton1Up(ret)",
+     "python_example": "op.XButton1Up(ret)",
+     "python_ctypes_name": "x_button1_up",
+     "in_ctypes_binding": false,
      "description": "弹起鼠标侧键1",
      "params": [
       {
@@ -6281,6 +6636,9 @@
      "group_name": "Input 键鼠输入",
      "name": "XButton2Click",
      "signature": "XButton2Click(ret)",
+     "python_example": "op.XButton2Click(ret)",
+     "python_ctypes_name": "x_button2_click",
+     "in_ctypes_binding": false,
      "description": "按下鼠标侧键2",
      "params": [
       {
@@ -6315,6 +6673,9 @@
      "group_name": "Input 键鼠输入",
      "name": "XButton2DoubleClick",
      "signature": "XButton2DoubleClick(ret)",
+     "python_example": "op.XButton2DoubleClick(ret)",
+     "python_ctypes_name": "x_button2_double_click",
+     "in_ctypes_binding": false,
      "description": "双击鼠标侧键2",
      "params": [
       {
@@ -6349,6 +6710,9 @@
      "group_name": "Input 键鼠输入",
      "name": "XButton2Down",
      "signature": "XButton2Down(ret)",
+     "python_example": "op.XButton2Down(ret)",
+     "python_ctypes_name": "x_button2_down",
+     "in_ctypes_binding": false,
      "description": "按住鼠标侧键2",
      "params": [
       {
@@ -6383,6 +6747,9 @@
      "group_name": "Input 键鼠输入",
      "name": "XButton2Up",
      "signature": "XButton2Up(ret)",
+     "python_example": "op.XButton2Up(ret)",
+     "python_ctypes_name": "x_button2_up",
+     "in_ctypes_binding": false,
      "description": "弹起鼠标侧键2",
      "params": [
       {
@@ -6417,6 +6784,9 @@
      "group_name": "Input 键鼠输入",
      "name": "Wheel",
      "signature": "Wheel(delta, ret)",
+     "python_example": "op.Wheel(delta, ret)",
+     "python_ctypes_name": "wheel",
+     "in_ctypes_binding": true,
      "description": "垂直滚轮滚动指定 delta",
      "params": [
       {
@@ -6463,6 +6833,9 @@
      "group_name": "Input 键鼠输入",
      "name": "HWheel",
      "signature": "HWheel(delta, ret)",
+     "python_example": "op.HWheel(delta, ret)",
+     "python_ctypes_name": "h_wheel",
+     "in_ctypes_binding": false,
      "description": "水平滚轮滚动指定 delta",
      "params": [
       {
@@ -6509,6 +6882,9 @@
      "group_name": "Input 键鼠输入",
      "name": "WheelDown",
      "signature": "WheelDown() → (ret)",
+     "python_example": "op.WheelDown()  # → (ret)",
+     "python_ctypes_name": "wheel_down",
+     "in_ctypes_binding": true,
      "description": "滚轮向下滚",
      "params": [
       {
@@ -6542,6 +6918,9 @@
      "group_name": "Input 键鼠输入",
      "name": "WheelUp",
      "signature": "WheelUp() → (ret)",
+     "python_example": "op.WheelUp()  # → (ret)",
+     "python_ctypes_name": "wheel_up",
+     "in_ctypes_binding": true,
      "description": "滚轮向上滚",
      "params": [
       {
@@ -6575,6 +6954,9 @@
      "group_name": "Input 键鼠输入",
      "name": "SetMouseDelay",
      "signature": "SetMouseDelay(type, delay) → (ret)",
+     "python_example": "op.SetMouseDelay(type, delay)  # → (ret)",
+     "python_ctypes_name": "set_mouse_delay",
+     "in_ctypes_binding": true,
      "description": "设置鼠标单击或者双击时,鼠标按下和弹起的时间间隔",
      "params": [
       {
@@ -6634,6 +7016,9 @@
      "group_name": "Input 键鼠输入",
      "name": "GetKeyState",
      "signature": "GetKeyState(vk_code) → (ret)",
+     "python_example": "op.GetKeyState(vk_code)  # → (ret)",
+     "python_ctypes_name": "get_key_state",
+     "in_ctypes_binding": true,
      "description": "获取指定的按键状态.(前台信息,不是后台)",
      "params": [
       {
@@ -6681,6 +7066,9 @@
      "group_name": "Input 键鼠输入",
      "name": "KeyDown",
      "signature": "KeyDown(vk_code) → (ret)",
+     "python_example": "op.KeyDown(vk_code)  # → (ret)",
+     "python_ctypes_name": "key_down",
+     "in_ctypes_binding": true,
      "description": "按住指定的虚拟键码",
      "params": [
       {
@@ -6728,6 +7116,9 @@
      "group_name": "Input 键鼠输入",
      "name": "KeyDownChar",
      "signature": "KeyDownChar(vk_code) → (ret)",
+     "python_example": "op.KeyDownChar(vk_code)  # → (ret)",
+     "python_ctypes_name": "key_down_char",
+     "in_ctypes_binding": true,
      "description": "按住指定的虚拟键码",
      "params": [
       {
@@ -6775,6 +7166,9 @@
      "group_name": "Input 键鼠输入",
      "name": "KeyUp",
      "signature": "KeyUp(vk_code) → (ret)",
+     "python_example": "op.KeyUp(vk_code)  # → (ret)",
+     "python_ctypes_name": "key_up",
+     "in_ctypes_binding": true,
      "description": "弹起来虚拟键vk_code",
      "params": [
       {
@@ -6822,6 +7216,9 @@
      "group_name": "Input 键鼠输入",
      "name": "KeyUpChar",
      "signature": "KeyUpChar(vk_code) → (ret)",
+     "python_example": "op.KeyUpChar(vk_code)  # → (ret)",
+     "python_ctypes_name": "key_up_char",
+     "in_ctypes_binding": true,
      "description": "弹起来虚拟键vk_code",
      "params": [
       {
@@ -6869,6 +7266,9 @@
      "group_name": "Input 键鼠输入",
      "name": "WaitKey",
      "signature": "WaitKey(vk_code, time_out) → (ret)",
+     "python_example": "op.WaitKey(vk_code, time_out)  # → (ret)",
+     "python_ctypes_name": "wait_key",
+     "in_ctypes_binding": true,
      "description": "等待指定的按键按下 (前台,不是后台)",
      "params": [
       {
@@ -6928,6 +7328,9 @@
      "group_name": "Input 键鼠输入",
      "name": "KeyPress",
      "signature": "KeyPress(vk_code) → (ret)",
+     "python_example": "op.KeyPress(vk_code)  # → (ret)",
+     "python_ctypes_name": "key_press",
+     "in_ctypes_binding": true,
      "description": "发送字符串\nlong SendString(long HWND)\n弹起来虚拟键vk_code",
      "params": [
       {
@@ -6975,6 +7378,9 @@
      "group_name": "Input 键鼠输入",
      "name": "KeyPressChar",
      "signature": "KeyPressChar(vk_code) → (ret)",
+     "python_example": "op.KeyPressChar(vk_code)  # → (ret)",
+     "python_ctypes_name": "key_press_char",
+     "in_ctypes_binding": true,
      "description": "按下并弹起指定键（键名描述串，如 \"enter\"/\"f1\"/\"ctrl+a\"）",
      "params": [
       {
@@ -7022,6 +7428,9 @@
      "group_name": "Input 键鼠输入",
      "name": "SetKeypadDelay",
      "signature": "SetKeypadDelay(type, delay) → (ret)",
+     "python_example": "op.SetKeypadDelay(type, delay)  # → (ret)",
+     "python_ctypes_name": "set_keypad_delay",
+     "in_ctypes_binding": true,
      "description": "设置按键时,键盘按下和弹起的时间间隔",
      "params": [
       {
@@ -7081,6 +7490,9 @@
      "group_name": "Input 键鼠输入",
      "name": "KeyPressStr",
      "signature": "KeyPressStr(key_str, delay) → (ret)",
+     "python_example": "op.KeyPressStr(key_str, delay)  # → (ret)",
+     "python_ctypes_name": "key_press_str",
+     "in_ctypes_binding": true,
      "description": "根据指定的字符串序列，依次按顺序按下其中的字符",
      "params": [
       {
@@ -7147,6 +7559,9 @@
      "group_name": "Image 图色",
      "name": "Capture",
      "signature": "Capture(x1, y1, x2, y2, file_name) → (ret)",
+     "python_example": "op.Capture(x1, y1, x2, y2, file_name)  # → (ret)",
+     "python_ctypes_name": "capture",
+     "in_ctypes_binding": true,
      "description": "抓取指定区域(x1, y1, x2, y2)的图像, 保存为file",
      "params": [
       {
@@ -7242,6 +7657,9 @@
      "group_name": "Image 图色",
      "name": "CmpColor",
      "signature": "CmpColor(x, y, color, sim) → (ret)",
+     "python_example": "op.CmpColor(x, y, color, sim)  # → (ret)",
+     "python_ctypes_name": "cmp_color",
+     "in_ctypes_binding": true,
      "description": "sim 语义注意（继承大漠，各家族不一致，传参前请确认）：\n找色/多点找色家族：sim1 回退 0.7；\n找图家族（FindPic/FindPicEx/FindPicExS）：实际相似度 = 0.5 + sim/2，sim=0.8 对应内部 0.9。\n比较指定坐标点(x,y)的颜色",
      "params": [
       {
@@ -7325,6 +7743,9 @@
      "group_name": "Image 图色",
      "name": "FindColor",
      "signature": "FindColor(x1, y1, x2, y2, color, sim, dir) → (x, y, ret)",
+     "python_example": "op.FindColor(x1, y1, x2, y2, color, sim, dir)  # → (x, y, ret)",
+     "python_ctypes_name": "find_color",
+     "in_ctypes_binding": true,
      "description": "查找指定区域内的颜色",
      "params": [
       {
@@ -7468,6 +7889,9 @@
      "group_name": "Image 图色",
      "name": "FindColorEx",
      "signature": "FindColorEx(x1, y1, x2, y2, color, sim, dir) → (etstr)",
+     "python_example": "op.FindColorEx(x1, y1, x2, y2, color, sim, dir)  # → (etstr)",
+     "python_ctypes_name": "find_color_ex",
+     "in_ctypes_binding": true,
      "description": "查找指定区域内的所有颜色",
      "params": [
       {
@@ -7587,6 +8011,9 @@
      "group_name": "Image 图色",
      "name": "GetColorNum",
      "signature": "GetColorNum(x1, y1, x2, y2, color, sim) → (ret)",
+     "python_example": "op.GetColorNum(x1, y1, x2, y2, color, sim)  # → (ret)",
+     "python_ctypes_name": "get_color_num",
+     "in_ctypes_binding": true,
      "description": "查找指定区域内的所有颜色数量",
      "params": [
       {
@@ -7694,6 +8121,9 @@
      "group_name": "Image 图色",
      "name": "FindMultiColor",
      "signature": "FindMultiColor(x1, y1, x2, y2, first_color, offset_color, sim, dir) → (x, y, ret)",
+     "python_example": "op.FindMultiColor(x1, y1, x2, y2, first_color, offset_color, sim, dir)  # → (x, y, ret)",
+     "python_ctypes_name": "find_multi_color",
+     "in_ctypes_binding": true,
      "description": "根据指定的多点查找颜色坐标",
      "params": [
       {
@@ -7849,6 +8279,9 @@
      "group_name": "Image 图色",
      "name": "FindMultiColorEx",
      "signature": "FindMultiColorEx(x1, y1, x2, y2, first_color, offset_color, sim, dir) → (etstr)",
+     "python_example": "op.FindMultiColorEx(x1, y1, x2, y2, first_color, offset_color, sim, dir)  # → (etstr)",
+     "python_ctypes_name": "find_multi_color_ex",
+     "in_ctypes_binding": true,
      "description": "根据指定的多点查找所有颜色坐标",
      "params": [
       {
@@ -7980,6 +8413,9 @@
      "group_name": "Image 图色",
      "name": "FindPic",
      "signature": "FindPic(x1, y1, x2, y2, files, delta_color, sim, dir) → (x, y, ret)",
+     "python_example": "op.FindPic(x1, y1, x2, y2, files, delta_color, sim, dir)  # → (x, y, ret)",
+     "python_ctypes_name": "find_pic",
+     "in_ctypes_binding": true,
      "description": "查找指定区域内的图片",
      "params": [
       {
@@ -8135,6 +8571,9 @@
      "group_name": "Image 图色",
      "name": "FindPicEx",
      "signature": "FindPicEx(x1, y1, x2, y2, files, delta_color, sim, dir) → (etstr)",
+     "python_example": "op.FindPicEx(x1, y1, x2, y2, files, delta_color, sim, dir)  # → (etstr)",
+     "python_ctypes_name": "find_pic_ex",
+     "in_ctypes_binding": true,
      "description": "查找多个图片",
      "params": [
       {
@@ -8266,6 +8705,9 @@
      "group_name": "Image 图色",
      "name": "FindPicExS",
      "signature": "FindPicExS(x1, y1, x2, y2, files, delta_color, sim, dir) → (etstr)",
+     "python_example": "op.FindPicExS(x1, y1, x2, y2, files, delta_color, sim, dir)  # → (etstr)",
+     "python_ctypes_name": "find_pic_ex_s",
+     "in_ctypes_binding": true,
      "description": "这个函数可以查找多个图片, 并且返回所有找到的图像的坐标.此函数同FindPicEx.只是返回值不同.(file1,x,y|file2,x,y|...)",
      "params": [
       {
@@ -8397,6 +8839,9 @@
      "group_name": "Image 图色",
      "name": "FindColorBlock",
      "signature": "FindColorBlock(x1, y1, x2, y2, color, sim, count, height, width) → (x, y, ret)",
+     "python_example": "op.FindColorBlock(x1, y1, x2, y2, color, sim, count, height, width)  # → (x, y, ret)",
+     "python_ctypes_name": "find_color_block",
+     "in_ctypes_binding": true,
      "description": "查找指定区域内的颜色块,颜色格式\"RRGGBB-DRDGDB\",注意,和按键的颜色格式相反",
      "params": [
       {
@@ -8564,6 +9009,9 @@
      "group_name": "Image 图色",
      "name": "FindColorBlockEx",
      "signature": "FindColorBlockEx(x1, y1, x2, y2, color, sim, count, height, width) → (etstr)",
+     "python_example": "op.FindColorBlockEx(x1, y1, x2, y2, color, sim, count, height, width)  # → (etstr)",
+     "python_ctypes_name": "find_color_block_ex",
+     "in_ctypes_binding": true,
      "description": "查找指定区域内的所有颜色块, 颜色格式\"RRGGBB-DRDGDB\", 注意, 和按键的颜色格式相反",
      "params": [
       {
@@ -8707,6 +9155,9 @@
      "group_name": "Image 图色",
      "name": "FindColorBlockExS",
      "signature": "FindColorBlockExS(x1, y1, x2, y2, color, sim, count, height, width, mode) → (etstr)",
+     "python_example": "op.FindColorBlockExS(x1, y1, x2, y2, color, sim, count, height, width, mode)  # → (etstr)",
+     "python_ctypes_name": "find_color_block_ex_s",
+     "in_ctypes_binding": true,
      "description": "颜色块增强版：mode=0 raw（同 FindColorBlockEx）；mode=1 重合窗口聚类合并，每个色块只返回一个左上角坐标",
      "params": [
       {
@@ -8862,6 +9313,9 @@
      "group_name": "Image 图色",
      "name": "GetColor",
      "signature": "GetColor(x, y) → (et)",
+     "python_example": "op.GetColor(x, y)  # → (et)",
+     "python_ctypes_name": "get_color",
+     "in_ctypes_binding": true,
      "description": "获取(x,y)的颜色",
      "params": [
       {
@@ -8921,6 +9375,9 @@
      "group_name": "Image 图色",
      "name": "SetDisplayInput",
      "signature": "SetDisplayInput(mode) → (ret)",
+     "python_example": "op.SetDisplayInput(mode)  # → (ret)",
+     "python_ctypes_name": "set_display_input",
+     "in_ctypes_binding": true,
      "description": "设置图像输入方式，默认窗口截图",
      "params": [
       {
@@ -8968,6 +9425,9 @@
      "group_name": "Image 图色",
      "name": "LoadPic",
      "signature": "LoadPic(file_name) → (ret)",
+     "python_example": "op.LoadPic(file_name)  # → (ret)",
+     "python_ctypes_name": "load_pic",
+     "in_ctypes_binding": true,
      "description": "显式加载图片进全局缓存（FindPic 引用缓存名；源文件变更后须重新 Load 刷新）",
      "params": [
       {
@@ -9015,6 +9475,9 @@
      "group_name": "Image 图色",
      "name": "FreePic",
      "signature": "FreePic(file_name) → (ret)",
+     "python_example": "op.FreePic(file_name)  # → (ret)",
+     "python_ctypes_name": "free_pic",
+     "in_ctypes_binding": true,
      "description": "从全局缓存释放指定图片",
      "params": [
       {
@@ -9062,6 +9525,9 @@
      "group_name": "Image 图色",
      "name": "LoadMemPic",
      "signature": "LoadMemPic(file_name, data, size) → (ret)",
+     "python_example": "op.LoadMemPic(file_name, data, size)  # → (ret)",
+     "python_ctypes_name": "load_mem_pic",
+     "in_ctypes_binding": true,
      "description": "从内存加载要查找的图片",
      "params": [
       {
@@ -9133,6 +9599,9 @@
      "group_name": "Image 图色",
      "name": "GetPicSize",
      "signature": "GetPicSize(pic_name) → (width, height, ret)",
+     "python_example": "op.GetPicSize(pic_name)  # → (width, height, ret)",
+     "python_ctypes_name": "get_pic_size",
+     "in_ctypes_binding": true,
      "description": "获取指定图片的尺寸，如果指定的图片已经被加入缓存，则从缓存中获取信息.此接口也会把此图片加入缓存",
      "params": [
       {
@@ -9204,6 +9673,9 @@
      "group_name": "Image 图色",
      "name": "GetScreenData",
      "signature": "GetScreenData(x1, y1, x2, y2) → (data, ret)",
+     "python_example": "op.GetScreenData(x1, y1, x2, y2)  # → (data, ret)",
+     "python_ctypes_name": "get_screen_data",
+     "in_ctypes_binding": true,
      "description": "取区域 32 位原始像素内存指针（BGRA 字节序，同 Win32 DIB；生命周期到下一次截图操作前）",
      "params": [
       {
@@ -9299,6 +9771,9 @@
      "group_name": "Image 图色",
      "name": "GetScreenDataBmp",
      "signature": "GetScreenDataBmp(x1, y1, x2, y2) → (data, size, ret)",
+     "python_example": "op.GetScreenDataBmp(x1, y1, x2, y2)  # → (data, size, ret)",
+     "python_ctypes_name": "get_screen_data_bmp",
+     "in_ctypes_binding": true,
      "description": "取区域标准 BMP 格式内存数据指针（含文件头）",
      "params": [
       {
@@ -9406,6 +9881,9 @@
      "group_name": "Image 图色",
      "name": "GetScreenFrameInfo",
      "signature": "GetScreenFrameInfo() → (frame_id, time)",
+     "python_example": "op.GetScreenFrameInfo()  # → (frame_id, time)",
+     "python_ctypes_name": "get_screen_frame_info",
+     "in_ctypes_binding": true,
      "description": "查询最近一帧的序号与时间戳（dx 显示模式调试用）",
      "params": [
       {
@@ -9451,6 +9929,9 @@
      "group_name": "Image 图色",
      "name": "IsDisplayDead",
      "signature": "IsDisplayDead(x1, y1, x2, y2, check_times, interval_ms) → (ret)",
+     "python_example": "op.IsDisplayDead(x1, y1, x2, y2, check_times, interval_ms)  # → (ret)",
+     "python_ctypes_name": "is_display_dead",
+     "in_ctypes_binding": false,
      "description": "卡屏检测（P2 第二十四批 2026-10-16，对齐 OLA IsDisplayDead）：\n对区域连续 check_times 次截图（间隔 interval_ms）做帧哈希比对，全部相同=卡死返回 1，\n任一帧有变化=存活返回 0；截图失败保守返回 0（视为无法判死）。\ncheck_times<=0 默认 3（钳 2-20），interval_ms<=0 默认 500（钳 50-10000）。",
      "params": [
       {
@@ -9558,6 +10039,9 @@
      "group_name": "Image 图色",
      "name": "GetFPS",
      "signature": "GetFPS() → (ret)",
+     "python_example": "op.GetFPS()  # → (ret)",
+     "python_ctypes_name": "get_fps",
+     "in_ctypes_binding": true,
      "description": "获取绑定窗口当前帧率。采样窗口约 1 秒,按 frameId 增量/经过毫秒换算。\nHook/DX/WGC 等异步后端=真实渲染帧率;GDI 等按需截图后端=采样窗口内的抓帧频率(无抓帧为 0)。未绑定返回 0。",
      "params": [
       {
@@ -9591,6 +10075,9 @@
      "group_name": "Image 图色",
      "name": "MatchPicName",
      "signature": "MatchPicName(pic_name) → (etstr)",
+     "python_example": "op.MatchPicName(pic_name)  # → (etstr)",
+     "python_ctypes_name": "match_pic_name",
+     "in_ctypes_binding": true,
      "description": "宽松匹配缓存中的图片名（可省扩展名/大小写差异），返回匹配到的完整名",
      "params": [
       {
@@ -9645,6 +10132,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvLoadTemplate",
      "signature": "CvLoadTemplate(name, file_path) → (ret)",
+     "python_example": "op.CvLoadTemplate(name, file_path)  # → (ret)",
+     "python_ctypes_name": "cv_load_template",
+     "in_ctypes_binding": true,
      "description": "加载模板图片并命名，供 CvMatch* 匹配系按名引用",
      "params": [
       {
@@ -9704,6 +10194,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvLoadMaskedTemplate",
      "signature": "CvLoadMaskedTemplate(name, template_path, mask_path) → (ret)",
+     "python_example": "op.CvLoadMaskedTemplate(name, template_path, mask_path)  # → (ret)",
+     "python_ctypes_name": "cv_load_masked_template",
+     "in_ctypes_binding": true,
      "description": "加载带掩码模板：白色=参与匹配区域，黑色=忽略",
      "params": [
       {
@@ -9775,6 +10268,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvRemoveTemplate",
      "signature": "CvRemoveTemplate(name) → (ret)",
+     "python_example": "op.CvRemoveTemplate(name)  # → (ret)",
+     "python_ctypes_name": "cv_remove_template",
+     "in_ctypes_binding": true,
      "description": "移除并释放指定模板",
      "params": [
       {
@@ -9822,6 +10318,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvRemoveAllTemplates",
      "signature": "CvRemoveAllTemplates() → (ret)",
+     "python_example": "op.CvRemoveAllTemplates()  # → (ret)",
+     "python_ctypes_name": "cv_remove_all_templates",
+     "in_ctypes_binding": true,
      "description": "移除全部已加载模板",
      "params": [
       {
@@ -9855,6 +10354,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvHasTemplate",
      "signature": "CvHasTemplate(name) → (ret)",
+     "python_example": "op.CvHasTemplate(name)  # → (ret)",
+     "python_ctypes_name": "cv_has_template",
+     "in_ctypes_binding": true,
      "description": "查询模板是否已加载",
      "params": [
       {
@@ -9902,6 +10404,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvGetTemplateCount",
      "signature": "CvGetTemplateCount() → (ret)",
+     "python_example": "op.CvGetTemplateCount()  # → (ret)",
+     "python_ctypes_name": "cv_get_template_count",
+     "in_ctypes_binding": true,
      "description": "已加载模板数量",
      "params": [
       {
@@ -9935,6 +10440,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvGetAllTemplateNames",
      "signature": "CvGetAllTemplateNames() → (etstr)",
+     "python_example": "op.CvGetAllTemplateNames()  # → (etstr)",
+     "python_ctypes_name": "cv_get_all_template_names",
+     "in_ctypes_binding": true,
      "description": "全部已加载模板名（| 连接）",
      "params": [
       {
@@ -9968,6 +10476,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvGetOpenCvVersion",
      "signature": "CvGetOpenCvVersion() → (etstr)",
+     "python_example": "op.CvGetOpenCvVersion()  # → (etstr)",
+     "python_ctypes_name": "cv_get_open_cv_version",
+     "in_ctypes_binding": true,
      "description": "OpenCV 版本串",
      "params": [
       {
@@ -10001,6 +10512,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvLoadTemplateList",
      "signature": "CvLoadTemplateList(template_list) → (ret)",
+     "python_example": "op.CvLoadTemplateList(template_list)  # → (ret)",
+     "python_ctypes_name": "cv_load_template_list",
+     "in_ctypes_binding": true,
      "description": "批量加载模板：\"name,path|name,path|...\"，任一项缺逗号或空串则整体失败",
      "params": [
       {
@@ -10048,6 +10562,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvToGray",
      "signature": "CvToGray(src_file, dst_file) → (ret)",
+     "python_example": "op.CvToGray(src_file, dst_file)  # → (ret)",
+     "python_ctypes_name": "cv_to_gray",
+     "in_ctypes_binding": true,
      "description": "转灰度图",
      "params": [
       {
@@ -10107,6 +10624,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvToBinary",
      "signature": "CvToBinary(src_file, dst_file) → (ret)",
+     "python_example": "op.CvToBinary(src_file, dst_file)  # → (ret)",
+     "python_ctypes_name": "cv_to_binary",
+     "in_ctypes_binding": true,
      "description": "Otsu 自动阈值二值化",
      "params": [
       {
@@ -10166,6 +10686,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvToEdge",
      "signature": "CvToEdge(src_file, dst_file) → (ret)",
+     "python_example": "op.CvToEdge(src_file, dst_file)  # → (ret)",
+     "python_ctypes_name": "cv_to_edge",
+     "in_ctypes_binding": true,
      "description": "边缘提取",
      "params": [
       {
@@ -10225,6 +10748,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvToOutline",
      "signature": "CvToOutline(src_file, dst_file) → (ret)",
+     "python_example": "op.CvToOutline(src_file, dst_file)  # → (ret)",
+     "python_ctypes_name": "cv_to_outline",
+     "in_ctypes_binding": true,
      "description": "轮廓提取",
      "params": [
       {
@@ -10284,6 +10810,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvDenoise",
      "signature": "CvDenoise(src_file, dst_file) → (ret)",
+     "python_example": "op.CvDenoise(src_file, dst_file)  # → (ret)",
+     "python_ctypes_name": "cv_denoise",
+     "in_ctypes_binding": true,
      "description": "中值滤波去噪",
      "params": [
       {
@@ -10343,6 +10872,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvEqualize",
      "signature": "CvEqualize(src_file, dst_file) → (ret)",
+     "python_example": "op.CvEqualize(src_file, dst_file)  # → (ret)",
+     "python_ctypes_name": "cv_equalize",
+     "in_ctypes_binding": true,
      "description": "直方图均衡",
      "params": [
       {
@@ -10402,6 +10934,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvCLAHE",
      "signature": "CvCLAHE(src_file, dst_file, clip_limit, tile_grid_size) → (ret)",
+     "python_example": "op.CvCLAHE(src_file, dst_file, clip_limit, tile_grid_size)  # → (ret)",
+     "python_ctypes_name": "cv_clahe",
+     "in_ctypes_binding": true,
      "description": "对比度受限自适应直方图均衡（clip_limit 典型 2~4，tile_grid_size 典型 8）",
      "params": [
       {
@@ -10485,6 +11020,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvBlur",
      "signature": "CvBlur(src_file, dst_file, mode, kernel_size) → (ret)",
+     "python_example": "op.CvBlur(src_file, dst_file, mode, kernel_size)  # → (ret)",
+     "python_ctypes_name": "cv_blur",
+     "in_ctypes_binding": true,
      "description": "模糊（mode：gaussian/median/bilateral/box）",
      "params": [
       {
@@ -10568,6 +11106,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvSharpen",
      "signature": "CvSharpen(src_file, dst_file, strength) → (ret)",
+     "python_example": "op.CvSharpen(src_file, dst_file, strength)  # → (ret)",
+     "python_ctypes_name": "cv_sharpen",
+     "in_ctypes_binding": true,
      "description": "锐化（strength 0~100）",
      "params": [
       {
@@ -10639,6 +11180,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvCropValid",
      "signature": "CvCropValid(src_file, dst_file) → (ret)",
+     "python_example": "op.CvCropValid(src_file, dst_file)  # → (ret)",
+     "python_ctypes_name": "cv_crop_valid",
+     "in_ctypes_binding": true,
      "description": "自动裁掉纯色边缘",
      "params": [
       {
@@ -10698,6 +11242,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvRotate",
      "signature": "CvRotate(src_file, dst_file, angle_deg) → (ret)",
+     "python_example": "op.CvRotate(src_file, dst_file, angle_deg)  # → (ret)",
+     "python_ctypes_name": "cv_rotate",
+     "in_ctypes_binding": false,
      "description": "旋转（角度制，正角逆时针）：90 倍数走无损路径；任意角扩画布白边。ret=1 成功。",
      "params": [
       {
@@ -10769,6 +11316,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvFlip",
      "signature": "CvFlip(src_file, dst_file, mode) → (ret)",
+     "python_example": "op.CvFlip(src_file, dst_file, mode)  # → (ret)",
+     "python_ctypes_name": "cv_flip",
+     "in_ctypes_binding": false,
      "description": "翻转：mode 0 上下 / 1 左右 / 2 双向（=旋转 180°）。ret=1 成功。",
      "params": [
       {
@@ -10840,6 +11390,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvConnectedComponents",
      "signature": "CvConnectedComponents(src_file, min_area) → (etjson, ret)",
+     "python_example": "op.CvConnectedComponents(src_file, min_area)  # → (etjson, ret)",
+     "python_ctypes_name": "cv_connected_components",
+     "in_ctypes_binding": true,
      "description": "连通域分析，返回 JSON 数组（每元素含 x/y/w/h/area）",
      "params": [
       {
@@ -10911,6 +11464,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvFindContours",
      "signature": "CvFindContours(src_file, min_area) → (etjson, ret)",
+     "python_example": "op.CvFindContours(src_file, min_area)  # → (etjson, ret)",
+     "python_ctypes_name": "cv_find_contours",
+     "in_ctypes_binding": true,
      "description": "轮廓查找，返回 JSON 数组（外接矩形与轮廓点）",
      "params": [
       {
@@ -10982,6 +11538,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvPreprocessPipeline",
      "signature": "CvPreprocessPipeline(src_file, dst_file, pipeline) → (ret)",
+     "python_example": "op.CvPreprocessPipeline(src_file, dst_file, pipeline)  # → (ret)",
+     "python_ctypes_name": "cv_preprocess_pipeline",
+     "in_ctypes_binding": true,
      "description": "预处理流水线：| 分隔多步，步骤可带 \"步骤名:参数1,参数2\"",
      "params": [
       {
@@ -11053,6 +11612,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvMatchTemplateRot",
      "signature": "CvMatchTemplateRot(x, y, width, height, template_name, angles, threshold, method, color_mode) → (etjson, ret)",
+     "python_example": "op.CvMatchTemplateRot(x, y, width, height, template_name, angles, threshold, method, color_mode)  # → (etjson, ret)",
+     "python_ctypes_name": "cv_match_template_rot",
+     "in_ctypes_binding": true,
      "description": "多角度模板匹配：angles 形如 \"0|15|-15\"（空串走默认角度集）；retjson 额外带命中角度 angle。",
      "params": [
       {
@@ -11208,6 +11770,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvCrop",
      "signature": "CvCrop(src_file, x, y, width, height, dst_file) → (ret)",
+     "python_example": "op.CvCrop(src_file, x, y, width, height, dst_file)  # → (ret)",
+     "python_ctypes_name": "cv_crop",
+     "in_ctypes_binding": true,
      "description": "裁剪到指定矩形",
      "params": [
       {
@@ -11315,6 +11880,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvResize",
      "signature": "CvResize(src_file, width, height, dst_file) → (ret)",
+     "python_example": "op.CvResize(src_file, width, height, dst_file)  # → (ret)",
+     "python_ctypes_name": "cv_resize",
+     "in_ctypes_binding": true,
      "description": "缩放到指定宽高",
      "params": [
       {
@@ -11398,6 +11966,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvThreshold",
      "signature": "CvThreshold(src_file, dst_file, threshold, max_value, mode) → (ret)",
+     "python_example": "op.CvThreshold(src_file, dst_file, threshold, max_value, mode)  # → (ret)",
+     "python_ctypes_name": "cv_threshold",
+     "in_ctypes_binding": true,
      "description": "阈值化（mode：binary/binary_inv/otsu/otsu_inv/adaptive/adaptive_inv）",
      "params": [
       {
@@ -11493,6 +12064,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvInRange",
      "signature": "CvInRange(src_file, dst_file, color_space, lower, upper) → (ret)",
+     "python_example": "op.CvInRange(src_file, dst_file, color_space, lower, upper)  # → (ret)",
+     "python_ctypes_name": "cv_in_range",
+     "in_ctypes_binding": true,
      "description": "颜色区间过滤（color_space：bgr/hsv/gray，lower/upper 为各通道下限/上限串）",
      "params": [
       {
@@ -11588,6 +12162,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvMorphology",
      "signature": "CvMorphology(src_file, dst_file, mode, kernel_size, iterations) → (ret)",
+     "python_example": "op.CvMorphology(src_file, dst_file, mode, kernel_size, iterations)  # → (ret)",
+     "python_ctypes_name": "cv_morphology",
+     "in_ctypes_binding": true,
      "description": "形态学运算（mode：erode/dilate/open/close）",
      "params": [
       {
@@ -11683,6 +12260,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvThin",
      "signature": "CvThin(src_file, dst_file, mode) → (ret)",
+     "python_example": "op.CvThin(src_file, dst_file, mode)  # → (ret)",
+     "python_ctypes_name": "cv_thin",
+     "in_ctypes_binding": true,
      "description": "线条细化（mode：zhang_suen/guo_hall/morph）",
      "params": [
       {
@@ -11754,6 +12334,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvMatchTemplate",
      "signature": "CvMatchTemplate(x, y, width, height, template_name, threshold, dir, strip_mode, method, color_mode) → (etjson, ret)",
+     "python_example": "op.CvMatchTemplate(x, y, width, height, template_name, threshold, dir, strip_mode, method, color_mode)  # → (etjson, ret)",
+     "python_ctypes_name": "cv_match_template",
+     "in_ctypes_binding": true,
      "description": "模板匹配，返回命中 JSON 数组 [{x,y,width,height,score},...]",
      "params": [
       {
@@ -11921,6 +12504,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvMatchTemplateScale",
      "signature": "CvMatchTemplateScale(x, y, width, height, template_name, scales, threshold, method, color_mode) → (etjson, ret)",
+     "python_example": "op.CvMatchTemplateScale(x, y, width, height, template_name, scales, threshold, method, color_mode)  # → (etjson, ret)",
+     "python_ctypes_name": "cv_match_template_scale",
+     "in_ctypes_binding": true,
      "description": "多缩放比模板匹配（scales 逗号分隔，如 \"0.8,0.9,1.0,1.1\"），结果含实际 scale",
      "params": [
       {
@@ -12076,6 +12662,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvMatchAnyTemplate",
      "signature": "CvMatchAnyTemplate(x, y, width, height, template_names, threshold, dir, strip_mode, method, color_mode) → (etjson, ret)",
+     "python_example": "op.CvMatchAnyTemplate(x, y, width, height, template_names, threshold, dir, strip_mode, method, color_mode)  # → (etjson, ret)",
+     "python_ctypes_name": "cv_match_any_template",
+     "in_ctypes_binding": true,
      "description": "多模板任一命中即返回首个",
      "params": [
       {
@@ -12243,6 +12832,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvMatchAllTemplates",
      "signature": "CvMatchAllTemplates(x, y, width, height, template_names, threshold, dir, strip_mode, method, color_mode) → (etjson, ret)",
+     "python_example": "op.CvMatchAllTemplates(x, y, width, height, template_names, threshold, dir, strip_mode, method, color_mode)  # → (etjson, ret)",
+     "python_ctypes_name": "cv_match_all_templates",
+     "in_ctypes_binding": true,
      "description": "多模板全部各搜一遍，结果含模板名",
      "params": [
       {
@@ -12410,6 +13002,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvFeatureMatchTemplate",
      "signature": "CvFeatureMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)",
+     "python_example": "op.CvFeatureMatchTemplate(x, y, width, height, template_name, threshold)  # → (etjson, ret)",
+     "python_ctypes_name": "cv_feature_match_template",
+     "in_ctypes_binding": true,
      "description": "特征点匹配，返回命中 JSON 数组",
      "params": [
       {
@@ -12529,6 +13124,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvEdgeMatchTemplate",
      "signature": "CvEdgeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)",
+     "python_example": "op.CvEdgeMatchTemplate(x, y, width, height, template_name, threshold)  # → (etjson, ret)",
+     "python_ctypes_name": "cv_edge_match_template",
+     "in_ctypes_binding": true,
      "description": "边缘匹配，返回命中 JSON 数组",
      "params": [
       {
@@ -12648,6 +13246,9 @@
      "group_name": "OpenCV 视觉",
      "name": "CvShapeMatchTemplate",
      "signature": "CvShapeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)",
+     "python_example": "op.CvShapeMatchTemplate(x, y, width, height, template_name, threshold)  # → (etjson, ret)",
+     "python_ctypes_name": "cv_shape_match_template",
+     "in_ctypes_binding": true,
      "description": "形状匹配，返回命中 JSON 数组",
      "params": [
       {
@@ -12774,6 +13375,9 @@
      "group_name": "OCR 文字识别",
      "name": "SetOcrEngine",
      "signature": "SetOcrEngine(path_of_engine, dll_name, argv) → ret",
+     "python_example": "op.SetOcrEngine(path_of_engine, dll_name, argv)  # → ret",
+     "python_ctypes_name": "set_ocr_engine",
+     "in_ctypes_binding": true,
      "description": "选择 OCR 引擎并透传启动参数。engine: \"onnx\"/空/任意未知名=内置 ONNX（默认）。\nhttp(s):// 与旧远程别名（tesseract/paddle 系）已移除，传入返 0。\nargv 空格分隔，支持 --timeout=3000、--model-dir=path；内置 ONNX 另支持：\n--charset= 解码期字符白名单（只在名单内选字，形近误识如 0/O、,/. 被消除）。\n语法：@zh = keys 内全部中文(U+4E00-9FFF)；其余可打印 ASCII 按字面加入。\n规则串不能含空格（argv 以空格分隔，会被截断）。\n未设置 = 全字典（默认，与原行为一致）。\n建议值（中文 + 数字 + 大小写字母 + 常用符号）：\n@zh0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;-+=/|!?%#*()[]~_\n注：白名单缺哪个字符，该字符就被静默吞掉（漏字母时 \"Lv99\" 只识别出 \"99\"）。",
      "params": [
       {
@@ -12838,6 +13442,9 @@
      "group_name": "OCR 文字识别",
      "name": "OcrWarmup",
      "signature": "OcrWarmup() → (ret)",
+     "python_example": "op.OcrWarmup()  # → (ret)",
+     "python_ctypes_name": "ocr_warmup",
+     "in_ctypes_binding": false,
      "description": "OCR 预热（P2 第二十六批 2026-10-16，对齐 OLA OcrWarmup）：触发引擎懒加载 + 一次小图推理，\n消掉首次真实调用的模型加载延迟。ret=1 引擎就绪，0 引擎不可用。",
      "params": [
       {
@@ -12871,6 +13478,9 @@
      "group_name": "OCR 文字识别",
      "name": "SetDict",
      "signature": "SetDict(idx, file_name) → (ret)",
+     "python_example": "op.SetDict(idx, file_name)  # → (ret)",
+     "python_ctypes_name": "set_dict",
+     "in_ctypes_binding": true,
      "description": "设置字库文件",
      "params": [
       {
@@ -12930,6 +13540,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetDict",
      "signature": "GetDict(idx, font_index) → (etstr)",
+     "python_example": "op.GetDict(idx, font_index)  # → (etstr)",
+     "python_ctypes_name": "get_dict",
+     "in_ctypes_binding": true,
      "description": "获取指定字库中指定条目的字库信息",
      "params": [
       {
@@ -12989,6 +13602,9 @@
      "group_name": "OCR 文字识别",
      "name": "SetMemDict",
      "signature": "SetMemDict(idx, data, size) → (ret)",
+     "python_example": "op.SetMemDict(idx, data, size)  # → (ret)",
+     "python_ctypes_name": "set_mem_dict",
+     "in_ctypes_binding": true,
      "description": "设置内存字库文件",
      "params": [
       {
@@ -13060,6 +13676,9 @@
      "group_name": "OCR 文字识别",
      "name": "UseDict",
      "signature": "UseDict(idx) → (ret)",
+     "python_example": "op.UseDict(idx)  # → (ret)",
+     "python_ctypes_name": "use_dict",
+     "in_ctypes_binding": true,
      "description": "使用哪个字库文件进行识别",
      "params": [
       {
@@ -13107,6 +13726,9 @@
      "group_name": "OCR 文字识别",
      "name": "AddDict",
      "signature": "AddDict(idx, dict_info) → (ret)",
+     "python_example": "op.AddDict(idx, dict_info)  # → (ret)",
+     "python_ctypes_name": "add_dict",
+     "in_ctypes_binding": true,
      "description": "给指定的字库中添加一条字库信息",
      "params": [
       {
@@ -13166,6 +13788,9 @@
      "group_name": "OCR 文字识别",
      "name": "SaveDict",
      "signature": "SaveDict(idx, file_name) → (ret)",
+     "python_example": "op.SaveDict(idx, file_name)  # → (ret)",
+     "python_ctypes_name": "save_dict",
+     "in_ctypes_binding": true,
      "description": "保存指定的字库到指定的文件中",
      "params": [
       {
@@ -13225,6 +13850,9 @@
      "group_name": "OCR 文字识别",
      "name": "ClearDict",
      "signature": "ClearDict(idx) → (ret)",
+     "python_example": "op.ClearDict(idx)  # → (ret)",
+     "python_ctypes_name": "clear_dict",
+     "in_ctypes_binding": true,
      "description": "清空指定的字库",
      "params": [
       {
@@ -13272,6 +13900,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetDictCount",
      "signature": "GetDictCount(idx) → (ret)",
+     "python_example": "op.GetDictCount(idx)  # → (ret)",
+     "python_ctypes_name": "get_dict_count",
+     "in_ctypes_binding": true,
      "description": "获取指定的字库中的字符数量",
      "params": [
       {
@@ -13319,6 +13950,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetNowDict",
      "signature": "GetNowDict() → (ret)",
+     "python_example": "op.GetNowDict()  # → (ret)",
+     "python_ctypes_name": "get_now_dict",
+     "in_ctypes_binding": true,
      "description": "获取当前使用的字库序号",
      "params": [
       {
@@ -13352,6 +13986,9 @@
      "group_name": "OCR 文字识别",
      "name": "SetBinaryPreprocess",
      "signature": "SetBinaryPreprocess(mode, isolated_threshold, min_component_area, bridge_gap) → (ret)",
+     "python_example": "op.SetBinaryPreprocess(mode, isolated_threshold, min_component_area, bridge_gap)  # → (ret)",
+     "python_ctypes_name": "set_binary_preprocess",
+     "in_ctypes_binding": true,
      "description": "设置点阵二值图预处理。mode: 0关闭, 1去孤立点, 2再过滤小连通域, 3允许按 bridge_gap 补1像素断笔",
      "params": [
       {
@@ -13435,6 +14072,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetBinaryPreprocess",
      "signature": "GetBinaryPreprocess() → (mode, isolated_threshold, min_component_area, bridge_gap, ret)",
+     "python_example": "op.GetBinaryPreprocess()  # → (mode, isolated_threshold, min_component_area, bridge_gap, ret)",
+     "python_ctypes_name": "get_binary_preprocess",
+     "in_ctypes_binding": true,
      "description": "读取当前点阵二值图预处理参数",
      "params": [
       {
@@ -13516,6 +14156,9 @@
      "group_name": "OCR 文字识别",
      "name": "FetchWord",
      "signature": "FetchWord(x1, y1, x2, y2, color, word) → (etstr)",
+     "python_example": "op.FetchWord(x1, y1, x2, y2, color, word)  # → (etstr)",
+     "python_ctypes_name": "fetch_word",
+     "in_ctypes_binding": true,
      "description": "根据指定的范围,以及指定的颜色描述，提取点阵信息，类似于大漠工具里的单独提取",
      "params": [
       {
@@ -13623,6 +14266,9 @@
      "group_name": "OCR 文字识别",
      "name": "FetchWordEx",
      "signature": "FetchWordEx(x1, y1, x2, y2, color, sim, word) → (etstr)",
+     "python_example": "op.FetchWordEx(x1, y1, x2, y2, color, sim, word)  # → (etstr)",
+     "python_ctypes_name": "fetch_word_ex",
+     "in_ctypes_binding": true,
      "description": "根据相似度提取单个点阵字，适合有抗锯齿或轻微色差的文字",
      "params": [
       {
@@ -13742,6 +14388,9 @@
      "group_name": "OCR 文字识别",
      "name": "ExtractWordRects",
      "signature": "ExtractWordRects(x1, y1, x2, y2, color, sim, min_word_h) → (etstr)",
+     "python_example": "op.ExtractWordRects(x1, y1, x2, y2, color, sim, min_word_h)  # → (etstr)",
+     "python_ctypes_name": "extract_word_rects",
+     "in_ctypes_binding": true,
      "description": "自动切出指定范围内的点阵字块，返回格式: x1,y1,x2,y2|...\n注意：min_word_h 是历史命名，本函数实际只按\"字块宽度 >= min_word_h\"过滤（不过滤高度）；\n需要宽高双重过滤请用 ExtractWordRectsEx。",
      "params": [
       {
@@ -13861,6 +14510,9 @@
      "group_name": "OCR 文字识别",
      "name": "ExtractWordRectsEx",
      "signature": "ExtractWordRectsEx(x1, y1, x2, y2, color, sim, min_word_w, min_word_h, padding) → (etstr)",
+     "python_example": "op.ExtractWordRectsEx(x1, y1, x2, y2, color, sim, min_word_w, min_word_h, padding)  # → (etstr)",
+     "python_ctypes_name": "extract_word_rects_ex",
+     "in_ctypes_binding": true,
      "description": "自动切出点阵字块，并按最小宽高过滤噪点；padding 用来给每个字块保留一点边缘",
      "params": [
       {
@@ -14004,6 +14656,9 @@
      "group_name": "OCR 文字识别",
      "name": "FetchWords",
      "signature": "FetchWords(x1, y1, x2, y2, color, sim, words, min_word_h) → (etstr)",
+     "python_example": "op.FetchWords(x1, y1, x2, y2, color, sim, words, min_word_h)  # → (etstr)",
+     "python_ctypes_name": "fetch_words",
+     "in_ctypes_binding": true,
      "description": "自动切字并按 words 的字符顺序生成多条点阵字库，返回多行字库文本\n注意：min_word_h 是历史命名，本函数实际只按\"字块宽度 >= min_word_h\"过滤（不过滤高度）；\n需要宽高双重过滤请用 FetchWordsEx。切出的字数与 words 长度不一致时返回空（日志有提示）。",
      "params": [
       {
@@ -14135,6 +14790,9 @@
      "group_name": "OCR 文字识别",
      "name": "FetchWordsEx",
      "signature": "FetchWordsEx(x1, y1, x2, y2, color, sim, words, min_word_w, min_word_h, padding) → (etstr)",
+     "python_example": "op.FetchWordsEx(x1, y1, x2, y2, color, sim, words, min_word_w, min_word_h, padding)  # → (etstr)",
+     "python_ctypes_name": "fetch_words_ex",
+     "in_ctypes_binding": true,
      "description": "使用更细的切字参数批量生成点阵字库，适合截图里夹杂小噪点的情况",
      "params": [
       {
@@ -14290,6 +14948,9 @@
      "group_name": "OCR 文字识别",
      "name": "FetchWordsByRects",
      "signature": "FetchWordsByRects(x1, y1, x2, y2, color, sim, words, rects) → (etstr)",
+     "python_example": "op.FetchWordsByRects(x1, y1, x2, y2, color, sim, words, rects)  # → (etstr)",
+     "python_ctypes_name": "fetch_words_by_rects",
+     "in_ctypes_binding": true,
      "description": "按指定字块生成多条点阵字库，rects 格式与 ExtractWordRects 的返回值一致",
      "params": [
       {
@@ -14421,6 +15082,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetBinaryPreview",
      "signature": "GetBinaryPreview(x1, y1, x2, y2, color, sim) → (etstr, ret)",
+     "python_example": "op.GetBinaryPreview(x1, y1, x2, y2, color, sim)  # → (etstr, ret)",
+     "python_ctypes_name": "get_binary_preview",
+     "in_ctypes_binding": true,
      "description": "返回指定区域按颜色规则二值化后的文本预览，ret 为前景点数量。\n文本格式：首行 \"宽,高\"；随后每行一个像素行，'#' 为前景点、'.' 为背景点（与区域像素一一对应）。\n预览与识别共用同一份二值图，并已包含 SetBinaryPreprocess 的预处理结果（默认 mode=1 去孤立点），\n因此可直接用返回值校准 color 颜色描述是否准确。",
      "params": [
       {
@@ -14540,6 +15204,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetWordPreview",
      "signature": "GetWordPreview(dict_info) → (etstr, ret)",
+     "python_example": "op.GetWordPreview(dict_info)  # → (etstr, ret)",
+     "python_ctypes_name": "get_word_preview",
+     "in_ctypes_binding": true,
      "description": "返回点阵字库条目的文本预览，ret 为条目是否合法",
      "params": [
       {
@@ -14599,6 +15266,9 @@
      "group_name": "OCR 文字识别",
      "name": "CheckWordDict",
      "signature": "CheckWordDict(dict_info) → (etstr, ret)",
+     "python_example": "op.CheckWordDict(dict_info)  # → (etstr, ret)",
+     "python_ctypes_name": "check_word_dict",
+     "in_ctypes_binding": true,
      "description": "检查一段点阵字库文本，ret 为合法条目数量，retstr 为每条字库的摘要",
      "params": [
       {
@@ -14658,6 +15328,9 @@
      "group_name": "OCR 文字识别",
      "name": "NormalizeWordDict",
      "signature": "NormalizeWordDict(dict_info) → (etstr, ret)",
+     "python_example": "op.NormalizeWordDict(dict_info)  # → (etstr, ret)",
+     "python_ctypes_name": "normalize_word_dict",
+     "in_ctypes_binding": true,
      "description": "清理点阵字库文本，只保留合法条目，并统一输出为当前字库格式",
      "params": [
       {
@@ -14717,6 +15390,9 @@
      "group_name": "OCR 文字识别",
      "name": "RenameWordDict",
      "signature": "RenameWordDict(dict_info, words) → (etstr, ret)",
+     "python_example": "op.RenameWordDict(dict_info, words)  # → (etstr, ret)",
+     "python_ctypes_name": "rename_word_dict",
+     "in_ctypes_binding": true,
      "description": "按顺序替换点阵字库条目的字名，适合制作后统一校正标签",
      "params": [
       {
@@ -14788,6 +15464,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetWordsNoDict",
      "signature": "GetWordsNoDict(x1, y1, x2, y2, color) → (etstr)",
+     "python_example": "op.GetWordsNoDict(x1, y1, x2, y2, color)  # → (etstr)",
+     "python_ctypes_name": "get_words_no_dict",
+     "in_ctypes_binding": true,
      "description": "识别这个范围内所有满足条件的词组，这个识别函数不会用到字库. 只是识别大概形状的位置",
      "params": [
       {
@@ -14883,6 +15562,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetWordResultCount",
      "signature": "GetWordResultCount(result) → (ret)",
+     "python_example": "op.GetWordResultCount(result)  # → (ret)",
+     "python_ctypes_name": "get_word_result_count",
+     "in_ctypes_binding": true,
      "description": "在使用GetWords进行词组识别以后,可以用此接口进行识别词组数量的计算",
      "params": [
       {
@@ -14930,6 +15612,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetWordResultPos",
      "signature": "GetWordResultPos(result, index) → (x, y, ret)",
+     "python_example": "op.GetWordResultPos(result, index)  # → (x, y, ret)",
+     "python_ctypes_name": "get_word_result_pos",
+     "in_ctypes_binding": true,
      "description": "在使用GetWords进行词组识别以后,可以用此接口进行识别各个词组的坐标",
      "params": [
       {
@@ -15013,6 +15698,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetWordResultStr",
      "signature": "GetWordResultStr(result, index) → (et_str)",
+     "python_example": "op.GetWordResultStr(result, index)  # → (et_str)",
+     "python_ctypes_name": "get_word_result_str",
+     "in_ctypes_binding": true,
      "description": "在使用GetWords进行词组识别以后,可以用此接口进行识别各个词组的内容",
      "params": [
       {
@@ -15072,6 +15760,9 @@
      "group_name": "OCR 文字识别",
      "name": "AutoOcr",
      "signature": "AutoOcr(x1, y1, x2, y2, color, sim) → (et_str)",
+     "python_example": "op.AutoOcr(x1, y1, x2, y2, color, sim)  # → (et_str)",
+     "python_ctypes_name": "auto_ocr",
+     "in_ctypes_binding": false,
      "description": "免字库 OCR 家族速查（免字库 = 未 SetDict/UseDict，走内置 ONNX 引擎；有字库 = 点阵字库匹配）：\nAutoOcr / AutoOcrFromFile（归一入口，推荐）\ncolor 为空 → 原图直识别（同 OcrAuto）；\ncolor 非空 → 按颜色二值化（同 OcrAutoColor，含字库协同）\nOcrAuto / OcrAutoFromFile 显式原图：不二值化，原图直喂引擎，无需颜色（= AutoOcr 空色分支）\nOcr / OcrFromFile / OcrEx 免字库时不二值化（颜色不参与）；有字库时按颜色二值化\nOcrAutoColor / OcrAutoColorFromFile / OcrAutoColorLine / OcrAutoColorEx\n显式二值化：先按颜色二值化（支持 \"@背景色\" 反白）再识别，必须给颜色\n⚠️ sim 语义双关：免字库路径 = 置信度阈值（默认 0.7，ONNX 置信度 ≈0.85+，传 1.0 会全滤光）；\n字库路径 = 颜色/点阵相似度 (0.1-1.0)。\n免字库 OCR 归一入口（推荐）：color 为空走原图直识别，非空走按颜色二值化。\n两分支行为分别与 OcrAuto / OcrAutoColor 完全一致，已有脚本可无缝换用本入口。",
      "params": [
       {
@@ -15179,6 +15870,9 @@
      "group_name": "OCR 文字识别",
      "name": "Ocr",
      "signature": "Ocr(x1, y1, x2, y2, color, sim) → (et_str)",
+     "python_example": "op.Ocr(x1, y1, x2, y2, color, sim)  # → (et_str)",
+     "python_ctypes_name": "ocr",
+     "in_ctypes_binding": true,
      "description": "识别屏幕范围(x1,y1,x2,y2)内符合color_format的字符串,并且相似度为sim,sim取值范围(0.1-1.0),\n已装载字库时按 color_format 二值化后做字库识别；未装载字库时走免字库引擎，直接对整幅区域\n原图识别（color_format 不参与过滤，要按颜色识别请用 OcrAutoColor 系接口）",
      "params": [
       {
@@ -15286,6 +15980,9 @@
      "group_name": "OCR 文字识别",
      "name": "OcrEx",
      "signature": "OcrEx(x1, y1, x2, y2, color, sim) → (et_str)",
+     "python_example": "op.OcrEx(x1, y1, x2, y2, color, sim)  # → (et_str)",
+     "python_ctypes_name": "ocr_ex",
+     "in_ctypes_binding": true,
      "description": "同 Ocr，但返回识别到的字符串以及每个字符的坐标（已装载字库时结果按阅读顺序拼接：包围盒纵向重叠聚类成行、行内按 x 排序）",
      "params": [
       {
@@ -15393,6 +16090,9 @@
      "group_name": "OCR 文字识别",
      "name": "OcrAutoColor",
      "signature": "OcrAutoColor(x1, y1, x2, y2, color, sim) → (et_str)",
+     "python_example": "op.OcrAutoColor(x1, y1, x2, y2, color, sim)  # → (et_str)",
+     "python_ctypes_name": "ocr_auto_color",
+     "in_ctypes_binding": true,
      "description": "区域截图后按颜色二值化再做免字库 OCR：输入区域、颜色、相似度（置信度阈值，默认 0.7）。",
      "params": [
       {
@@ -15500,6 +16200,9 @@
      "group_name": "OCR 文字识别",
      "name": "OcrAutoColorLine",
      "signature": "OcrAutoColorLine(x1, y1, x2, y2, color, sim) → (et_str)",
+     "python_example": "op.OcrAutoColorLine(x1, y1, x2, y2, color, sim)  # → (et_str)",
+     "python_ctypes_name": "ocr_auto_color_line",
+     "in_ctypes_binding": true,
      "description": "单行快模式 OcrAutoColor：颜色二值化后整图直接 rec（跳过检测），适用于读出区/固定单行文本。\n区域须只含单行文本，否则结果语义由使用方承担。\n行切分参数为硬编码阈值（OC6，暂不提供参数）：行间隙 >3px 切段、段高 <5px 视为噪点丢弃。",
      "params": [
       {
@@ -15607,6 +16310,9 @@
      "group_name": "OCR 文字识别",
      "name": "OcrAutoColorEx",
      "signature": "OcrAutoColorEx(x1, y1, x2, y2, color, sim) → (et_str)",
+     "python_example": "op.OcrAutoColorEx(x1, y1, x2, y2, color, sim)  # → (et_str)",
+     "python_ctypes_name": "ocr_auto_color_ex",
+     "in_ctypes_binding": true,
      "description": "结构化 OcrAutoColor：输出 \"x1,y1,x2,y2,conf,text|...\"（bbox 为客户区坐标，相对绑定窗口客户区左上角），返回命中行数。",
      "params": [
       {
@@ -15719,6 +16425,9 @@
      "group_name": "OCR 文字识别",
      "name": "FindStr",
      "signature": "FindStr(x1, y1, x2, y2, strs, color, sim) → (ret, ret, ret)",
+     "python_example": "op.FindStr(x1, y1, x2, y2, strs, color, sim)  # → (ret, ret, ret)",
+     "python_ctypes_name": "find_str",
+     "in_ctypes_binding": true,
      "description": "在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置",
      "params": [
       {
@@ -15862,6 +16571,9 @@
      "group_name": "OCR 文字识别",
      "name": "FindStrEx",
      "signature": "FindStrEx(x1, y1, x2, y2, strs, color, sim) → (etstr)",
+     "python_example": "op.FindStrEx(x1, y1, x2, y2, strs, color, sim)  # → (etstr)",
+     "python_ctypes_name": "find_str_ex",
+     "in_ctypes_binding": true,
      "description": "返回符合color_format的所有坐标位置",
      "params": [
       {
@@ -15981,6 +16693,9 @@
      "group_name": "OCR 文字识别",
      "name": "OcrAuto",
      "signature": "OcrAuto(x1, y1, x2, y2, sim) → (et_str)",
+     "python_example": "op.OcrAuto(x1, y1, x2, y2, sim)  # → (et_str)",
+     "python_ctypes_name": "ocr_auto",
+     "in_ctypes_binding": true,
      "description": "识别屏幕范围(x1,y1,x2,y2)内的字符串，无需指定颜色。\n⚠️ 并非\"自动二值化\"：免字库时原图 BGRA 直喂 ONNX 引擎（引擎自带预处理，二值化反而可能丢信息）；\n已装载字库时按空颜色串二值化 + 字库匹配（≈无颜色筛选）。要按颜色二值化请用 OcrAutoColor 系。",
      "params": [
       {
@@ -16076,6 +16791,9 @@
      "group_name": "OCR 文字识别",
      "name": "OcrFromFile",
      "signature": "OcrFromFile(file_name, color_format, sim) → (etstr)",
+     "python_example": "op.OcrFromFile(file_name, color_format, sim)  # → (etstr)",
+     "python_ctypes_name": "ocr_from_file",
+     "in_ctypes_binding": true,
      "description": "从文件中识别图片，规则同 Ocr",
      "params": [
       {
@@ -16147,6 +16865,9 @@
      "group_name": "OCR 文字识别",
      "name": "OcrAutoColorFromFile",
      "signature": "OcrAutoColorFromFile(file_name, color_format, sim) → (etstr)",
+     "python_example": "op.OcrAutoColorFromFile(file_name, color_format, sim)  # → (etstr)",
+     "python_ctypes_name": "ocr_auto_color_from_file",
+     "in_ctypes_binding": true,
      "description": "文件版 OcrAutoColor：读取图片后按颜色二值化再做免字库 OCR。",
      "params": [
       {
@@ -16218,6 +16939,9 @@
      "group_name": "OCR 文字识别",
      "name": "OcrAutoFromFile",
      "signature": "OcrAutoFromFile(file_name, sim) → (etstr)",
+     "python_example": "op.OcrAutoFromFile(file_name, sim)  # → (etstr)",
+     "python_ctypes_name": "ocr_auto_from_file",
+     "in_ctypes_binding": true,
      "description": "从文件中识别图片，无需指定颜色，规则同 OcrAuto",
      "params": [
       {
@@ -16277,6 +17001,9 @@
      "group_name": "OCR 文字识别",
      "name": "FindLine",
      "signature": "FindLine(x1, y1, x2, y2, color, sim) → (etstr)",
+     "python_example": "op.FindLine(x1, y1, x2, y2, color, sim)  # → (etstr)",
+     "python_ctypes_name": "find_line",
+     "in_ctypes_binding": true,
      "description": "查找频幕中的直线",
      "params": [
       {
@@ -16384,6 +17111,9 @@
      "group_name": "OCR 文字识别",
      "name": "FindLineEx",
      "signature": "FindLineEx(x1, y1, x2, y2, color, sim) → (etstr, ret)",
+     "python_example": "op.FindLineEx(x1, y1, x2, y2, color, sim)  # → (etstr, ret)",
+     "python_ctypes_name": "find_line_ex",
+     "in_ctypes_binding": true,
      "description": "查找屏幕中的直线(扩展版): 额外返回该直线上的点数(霍夫累加器峰值)。\nFindLine 无阈值、永远返回一条\"最强\"直线，即便图中并无直线也会返回噪点拟合的结果；\n本扩展把点数一并输出，调用者可据此判断结果是否可信(点数越大越可信，0 表示未截图/无前景点)。",
      "params": [
       {
@@ -16503,6 +17233,9 @@
      "group_name": "OCR 文字识别",
      "name": "FindLineExS",
      "signature": "FindLineExS(x1, y1, x2, y2, color, sim, min_points) → (etstr, ret)",
+     "python_example": "op.FindLineExS(x1, y1, x2, y2, color, sim, min_points)  # → (etstr, ret)",
+     "python_ctypes_name": "find_line_ex_s",
+     "in_ctypes_binding": true,
      "description": "查找直线(增强版): 二值化走孤立点去噪 + min_points 阈值。\n峰值点数 < min_points 时 retstr 置空(视为无可靠直线，根治幻觉线)，ret 仍返回真实峰值点数供阈值标定。",
      "params": [
       {
@@ -16634,6 +17367,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetModuleSize",
      "signature": "GetModuleSize(hwnd, module) → (ret)",
+     "python_example": "op.GetModuleSize(hwnd, module)  # → (ret)",
+     "python_ctypes_name": "get_module_size",
+     "in_ctypes_binding": false,
      "description": "模块大小（字节），失败/未找到返回 0。module 为模块基名（大小写不敏感）。",
      "params": [
       {
@@ -16693,6 +17429,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetModuleInfoList",
      "signature": "GetModuleInfoList(hwnd) → (etstr)",
+     "python_example": "op.GetModuleInfoList(hwnd)  # → (etstr)",
+     "python_ctypes_name": "get_module_info_list",
+     "in_ctypes_binding": false,
      "description": "模块列表 JSON：{\"ok\":1,\"modules\":[{\"name\":..,\"path\":..,\"base\":\"HEX\",\"size\":n},...]}。",
      "params": [
       {
@@ -16740,6 +17479,9 @@
      "group_name": "OCR 文字识别",
      "name": "VirtualProtectEx",
      "signature": "VirtualProtectEx(hwnd, address, size, new_protect) → (old_protect, ret)",
+     "python_example": "op.VirtualProtectEx(hwnd, address, size, new_protect)  # → (old_protect, ret)",
+     "python_ctypes_name": "virtual_protect_ex",
+     "in_ctypes_binding": false,
      "description": "修改地址保护属性，ret=1 成功 0 失败，old_protect 带回原属性（PAGE_* 常量）。\naddress 支持表达式：十六进制/四则运算//多级指针 [addr+off]。",
      "params": [
       {
@@ -16835,6 +17577,9 @@
      "group_name": "OCR 文字识别",
      "name": "VirtualAllocEx",
      "signature": "VirtualAllocEx(hwnd, address, size, alloc_type, protect) → (etstr)",
+     "python_example": "op.VirtualAllocEx(hwnd, address, size, alloc_type, protect)  # → (etstr)",
+     "python_ctypes_name": "virtual_alloc_ex",
+     "in_ctypes_binding": false,
      "description": "在目标进程分配内存，返回分配地址大写十六进制串；失败返回空。\nalloc_type/protect 传 0 用默认 MEM_COMMIT|MEM_RESERVE / PAGE_READWRITE。",
      "params": [
       {
@@ -16930,6 +17675,9 @@
      "group_name": "OCR 文字识别",
      "name": "FileExists",
      "signature": "FileExists(file_name) → (ret)",
+     "python_example": "op.FileExists(file_name)  # → (ret)",
+     "python_ctypes_name": "file_exists",
+     "in_ctypes_binding": false,
      "description": "全部路径为宽字符绝对/相对路径；返回值约定与窗口系一致：ret=1 成功，0 失败（路径非法/不存在/拒绝访问）。\n判断文件或文件夹是否存在（file_name 可为目录）",
      "params": [
       {
@@ -16977,6 +17725,9 @@
      "group_name": "OCR 文字识别",
      "name": "CreateFolder",
      "signature": "CreateFolder(folder_name) → (ret)",
+     "python_example": "op.CreateFolder(folder_name)  # → (ret)",
+     "python_ctypes_name": "create_folder",
+     "in_ctypes_binding": false,
      "description": "创建文件夹（含多级父目录，已存在视为成功）",
      "params": [
       {
@@ -17024,6 +17775,9 @@
      "group_name": "OCR 文字识别",
      "name": "DeleteFolder",
      "signature": "DeleteFolder(folder_name) → (ret)",
+     "python_example": "op.DeleteFolder(folder_name)  # → (ret)",
+     "python_ctypes_name": "delete_folder",
+     "in_ctypes_binding": false,
      "description": "递归删除文件夹及其全部内容；路径非法/不存在返回 0",
      "params": [
       {
@@ -17071,6 +17825,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetFileList",
      "signature": "GetFileList(folder, wildcard) → (etstr)",
+     "python_example": "op.GetFileList(folder, wildcard)  # → (etstr)",
+     "python_ctypes_name": "get_file_list",
+     "in_ctypes_binding": false,
      "description": "遍历文件夹，wildcard 支持 * ?（空=全部）。返回全路径 \"p1|p2|...\"，无匹配返回空串。",
      "params": [
       {
@@ -17130,6 +17887,9 @@
      "group_name": "OCR 文字识别",
      "name": "CopyFile",
      "signature": "CopyFile(src_file, dst_file) → (ret)",
+     "python_example": "op.CopyFile(src_file, dst_file)  # → (ret)",
+     "python_ctypes_name": "copy_file",
+     "in_ctypes_binding": false,
      "description": "复制文件（覆盖目标）",
      "params": [
       {
@@ -17189,6 +17949,9 @@
      "group_name": "OCR 文字识别",
      "name": "MoveFile",
      "signature": "MoveFile(src_file, dst_file) → (ret)",
+     "python_example": "op.MoveFile(src_file, dst_file)  # → (ret)",
+     "python_ctypes_name": "move_file",
+     "in_ctypes_binding": false,
      "description": "移动/重命名文件",
      "params": [
       {
@@ -17248,6 +18011,9 @@
      "group_name": "OCR 文字识别",
      "name": "DeleteFile",
      "signature": "DeleteFile(file_name) → (ret)",
+     "python_example": "op.DeleteFile(file_name)  # → (ret)",
+     "python_ctypes_name": "delete_file",
+     "in_ctypes_binding": false,
      "description": "删除文件",
      "params": [
       {
@@ -17295,6 +18061,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetFileSize",
      "signature": "GetFileSize(file_name) → (size, ret)",
+     "python_example": "op.GetFileSize(file_name)  # → (size, ret)",
+     "python_ctypes_name": "get_file_size",
+     "in_ctypes_binding": false,
      "description": "文件大小（字节，int64）。ret=1 成功，0 失败。",
      "params": [
       {
@@ -17354,6 +18123,9 @@
      "group_name": "OCR 文字识别",
      "name": "ReadFileString",
      "signature": "ReadFileString(file_name) → (etstr)",
+     "python_example": "op.ReadFileString(file_name)  # → (etstr)",
+     "python_ctypes_name": "read_file_string",
+     "in_ctypes_binding": false,
      "description": "读取文本文件全部内容（按 UTF-8 解码；BOM 自动剔除）。失败/空文件返回空串。",
      "params": [
       {
@@ -17401,6 +18173,9 @@
      "group_name": "OCR 文字识别",
      "name": "WriteStringToFile",
      "signature": "WriteStringToFile(file_name, content) → (ret)",
+     "python_example": "op.WriteStringToFile(file_name, content)  # → (ret)",
+     "python_ctypes_name": "write_string_to_file",
+     "in_ctypes_binding": false,
      "description": "写入文本文件（UTF-8 带 BOM，覆盖写）。ret=1 成功。",
      "params": [
       {
@@ -17460,6 +18235,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetFileName",
      "signature": "GetFileName(file_path, flag) → (etstr)",
+     "python_example": "op.GetFileName(file_path, flag)  # → (etstr)",
+     "python_ctypes_name": "get_file_name",
+     "in_ctypes_binding": false,
      "description": "路径解析：flag 0=文件名含扩展名 1=仅文件名 2=仅扩展名(含.) 3=目录部分",
      "params": [
       {
@@ -17519,6 +18297,9 @@
      "group_name": "OCR 文字识别",
      "name": "ToAbsolutePath",
      "signature": "ToAbsolutePath(path) → (etstr)",
+     "python_example": "op.ToAbsolutePath(path)  # → (etstr)",
+     "python_ctypes_name": "to_absolute_path",
+     "in_ctypes_binding": false,
      "description": "相对路径转绝对路径（不做存在性检查，仅规范化 .\\ ..\\ 与斜杠）",
      "params": [
       {
@@ -17566,6 +18347,9 @@
      "group_name": "OCR 文字识别",
      "name": "KeyPressHotkey",
      "signature": "KeyPressHotkey(combo) → (ret)",
+     "python_example": "op.KeyPressHotkey(combo)  # → (ret)",
+     "python_ctypes_name": "key_press_hotkey",
+     "in_ctypes_binding": false,
      "description": "发送组合键，combo 形如 \"ctrl+alt+a\" / \"shift+f1\" / \"win+d\"。修饰键支持 ctrl/control/alt/shift/win，主键支持\nvkmap 命名键（f1/enter/esc...）或单字符。ret=1 成功，0 解析失败或后端失败。",
      "params": [
       {
@@ -17613,6 +18397,9 @@
      "group_name": "OCR 文字识别",
      "name": "GetWindowScale",
      "signature": "GetWindowScale(hwnd) → (etstr)",
+     "python_example": "op.GetWindowScale(hwnd)  # → (etstr)",
+     "python_ctypes_name": "get_window_scale",
+     "in_ctypes_binding": false,
      "description": "取窗口实际缩放系数（1.00=96DPI 无缩放），两位小数字符串如 \"1.25\"；失败返回空串。\n优先 GetDpiForWindow（Per-Monitor V2 感知窗口），退化为窗口所在显示器 DPI。",
      "params": [
       {
@@ -17660,6 +18447,9 @@
      "group_name": "OCR 文字识别",
      "name": "TerminateProcess",
      "signature": "TerminateProcess(pid) → (ret)",
+     "python_example": "op.TerminateProcess(pid)  # → (ret)",
+     "python_ctypes_name": "terminate_process",
+     "in_ctypes_binding": false,
      "description": "按 PID 终止进程（不限树）；TerminateProcessTree 先父后子递归终止整棵进程树。",
      "params": [
       {
@@ -17707,6 +18497,9 @@
      "group_name": "OCR 文字识别",
      "name": "TerminateProcessTree",
      "signature": "TerminateProcessTree(pid) → (ret)",
+     "python_example": "op.TerminateProcessTree(pid)  # → (ret)",
+     "python_ctypes_name": "terminate_process_tree",
+     "in_ctypes_binding": false,
      "description": "结束进程及其整棵子进程树",
      "params": [
       {
@@ -17754,6 +18547,9 @@
      "group_name": "OCR 文字识别",
      "name": "DecodeQRCode",
      "signature": "DecodeQRCode(x1, y1, x2, y2) → (etstr)",
+     "python_example": "op.DecodeQRCode(x1, y1, x2, y2)  # → (etstr)",
+     "python_ctypes_name": "decode_qr_code",
+     "in_ctypes_binding": false,
      "description": "识别绑定窗口客户区区域内二维码文本，未识别返回空串",
      "params": [
       {
@@ -17837,6 +18633,9 @@
      "group_name": "OCR 文字识别",
      "name": "DecodeQRCodeFromFile",
      "signature": "DecodeQRCodeFromFile(file_name) → (etstr)",
+     "python_example": "op.DecodeQRCodeFromFile(file_name)  # → (etstr)",
+     "python_ctypes_name": "decode_qr_code_from_file",
+     "in_ctypes_binding": false,
      "description": "识别图片文件中的二维码文本",
      "params": [
       {
@@ -17884,6 +18683,9 @@
      "group_name": "OCR 文字识别",
      "name": "CreateQRCode",
      "signature": "CreateQRCode(text, file_name, size) → (ret)",
+     "python_example": "op.CreateQRCode(text, file_name, size)  # → (ret)",
+     "python_ctypes_name": "create_qr_code",
+     "in_ctypes_binding": false,
      "description": "生成二维码保存为图片（PNG/BMP 由扩展名决定），size 为边长像素（<=0 用 256）。ret=1 成功。",
      "params": [
       {
@@ -17955,6 +18757,9 @@
      "group_name": "OCR 文字识别",
      "name": "JsonIsValid",
      "signature": "JsonIsValid(json_text) → ret",
+     "python_example": "op.JsonIsValid(json_text)  # → ret",
+     "python_ctypes_name": "json_is_valid",
+     "in_ctypes_binding": false,
      "description": "无句柄路径直取式 JSON 族：所有函数收 JSON 文本 + 路径（\"a.b[0].c\"，兼容 \"a.b.0\"），\n给 OP 自身的 JSON 返回值（YOLO/CV/OCR/模块列表等）补解析侧，亦支持用户自有数据。\n失败约定：取值类 ret=0/空串，Set/Append/Delete 返回空串。\n校验文本是否合法 JSON。ret=1 合法，0 非法。",
      "params": [
       {
@@ -17995,6 +18800,9 @@
      "group_name": "OCR 文字识别",
      "name": "JsonGetString",
      "signature": "JsonGetString(json_text, path) → (etstr, ret)",
+     "python_example": "op.JsonGetString(json_text, path)  # → (etstr, ret)",
+     "python_ctypes_name": "json_get_string",
+     "in_ctypes_binding": false,
      "description": "取路径处的字符串值；类型不符/不存在返回空串且 ret=0。",
      "params": [
       {
@@ -18066,6 +18874,9 @@
      "group_name": "OCR 文字识别",
      "name": "JsonGetNumber",
      "signature": "JsonGetNumber(json_text, path) → (value, ret)",
+     "python_example": "op.JsonGetNumber(json_text, path)  # → (value, ret)",
+     "python_ctypes_name": "json_get_number",
+     "in_ctypes_binding": false,
      "description": "取路径处的数值；类型不符/不存在 ret=0。",
      "params": [
       {
@@ -18137,6 +18948,9 @@
      "group_name": "OCR 文字识别",
      "name": "JsonGetBool",
      "signature": "JsonGetBool(json_text, path) → (value, ret)",
+     "python_example": "op.JsonGetBool(json_text, path)  # → (value, ret)",
+     "python_ctypes_name": "json_get_bool",
+     "in_ctypes_binding": false,
      "description": "取路径处的布尔值（value 0/1）；类型不符/不存在 ret=0。",
      "params": [
       {
@@ -18208,6 +19022,9 @@
      "group_name": "OCR 文字识别",
      "name": "JsonGetSize",
      "signature": "JsonGetSize(json_text, path) → ret",
+     "python_example": "op.JsonGetSize(json_text, path)  # → ret",
+     "python_ctypes_name": "json_get_size",
+     "in_ctypes_binding": false,
      "description": "数组长度/对象键数；非集合或不存在返回 -1。",
      "params": [
       {
@@ -18260,6 +19077,9 @@
      "group_name": "OCR 文字识别",
      "name": "JsonGetKeys",
      "signature": "JsonGetKeys(json_text, path) → (etstr, ret)",
+     "python_example": "op.JsonGetKeys(json_text, path)  # → (etstr, ret)",
+     "python_ctypes_name": "json_get_keys",
+     "in_ctypes_binding": false,
      "description": "对象键名序列化为 JSON 数组文本（如 [\"a\",\"b\"]）；非对象/不存在返回空串且 ret=0。",
      "params": [
       {
@@ -18331,6 +19151,9 @@
      "group_name": "OCR 文字识别",
      "name": "JsonSetString",
      "signature": "JsonSetString(json_text, path, value) → (etstr, ret)",
+     "python_example": "op.JsonSetString(json_text, path, value)  # → (etstr, ret)",
+     "python_ctypes_name": "json_set_string",
+     "in_ctypes_binding": false,
      "description": "写入路径（不存在自动创建中间对象/数组），返回新 JSON 串；失败返回空串。",
      "params": [
       {
@@ -18414,6 +19237,9 @@
      "group_name": "OCR 文字识别",
      "name": "JsonSetNumber",
      "signature": "JsonSetNumber(json_text, path, value) → (etstr, ret)",
+     "python_example": "op.JsonSetNumber(json_text, path, value)  # → (etstr, ret)",
+     "python_ctypes_name": "json_set_number",
+     "in_ctypes_binding": false,
      "description": "向 JSON 文本路径处写入数值，返回新 JSON 串；父路径不可达返回空串",
      "params": [
       {
@@ -18497,6 +19323,9 @@
      "group_name": "OCR 文字识别",
      "name": "JsonSetBool",
      "signature": "JsonSetBool(json_text, path, value) → (etstr, ret)",
+     "python_example": "op.JsonSetBool(json_text, path, value)  # → (etstr, ret)",
+     "python_ctypes_name": "json_set_bool",
+     "in_ctypes_binding": false,
      "description": "向 JSON 文本路径处写入布尔值，返回新 JSON 串；父路径不可达返回空串",
      "params": [
       {
@@ -18580,6 +19409,9 @@
      "group_name": "OCR 文字识别",
      "name": "JsonAppend",
      "signature": "JsonAppend(json_text, path, raw_json) → (etstr, ret)",
+     "python_example": "op.JsonAppend(json_text, path, raw_json)  # → (etstr, ret)",
+     "python_ctypes_name": "json_append",
+     "in_ctypes_binding": false,
      "description": "数组追加元素（raw_json 为元素文本，如 \"abc\"/123/{\"k\":1}；路径不存在先建数组）。",
      "params": [
       {
@@ -18663,6 +19495,9 @@
      "group_name": "OCR 文字识别",
      "name": "JsonDelete",
      "signature": "JsonDelete(json_text, path) → (etstr, ret)",
+     "python_example": "op.JsonDelete(json_text, path)  # → (etstr, ret)",
+     "python_ctypes_name": "json_delete",
+     "in_ctypes_binding": false,
      "description": "删除对象键或数组元素，返回新 JSON 串；父路径不可达返回空串。",
      "params": [
       {
@@ -18734,6 +19569,9 @@
      "group_name": "OCR 文字识别",
      "name": "HttpGet",
      "signature": "HttpGet(url, headers_json, timeout_ms) → (etstr, ret)",
+     "python_example": "op.HttpGet(url, headers_json, timeout_ms)  # → (etstr, ret)",
+     "python_ctypes_name": "http_get",
+     "in_ctypes_binding": false,
      "description": "系统 WinHTTP 直连（零第三方依赖），用途：脚本对接大模型等 OpenAI 兼容 API——\nOpHttpPost + Json 族即构成完整闭环。请求/响应体 UTF-8；headers_json 为 JSON\n对象文本（如 {\"Authorization\":\"Bearer sk-xxx\"}），复用 JSON 族解析。\n非 2xx 不算传输失败：ret=0 但 retstr 带回响应体（错误 JSON 可见）；传输失败空串。\ntimeout_ms<=0 用 30000，钳 1000-300000。",
      "params": [
       {
@@ -18817,6 +19655,9 @@
      "group_name": "OCR 文字识别",
      "name": "HttpPost",
      "signature": "HttpPost(url, body, headers_json, timeout_ms) → (etstr, ret)",
+     "python_example": "op.HttpPost(url, body, headers_json, timeout_ms)  # → (etstr, ret)",
+     "python_ctypes_name": "http_post",
+     "in_ctypes_binding": false,
      "description": "POST 请求（系统 WinHTTP 直连，UTF-8；headers_json 放 Content-Type）；非 2xx 也返回响应体，传输失败空串",
      "params": [
       {
@@ -18912,6 +19753,9 @@
      "group_name": "OCR 文字识别",
      "name": "HttpDownloadFile",
      "signature": "HttpDownloadFile(url, file_name, timeout_ms) → (ret)",
+     "python_example": "op.HttpDownloadFile(url, file_name, timeout_ms)  # → (ret)",
+     "python_ctypes_name": "http_download_file",
+     "in_ctypes_binding": false,
      "description": "下载到文件（原始字节流式落盘）。parent 目录须已存在。ret=1 成功。",
      "params": [
       {
@@ -18990,6 +19834,9 @@
      "group_name": "YOLO 目标检测",
      "name": "SetYoloEngine",
      "signature": "SetYoloEngine(path_of_engine, dll_name, argv) → ret",
+     "python_example": "op.SetYoloEngine(path_of_engine, dll_name, argv)  # → ret",
+     "python_ctypes_name": "set_yolo_engine",
+     "in_ctypes_binding": true,
      "description": "选择 YOLO 引擎并加载模型。统一入口：path_of_engine 直接传 .onnx 模型文件路径\n（dll_name 留空）即自动切进程内 ONNX 引擎，等价于 (\"onnx\", 模型路径, argv)。\n旧写法仍兼容：engine 以 \"onnx\" 开头=进程内 ONNX（dll_name=模型路径，空=内置资源段模型）；\n否则=远程 HTTP（http(s):// 完整/基础 URL 或别名 yolo/yolo_http 等）。\nONNX 类别名优先自动读取模型内嵌 metadata（ultralytics export 自带），无需 --labels；\n无 metadata 或非 ultralytics 导出时才需要 --labels=a,b,c 或 --labels=@classes.txt 兜底。\nargv 空格分隔，ONNX 另支持 --conf=0.25 --iou=0.45（detect 传 <=0 时的默认阈值）。",
      "params": [
       {
@@ -19054,6 +19901,9 @@
      "group_name": "YOLO 目标检测",
      "name": "YoloDetect",
      "signature": "YoloDetect(x1, y1, x2, y2, conf, iou) → (etjson, ret)",
+     "python_example": "op.YoloDetect(x1, y1, x2, y2, conf, iou)  # → (etjson, ret)",
+     "python_ctypes_name": "yolo_detect",
+     "in_ctypes_binding": true,
      "description": "在区域运行 YOLO 目标检测，返回 JSON 数组 [{class,score,x,y,w,h},...]",
      "params": [
       {
@@ -19173,6 +20023,9 @@
      "group_name": "YOLO 目标检测",
      "name": "YoloDetectFromFile",
      "signature": "YoloDetectFromFile(file_name, conf, iou) → (etjson, ret)",
+     "python_example": "op.YoloDetectFromFile(file_name, conf, iou)  # → (etjson, ret)",
+     "python_ctypes_name": "yolo_detect_from_file",
+     "in_ctypes_binding": true,
      "description": "对图片文件运行 YOLO 检测，返回同 YoloDetect",
      "params": [
       {
@@ -19263,6 +20116,9 @@
      "group_name": "Algorithm 算法",
      "name": "AStarFindPath",
      "signature": "AStarFindPath(mapWidth, mapHeight, disable_points, beginX, beginY, endX, endY) → (et)",
+     "python_example": "op.AStarFindPath(mapWidth, mapHeight, disable_points, beginX, beginY, endX, endY)  # → (et)",
+     "python_ctypes_name": "a_star_find_path",
+     "in_ctypes_binding": true,
      "description": "A星算法。disable_points: \"x,y|x,y\" 障碍点列表（越界点忽略）；返回路径 \"x,y|x,y\"（起点→终点），不可达返回空串。",
      "params": [
       {
@@ -19382,6 +20238,9 @@
      "group_name": "Algorithm 算法",
      "name": "FindNearestPos",
      "signature": "FindNearestPos(all_pos, type, x, y) → (et)",
+     "python_example": "op.FindNearestPos(all_pos, type, x, y)  # → (et)",
+     "python_ctypes_name": "find_nearest_pos",
+     "in_ctypes_binding": true,
      "description": "从坐标列表中查找距离指定坐标最近的点。all_pos: type=1 时 \"x,y|x,y\"；否则 \"name,x,y|...\"（name 不含空格/逗号）。\n返回 \"x,y\"（type=1）或 \"name,x,y\"；列表无有效项返回空串；等距时取先出现的。",
      "params": [
       {
@@ -19465,6 +20324,9 @@
      "group_name": "Algorithm 算法",
      "name": "SortPosDistance",
      "signature": "SortPosDistance(all_pos, type, x, y) → (et)",
+     "python_example": "op.SortPosDistance(all_pos, type, x, y)  # → (et)",
+     "python_ctypes_name": "sort_pos_distance",
+     "in_ctypes_binding": false,
      "description": "坐标点按与 (x,y) 的距离升序排序（欧氏距离平方比较）。格式与 FindNearestPos 相同，输出保持输入格式，等距保持输入顺序。",
      "params": [
       {
@@ -19548,6 +20410,9 @@
      "group_name": "Algorithm 算法",
      "name": "SetAStarMap",
      "signature": "SetAStarMap(bitmap_file, scale, offset_x, offset_y) → (ret)",
+     "python_example": "op.SetAStarMap(bitmap_file, scale, offset_x, offset_y)  # → (ret)",
+     "python_ctypes_name": "set_a_star_map",
+     "in_ctypes_binding": false,
      "description": "设置寻路障碍地图（位图文件，黑=障碍：亮度 (r+g+b)/3<128）。scale 降采样倍率（块内任一障碍像素则整格障碍）。\noffset_x/offset_y：位图 (0,0) 对应的世界坐标（支持负值）。file 为空串清空地图。",
      "params": [
       {
@@ -19631,6 +20496,9 @@
      "group_name": "Algorithm 算法",
      "name": "SetAStarMapData",
      "signature": "SetAStarMapData(width, height, bgra_data, size, scale, offset_x, offset_y) → (ret)",
+     "python_example": "op.SetAStarMapData(width, height, bgra_data, size, scale, offset_x, offset_y)  # → (ret)",
+     "python_ctypes_name": "set_a_star_map_data",
+     "in_ctypes_binding": false,
      "description": "内存版障碍地图（32bpp BGRA top-down）。C API 专用。",
      "params": [
       {
@@ -19750,6 +20618,9 @@
      "group_name": "Algorithm 算法",
      "name": "AStarFindPathBM",
      "signature": "AStarFindPathBM(beginX, beginY, endX, endY) → (et)",
+     "python_example": "op.AStarFindPathBM(beginX, beginY, endX, endY)  # → (et)",
+     "python_ctypes_name": "a_star_find_path_bm",
+     "in_ctypes_binding": true,
      "description": "障碍位图 A*：对已设置地图寻路，输出世界坐标路径 \"x,y|x,y\"（起点→终点，格中心），不可达/未设图返回空串。",
      "params": [
       {
@@ -19833,6 +20704,9 @@
      "group_name": "Algorithm 算法",
      "name": "AStarFindPathWay",
      "signature": "AStarFindPathWay(points) → (et)",
+     "python_example": "op.AStarFindPathWay(points)  # → (et)",
+     "python_ctypes_name": "a_star_find_path_way",
+     "in_ctypes_binding": true,
      "description": "多点途经寻路：\"x,y|x,y|...\" 首点为起点，逐段寻路拼接（衔接点去重）；任一段不可达整体返回空串。",
      "params": [
       {
@@ -19880,6 +20754,9 @@
      "group_name": "Algorithm 算法",
      "name": "FindNearestFeasiblePoint",
      "signature": "FindNearestFeasiblePoint(x, y) → (et)",
+     "python_example": "op.FindNearestFeasiblePoint(x, y)  # → (et)",
+     "python_ctypes_name": "find_nearest_feasible_point",
+     "in_ctypes_binding": false,
      "description": "找距离 (x,y) 最近的格中心可通行坐标（世界坐标 \"x,y\"）：落障碍格时从该格 BFS 扩散找最近可走格。\n未设地图/全图皆墙返回空串。欧拉 FindNearestFeasiblePoint 对等。",
      "params": [
       {
@@ -19939,6 +20816,9 @@
      "group_name": "Algorithm 算法",
      "name": "SmoothPathByLOS",
      "signature": "SmoothPathByLOS(path) → (et)",
+     "python_example": "op.SmoothPathByLOS(path)  # → (et)",
+     "python_ctypes_name": "smooth_path_by_los",
+     "in_ctypes_binding": true,
      "description": "视线拉直：贪心合并可直视的相邻路径点（需已设置障碍地图），路径更自然；未设图原样返回。",
      "params": [
       {
@@ -19986,6 +20866,9 @@
      "group_name": "Algorithm 算法",
      "name": "SimplifyPath",
      "signature": "SimplifyPath(path, epsilon) → (et)",
+     "python_example": "op.SimplifyPath(path, epsilon)  # → (et)",
+     "python_ctypes_name": "simplify_path",
+     "in_ctypes_binding": true,
      "description": "RDP 路径抽稀：epsilon 为最大垂直偏差（世界坐标单位），<=0 原样返回。",
      "params": [
       {
@@ -20045,6 +20928,9 @@
      "group_name": "Algorithm 算法",
      "name": "IsLineBlocked",
      "signature": "IsLineBlocked(x1, y1, x2, y2) → (ret)",
+     "python_example": "op.IsLineBlocked(x1, y1, x2, y2)  # → (ret)",
+     "python_ctypes_name": "is_line_blocked",
+     "in_ctypes_binding": true,
      "description": "两点视线遮挡判定（世界坐标，需已设置障碍地图）：1=被挡 0=通 -1=未设置地图。",
      "params": [
       {
@@ -20128,6 +21014,9 @@
      "group_name": "Algorithm 算法",
      "name": "FindNearestPathPoint",
      "signature": "FindNearestPathPoint(path, x, y) → (index, nx, ny, ret)",
+     "python_example": "op.FindNearestPathPoint(path, x, y)  # → (index, nx, ny, ret)",
+     "python_ctypes_name": "find_nearest_path_point",
+     "in_ctypes_binding": true,
      "description": "点到路径最近点：输出 0 基索引与最近点坐标；path 非法/为空返回 0。",
      "params": [
       {
@@ -20235,6 +21124,9 @@
      "group_name": "Algorithm 算法",
      "name": "PointInPolygon",
      "signature": "PointInPolygon(point, polygon) → (ret)",
+     "python_example": "op.PointInPolygon(point, polygon)  # → (ret)",
+     "python_ctypes_name": "point_in_polygon",
+     "in_ctypes_binding": true,
      "description": "点在多边形内判定（射线法）。point=\"x,y\"；polygon=\"x,y|x,y|...\"（>=3 顶点）：1=在内 0=在外/非法。",
      "params": [
       {
@@ -20301,6 +21193,9 @@
      "group_name": "Memory 内存",
      "name": "WriteData",
      "signature": "WriteData(hwnd, address, data, size) → (ret)",
+     "python_example": "op.WriteData(hwnd, address, data, size)  # → (ret)",
+     "python_ctypes_name": "write_data",
+     "in_ctypes_binding": true,
      "description": "内存读写（大漠兼容）。hwnd=0 时优先作用于已绑定窗口；未绑定才是本进程，\n想读本进程请先解绑（UnBindWindow）。address 支持十六进制/四则运算/模块基址 /多级指针 [addr+off]。\n向某进程写入数据",
      "params": [
       {
@@ -20384,6 +21279,9 @@
      "group_name": "Memory 内存",
      "name": "ReadData",
      "signature": "ReadData(hwnd, address, size) → (etstr)",
+     "python_example": "op.ReadData(hwnd, address, size)  # → (etstr)",
+     "python_ctypes_name": "read_data",
+     "in_ctypes_binding": true,
      "description": "读取数据（大写十六进制串；失败返回空串。size 超 data 实际字节时补零，详见日志）",
      "params": [
       {
@@ -20455,6 +21353,9 @@
      "group_name": "Memory 内存",
      "name": "ReadInt",
      "signature": "ReadInt(hwnd, address, type) → (ret)",
+     "python_example": "op.ReadInt(hwnd, address, type)  # → (ret)",
+     "python_ctypes_name": "read_int",
+     "in_ctypes_binding": true,
      "description": "大漠兼容内存接口",
      "params": [
       {
@@ -20526,6 +21427,9 @@
      "group_name": "Memory 内存",
      "name": "WriteInt",
      "signature": "WriteInt(hwnd, address, type, value) → (ret)",
+     "python_example": "op.WriteInt(hwnd, address, type, value)  # → (ret)",
+     "python_ctypes_name": "write_int",
+     "in_ctypes_binding": true,
      "description": "向内存地址写整数（type 选位宽：同 ReadInt）",
      "params": [
       {
@@ -20609,6 +21513,9 @@
      "group_name": "Memory 内存",
      "name": "ReadFloat",
      "signature": "ReadFloat(hwnd, address) → (ret)",
+     "python_example": "op.ReadFloat(hwnd, address)  # → (ret)",
+     "python_ctypes_name": "read_float",
+     "in_ctypes_binding": true,
      "description": "读内存 float",
      "params": [
       {
@@ -20668,6 +21575,9 @@
      "group_name": "Memory 内存",
      "name": "WriteFloat",
      "signature": "WriteFloat(hwnd, address, value) → (ret)",
+     "python_example": "op.WriteFloat(hwnd, address, value)  # → (ret)",
+     "python_ctypes_name": "write_float",
+     "in_ctypes_binding": true,
      "description": "写内存 float",
      "params": [
       {
@@ -20739,6 +21649,9 @@
      "group_name": "Memory 内存",
      "name": "ReadDouble",
      "signature": "ReadDouble(hwnd, address) → (ret)",
+     "python_example": "op.ReadDouble(hwnd, address)  # → (ret)",
+     "python_ctypes_name": "read_double",
+     "in_ctypes_binding": true,
      "description": "读内存 double",
      "params": [
       {
@@ -20798,6 +21711,9 @@
      "group_name": "Memory 内存",
      "name": "WriteDouble",
      "signature": "WriteDouble(hwnd, address, value) → (ret)",
+     "python_example": "op.WriteDouble(hwnd, address, value)  # → (ret)",
+     "python_ctypes_name": "write_double",
+     "in_ctypes_binding": true,
      "description": "写内存 double",
      "params": [
       {
@@ -20869,6 +21785,9 @@
      "group_name": "Memory 内存",
      "name": "ReadString",
      "signature": "ReadString(hwnd, address, type, len) → (etstr)",
+     "python_example": "op.ReadString(hwnd, address, type, len)  # → (etstr)",
+     "python_ctypes_name": "read_string",
+     "in_ctypes_binding": true,
      "description": "读内存字符串（type：0=ANSI 1=Unicode；len 字符数，超限截断）",
      "params": [
       {
@@ -20952,6 +21871,9 @@
      "group_name": "Memory 内存",
      "name": "WriteString",
      "signature": "WriteString(hwnd, address, type, value) → (ret)",
+     "python_example": "op.WriteString(hwnd, address, type, value)  # → (ret)",
+     "python_ctypes_name": "write_string",
+     "in_ctypes_binding": true,
      "description": "写内存字符串（type 同 ReadString）",
      "params": [
       {
@@ -21035,6 +21957,9 @@
      "group_name": "Memory 内存",
      "name": "FindData",
      "signature": "FindData(hwnd, addr_range, string) → (etstr)",
+     "python_example": "op.FindData(hwnd, addr_range, string)  # → (etstr)",
+     "python_ctypes_name": "find_data",
+     "in_ctypes_binding": true,
      "description": "特征码搜索内存：pattern 十六进制串支持 ?? 通配；range \"start-end\" 十六进制，空=全部已提交可读区。\n返回 \"addr|addr|...\" 大写十六进制；count<=0 用默认上限 1024。空范围扫全空间最坏数十秒，建议收窄 range。",
      "params": [
       {
@@ -21106,6 +22031,9 @@
      "group_name": "Memory 内存",
      "name": "FindDataEx",
      "signature": "FindDataEx(hwnd, addr_range, string, step, count) → (etstr)",
+     "python_example": "op.FindDataEx(hwnd, addr_range, string, step, count)  # → (etstr)",
+     "python_ctypes_name": "find_data_ex",
+     "in_ctypes_binding": true,
      "description": "特征码搜索加强版：步进与最大返回数可控（step=1 逐字节最准最慢）",
      "params": [
       {
@@ -21201,6 +22129,9 @@
      "group_name": "Memory 内存",
      "name": "GetModuleBaseAddr",
      "signature": "GetModuleBaseAddr(hwnd, module) → (etstr)",
+     "python_example": "op.GetModuleBaseAddr(hwnd, module)  # → (etstr)",
+     "python_ctypes_name": "get_module_base_addr",
+     "in_ctypes_binding": true,
      "description": "取目标进程（hwnd=0 为本进程）模块基址，返回大写十六进制串；失败返回空。",
      "params": [
       {

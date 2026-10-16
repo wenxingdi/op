@@ -79,14 +79,24 @@ ProgID <code>op.opsoft</code>，dual 接口支持 IDispatch 晚绑定，供易�
 管理员执行一次 <code>regsvr32 op_x64.dll</code>（卸载：<code>regsvr32 /u op_x64.dll</code>）后长期可用。</div>
 </div>
 
-<h3>Python <span class="u-tag">仓库自带绑定 bindings/python</span></h3>
+<h3>Python 路径 A（推荐）：swig 绑定 pyop <span class="u-tag">pip 包 op-plugins / bin/x64 自带，方法名保持 PascalCase</span></h3>
+<pre><code class="lang-python">import pyop                                       # bin/x64/pyop.py + _pyop.pyd 置于工作目录或 sys.path
+
+op = pyop.Op()
+print(op.Ver())                                     # -&gt; 5.2.0
+op.BindWindow(hwnd, "gdi", "normal", "normal", 0)
+op.Capture(0, 0, 800, 600, "shot.bmp")              # 相对路径基于 SetPath 设定的目录
+x, y, ret = op.FindPic(0, 0, 1920, 1080, "btn.bmp", "000000", 0.9, 0)  # 出参聚成返回值元组</code></pre>
+
+<h3>Python 路径 B：ctypes 包装 <span class="u-tag">bindings/python，pip install -e 安装，方法名 snake_case</span></h3>
 <pre><code class="lang-python">from op import Op
 
 # dll_path / dll_dir 不传时，按「当前工作目录 → op_c_api_x64.dll」查找
 with Op(dll_path=r"D:\op\bin\x64\op_c_api_x64.dll") as op:
-    print(op.version)                               # -&gt; 5.2.0
+    print(op.version)                               # -&gt; 5.2.0（Ver 在 ctypes 包中名为 version）
     op.bind_window(hwnd, "gdi", "normal", "normal", 0)
     op.capture(0, 0, 800, 600, "shot.bmp")          # 相对路径基于 SetPath 设定的目录</code></pre>
+<p class="u-note">每个函数卡片第一行是 <b>pyop 风格调用示例</b>（含返回值注释），右上角标注 ctypes 方法名——两条路径按需对照。</p>
 
 <h3>C# <span class="u-tag">P/Invoke，与 OPTool/Common/OpSoft.cs 同一方式</span></h3>
 <pre><code class="lang-csharp">using System;
@@ -1087,6 +1097,54 @@ def py_sig(fn):
     return sig
 
 
+# 仓库两条 Python 路径的方法名换算：
+#   pyop（swig，pip 包 op-plugins）：保持 libop.h 原 PascalCase；
+#   bindings/python（ctypes）：Python 风格 snake_case（见 bindings/python/README），
+#   缩写感知换算（GetID→get_id / CvCLAHE→cv_clahe / DecodeQRCode→decode_qr_code，
+#   已核对绑定真实定义），仅 Ver→version 为非机械特例。
+_PY_SNAKE_SPECIAL = {"Ver": "version"}
+
+
+def snake_acronym(n):
+    n2 = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", n)
+    n2 = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", "_", n2)
+    return n2.lower()
+
+
+def py_method_name(fn):
+    """ctypes 绑定（bindings/python）的方法名：PascalCase → snake_case。"""
+    n = fn["name"]
+    if n in _PY_SNAKE_SPECIAL:
+        return _PY_SNAKE_SPECIAL[n]
+    return snake_acronym(n)
+
+
+_CTYPES_API = os.path.join(ROOT, "bindings", "python", "op", "api.py")
+
+
+def load_ctypes_methods():
+    """ctypes 绑定实际已定义的方法名集合；文件缺失时返回 None（不标注可用性）。"""
+    if not os.path.exists(_CTYPES_API):
+        return None
+    src = open(_CTYPES_API, encoding="utf-8", errors="replace").read()
+    return set(re.findall(r"^\s+def (\w+)\(", src, re.M))
+
+
+def py_example(fn):
+    """pyop（swig）风格逐函数调用示例，含返回值注释，供手册/LLM 对照使用。"""
+    ins = [p["name"] for p in fn["params"] if p["dir"] in ("in", "inout")]
+    outs = [p["name"] for p in fn["params"] if p["dir"] == "out"]
+    outs_disp = ["ret" if o in ("ret", "bret", "rettitle", "rety", "retx") else o for o in outs]
+    call = f"op.{fn['name']}({', '.join(ins)})"
+    if outs_disp:
+        call += f"  # → ({', '.join(outs_disp)})"
+    elif fn["ret"] == "long":
+        call += "  # → ret"
+    elif fn["ret"] in ("std::wstring", "std::string"):
+        call += "  # → str"
+    return call
+
+
 TYPE_CN = {
     "long": "long 整数", "double": "double 浮点", "float": "float 浮点",
     "int64_t": "int64 整数", "size_t": "size_t 指针/长度", "void": "void",
@@ -1133,7 +1191,7 @@ def param_doc_text(fn, p):
     return html_to_text(raw)
 
 
-def fn_to_llm(fn):
+def fn_to_llm(fn, ctypes_methods=None):
     ins = [p for p in fn["params"] if p["dir"] in ("in", "inout")]
     outs = [p for p in fn["params"] if p["dir"] == "out"]
     desc = html_to_text(fn["desc"])
@@ -1171,6 +1229,9 @@ def fn_to_llm(fn):
         "group_name": GROUP_NAME.get(fn["group"], fn["group"]),
         "name": fn["name"],
         "signature": py_sig(fn),
+        "python_example": py_example(fn),
+        "python_ctypes_name": py_method_name(fn),
+        "in_ctypes_binding": (py_method_name(fn) in ctypes_methods) if ctypes_methods is not None else None,
         "description": desc,
         "params": params,
         "returns": ret_items,
@@ -1179,7 +1240,7 @@ def fn_to_llm(fn):
     }
 
 
-def emit_llm_json(fns, gen_time):
+def emit_llm_json(fns, gen_time, ctypes_methods=None):
     groups = []
     for gkey in GROUP_ORDER:
         gfs = [f for f in fns if f["group"] == gkey]
@@ -1187,7 +1248,7 @@ def emit_llm_json(fns, gen_time):
             continue
         groups.append({
             "key": gkey, "name": GROUP_NAME[gkey], "description": GROUP_DESC[gkey],
-            "functions": [fn_to_llm(f) for f in gfs],
+            "functions": [fn_to_llm(f, ctypes_methods) for f in gfs],
         })
     doc = {
         "meta": {
@@ -1197,10 +1258,17 @@ def emit_llm_json(fns, gen_time):
             "generator": "scripts/gen_api_reference.py",
             "total_functions": len(fns),
             "usage": {
-                "python": "from op import Op; op = Op(dll_path=r'D:\\op\\bin\\x64\\op_c_api_x64.dll'); "
-                          "ret = op.find_pic(x1, y1, x2, y2, files, delta_color, sim, dir)",
+                "python_pyop": "import pyop  # swig 绑定（pip 包 op-plugins），方法名保持 PascalCase；"
+                               "bin/x64/pyop.py + _pyop.pyd 置于工作目录或 sys.path\n"
+                               "op = pyop.Op()\n"
+                               "x, y, ret = op.FindPic(x1, y1, x2, y2, files, delta_color, sim, dir)",
+                "python_ctypes": "from op import Op  # ctypes 包装（pip install -e bindings/python），"
+                                 "方法名 snake_case（见每函数 python_ctypes_name 字段）\n"
+                                 "op = Op(dll_path=r'D:\\op\\bin\\x64\\op_c_api_x64.dll')\n"
+                                 "x, y, ret = op.find_pic(x1, y1, x2, y2, files, delta_color, sim, dir)",
                 "note": "出参（dir=out）不作为调用入参，聚在返回值元组中，顺序同 signature 的 → 后列表。"
-                        "坐标为物理像素；绑定窗口后为客户区坐标系。字符串均为 UTF-16 文本。",
+                        "坐标为物理像素；绑定窗口后为客户区坐标系。字符串均为 UTF-16 文本。"
+                        "每函数另带 python_example（pyop 风格逐函数调用示例，含返回值注释）。",
             },
         },
         "groups": groups,
@@ -1231,7 +1299,7 @@ def esc(s):
     return html.escape(s, quote=False)
 
 
-def render(fns, src_rel, gen_time):
+def render(fns, src_rel, gen_time, ctypes_methods=None):
     groups = {k: [] for k in GROUP_ORDER}
     for fn in fns:
         groups.setdefault(fn["group"], []).append(fn)
@@ -1265,11 +1333,18 @@ def render(fns, src_rel, gen_time):
             else:
                 ptable = '<p class="no-params">（无参数）</p>'
             desc_html = "<br>".join(esc(l) for l in fn["desc"].splitlines()) if fn["desc"] else '<span class="nodesc">（源文件无注释）</span>'
+            if ctypes_methods is None:
+                alt = f'<span class="fn-py-alt">ctypes: <code>op.{esc(py_method_name(fn))}(…)</code></span>'
+            elif py_method_name(fn) in ctypes_methods:
+                alt = f'<span class="fn-py-alt">ctypes: <code>op.{esc(py_method_name(fn))}(…)</code></span>'
+            else:
+                alt = '<span class="fn-py-alt fn-py-miss">ctypes 绑定未覆盖（用 pyop）</span>'
             cards.append(
                 f'<li class="fn" id="{anchor}" data-name="{fn["name"].lower()}">'
                 f'<div class="fn-head"><code class="fn-name">{esc(fn["name"])}</code>'
                 f'<span class="fn-sig">{esc(py_sig(fn))}</span>'
                 f'<button class="copy" data-name="{esc(fn["name"])}" title="复制方法名">⧉</button></div>'
+                f'<div class="fn-py"><code>{esc(py_example(fn))}</code>{alt}</div>'
                 f'<div class="fn-desc">{desc_html}</div>{ptable}</li>')
         cards.append('</section>')
         nav_items.append('</div></div>')
@@ -1314,6 +1389,11 @@ ul.fns{list-style:none;margin:0;padding:0}
 .fn-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .fn-name{font-size:15px;font-weight:700;color:var(--code);background:var(--chip);padding:2px 8px;border-radius:6px}
 .fn-sig{font-family:Consolas,monospace;font-size:12.5px;color:var(--txt)}
+.fn-py{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:6px 0 2px;padding:5px 10px;background:var(--chip);border-radius:6px}
+.fn-py code{font-family:Consolas,monospace;font-size:12px;color:var(--code)}
+.fn-py-alt{margin-left:auto;font-size:11px;color:var(--sub)}
+.fn-py-alt code{color:var(--sub);background:none;padding:0}
+.fn-py-miss{color:#b45309;font-style:italic}
 .copy{margin-left:auto;border:1px solid var(--line);background:var(--bg);border-radius:6px;cursor:pointer;padding:2px 8px;color:var(--sub)}
 .copy:hover{border-color:var(--accent);color:var(--accent)}
 .fn-desc{margin:8px 0;font-size:13.5px;color:var(--txt)}
@@ -1401,12 +1481,13 @@ def main():
     if dup:
         print("WARN duplicate:", dup)
     gen_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    out = render(fns, os.path.relpath(a.header, ROOT), gen_time)
+    ctypes_methods = load_ctypes_methods()
+    out = render(fns, os.path.relpath(a.header, ROOT), gen_time, ctypes_methods)
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     open(a.out, "w", encoding="utf-8").write(out)
     # LLM 产物：function-calling JSON 目录 + 紧凑速查 MD
     if a.llm_json:
-        lj = emit_llm_json(fns, gen_time)
+        lj = emit_llm_json(fns, gen_time, ctypes_methods)
         open(a.llm_json, "w", encoding="utf-8").write(lj)
         print("->", os.path.relpath(a.llm_json, ROOT), f"({len(lj)//1024} KB)")
     if a.llm_md:
