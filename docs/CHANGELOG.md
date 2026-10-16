@@ -3,6 +3,27 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-16 第二十六批（P2 #12：OCR 预热 OpOcrWarmup，feat）
+
+承接 OLA 对比 P2 批排期，新增 1 接口（Op → C API → COM idl 425 → 测试四层），
+OCR 系测试经显式 `-Filter "OcrWarmupTest.*"` 验证 2/2 PASS（run_tests.ps1
+默认过滤 `-*Ocr*:-*OCR*:-*Yolo*`，须显式指定才执行）；全量回归 426 ran /
+422 PASS（失败均为已实证的环境/时序 flake：WaitKeyScanAll、
+DownCpuAddsDelay、WgcTest.NormalDxgiFirstCapture，单独复跑通过，非本批引入）。
+
+- **feat(op): OcrWarmup**（OLA 无直接对等，属执行效率项）：触发 OCR 引擎懒
+  加载 + 一次 16x16 纯白 BGRA 小图推理，消除首次真实调用时的模型加载延迟，
+  适合 SetOcrEngine 之后、批量识别之前调用。走 lazy_engine 复用既有懒加载
+  路径，幂等。
+- **实现两坑**（已记入代码注释）：(a) 引擎 ocr() 的 bpp 参数是**每像素字节数**
+  （1/3/4），不是位深——传 32 会被参数校验拒成 -1；(b) ocr() 返回值是识别
+  **文本条数**不是布尔，0/正数都是成功，负数才是错误，warmup 按 `>= 0` 判成功。
+- **test**: ocr_warmup_test.cpp 新增 2 用例：显式 SetOcrEngine("onnx") 后
+  warmup 返回 1 且幂等；空句柄返回 0；经 `test_support::GetEnvString` 查
+  OP_SKIP_OCR_TESTS 环境变量支持跳过。
+
+遗留同前批：swig/python 与 Go 绑定待补（本机无 swig）。
+
 ### 2026-10-16 第二十五批（P2 #11：鼠标光标图像 OpGetCursorImage，feat）
 
 承接 OLA 对比 P2 批排期，新增 1 接口（Op → C API → COM idl 424 → 测试四层），
