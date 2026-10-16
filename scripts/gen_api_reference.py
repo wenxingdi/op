@@ -160,6 +160,7 @@ op = 创建COM对象 (“op.opsoft”)
 <li>调用返回 0 / 空串不代表崩溃：先 <code>set_show_error_msg(2)</code>，失败原因写入运行目录 <code>__op.log</code></li>
 <li>COM 创建失败（空对象）：检查注册表是否有 <code>op.opsoft</code>，没有则管理员 <code>regsvr32 op_x64.dll</code></li>
 <li>版本号只有 <code>Ver()</code> 一个来源（返回 <code>5.2.0</code>）；构建信息见 DLL 属性页「文件版本 5.2.0」</li>
+<li>坐标全为物理像素：首个 Op 实例构造时提升 DPI 感知（System-DPI 级）——坐标操作前先建 Op，否则混用旧坐标会偏缩放倍率（“点了没点中”）；多屏混合 DPI 时用 <code>GetWindowScale</code> 实测换算</li>
 </ul>
 </section>
 """
@@ -218,7 +219,7 @@ GLOBAL_PARAM_DOCS = {
     "y": "纵坐标（物理像素；绑定窗口后为客户区坐标）",
     "sim": "相似度 0~1（越大越严格）；找色系 sim&lt;0 钳为 1.0，OCR/找字系回退 0.7",
     "dir": DIR_IMAGE,
-    "color": "RGB hex <code>RRGGBB</code>（如 <code>FF0000</code>=红）；<code>-</code> 后为<b>偏色容差</b>（如 <code>9f2e3f-303030</code>，非背景色）；<code>@</code> 开头为背景色模式（命中像素置 0，反白字场景）",
+    "color": "RGB hex <code>RRGGBB</code>（如 <code>FF0000</code>=红），<b>全库统一此格式</b>（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；<code>-</code> 后为<b>偏色容差</b>（如 <code>9f2e3f-303030</code>，非背景色）；<code>@</code> 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：<code>CvInRange</code> 的 lower/upper 按 <code>color_space</code> 声明的通道序（BGR/HSV/gray）",
     "hwnd": "窗口句柄（HWND，十进制数值）",
     "file_name": "文件路径；相对路径基于 <code>SetPath</code> 设定的全局目录解析",
     "src_file": "源图片路径（含扩展名）",
@@ -681,13 +682,14 @@ PARAM_DOCS = {
     "CvShapeMatchTemplate": {"threshold": "形状匹配阈值 0~1", "etjson": "命中结果 JSON 数组"},
     # ---------- OCR ----------
     "SetOcrEngine": {
-        "path_of_engine": "引擎标识：传 <code>onnx</code>/空/任意未知名=内置 ONNX 引擎（PP-OCRv4 模型内嵌 DLL）；<b>http(s):// 与旧远程别名（tesseract/paddle 系）已移除</b>，传入返 0 并提示",
+        "path_of_engine": "<b>引擎可免配置</b>——首次 <code>Ocr</code>/<code>AutoOcr</code> 调用自动懒加载内置引擎（PP-OCRv4 字典内嵌 DLL，含中英文数字符号）；本接口仅用于改参数。引擎标识：传 <code>onnx</code>/空/任意未知名=内置 ONNX 引擎；<b>http(s):// 与旧远程别名（tesseract/paddle 系）已移除</b>，传入返 0 并提示",
         "dll_name": "引擎 DLL 名（内置 ONNX 下忽略）",
         "argv": ("传给引擎初始化函数的参数字符串，空格分隔：<code>--timeout=3000</code>、<code>--model-dir=path</code>、"
                  "<code>--threads=N</code>。<br>内置 ONNX 另支持 <code>--charset=&lt;规则&gt;</code> —— <b>解码期字符白名单</b>，"
                  "只在名单内选字，形近误识（0/O、,/. 等）被消除；语法 <code>@zh</code>=keys 内全部中文，"
-                 "其余可打印 ASCII 按字面加入；<b>规则串不能含空格</b>（argv 以空格分隔，会被截断）；未设置=全字典。<br>"
-                 "推荐值（中文 + 数字 + 大小写字母 + 常用符号）：<br>"
+                 "其余可打印 ASCII 按字面加入；<b>规则串不能含空格</b>（argv 以空格分隔，会被截断）。"
+                 "<b>默认不设白名单=全字典识别</b>（中文+数字+英文+符号），仅形近误识场景按需收窄——白名单缺字符会静默吞字。"
+                 "<br>推荐值（中文 + 数字 + 大小写字母 + 常用符号）：<br>"
                  "<code>@zh0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;-+=/|!?%#*()[]~_</code><br>"
                  "⚠ 白名单缺哪个字符，该字符就被<b>静默吞掉</b>（漏字母时 <code>Lv99</code> 只识别出 <code>99</code>），请按需列全。"),
     },
@@ -854,6 +856,8 @@ PARAM_DOCS = {
         "count": "最大返回结果数",
     },
     "GetModuleBaseAddr": {"module": "模块名（如 <code>game.exe</code>）", "etstr": "模块基址（16 进制串）"},
+    "GetDPI": {"ret": "系统 DPI（进程级，主显示器值，如 144=150% 缩放）；窗口级实际缩放用 <code>GetWindowScale</code>"},
+    "GetWindowScale": {"hwnd": "目标窗口句柄", "etstr": "窗口所在显示器缩放比（两位小数，如 <code>1.50</code>）；多屏混合 DPI 时与 <code>GetDPI</code> 系统级值可不同"},
     # ---------- 尾部批次补注解（2026-10-16 明确性审计清零，语义经源码/idl 逐条核对）----------
     "SetPicCacheMax": {"max_count": "图片全局缓存的最大张数（上限保护，防长时运行内存膨胀）"},
     "Md5": {"text": "要计算 MD5 摘要的文本"},
@@ -1268,7 +1272,9 @@ def emit_llm_json(fns, gen_time, ctypes_methods=None):
                                  "x, y, ret = op.find_pic(x1, y1, x2, y2, files, delta_color, sim, dir)",
                 "note": "出参（dir=out）不作为调用入参，聚在返回值元组中，顺序同 signature 的 → 后列表。"
                         "坐标为物理像素；绑定窗口后为客户区坐标系。字符串均为 UTF-16 文本。"
-                        "每函数另带 python_example（pyop 风格逐函数调用示例，含返回值注释）。",
+                        "每函数另带 python_example（pyop 风格逐函数调用示例，含返回值注释）。"
+                        "DPI：首个 Op 实例构造时提升 DPI 感知，之后全库坐标统一物理像素——坐标操作前先建 Op；"
+                        "多屏混合 DPI 用 GetWindowScale 实测换算。",
             },
         },
         "groups": groups,

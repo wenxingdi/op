@@ -2,13 +2,13 @@
  "meta": {
   "title": "OP 插件 API 目录（大模型 function-calling 版）",
   "source": "include/libop.h",
-  "generated": "2026-10-16 12:42",
+  "generated": "2026-10-16 13:23",
   "generator": "scripts/gen_api_reference.py",
   "total_functions": 310,
   "usage": {
    "python_pyop": "import pyop  # swig 绑定（pip 包 op-plugins），方法名保持 PascalCase；bin/x64/pyop.py + _pyop.pyd 置于工作目录或 sys.path\nop = pyop.Op()\nx, y, ret = op.FindPic(x1, y1, x2, y2, files, delta_color, sim, dir)",
    "python_ctypes": "from op import Op  # ctypes 包装（pip install -e bindings/python），方法名 snake_case（见每函数 python_ctypes_name 字段）\nop = Op(dll_path=r'D:\\op\\bin\\x64\\op_c_api_x64.dll')\nx, y, ret = op.find_pic(x1, y1, x2, y2, files, delta_color, sim, dir)",
-   "note": "出参（dir=out）不作为调用入参，聚在返回值元组中，顺序同 signature 的 → 后列表。坐标为物理像素；绑定窗口后为客户区坐标系。字符串均为 UTF-16 文本。每函数另带 python_example（pyop 风格逐函数调用示例，含返回值注释）。"
+   "note": "出参（dir=out）不作为调用入参，聚在返回值元组中，顺序同 signature 的 → 后列表。坐标为物理像素；绑定窗口后为客户区坐标系。字符串均为 UTF-16 文本。每函数另带 python_example（pyop 风格逐函数调用示例，含返回值注释）。DPI：首个 Op 实例构造时提升 DPI 感知，之后全库坐标统一物理像素——坐标操作前先建 Op；多屏混合 DPI 用 GetWindowScale 实测换算。"
   }
  },
  "groups": [
@@ -1156,17 +1156,17 @@
        "type": "long*",
        "dir": "out",
        "json_type": "string",
-       "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+       "doc": "系统 DPI（进程级，主显示器值，如 144=150% 缩放）；窗口级实际缩放用 GetWindowScale"
       }
      ],
      "returns": [
       {
        "name": "ret",
        "type": "long*",
-       "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+       "doc": "系统 DPI（进程级，主显示器值，如 144=150% 缩放）；窗口级实际缩放用 GetWindowScale"
       }
      ],
-     "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+     "returns_summary": "ret: 系统 DPI（进程级，主显示器值，如 144=150% 缩放）；窗口级实际缩放用 GetWindowScale",
      "tool_schema": {
       "name": "GetDPI",
       "description": "获取系统 DPI 缩放值(96=100%)",
@@ -4361,7 +4361,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "width",
@@ -4410,7 +4410,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "width": {
          "type": "number",
@@ -4471,7 +4471,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "width",
@@ -4520,7 +4520,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "width": {
          "type": "number",
@@ -4574,7 +4574,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "font_size",
@@ -4619,7 +4619,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "font_size": {
          "type": "number",
@@ -7681,7 +7681,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -7722,7 +7722,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -7927,7 +7927,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -7983,7 +7983,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -8049,7 +8049,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -8098,7 +8098,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -8877,7 +8877,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -8971,7 +8971,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -9047,7 +9047,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -9117,7 +9117,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -9193,7 +9193,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -9270,7 +9270,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -13385,7 +13385,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "引擎标识：传 onnx/空/任意未知名=内置 ONNX 引擎（PP-OCRv4 模型内嵌 DLL）；http(s):// 与旧远程别名（tesseract/paddle 系）已移除，传入返 0 并提示"
+       "doc": "引擎可免配置——首次 Ocr/AutoOcr 调用自动懒加载内置引擎（PP-OCRv4 字典内嵌 DLL，含中英文数字符号）；本接口仅用于改参数。引擎标识：传 onnx/空/任意未知名=内置 ONNX 引擎；http(s):// 与旧远程别名（tesseract/paddle 系）已移除，传入返 0 并提示"
       },
       {
        "name": "dll_name",
@@ -13399,7 +13399,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "传给引擎初始化函数的参数字符串，空格分隔：--timeout=3000、--model-dir=path、--threads=N。\n内置 ONNX 另支持 --charset=<规则> —— 解码期字符白名单，只在名单内选字，形近误识（0/O、,/. 等）被消除；语法 @zh=keys 内全部中文，其余可打印 ASCII 按字面加入；规则串不能含空格（argv 以空格分隔，会被截断）；未设置=全字典。\n推荐值（中文 + 数字 + 大小写字母 + 常用符号）：\n@zh0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;-+=/|!?%#*()[]~_\n⚠ 白名单缺哪个字符，该字符就被静默吞掉（漏字母时 Lv99 只识别出 99），请按需列全。"
+       "doc": "传给引擎初始化函数的参数字符串，空格分隔：--timeout=3000、--model-dir=path、--threads=N。\n内置 ONNX 另支持 --charset=<规则> —— 解码期字符白名单，只在名单内选字，形近误识（0/O、,/. 等）被消除；语法 @zh=keys 内全部中文，其余可打印 ASCII 按字面加入；规则串不能含空格（argv 以空格分隔，会被截断）。默认不设白名单=全字典识别（中文+数字+英文+符号），仅形近误识场景按需收窄——白名单缺字符会静默吞字。\n推荐值（中文 + 数字 + 大小写字母 + 常用符号）：\n@zh0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;-+=/|!?%#*()[]~_\n⚠ 白名单缺哪个字符，该字符就被静默吞掉（漏字母时 Lv99 只识别出 99），请按需列全。"
       }
      ],
      "returns": [
@@ -13418,7 +13418,7 @@
        "properties": {
         "path_of_engine": {
          "type": "string",
-         "description": "引擎标识：传 onnx/空/任意未知名=内置 ONNX 引擎（PP-OCRv4 模型内嵌 DLL）；http(s):// 与旧远程别名（tesseract/paddle 系）已移除，传入返 0 并提示"
+         "description": "引擎可免配置——首次 Ocr/AutoOcr 调用自动懒加载内置引擎（PP-OCRv4 字典内嵌 DLL，含中英文数字符号）；本接口仅用于改参数。引擎标识：传 onnx/空/任意未知名=内置 ONNX 引擎；http(s):// 与旧远程别名（tesseract/paddle 系）已移除，传入返 0 并提示"
         },
         "dll_name": {
          "type": "string",
@@ -13426,7 +13426,7 @@
         },
         "argv": {
          "type": "string",
-         "description": "传给引擎初始化函数的参数字符串，空格分隔：--timeout=3000、--model-dir=path、--threads=N。\n内置 ONNX 另支持 --charset=<规则> —— 解码期字符白名单，只在名单内选字，形近误识（0/O、,/. 等）被消除；语法 @zh=keys 内全部中文，其余可打印 ASCII 按字面加入；规则串不能含空格（argv 以空格分隔，会被截断）；未设置=全字典。\n推荐值（中文 + 数字 + 大小写字母 + 常用符号）：\n@zh0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;-+=/|!?%#*()[]~_\n⚠ 白名单缺哪个字符，该字符就被静默吞掉（漏字母时 Lv99 只识别出 99），请按需列全。"
+         "description": "传给引擎初始化函数的参数字符串，空格分隔：--timeout=3000、--model-dir=path、--threads=N。\n内置 ONNX 另支持 --charset=<规则> —— 解码期字符白名单，只在名单内选字，形近误识（0/O、,/. 等）被消除；语法 @zh=keys 内全部中文，其余可打印 ASCII 按字面加入；规则串不能含空格（argv 以空格分隔，会被截断）。默认不设白名单=全字典识别（中文+数字+英文+符号），仅形近误识场景按需收窄——白名单缺字符会静默吞字。\n推荐值（中文 + 数字 + 大小写字母 + 常用符号）：\n@zh0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;-+=/|!?%#*()[]~_\n⚠ 白名单缺哪个字符，该字符就被静默吞掉（漏字母时 Lv99 只识别出 99），请按需列全。"
         }
        },
        "required": [
@@ -14194,7 +14194,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "word",
@@ -14243,7 +14243,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "word": {
          "type": "string",
@@ -14304,7 +14304,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -14360,7 +14360,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -14426,7 +14426,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -14482,7 +14482,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -14548,7 +14548,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -14618,7 +14618,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -14694,7 +14694,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -14757,7 +14757,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -14828,7 +14828,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -14905,7 +14905,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -14986,7 +14986,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -15049,7 +15049,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -15120,7 +15120,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -15181,7 +15181,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -15502,7 +15502,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "etstr",
@@ -15544,7 +15544,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         }
        },
        "required": [
@@ -15798,7 +15798,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -15847,7 +15847,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -15908,7 +15908,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -15957,7 +15957,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -16018,7 +16018,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -16067,7 +16067,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -16128,7 +16128,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -16177,7 +16177,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -16238,7 +16238,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -16287,7 +16287,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -16348,7 +16348,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -16402,7 +16402,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -16470,7 +16470,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -16547,7 +16547,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -16616,7 +16616,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -16669,7 +16669,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -17039,7 +17039,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -17088,7 +17088,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -17149,7 +17149,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -17210,7 +17210,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -17271,7 +17271,7 @@
        "type": "const wchar_t*",
        "dir": "in",
        "json_type": "string",
-       "doc": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+       "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
       },
       {
        "name": "sim",
@@ -17339,7 +17339,7 @@
         },
         "color": {
          "type": "string",
-         "description": "RGB hex RRGGBB（如 FF0000=红）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）"
+         "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
         },
         "sim": {
          "type": "number",
@@ -18407,24 +18407,24 @@
        "type": "LONG_PTR",
        "dir": "in",
        "json_type": "number",
-       "doc": "窗口句柄（HWND，十进制数值）"
+       "doc": "目标窗口句柄"
       },
       {
        "name": "etstr",
        "type": "std::wstring &r",
        "dir": "out",
        "json_type": "string",
-       "doc": "出参：字符串结果"
+       "doc": "窗口所在显示器缩放比（两位小数，如 1.50）；多屏混合 DPI 时与 GetDPI 系统级值可不同"
       }
      ],
      "returns": [
       {
        "name": "etstr",
        "type": "std::wstring &r",
-       "doc": "出参：字符串结果"
+       "doc": "窗口所在显示器缩放比（两位小数，如 1.50）；多屏混合 DPI 时与 GetDPI 系统级值可不同"
       }
      ],
-     "returns_summary": "etstr: 出参：字符串结果",
+     "returns_summary": "etstr: 窗口所在显示器缩放比（两位小数，如 1.50）；多屏混合 DPI 时与 GetDPI 系统级值可不同",
      "tool_schema": {
       "name": "GetWindowScale",
       "description": "取窗口实际缩放系数（1.00=96DPI 无缩放），两位小数字符串如 \"1.25\"；失败返回空串。\n优先 GetDpiForWindow（Per-Monitor V2 感知窗口），退化为窗口所在显示器 DPI。",
@@ -18433,7 +18433,7 @@
        "properties": {
         "hwnd": {
          "type": "number",
-         "description": "窗口句柄（HWND，十进制数值）"
+         "description": "目标窗口句柄"
         }
        },
        "required": [
