@@ -73,7 +73,7 @@ if (-not $pyExe) {
         Write-Error "swig/python 绑定与 libop.h 存在漂移（退出码 $LASTEXITCODE）。请重新生成：swig\genPythonWrap.bat，或见 docs\BUILD_GUIDE.md §3.1"
         exit 4
     }
-    Write-Host "[OK] 绑定三层同步"
+    Write-Host "[OK] 绑定各层同步（swig + ctypes）"
 }
 
 # 把 DLL 目录加到 PATH（op_x64.dll / op_c_api_x64.dll 在 libop\）
