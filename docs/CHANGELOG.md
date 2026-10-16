@@ -3,6 +3,16 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+- **chore(test)**: 回归脚本前置绑定同步门禁——`run_tests.ps1` 跑 op_test 前先跑
+  `check_swig_sync.py`，漂移 exit 4 拦下；python 探测三级兜底（PATH shim 实测可执行 /
+  py 启动器 / 常见安装位），全失效才降级警告。踩坑记录：PS 数组 `$a[1..0]` 是降序取值
+  （得 $null+$a[0]）、原生 stderr 在 Stop 偏好下直接抛异常、ps1 编辑后必须保留 BOM。
+- **docs(api)**: 新增大模型 function-calling 版 API 目录——`gen_api_reference.py`
+  同步产出 `docs/api_llm.json`（309 接口分组，每函数带 OpenAI/Anthropic 通用
+  tool_schema，出参聚成返回值不入 properties）+ `docs/api_llm.md`（21KB 紧凑速查，
+  适合整体塞上下文）。JSON 族 11 + HTTP 族 3 参数语义全补齐（大模型对接主通道），
+  注解覆盖率 94.0→95.8%。接口面变更后重跑脚本三产物一并刷新。
+
 ### 2026-10-16 第三十批（feat(bind)：swig/python 绑定补齐 + CMake 探测修复）
 
 无新增导出（仍为 316）。本批兑现上批遗留"swig/python 绑定待补"：绑定层从
