@@ -146,6 +146,7 @@ interface IOpAutomation : IDispatch
 	[id(142)] HRESULT KeyPress([in] LONG vk_code, [out, retval] LONG* ret);
 	[id(143)] HRESULT KeyPressChar([in] BSTR vk_code, [out, retval] LONG* ret);
 	[id(144)] HRESULT GetCursorShape([out, retval] BSTR* ret);
+	[id(424)] HRESULT GetCursorImage([out, retval] BSTR* retstr);
 	[id(145)] HRESULT MoveToSmooth([in] LONG x, [in] LONG y, [in] LONG duration, [out, retval] LONG* ret);
 	[id(146)] HRESULT MoveToExSmooth([in] LONG x, [in] LONG y, [in] LONG w, [in] LONG h, [in] LONG duration, [out, retval] BSTR* ret);
 	[id(147)] HRESULT MovePath([in] BSTR path, [in] LONG duration, [out, retval] LONG* ret);

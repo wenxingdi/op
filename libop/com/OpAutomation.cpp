@@ -671,6 +671,15 @@ STDMETHODIMP OpAutomation::GetCursorShape(BSTR *ret) {
     return CopyOutBstr(ret, value);
 }
 
+STDMETHODIMP OpAutomation::GetCursorImage(BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+
+    std::wstring value;
+    obj.GetCursorImage(value);
+    return CopyOutBstr(retstr, value);
+}
+
 STDMETHODIMP OpAutomation::MoveR(LONG x, LONG y, LONG *ret) {
     obj.MoveR(x, y, ret);
 

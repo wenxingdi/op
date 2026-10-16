@@ -352,6 +352,9 @@ class OP_API Op {
     void GetCursorPos(_Out_ long *x, _Out_ long *y, _Out_ long *ret);
     // 获取当前鼠标形状: visible,hash,width,height,hotX,hotY.
     void GetCursorShape(_Out_ std::wstring &ret);
+    // 获取当前鼠标光标图像：32bpp BMP 的 Base64（top-down BGRA 含 alpha）。
+    // 失败（光标不可见/无桌面会话）返回空串；宽高/热点等元数据用 GetCursorShape 配套取。
+    void GetCursorImage(_Out_ std::wstring &ret);
     // 鼠标相对于上次的位置移动rx,ry.
     void MoveR(_In_ long x, _In_ long y, _Out_ long *ret);
     // 把鼠标移动到目的点(x,y)

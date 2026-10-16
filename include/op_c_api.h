@@ -175,6 +175,8 @@ OP_C_API const wchar_t *OP_CALL OpGetDisplayMethod(op_handle handle);
 // Mouse
 OP_C_API int OP_CALL OpGetCursorPos(op_handle handle, int *x, int *y);
 OP_C_API const wchar_t *OP_CALL OpGetCursorShape(op_handle handle);
+// 当前鼠标光标图像：32bpp BMP 的 Base64（top-down BGRA 含 alpha）；失败返回空串。
+OP_C_API const wchar_t *OP_CALL OpGetCursorImage(op_handle handle);
 OP_C_API int OP_CALL OpMoveR(op_handle handle, int x, int y);
 OP_C_API int OP_CALL OpMoveTo(op_handle handle, int x, int y);
 OP_C_API const wchar_t *OP_CALL OpMoveToEx(op_handle handle, int x, int y, int w, int h);

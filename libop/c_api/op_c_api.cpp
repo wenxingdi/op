@@ -773,6 +773,10 @@ const wchar_t *OP_CALL OpGetCursorShape(op_handle handle) {
     return call_string(handle, [](op::Op &op, std::wstring &ret) { op.GetCursorShape(ret); });
 }
 
+const wchar_t *OP_CALL OpGetCursorImage(op_handle handle) {
+    return call_string(handle, [](op::Op &op, std::wstring &ret) { op.GetCursorImage(ret); });
+}
+
 int OP_CALL OpMoveR(op_handle handle, int x, int y) {
     return call_ret(handle, [&](op::Op &op, long *ret) { op.MoveR(x, y, ret); });
 }

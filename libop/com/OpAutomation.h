@@ -255,6 +255,8 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(GetCursorPos)(VARIANT *x, VARIANT *y, LONG *ret);
     // 获取当前鼠标形状: visible,hash,width,height,hotX,hotY.
     STDMETHOD(GetCursorShape)(BSTR *ret);
+    // 当前鼠标光标图像: 32bpp BMP 的 Base64(top-down BGRA 含 alpha);失败空串
+    STDMETHOD(GetCursorImage)(BSTR *retstr);
     // 鼠标相对于上次的位置移动rx,ry.
     STDMETHOD(MoveR)(LONG x, LONG y, LONG *ret);
     // 把鼠标移动到目的点(x,y)

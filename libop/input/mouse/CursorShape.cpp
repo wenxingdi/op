@@ -1,5 +1,6 @@
 #include "CursorShape.h"
 
+#include <cstring>
 #include <iomanip>
 #include <sstream>
 #include <vector>
@@ -91,36 +92,25 @@ bool bitmap_size(HBITMAP bitmap, long &width, long &height) {
     return width > 0 && height > 0;
 }
 
-} // namespace
-
-namespace cursor_shape {
-
-bool FromCursor(HCURSOR cursor, bool visible, CursorShapeInfo &info) {
-    info = {};
-    info.visible = visible;
-    if (!cursor)
-        return false;
-
+// 渲染核心（第二十五批抽取）：把光标画进 32bpp DIB，输出 BGRA 像素与宽高。
+// icon_info 由调用方持有（ScopedIconInfo 负责释放内含位图）。
+bool render_cursor_bgra(HCURSOR cursor, std::vector<unsigned char> &bgra, long &width, long &height,
+                        ScopedIconInfo &icon_info) {
     ScopedIcon copied{::CopyIcon(cursor)};
     if (!copied.handle)
         return false;
 
-    ScopedIconInfo icon_info;
-    if (!::GetIconInfo(copied.handle, &icon_info.value)) {
+    if (!::GetIconInfo(copied.handle, &icon_info.value))
         return false;
-    }
 
-    long width = 0;
-    long height = 0;
-    if (!bitmap_size(icon_info.value.hbmColor ? icon_info.value.hbmColor : icon_info.value.hbmMask, width, height)) {
+    if (!bitmap_size(icon_info.value.hbmColor ? icon_info.value.hbmColor : icon_info.value.hbmMask, width, height))
         return false;
-    }
 
+    // 单色光标（无 hbmColor）的掩码高度是实际两倍：上半 XOR 下半 AND。
     if (!icon_info.value.hbmColor)
         height /= 2;
-    if (height <= 0) {
+    if (height <= 0)
         return false;
-    }
 
     BITMAPINFO bmi = {};
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -132,25 +122,68 @@ bool FromCursor(HCURSOR cursor, bool visible, CursorShapeInfo &info) {
 
     void *bits = nullptr;
     ScopedBitmap dib{::CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0)};
-    if (!dib.handle || !bits) {
+    if (!dib.handle || !bits)
         return false;
-    }
 
     ScopedDc dc{::CreateCompatibleDC(nullptr)};
-    if (!dc.handle) {
+    if (!dc.handle)
         return false;
-    }
 
-    {
-        SelectBitmapGuard select(dc.handle, dib.handle);
-        if (!select.selected())
-            return false;
-        // 统一渲染成 32 位 BGRA，hash 才能跨系统颜色深度稳定比较。
-        ::PatBlt(dc.handle, 0, 0, width, height, BLACKNESS);
-        if (!::DrawIconEx(dc.handle, 0, 0, copied.handle, width, height, 0, nullptr, DI_NORMAL)) {
-            return false;
-        }
-    }
+    SelectBitmapGuard select(dc.handle, dib.handle);
+    if (!select.selected())
+        return false;
+    // 统一渲染成 32 位 BGRA：彩色光标带 alpha，单色光标的透明区保持黑色 alpha=0。
+    ::PatBlt(dc.handle, 0, 0, width, height, BLACKNESS);
+    if (!::DrawIconEx(dc.handle, 0, 0, copied.handle, width, height, 0, nullptr, DI_NORMAL))
+        return false;
+
+    bgra.resize(static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
+    std::memcpy(bgra.data(), bits, bgra.size());
+    return true;
+}
+
+// BGRA(top-down) → 32bpp BMP 字节流（BITMAPFILEHEADER + BITMAPINFOHEADER + 像素）。
+bool wrap_bgra_as_bmp(const std::vector<unsigned char> &bgra, long width, long height,
+                      std::vector<unsigned char> &bmp) {
+    const size_t pixel_offset = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+    if (width <= 0 || height <= 0 || bgra.size() != static_cast<size_t>(width) * static_cast<size_t>(height) * 4)
+        return false;
+
+    bmp.assign(pixel_offset + bgra.size(), 0);
+    auto *bfh = reinterpret_cast<BITMAPFILEHEADER *>(bmp.data());
+    bfh->bfType = static_cast<WORD>(0x4D42);
+    bfh->bfOffBits = static_cast<DWORD>(pixel_offset);
+    bfh->bfSize = static_cast<DWORD>(bmp.size());
+
+    auto *bih = reinterpret_cast<BITMAPINFOHEADER *>(bmp.data() + sizeof(BITMAPFILEHEADER));
+    bih->biSize = sizeof(BITMAPINFOHEADER);
+    bih->biWidth = width;
+    bih->biHeight = -height; // top-down
+    bih->biPlanes = 1;
+    bih->biBitCount = 32;
+    bih->biCompression = BI_RGB;
+    bih->biSizeImage = static_cast<DWORD>(bgra.size());
+
+    std::memcpy(bmp.data() + pixel_offset, bgra.data(), bgra.size());
+    return true;
+}
+
+} // namespace
+
+namespace cursor_shape {
+
+bool FromCursor(HCURSOR cursor, bool visible, CursorShapeInfo &info) {
+    info = {};
+    info.visible = visible;
+    if (!cursor)
+        return false;
+
+    ScopedIconInfo icon_info;
+    std::vector<unsigned char> bgra;
+    long width = 0;
+    long height = 0;
+    if (!render_cursor_bgra(cursor, bgra, width, height, icon_info))
+        return false;
 
     info.visible = visible;
     info.width = width;
@@ -163,7 +196,7 @@ bool FromCursor(HCURSOR cursor, bool visible, CursorShapeInfo &info) {
     hash_u32(hash, static_cast<std::uint32_t>(height));
     hash_u32(hash, static_cast<std::uint32_t>(info.hot_x));
     hash_u32(hash, static_cast<std::uint32_t>(info.hot_y));
-    hash = fnv1a(bits, static_cast<size_t>(width) * static_cast<size_t>(height) * 4, hash);
+    hash = fnv1a(bgra.data(), bgra.size(), hash);
     info.hash = hash;
     return true;
 }
@@ -212,3 +245,38 @@ std::wstring Format(const CursorShapeInfo &info) {
 }
 
 } // namespace cursor_shape
+
+namespace cursor_image {
+
+bool FromSystem(std::vector<unsigned char> &bmp_bytes, long *width, long *height) {
+    bmp_bytes.clear();
+    if (width)
+        *width = 0;
+    if (height)
+        *height = 0;
+
+    CURSORINFO cursor = {};
+    cursor.cbSize = sizeof(cursor);
+    if (!::GetCursorInfo(&cursor) || !(cursor.flags & CURSOR_SHOWING) || !cursor.hCursor)
+        return false;
+
+    ScopedIconInfo icon_info;
+    std::vector<unsigned char> bgra;
+    long w = 0;
+    long h = 0;
+    if (!render_cursor_bgra(cursor.hCursor, bgra, w, h, icon_info))
+        return false;
+
+    std::vector<unsigned char> bmp;
+    if (!wrap_bgra_as_bmp(bgra, w, h, bmp))
+        return false;
+
+    bmp_bytes = std::move(bmp);
+    if (width)
+        *width = w;
+    if (height)
+        *height = h;
+    return true;
+}
+
+} // namespace cursor_image

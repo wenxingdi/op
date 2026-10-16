@@ -168,6 +168,8 @@ set(OP_TEST_SOURCES
   "cv_transform_test.cpp"
   # P2 第二十四批（2026-10-16）：卡屏检测 OpIsDisplayDead，动画窗口建在工作线程泵消息。
   "display_dead_test.cpp"
+  # P2 第二十五批（2026-10-16）：鼠标光标图像 OpGetCursorImage，Base64 解码校验 BMP 头。
+  "cursor_image_test.cpp"
   # inject_dll 失败上报（2026-09-28 真机暴露：DllInjector 的 -1~-7 被透传，
   # 而对外约定 0=失败非 0=成功 ⇒ 永远无法上报失败）。本测试只注入本进程已加载模块，无需外部进程。
   # run_app(mode=1) 工作目录推导（2026-09-28 真机暴露：裸文件名被截成目录 →

@@ -4,9 +4,16 @@
 #include "base/AutomationModes.h"
 #include "base/Utils.h"
 
+#include "input/mouse/CursorShape.h"
+
 #include <libop.h>
 
 #include <Windows.h>
+#include <wincrypt.h>
+
+// Base64 走 crypt32（共享 onnx 分支 CMake 不链系统库，pragma 补链同 OpCrypto 先例）。
+#pragma comment(lib, "crypt32.lib")
+
 #include <algorithm>
 #include <cwchar>
 #include <map>
@@ -218,6 +225,26 @@ void op::Op::GetCursorPos(long *x, long *y, long *ret) {
 
 void op::Op::GetCursorShape(std::wstring &ret) {
     m_context->bkproc._mouse->GetCursorShape(ret);
+}
+
+void op::Op::GetCursorImage(std::wstring &ret) {
+    ret.clear();
+    std::vector<unsigned char> bmp;
+    if (!cursor_image::FromSystem(bmp, nullptr, nullptr) || bmp.empty())
+        return;
+
+    DWORD len = 0;
+    if (!::CryptBinaryToStringW(bmp.data(), static_cast<DWORD>(bmp.size()),
+                                CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, nullptr, &len))
+        return;
+    std::wstring out(len, L'\0');
+    if (!::CryptBinaryToStringW(bmp.data(), static_cast<DWORD>(bmp.size()),
+                                CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, out.data(), &len))
+        return;
+    out.resize(len);
+    while (!out.empty() && out.back() == L'\0')
+        out.pop_back();
+    ret = std::move(out);
 }
 
 void op::Op::MoveR(long x, long y, long *ret) {

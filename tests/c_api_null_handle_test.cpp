@@ -140,6 +140,7 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_empty(OpGetDisplayMethod(nullptr), "OpGetDisplayMethod");
     EXPECT_EQ(OpGetCursorPos(nullptr, nullptr, nullptr), 0) << "OpGetCursorPos";
     expect_empty(OpGetCursorShape(nullptr), "OpGetCursorShape");
+    expect_empty(OpGetCursorImage(nullptr), "OpGetCursorImage");
     EXPECT_EQ(OpMoveR(nullptr, 0, 0), 0) << "OpMoveR";
     EXPECT_EQ(OpMoveTo(nullptr, 0, 0), 0) << "OpMoveTo";
     expect_empty(OpMoveToEx(nullptr, 0, 0, 0, 0), "OpMoveToEx");
