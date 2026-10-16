@@ -62,6 +62,44 @@ elseif(CMAKE_CXX_COMPILER_ARCHITECTURE_ID MATCHES "x64")
 endif()
 message(STATUS "op: target 64-bit = ${_op_target_is_64bit}")
 
+
+# 检查头文件是否设置正确
+if(EXISTS "${BLACKBONE_INCLUDE_DIR}/BlackBone/Process/Process.h")
+    message(STATUS "${BLACKBONE_INCLUDE_DIR}/BlackBone/Process/Process.h finded" )
+else()
+    message(FATAL_ERROR "${BLACKBONE_INCLUDE_DIR}/BlackBone/Process/Process.h not finded" )
+endif()
+
+
+
+# Integrate vcpkg toolchain if VCPKG_ROOT is set
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    if(DEFINED ENV{VCPKG_ROOT} AND EXISTS "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+        set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+            CACHE STRING "Vcpkg toolchain file")
+    elseif(EXISTS "${CMAKE_SOURCE_DIR}/build/_deps/vcpkg/scripts/buildsystems/vcpkg.cmake")
+        set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/build/_deps/vcpkg/scripts/buildsystems/vcpkg.cmake"
+            CACHE STRING "Vcpkg toolchain file")
+        message(STATUS "Auto-detected vcpkg toolchain from build/_deps")
+    endif()
+endif()
+
+project ("op")
+include(CTest)
+
+# 修复：上方第 50 行的位数判定在 project() 之前执行。对 NMake 生成器，
+# CMAKE_GENERATOR_PLATFORM / CMAKE_VS_PLATFORM_NAME 均为空，且彼时
+# CMAKE_SIZEOF_VOID_P 尚未定义，导致 _op_target_is_64bit 被误判为 FALSE，
+# 静态 minhook 因此错选 x86-windows-static（不存在）而退回动态 DLL 链接。
+# project() 之后编译器已探测，CMAKE_SIZEOF_VOID_P 可用，据此重新判定以修正。
+if(DEFINED CMAKE_SIZEOF_VOID_P AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(_op_target_is_64bit TRUE)
+else()
+    set(_op_target_is_64bit FALSE)
+endif()
+
+# swig python 探测：必须在 project() 之后执行（见上方位数重判说明），
+# 否则 NMake 下位数信号未就绪，x64 会被误判为 x86 而禁用 pyop。
 if(build_swig_py AND NOT OP_PYTHON_WHEEL)
     if(_op_target_is_64bit)
         set(_op_python_home "$ENV{PYTHON64_ROOT}")
@@ -135,41 +173,6 @@ if(build_swig_py AND NOT OP_PYTHON_WHEEL)
         message(STATUS "Disable swig python build: Python runtime not found")
         set(build_swig_py OFF)
     endif()
-endif()
-
-# 检查头文件是否设置正确
-if(EXISTS "${BLACKBONE_INCLUDE_DIR}/BlackBone/Process/Process.h")
-    message(STATUS "${BLACKBONE_INCLUDE_DIR}/BlackBone/Process/Process.h finded" )
-else()
-    message(FATAL_ERROR "${BLACKBONE_INCLUDE_DIR}/BlackBone/Process/Process.h not finded" )
-endif()
-
-
-
-# Integrate vcpkg toolchain if VCPKG_ROOT is set
-if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-    if(DEFINED ENV{VCPKG_ROOT} AND EXISTS "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
-        set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-            CACHE STRING "Vcpkg toolchain file")
-    elseif(EXISTS "${CMAKE_SOURCE_DIR}/build/_deps/vcpkg/scripts/buildsystems/vcpkg.cmake")
-        set(CMAKE_TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/build/_deps/vcpkg/scripts/buildsystems/vcpkg.cmake"
-            CACHE STRING "Vcpkg toolchain file")
-        message(STATUS "Auto-detected vcpkg toolchain from build/_deps")
-    endif()
-endif()
-
-project ("op")
-include(CTest)
-
-# 修复：上方第 50 行的位数判定在 project() 之前执行。对 NMake 生成器，
-# CMAKE_GENERATOR_PLATFORM / CMAKE_VS_PLATFORM_NAME 均为空，且彼时
-# CMAKE_SIZEOF_VOID_P 尚未定义，导致 _op_target_is_64bit 被误判为 FALSE，
-# 静态 minhook 因此错选 x86-windows-static（不存在）而退回动态 DLL 链接。
-# project() 之后编译器已探测，CMAKE_SIZEOF_VOID_P 可用，据此重新判定以修正。
-if(DEFINED CMAKE_SIZEOF_VOID_P AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(_op_target_is_64bit TRUE)
-else()
-    set(_op_target_is_64bit FALSE)
 endif()
 
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")

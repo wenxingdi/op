@@ -141,6 +141,9 @@ class Op(object):
     def FindNearestPos(self, all_pos, type, x, y):
         return _pyop.Op_FindNearestPos(self, all_pos, type, x, y)
 
+    def SortPosDistance(self, all_pos, type, x, y):
+        return _pyop.Op_SortPosDistance(self, all_pos, type, x, y)
+
     def SetAStarMap(self, bitmap_file, scale, offset_x, offset_y):
         return _pyop.Op_SetAStarMap(self, bitmap_file, scale, offset_x, offset_y)
 
@@ -152,6 +155,9 @@ class Op(object):
 
     def AStarFindPathWay(self, points):
         return _pyop.Op_AStarFindPathWay(self, points)
+
+    def FindNearestFeasiblePoint(self, x, y):
+        return _pyop.Op_FindNearestFeasiblePoint(self, x, y)
 
     def SmoothPathByLOS(self, path):
         return _pyop.Op_SmoothPathByLOS(self, path)
@@ -333,6 +339,39 @@ class Op(object):
     def IsElevated(self):
         return _pyop.Op_IsElevated(self)
 
+    def EnableDebugPrivilege(self):
+        return _pyop.Op_EnableDebugPrivilege(self)
+
+    def GetLastErrorString(self):
+        return _pyop.Op_GetLastErrorString(self)
+
+    def Md5(self, text):
+        return _pyop.Op_Md5(self, text)
+
+    def Sha1(self, text):
+        return _pyop.Op_Sha1(self, text)
+
+    def Base64Encode(self, text):
+        return _pyop.Op_Base64Encode(self, text)
+
+    def Base64Decode(self, base64):
+        return _pyop.Op_Base64Decode(self, base64)
+
+    def DrawRect(self, x1, y1, x2, y2, color, width):
+        return _pyop.Op_DrawRect(self, x1, y1, x2, y2, color, width)
+
+    def DrawLine(self, x1, y1, x2, y2, color, width):
+        return _pyop.Op_DrawLine(self, x1, y1, x2, y2, color, width)
+
+    def DrawText(self, x, y, text, color, font_size):
+        return _pyop.Op_DrawText(self, x, y, text, color, font_size)
+
+    def DrawClear(self):
+        return _pyop.Op_DrawClear(self)
+
+    def DrawSetVisible(self, show):
+        return _pyop.Op_DrawSetVisible(self, show)
+
     def BindWindow(self, hwnd, display, mouse, keypad, mode):
         return _pyop.Op_BindWindow(self, hwnd, display, mouse, keypad, mode)
 
@@ -368,6 +407,9 @@ class Op(object):
 
     def GetCursorShape(self):
         return _pyop.Op_GetCursorShape(self)
+
+    def GetCursorImage(self):
+        return _pyop.Op_GetCursorImage(self)
 
     def MoveR(self, x, y):
         return _pyop.Op_MoveR(self, x, y)
@@ -564,6 +606,9 @@ class Op(object):
     def GetScreenFrameInfo(self):
         return _pyop.Op_GetScreenFrameInfo(self)
 
+    def IsDisplayDead(self, x1, y1, x2, y2, check_times, interval_ms):
+        return _pyop.Op_IsDisplayDead(self, x1, y1, x2, y2, check_times, interval_ms)
+
     def GetFPS(self):
         return _pyop.Op_GetFPS(self)
 
@@ -627,6 +672,12 @@ class Op(object):
     def CvCropValid(self, src_file, dst_file):
         return _pyop.Op_CvCropValid(self, src_file, dst_file)
 
+    def CvRotate(self, src_file, dst_file, angle_deg):
+        return _pyop.Op_CvRotate(self, src_file, dst_file, angle_deg)
+
+    def CvFlip(self, src_file, dst_file, mode):
+        return _pyop.Op_CvFlip(self, src_file, dst_file, mode)
+
     def CvConnectedComponents(self, src_file, min_area):
         return _pyop.Op_CvConnectedComponents(self, src_file, min_area)
 
@@ -680,6 +731,9 @@ class Op(object):
 
     def SetOcrEngine(self, path_of_engine, dll_name, argv):
         return _pyop.Op_SetOcrEngine(self, path_of_engine, dll_name, argv)
+
+    def OcrWarmup(self):
+        return _pyop.Op_OcrWarmup(self)
 
     def SetYoloEngine(self, path_of_engine, dll_name, argv):
         return _pyop.Op_SetYoloEngine(self, path_of_engine, dll_name, argv)
@@ -854,6 +908,117 @@ class Op(object):
 
     def GetModuleBaseAddr(self, hwnd, module):
         return _pyop.Op_GetModuleBaseAddr(self, hwnd, module)
+
+    def GetModuleSize(self, hwnd, module):
+        return _pyop.Op_GetModuleSize(self, hwnd, module)
+
+    def GetModuleInfoList(self, hwnd):
+        return _pyop.Op_GetModuleInfoList(self, hwnd)
+
+    def VirtualProtectEx(self, hwnd, address, size, new_protect):
+        return _pyop.Op_VirtualProtectEx(self, hwnd, address, size, new_protect)
+
+    def VirtualAllocEx(self, hwnd, address, size, alloc_type, protect):
+        return _pyop.Op_VirtualAllocEx(self, hwnd, address, size, alloc_type, protect)
+
+    def FileExists(self, file_name):
+        return _pyop.Op_FileExists(self, file_name)
+
+    def CreateFolder(self, folder_name):
+        return _pyop.Op_CreateFolder(self, folder_name)
+
+    def DeleteFolder(self, folder_name):
+        return _pyop.Op_DeleteFolder(self, folder_name)
+
+    def GetFileList(self, folder, wildcard):
+        return _pyop.Op_GetFileList(self, folder, wildcard)
+
+    def CopyFile(self, src_file, dst_file):
+        return _pyop.Op_CopyFile(self, src_file, dst_file)
+
+    def MoveFile(self, src_file, dst_file):
+        return _pyop.Op_MoveFile(self, src_file, dst_file)
+
+    def DeleteFile(self, file_name):
+        return _pyop.Op_DeleteFile(self, file_name)
+
+    def GetFileSize(self, file_name, size):
+        return _pyop.Op_GetFileSize(self, file_name, size)
+
+    def ReadFileString(self, file_name):
+        return _pyop.Op_ReadFileString(self, file_name)
+
+    def WriteStringToFile(self, file_name, content):
+        return _pyop.Op_WriteStringToFile(self, file_name, content)
+
+    def GetFileName(self, file_path, flag):
+        return _pyop.Op_GetFileName(self, file_path, flag)
+
+    def ToAbsolutePath(self, path):
+        return _pyop.Op_ToAbsolutePath(self, path)
+
+    def KeyPressHotkey(self, combo):
+        return _pyop.Op_KeyPressHotkey(self, combo)
+
+    def GetWindowScale(self, hwnd):
+        return _pyop.Op_GetWindowScale(self, hwnd)
+
+    def TerminateProcess(self, pid):
+        return _pyop.Op_TerminateProcess(self, pid)
+
+    def TerminateProcessTree(self, pid):
+        return _pyop.Op_TerminateProcessTree(self, pid)
+
+    def DecodeQRCode(self, x1, y1, x2, y2):
+        return _pyop.Op_DecodeQRCode(self, x1, y1, x2, y2)
+
+    def DecodeQRCodeFromFile(self, file_name):
+        return _pyop.Op_DecodeQRCodeFromFile(self, file_name)
+
+    def CreateQRCode(self, text, file_name, size):
+        return _pyop.Op_CreateQRCode(self, text, file_name, size)
+
+    def JsonIsValid(self, json_text):
+        return _pyop.Op_JsonIsValid(self, json_text)
+
+    def JsonGetString(self, json_text, path):
+        return _pyop.Op_JsonGetString(self, json_text, path)
+
+    def JsonGetNumber(self, json_text, path, value):
+        return _pyop.Op_JsonGetNumber(self, json_text, path, value)
+
+    def JsonGetBool(self, json_text, path):
+        return _pyop.Op_JsonGetBool(self, json_text, path)
+
+    def JsonGetSize(self, json_text, path):
+        return _pyop.Op_JsonGetSize(self, json_text, path)
+
+    def JsonGetKeys(self, json_text, path):
+        return _pyop.Op_JsonGetKeys(self, json_text, path)
+
+    def JsonSetString(self, json_text, path, value):
+        return _pyop.Op_JsonSetString(self, json_text, path, value)
+
+    def JsonSetNumber(self, json_text, path, value):
+        return _pyop.Op_JsonSetNumber(self, json_text, path, value)
+
+    def JsonSetBool(self, json_text, path, value):
+        return _pyop.Op_JsonSetBool(self, json_text, path, value)
+
+    def JsonAppend(self, json_text, path, raw_json):
+        return _pyop.Op_JsonAppend(self, json_text, path, raw_json)
+
+    def JsonDelete(self, json_text, path):
+        return _pyop.Op_JsonDelete(self, json_text, path)
+
+    def HttpGet(self, url, headers_json, timeout_ms):
+        return _pyop.Op_HttpGet(self, url, headers_json, timeout_ms)
+
+    def HttpPost(self, url, body, headers_json, timeout_ms):
+        return _pyop.Op_HttpPost(self, url, body, headers_json, timeout_ms)
+
+    def HttpDownloadFile(self, url, file_name, timeout_ms):
+        return _pyop.Op_HttpDownloadFile(self, url, file_name, timeout_ms)
 
     def RunApp(self, *args):
         return _pyop.Op_RunApp(self, *args)
