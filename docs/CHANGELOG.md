@@ -3,6 +3,28 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-15 第二十三批（P2：图像变换 OpCvRotate/OpCvFlip，feat）
+
+承接 OLA 对比 P2 批排期 #7，新增 2 接口（Op → C API → COM idl 421-422 →
+测试四层），全量回归 421 ran / 419 PASS（唯一失败为基线环境 flake
+MouseKeyTest.WaitKeyScanAllWithWaitFindsKey；MouseTrajectoryJitterBendsPath
+在全量并发下偶发时序 flake，单独复跑 48/48 通过）。
+
+- **feat(op): CvRotate**（欧拉 Rotate 对等）：角度制、正角逆时针。
+  归一化到 [0,360) 后 90 的倍数走 cv::rotate 无损路径（无插值无白边，
+  旋转模板找图场景保真）；任意角按 RotatedRect 外接矩形扩画布 +
+  warpAffine BORDER_CONSTANT 白边（黑边会干扰找图匹配）。helper 落
+  opcv::helpers::rotateImage（OpenCvHelpers），opcv::Rotate 转发。
+- **feat(op): CvFlip**（欧拉 Flip 对等）：mode 0 上下（绕 x 轴）/ 1 左右
+  （绕 y 轴）/ 2 双向（flipCode -1，=旋转 180°），其余 mode 返回失败。
+- **test**: cv_transform_test.cpp 新增 3 用例：4x2 非对称四角彩图（红绿蓝黄
+  互异）像素级断言——三种 flip 的角映射、90°/180°/360° 尺寸互换与角
+  落映射、45° 任意角扩画布面积严格增大、非法 mode/非法源文件返回 0。
+  两处断言修正属测试自身预期错误（逆时针 90° 的 TR→左上而非右上；
+  扁平图 45° 单维因外接矩形截断可不减），实现行为经 OpenCV 语义核对无误。
+
+遗留同前批：swig/python 与 Go 绑定待补（本机无 swig）。
+
 ### 2026-10-15 第二十二批（P2：内存三件套 + 模块列表，feat）
 
 承接 OLA 对比 P2 批排期 #6，新增 4 接口（Op → C API → COM idl 417-420 →
