@@ -3,6 +3,25 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-16 第三十二批（feat(bind)：ctypes 绑定补齐 55 方法 → 310/310 全覆盖）
+
+兑现第三十批遗留"bindings/python 落后 libop.h 68 个函数"：`op/_ffi.py` 补 46 条 C 导出
+签名（含漏登记的 OpSortPosDistance/OpFindNearestFeasiblePoint 两条），`op/api.py` 补 55
+个方法包装，新增 File system / QR code / JSON / HTTP 四个分区；`_PY_SNAKE_SPECIAL` 收录
+手写命名 17 条实际映射（set_astar_map/unbind_window/xbutton1_click/hwheel/autoocr/
+decode_qrcode 等），手册 `in_ctypes_binding` 标注与覆盖率核对统一走该表。
+
+- **ctypes 覆盖 242→310/310**：HTML 橙色"未覆盖"标注清零，api_llm.json 逐函数
+  `in_ctypes_binding: true`。注解覆盖仍 100%（1177/1177）。
+- **真机抽验（bin/x64/op_c_api_x64.dll，ctypes 路径）**：Md5/Sha1/Base64 与标准值一致；
+  JSON 族 11 函数（valid/str/num/bool/size/keys/set×3/append/delete）行为全对；
+  文件族 write/read/exists/size/name flag0~3/copy/folder 全对；get_window_scale 真实
+  hwnd 返回 "1.50"；ocr_warmup 触发懒加载成功（keys=6623 全字典）。
+- **两处刻意设计**：`json_is_valid` 返回 0 是正常答案，改用 `_call_int` 不抛异常；
+  `sort_pos_distance`/`get_file_list` 初始探针疑失败，经与 pyop 同参对照确认为
+  DLL 既有行为（t=0 空串、wildcard 需 "*.txt" 语法），绑定层如实透传。
+- **无二进制改动**（纯绑定层+生成器），全量回归不必重跑。
+
 ### 2026-10-16 第三十一批（docs(api)：颜色/DPI/OCR 全局约定实证落地）
 
 无新增导出（仍为 316）。本批把源码实证的三项全局约定写入手册，消除"实际行为 vs
