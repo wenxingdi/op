@@ -253,16 +253,16 @@
 - `GetWordResultCount(result) → (ret)` — 在使用GetWords进行词组识别以后,可以用此接口进行识别词组数量的计算
 - `GetWordResultPos(result, index) → (x, y, ret)` — 在使用GetWords进行词组识别以后,可以用此接口进行识别各个词组的坐标
 - `GetWordResultStr(result, index) → (et_str)` — 在使用GetWords进行词组识别以后,可以用此接口进行识别各个词组的内容
-- `AutoOcr(x1, y1, x2, y2, color, sim) → (et_str)` — 免字库 OCR 家族速查（免字库 = 未 SetDict/UseDict，走内置 ONNX 引擎；有字库 = 点阵字库匹配）：
+- `AutoOcr(x1, y1, x2, y2, color, sim) → (et_str)` — 免字库 OCR 归一入口（推荐）。**color 为空 → 原图直识别（同 OcrAuto，无需指定颜色）；非空 → 按颜色二值化后识别（同 OcrAutoColor）**。免字库 = 未 SetDict/UseDict，走内置 ONNX 引擎；有字库 = 点阵字库匹配。同门面语义适用于旧别名 AutoOcrLine / AutoOcrEx / AutoOcrFromFile（color 为空同样直识原图）。
 - `Ocr(x1, y1, x2, y2, color, sim) → (et_str)` — 识别屏幕范围(x1,y1,x2,y2)内符合color_format的字符串,并且相似度为sim,sim取值范围(0.1-1.0),
 - `OcrEx(x1, y1, x2, y2, color, sim) → (et_str)` — 同 Ocr，但返回识别到的字符串以及每个字符的坐标（已装载字库时结果按阅读顺序拼接：包围盒纵向重叠聚类成行、行内按 x 排序）
-- `OcrAutoColor(x1, y1, x2, y2, color, sim) → (et_str)` — 区域截图后按颜色二值化再做免字库 OCR：输入区域、颜色、相似度（置信度阈值，默认 0.7）。
+- `OcrAutoColor(x1, y1, x2, y2, color, sim) → (et_str)` — 区域截图后按颜色二值化再做免字库 OCR。颜色容差语义：颜色串可带偏色段 "RRGGBB-DRDGDB"（如 "0F1721-606060"），**带偏色段 → 按偏色值逐通道容差匹配；不带偏色段 → 默认容差 0x60**（包全抗锯齿笔画；零容差会切碎小字号字形，半边缘容差比零容差更糟，均勿用）。**sim 在免字库路径是识别置信度过滤阈值（丢 confidence<sim 的整行结果，典型识别置信度 0.8~0.95），不是颜色容差**，建议 0.8 左右，0.95 容易过滤掉全部结果。
 - `OcrAutoColorLine(x1, y1, x2, y2, color, sim) → (et_str)` — 单行快模式 OcrAutoColor：颜色二值化后整图直接 rec（跳过检测），适用于读出区/固定单行文本。
 - `OcrAutoColorEx(x1, y1, x2, y2, color, sim) → (et_str)` — 结构化 OcrAutoColor：输出 "x1,y1,x2,y2,conf,text|..."（bbox 为客户区坐标，相对绑定窗口客户区左上角），返回命中行数。
 - `FindStr(x1, y1, x2, y2, strs, color, sim) → (ret, ret, ret)` — 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
 - `FindStrEx(x1, y1, x2, y2, strs, color, sim) → (etstr)` — 返回符合color_format的所有坐标位置
 - `OcrAuto(x1, y1, x2, y2, sim) → (et_str)` — 识别屏幕范围(x1,y1,x2,y2)内的字符串，无需指定颜色。
-- `OcrFromFile(file_name, color_format, sim) → (etstr)` — 从文件中识别图片，规则同 Ocr
+- `OcrFromFile(file_name, color_format, sim) → (etstr)` — 从文件中识别图片。**免字库路径 color_format 不参与识别**（直接对原图跑引擎，要按颜色过滤请用 OcrAutoColorFromFile / AutoOcrFromFile）；有字库时规则同 Ocr。sim 同免字库语义（置信度过滤）。
 - `OcrAutoColorFromFile(file_name, color_format, sim) → (etstr)` — 文件版 OcrAutoColor：读取图片后按颜色二值化再做免字库 OCR。
 - `OcrAutoFromFile(file_name, sim) → (etstr)` — 从文件中识别图片，无需指定颜色，规则同 OcrAuto
 - `FindLine(x1, y1, x2, y2, color, sim) → (etstr)` — 查找频幕中的直线

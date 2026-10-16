@@ -417,7 +417,10 @@ OP_C_API const wchar_t *OP_CALL OpOcrAutoFromFile(op_handle handle, const wchar_
 /* 免字库 OCR 归一入口（推荐）：color 为空 → 原图直识别；非空 → 按颜色二值化。行为同 OpOcrAuto/OpOcrAutoColor 两分支 */
 OP_C_API const wchar_t *OP_CALL OpAutoOcr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
                                           double sim);
-/* ---- 以下旧名为废弃别名，保留转发以兼容已有脚本，新代码请用 OpOcrAutoColor* / OpAutoOcr ---- */
+/* ---- 以下旧名为废弃别名，保留转发以兼容已有脚本，新代码请用 OpOcrAutoColor* / OpAutoOcr ----
+ * 三个别名与 OpAutoOcr 同门面语义：color 为空 → 原图直识别；非空 → 按颜色二值化。
+ * 注意 OpAutoOcrEx 空颜色时坐标格式为 "x,y,text|..."（转发 OpOcrEx），
+ * 非空时为 "x1,y1,x2,y2,conf,text|..."（OpOcrAutoColorEx），两者不同。 */
 OP_C_API const wchar_t *OP_CALL OpAutoOcrLine(op_handle handle, int x1, int y1, int x2, int y2,
                                               const wchar_t *color, double sim);
 OP_C_API const wchar_t *OP_CALL OpAutoOcrEx(op_handle handle, int x1, int y1, int x2, int y2,

@@ -184,7 +184,7 @@ class ImageSearchService : public ImageSearchAlgorithms {
     int str2colordfs(const wstring &color_str, std::vector<color_df_t> &colors, std::vector<bool> *explicit_dfs);
     void parse_multi_color_args(const wstring &first_color, const wstring &offset_color,
                                 std::vector<color_df_t> &vfirst_color, std::vector<pt_cr_df_t> &voffset_cr);
-    void str2binaryfbk(const wstring &color, double sim);
+void str2binaryfbk(const wstring &color, double sim, int implicit_df_override = -1);
     void str2pointbinaryfbk(const wstring &color);
     void str2pointbinaryfbk(const wstring &color, double sim);
     void ApplyBinaryPreprocess();

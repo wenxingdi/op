@@ -52,6 +52,12 @@ color_t sim_to_point_color_diff(double sim) {
     return color_diff;
 }
 
+// OCR 免字库路径（ocr_auto_color 系）的隐式颜色容差。
+// 实测抗锯齿文字在"零容差(碎核心)"与"宽容差(全笔画)"下识别最好，
+// 中间带（如 0x40 只包进半个抗锯齿边缘）反而最差；
+// 0x60 能包全笔画，而背景色差普遍 >200 不会误包。
+constexpr int kOcrImplicitColorDiff = 0x60;
+
 // 免字库共用：二值图（1=文字, 0=背景）-> 白字黑底 BGRA 缓冲，喂给 OCR 引擎。
 void binary_to_white_on_black_bgra(const unsigned char *bin, int w, int h, std::vector<unsigned char> &buf) {
     buf.assign(static_cast<size_t>(w) * h * 4, 0);
@@ -817,7 +823,9 @@ long ImageSearchService::ocr_auto_color(const wstring &color, double sim, wstrin
     // 1) 按颜色二值化 -> _binary（WORD_COLOR=1 命中文字，WORD_BKCOLOR=0 背景）。
     //    用 str2binaryfbk 而非裸 str2colordfs+bgr2binary：它支持 "@背景色" 格式
     //    （分流到 bgr2binarybk，反白字/白字深底场景），与字库制作同一入口。
-    str2binaryfbk(color);
+    //    无显式偏色段时容差用 kOcrImplicitColorDiff（0x60 包全抗锯齿笔画），不用 sim 推导——
+    //    中间容差带（只包半个边缘）比零容差更糟，实测结论。
+    str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);
 
     auto dict = ActiveDict(_curr_idx);
     if (dict) {
@@ -844,7 +852,8 @@ long ImageSearchService::ocr_auto_color_line(const wstring &color, double sim, w
 
     // 1) 按颜色二值化 -> _binary（命中文字=1，背景=0）。
     //    str2binaryfbk：支持 "@背景色" 反白格式，与字库制作同一入口。
-    str2binaryfbk(color);
+    //    无显式偏色段时容差用 kOcrImplicitColorDiff，理由同 ocr_auto_color。
+    str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);
 
     auto dict = ActiveDict(_curr_idx);
     if (dict) {
@@ -905,7 +914,8 @@ long ImageSearchService::ocr_auto_color_ex(const wstring &color, double sim, wst
 
     // 1) 按颜色二值化 -> _binary。
     //    str2binaryfbk：支持 "@背景色" 反白格式，与字库制作同一入口。
-    str2binaryfbk(color);
+    //    无显式偏色段时容差用 kOcrImplicitColorDiff，理由同 ocr_auto_color。
+    str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);
 
     auto dict = ActiveDict(_curr_idx);
     if (dict) {
@@ -1093,11 +1103,17 @@ void ImageSearchService::str2binaryfbk(const wstring &color) {
     str2binaryfbk(color, 1.0);
 }
 
-void ImageSearchService::str2binaryfbk(const wstring &color, double sim) {
+void ImageSearchService::str2binaryfbk(const wstring &color, double sim, int implicit_df_override) {
     vector<color_df_t> colors;
     vector<bool> explicit_dfs;
     if (str2colordfs(color, colors, &explicit_dfs) == 0) {
-        const auto implicit_df = sim_to_point_color_diff(sim);
+        // implicit_df_override >= 0 时按调用方指定值（如 OCR 免字库路径的 kOcrImplicitColorDiff），
+        // 否则由 sim 推导（ceil((1-sim)*255)）。
+        const color_t implicit_df = implicit_df_override >= 0
+                                        ? color_t{static_cast<uchar>(implicit_df_override),
+                                                  static_cast<uchar>(implicit_df_override),
+                                                  static_cast<uchar>(implicit_df_override)}
+                                        : sim_to_point_color_diff(sim);
         for (size_t i = 0; i < colors.size() && i < explicit_dfs.size(); ++i) {
             if (!explicit_dfs[i])
                 colors[i].df = implicit_df;

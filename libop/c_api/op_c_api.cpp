@@ -1624,18 +1624,38 @@ const wchar_t *OP_CALL OpAutoOcr(op_handle handle, int x1, int y1, int x2, int y
     });
 }
 
+// 免字库门面：color 为空 → 原图直识（同 OpAutoOcr 的归一语义）；非空 → 按颜色二值化。
+// 空颜色此前直转 OcrAutoColor*，二值化产出全背景图，结果恒空（#ocr-empty-color）。
 const wchar_t *OP_CALL OpAutoOcrLine(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
                                      double sim) {
+    if (color == nullptr || color[0] == L'\0')
+        return OpOcrAuto(handle, x1, y1, x2, y2, sim);
     return OpOcrAutoColorLine(handle, x1, y1, x2, y2, color, sim);
 }
 
 const wchar_t *OP_CALL OpAutoOcrEx(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, double sim,
                                    int *find_count) {
+    if (color == nullptr || color[0] == L'\0') {
+        // 结构化原图直识：OpOcrEx 免字库分支输出 "x,y,text|..."（坐标格式与
+        // OcrAutoColorEx 的 "x1,y1,x2,y2,conf,text" 不同，调用方注意区分）。
+        const wchar_t *ret = OpOcrEx(handle, x1, y1, x2, y2, L"", sim);
+        if (find_count) {
+            int ct = 0;
+            if (ret != nullptr && ret[0] != L'\0')
+                for (const wchar_t *p = ret; *p; ++p)
+                    if (*p == L'|')
+                        ++ct;
+            *find_count = ct;
+        }
+        return ret;
+    }
     return OpOcrAutoColorEx(handle, x1, y1, x2, y2, color, sim, find_count);
 }
 
 const wchar_t *OP_CALL OpAutoOcrFromFile(op_handle handle, const wchar_t *file_name, const wchar_t *color_format,
                                         double sim) {
+    if (color_format == nullptr || color_format[0] == L'\0')
+        return OpOcrAutoFromFile(handle, file_name, sim);
     return OpOcrAutoColorFromFile(handle, file_name, color_format, sim);
 }
 
