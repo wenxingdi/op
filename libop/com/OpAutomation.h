@@ -584,6 +584,19 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(DrawText)(LONG x, LONG y, BSTR text, BSTR color, LONG font_size, LONG *ret);
     STDMETHOD(DrawClear)(LONG *ret);
     STDMETHOD(DrawSetVisible)(LONG show, LONG *ret);
+    //-----------------------json（P3 第一批 2026-10-16）-------------------------
+    // 路径 "a.b[0].c"（兼容 "a.b.0"），空路径=根。失败：取值类空串/0，写类返回空串。
+    STDMETHOD(JsonIsValid)(BSTR json_text, LONG *ret);
+    STDMETHOD(JsonGetString)(BSTR json_text, BSTR path, BSTR *retstr);
+    STDMETHOD(JsonGetNumber)(BSTR json_text, BSTR path, DOUBLE *value, LONG *ret);
+    STDMETHOD(JsonGetBool)(BSTR json_text, BSTR path, LONG *value, LONG *ret);
+    STDMETHOD(JsonGetSize)(BSTR json_text, BSTR path, LONG *ret);
+    STDMETHOD(JsonGetKeys)(BSTR json_text, BSTR path, BSTR *retstr);
+    STDMETHOD(JsonSetString)(BSTR json_text, BSTR path, BSTR value, BSTR *retstr);
+    STDMETHOD(JsonSetNumber)(BSTR json_text, BSTR path, DOUBLE value, BSTR *retstr);
+    STDMETHOD(JsonSetBool)(BSTR json_text, BSTR path, LONG value, BSTR *retstr);
+    STDMETHOD(JsonAppend)(BSTR json_text, BSTR path, BSTR raw_json, BSTR *retstr);
+    STDMETHOD(JsonDelete)(BSTR json_text, BSTR path, BSTR *retstr);
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(OpAutomation), OpAutomation)

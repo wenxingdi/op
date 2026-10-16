@@ -379,6 +379,19 @@ interface IOpAutomation : IDispatch
 	[id(375)] HRESULT PointInPolygon([in] BSTR point, [in] BSTR polygon, [out, retval] LONG* ret);
 	// 多角度模板匹配：angles 形如 "0|15|-15"（空串走默认角度集）；retjson 额外带命中角度 angle。
 	[id(376)] HRESULT CvMatchTemplateRot([in] LONG x, [in] LONG y, [in] LONG width, [in] LONG height, [in] BSTR template_name, [in] BSTR angles, [in] DOUBLE threshold, [in] LONG method, [in] LONG color_mode, [out] BSTR* retjson, [out, retval] LONG* ret);
+	// JSON 族（P3 第一批 2026-10-16）：无句柄路径直取式，路径 "a.b[0].c"（兼容 "a.b.0"）。
+	// 失败约定：取值类空串/0，写类返回空串。
+	[id(426)] HRESULT JsonIsValid([in] BSTR json_text, [out, retval] LONG* ret);
+	[id(427)] HRESULT JsonGetString([in] BSTR json_text, [in] BSTR path, [out, retval] BSTR* retstr);
+	[id(428)] HRESULT JsonGetNumber([in] BSTR json_text, [in] BSTR path, [out] DOUBLE* value, [out, retval] LONG* ret);
+	[id(429)] HRESULT JsonGetBool([in] BSTR json_text, [in] BSTR path, [out] LONG* value, [out, retval] LONG* ret);
+	[id(430)] HRESULT JsonGetSize([in] BSTR json_text, [in] BSTR path, [out, retval] LONG* ret);
+	[id(431)] HRESULT JsonGetKeys([in] BSTR json_text, [in] BSTR path, [out, retval] BSTR* retstr);
+	[id(432)] HRESULT JsonSetString([in] BSTR json_text, [in] BSTR path, [in] BSTR value, [out, retval] BSTR* retstr);
+	[id(433)] HRESULT JsonSetNumber([in] BSTR json_text, [in] BSTR path, [in] DOUBLE value, [out, retval] BSTR* retstr);
+	[id(434)] HRESULT JsonSetBool([in] BSTR json_text, [in] BSTR path, [in] LONG value, [out, retval] BSTR* retstr);
+	[id(435)] HRESULT JsonAppend([in] BSTR json_text, [in] BSTR path, [in] BSTR raw_json, [out, retval] BSTR* retstr);
+	[id(436)] HRESULT JsonDelete([in] BSTR json_text, [in] BSTR path, [out, retval] BSTR* retstr);
 
 
 

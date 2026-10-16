@@ -506,6 +506,33 @@ OP_C_API const wchar_t *OP_CALL OpDecodeQRCodeFromFile(op_handle handle, const w
 // 生成二维码保存为图片（size<=0 用 256）
 OP_C_API int OP_CALL OpCreateQRCode(op_handle handle, const wchar_t *text, const wchar_t *file_name, int size);
 
+// ---- JSON 族（P3 第一批新增 2026-10-16）：无句柄路径直取式，解析 OP 自身 JSON 返回值/用户数据 ----
+// 路径语法 "a.b[0].c"（兼容 "a.b.0"），空路径 = 根。失败约定：取值类返 0/空串，写类返回空串。
+// 校验文本是否合法 JSON
+OP_C_API int OP_CALL OpJsonIsValid(op_handle handle, const wchar_t *json_text);
+// 取字符串值；失败/类型不符返回空串
+OP_C_API const wchar_t *OP_CALL OpJsonGetString(op_handle handle, const wchar_t *json_text, const wchar_t *path);
+// 取数值；返回值 1 成功 0 失败
+OP_C_API int OP_CALL OpJsonGetNumber(op_handle handle, const wchar_t *json_text, const wchar_t *path, double *value);
+// 取布尔值（value 0/1）；返回值 1 成功 0 失败
+OP_C_API int OP_CALL OpJsonGetBool(op_handle handle, const wchar_t *json_text, const wchar_t *path, int *value);
+// 数组长度/对象键数；非集合或不存在返回 -1
+OP_C_API int OP_CALL OpJsonGetSize(op_handle handle, const wchar_t *json_text, const wchar_t *path);
+// 对象键名序列化为 JSON 数组文本；非对象返回空串
+OP_C_API const wchar_t *OP_CALL OpJsonGetKeys(op_handle handle, const wchar_t *json_text, const wchar_t *path);
+// 写入路径（自动创建中间节点），返回新 JSON 串；失败返回空串
+OP_C_API const wchar_t *OP_CALL OpJsonSetString(op_handle handle, const wchar_t *json_text, const wchar_t *path,
+                                                const wchar_t *value);
+OP_C_API const wchar_t *OP_CALL OpJsonSetNumber(op_handle handle, const wchar_t *json_text, const wchar_t *path,
+                                                double value);
+OP_C_API const wchar_t *OP_CALL OpJsonSetBool(op_handle handle, const wchar_t *json_text, const wchar_t *path,
+                                              int value);
+// 数组追加元素（raw_json 为元素文本）；失败返回空串
+OP_C_API const wchar_t *OP_CALL OpJsonAppend(op_handle handle, const wchar_t *json_text, const wchar_t *path,
+                                             const wchar_t *raw_json);
+// 删除对象键或数组元素，返回新 JSON 串；失败返回空串
+OP_C_API const wchar_t *OP_CALL OpJsonDelete(op_handle handle, const wchar_t *json_text, const wchar_t *path);
+
 #ifdef __cplusplus
 }
 #endif

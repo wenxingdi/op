@@ -283,6 +283,11 @@ set(OP_IPC_SOURCES
   "ipc/Pipe.cpp"
 )
 
+# P3 第一批（2026-10-16）：JSON 族（OpJson* 11 接口）的解析/序列化/路径核心。
+set(OP_JSON_SOURCES
+  "json/JsonValue.cpp"
+)
+
 set(OP_CLASS_SOURCES
   "op/OpContext.cpp"
   "op/OpRuntime.cpp"
@@ -299,6 +304,7 @@ set(OP_CLASS_SOURCES
   "op/OpOcr.cpp"
   "op/OpYolo.cpp"
   "op/OpMemory.cpp"
+  "op/OpJson.cpp"
 )
 
 set(OP_OPENCV_SOURCES "")
@@ -323,6 +329,7 @@ set(OP_LIBOP_SOURCES
   ${OP_YOLO_SOURCES}
   ${OP_MEMORY_SOURCES}
   ${OP_IPC_SOURCES}
+  ${OP_JSON_SOURCES}
   ${OP_OPENCV_SOURCES}
   ${OP_KIERO2_SOURCES}
   "libop.cpp"

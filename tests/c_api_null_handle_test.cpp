@@ -333,6 +333,17 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_empty(OpDecodeQRCode(nullptr, 0, 0, 0, 0), "OpDecodeQRCode");
     expect_empty(OpDecodeQRCodeFromFile(nullptr, L""), "OpDecodeQRCodeFromFile");
     EXPECT_EQ(OpCreateQRCode(nullptr, L"", L"", 0), 0) << "OpCreateQRCode";
+    EXPECT_EQ(OpJsonIsValid(nullptr, L""), 0) << "OpJsonIsValid";
+    expect_empty(OpJsonGetString(nullptr, L"", L""), "OpJsonGetString");
+    EXPECT_EQ(OpJsonGetNumber(nullptr, L"", L"", nullptr), 0) << "OpJsonGetNumber";
+    EXPECT_EQ(OpJsonGetBool(nullptr, L"", L"", nullptr), 0) << "OpJsonGetBool";
+    EXPECT_EQ(OpJsonGetSize(nullptr, L"", L""), 0) << "OpJsonGetSize";
+    expect_empty(OpJsonGetKeys(nullptr, L"", L""), "OpJsonGetKeys");
+    expect_empty(OpJsonSetString(nullptr, L"", L"", L""), "OpJsonSetString");
+    expect_empty(OpJsonSetNumber(nullptr, L"", L"", 0.0), "OpJsonSetNumber");
+    expect_empty(OpJsonSetBool(nullptr, L"", L"", 0), "OpJsonSetBool");
+    expect_empty(OpJsonAppend(nullptr, L"", L"", L""), "OpJsonAppend");
+    expect_empty(OpJsonDelete(nullptr, L"", L""), "OpJsonDelete");
 }
 
 TEST(CApiNullHandle, FreeFunctionsAreSafe) {

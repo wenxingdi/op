@@ -1933,5 +1933,98 @@ int OP_CALL OpCreateQRCode(op_handle handle, const wchar_t *text, const wchar_t 
     });
 }
 
+// ---- JSON 族（P3 第一批新增 2026-10-16）----
+
+int OP_CALL OpJsonIsValid(op_handle handle, const wchar_t *json_text) {
+    return call_int(handle, [&](op::Op &op) { return static_cast<int>(op.JsonIsValid(safe_text(json_text))); });
+}
+
+const wchar_t *OP_CALL OpJsonGetString(op_handle handle, const wchar_t *json_text, const wchar_t *path) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        long ok = 0;
+        op.JsonGetString(safe_text(json_text), safe_text(path), ret, &ok);
+        if (!ok)
+            ret.clear();
+    });
+}
+
+int OP_CALL OpJsonGetNumber(op_handle handle, const wchar_t *json_text, const wchar_t *path, double *value) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        double v = 0.0;
+        op.JsonGetNumber(safe_text(json_text), safe_text(path), &v, ret);
+        out_value(value, v);
+    });
+}
+
+int OP_CALL OpJsonGetBool(op_handle handle, const wchar_t *json_text, const wchar_t *path, int *value) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        long v = 0;
+        op.JsonGetBool(safe_text(json_text), safe_text(path), &v, ret);
+        out_int(value, v);
+    });
+}
+
+int OP_CALL OpJsonGetSize(op_handle handle, const wchar_t *json_text, const wchar_t *path) {
+    return call_int(handle, [&](op::Op &op) { return static_cast<int>(op.JsonGetSize(safe_text(json_text), safe_text(path))); });
+}
+
+const wchar_t *OP_CALL OpJsonGetKeys(op_handle handle, const wchar_t *json_text, const wchar_t *path) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        long ok = 0;
+        op.JsonGetKeys(safe_text(json_text), safe_text(path), ret, &ok);
+        if (!ok)
+            ret.clear();
+    });
+}
+
+const wchar_t *OP_CALL OpJsonSetString(op_handle handle, const wchar_t *json_text, const wchar_t *path,
+                                       const wchar_t *value) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        long ok = 0;
+        op.JsonSetString(safe_text(json_text), safe_text(path), safe_text(value), ret, &ok);
+        if (!ok)
+            ret.clear();
+    });
+}
+
+const wchar_t *OP_CALL OpJsonSetNumber(op_handle handle, const wchar_t *json_text, const wchar_t *path,
+                                       double value) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        long ok = 0;
+        op.JsonSetNumber(safe_text(json_text), safe_text(path), value, ret, &ok);
+        if (!ok)
+            ret.clear();
+    });
+}
+
+const wchar_t *OP_CALL OpJsonSetBool(op_handle handle, const wchar_t *json_text, const wchar_t *path,
+                                     int value) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        long ok = 0;
+        op.JsonSetBool(safe_text(json_text), safe_text(path), value, ret, &ok);
+        if (!ok)
+            ret.clear();
+    });
+}
+
+const wchar_t *OP_CALL OpJsonAppend(op_handle handle, const wchar_t *json_text, const wchar_t *path,
+                                    const wchar_t *raw_json) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        long ok = 0;
+        op.JsonAppend(safe_text(json_text), safe_text(path), safe_text(raw_json), ret, &ok);
+        if (!ok)
+            ret.clear();
+    });
+}
+
+const wchar_t *OP_CALL OpJsonDelete(op_handle handle, const wchar_t *json_text, const wchar_t *path) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        long ok = 0;
+        op.JsonDelete(safe_text(json_text), safe_text(path), ret, &ok);
+        if (!ok)
+            ret.clear();
+    });
+}
+
 #undef OP_WIDEN_TEXT
 #undef OP_WIDEN_TEXT2

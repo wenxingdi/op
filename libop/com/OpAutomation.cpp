@@ -2098,3 +2098,94 @@ STDMETHODIMP OpAutomation::DrawSetVisible(LONG show, LONG *ret) {
     obj.DrawSetVisible(show, ret);
     return S_OK;
 }
+
+//-----------------------json（P3 第一批 2026-10-16）-------------------------
+
+STDMETHODIMP OpAutomation::JsonIsValid(BSTR json_text, LONG *ret) {
+    *ret = obj.JsonIsValid(json_text);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::JsonGetString(BSTR json_text, BSTR path, BSTR *retstr) {
+    wstring s;
+    long ok = 0;
+    obj.JsonGetString(json_text, path, s, &ok);
+    if (!ok)
+        s.clear();
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::JsonGetNumber(BSTR json_text, BSTR path, DOUBLE *value, LONG *ret) {
+    double v = 0.0;
+    obj.JsonGetNumber(json_text, path, &v, ret);
+    if (value)
+        *value = v;
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::JsonGetBool(BSTR json_text, BSTR path, LONG *value, LONG *ret) {
+    long v = 0;
+    obj.JsonGetBool(json_text, path, &v, ret);
+    if (value)
+        *value = v;
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::JsonGetSize(BSTR json_text, BSTR path, LONG *ret) {
+    *ret = obj.JsonGetSize(json_text, path);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::JsonGetKeys(BSTR json_text, BSTR path, BSTR *retstr) {
+    wstring s;
+    long ok = 0;
+    obj.JsonGetKeys(json_text, path, s, &ok);
+    if (!ok)
+        s.clear();
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::JsonSetString(BSTR json_text, BSTR path, BSTR value, BSTR *retstr) {
+    wstring s;
+    long ok = 0;
+    obj.JsonSetString(json_text, path, value, s, &ok);
+    if (!ok)
+        s.clear();
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::JsonSetNumber(BSTR json_text, BSTR path, DOUBLE value, BSTR *retstr) {
+    wstring s;
+    long ok = 0;
+    obj.JsonSetNumber(json_text, path, value, s, &ok);
+    if (!ok)
+        s.clear();
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::JsonSetBool(BSTR json_text, BSTR path, LONG value, BSTR *retstr) {
+    wstring s;
+    long ok = 0;
+    obj.JsonSetBool(json_text, path, value, s, &ok);
+    if (!ok)
+        s.clear();
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::JsonAppend(BSTR json_text, BSTR path, BSTR raw_json, BSTR *retstr) {
+    wstring s;
+    long ok = 0;
+    obj.JsonAppend(json_text, path, raw_json, s, &ok);
+    if (!ok)
+        s.clear();
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::JsonDelete(BSTR json_text, BSTR path, BSTR *retstr) {
+    wstring s;
+    long ok = 0;
+    obj.JsonDelete(json_text, path, s, &ok);
+    if (!ok)
+        s.clear();
+    return CopyOutBstr(retstr, s);
+}

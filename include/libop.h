@@ -834,6 +834,38 @@ class OP_API Op {
     void DecodeQRCodeFromFile(_In_ const wchar_t *file_name, _Out_ std::wstring &retstr);
     // 生成二维码保存为图片（PNG/BMP 由扩展名决定），size 为边长像素（<=0 用 256）。ret=1 成功。
     void CreateQRCode(_In_ const wchar_t *text, _In_ const wchar_t *file_name, _In_ long size, _Out_ long *ret);
+
+    //----------------------json（P3 第一批 2026-10-16）-------------------------
+    // 无句柄路径直取式 JSON 族：所有函数收 JSON 文本 + 路径（"a.b[0].c"，兼容 "a.b.0"），
+    // 给 OP 自身的 JSON 返回值（YOLO/CV/OCR/模块列表等）补解析侧，亦支持用户自有数据。
+    // 失败约定：取值类 ret=0/空串，Set/Append/Delete 返回空串。
+    // 校验文本是否合法 JSON。ret=1 合法，0 非法。
+    long JsonIsValid(_In_ const wchar_t *json_text);
+    // 取路径处的字符串值；类型不符/不存在返回空串且 ret=0。
+    void JsonGetString(_In_ const wchar_t *json_text, _In_ const wchar_t *path, _Out_ std::wstring &retstr,
+                       _Out_ long *ret);
+    // 取路径处的数值；类型不符/不存在 ret=0。
+    void JsonGetNumber(_In_ const wchar_t *json_text, _In_ const wchar_t *path, _Out_ double *value, _Out_ long *ret);
+    // 取路径处的布尔值（value 0/1）；类型不符/不存在 ret=0。
+    void JsonGetBool(_In_ const wchar_t *json_text, _In_ const wchar_t *path, _Out_ long *value, _Out_ long *ret);
+    // 数组长度/对象键数；非集合或不存在返回 -1。
+    long JsonGetSize(_In_ const wchar_t *json_text, _In_ const wchar_t *path);
+    // 对象键名序列化为 JSON 数组文本（如 ["a","b"]）；非对象/不存在返回空串且 ret=0。
+    void JsonGetKeys(_In_ const wchar_t *json_text, _In_ const wchar_t *path, _Out_ std::wstring &retstr,
+                     _Out_ long *ret);
+    // 写入路径（不存在自动创建中间对象/数组），返回新 JSON 串；失败返回空串。
+    void JsonSetString(_In_ const wchar_t *json_text, _In_ const wchar_t *path, _In_ const wchar_t *value,
+                       _Out_ std::wstring &retstr, _Out_ long *ret);
+    void JsonSetNumber(_In_ const wchar_t *json_text, _In_ const wchar_t *path, _In_ double value,
+                       _Out_ std::wstring &retstr, _Out_ long *ret);
+    void JsonSetBool(_In_ const wchar_t *json_text, _In_ const wchar_t *path, _In_ long value,
+                     _Out_ std::wstring &retstr, _Out_ long *ret);
+    // 数组追加元素（raw_json 为元素文本，如 "abc"/123/{"k":1}；路径不存在先建数组）。
+    void JsonAppend(_In_ const wchar_t *json_text, _In_ const wchar_t *path, _In_ const wchar_t *raw_json,
+                    _Out_ std::wstring &retstr, _Out_ long *ret);
+    // 删除对象键或数组元素，返回新 JSON 串；父路径不可达返回空串。
+    void JsonDelete(_In_ const wchar_t *json_text, _In_ const wchar_t *path, _Out_ std::wstring &retstr,
+                    _Out_ long *ret);
 };
 
 } // namespace op
