@@ -12,6 +12,14 @@ QR / 算法辅助 / 进程内存等全部批次），pip 包 `op-plugins` 静默
 MouseKey/Clipboard 2 失败经单跑重试与历史记录比对，确认为既有环境 flake
 （WGC 捕获本机偶发不稳、MouseKey 物理鼠标态依赖、剪贴板竞态），与本批无关。
 
+- **docs(api) 明确性审计归零**：系统性审计 api_llm.json vs libop.h——
+  结构完整性无问题（310/310 全覆盖，SAL 方向解析正确，抽查 EnumWindow/
+  ClientToScreen/GetClientRect 的 tool_schema 与真身逐一对上）；真实缺口在
+  明确性：64 函数无描述、53 参数无注解。补 FN_DESC 兜底表（语义经 op.idl/
+  源码逐条核对）+ PARAM_DOCS 尾部批次注解，**注解覆盖率 100%（1177/1177），
+  五项终检（无描述/无注解/返回无语义/schema 缺入参/裸类型残留）全零**。
+  抽验 Md5(abc)/GetFileName flag0~3/PointInPolygon/SortPosDistance 真实行为
+  与文档一致。tag 移至 22d14d2，冷备份随之刷新（2026-10-16_stable_2，47 项校验通过）。
 - **fix(docs)**: API 目录补收 `Ver`——`parse_header` 原只认 void/long 返回型，
   `std::wstring Ver()` 漏收（309→310）。**function-calling 真机闭环验证暴露**：
   api_llm.json 的 6 工具子集驱动 agnes-2.5-flash 三轮自主决策，pyop 实机执行
