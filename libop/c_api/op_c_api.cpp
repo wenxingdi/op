@@ -1211,6 +1211,18 @@ int OP_CALL OpCvSharpen(op_handle handle, const wchar_t *src_file, const wchar_t
     });
 }
 
+int OP_CALL OpCvRotate(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file, double angle_deg) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.CvRotate(safe_text(src_file), safe_text(dst_file), angle_deg, ret);
+    });
+}
+
+int OP_CALL OpCvFlip(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file, int mode) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.CvFlip(safe_text(src_file), safe_text(dst_file), mode, ret);
+    });
+}
+
 const wchar_t *OP_CALL OpCvConnectedComponents(op_handle handle, const wchar_t *src_file, double min_area) {
     return call_json_string(handle, kJsonResultsFailure, [&](op::Op &op, std::wstring &json) {
         long ret = 0;

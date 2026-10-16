@@ -2283,6 +2283,16 @@ bool CropValid(const ImageHandle &source, ImageHandle &output) {
     return cropValid(source, output);
 }
 
+// 旋转图像：角度制，正角逆时针；90 倍数走无损路径，任意角白色常量边扩画布。
+bool Rotate(const ImageHandle &source, ImageHandle &output, double angle_deg) {
+    return rotateImage(source, output, angle_deg);
+}
+
+// 翻转图像：mode 0 上下 / 1 左右 / 2 双向（=旋转 180°）。
+bool Flip(const ImageHandle &source, ImageHandle &output, int mode) {
+    return flipImage(source, output, mode);
+}
+
 // 获取二值图/mask 中的连通区域。
 bool ConnectedComponents(const ImageHandle &source, double min_area, std::vector<RegionAnalysisResult> &results) {
     return connectedComponentsImage(source, min_area, results);

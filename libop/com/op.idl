@@ -304,6 +304,8 @@ interface IOpAutomation : IDispatch
 	[id(418)] HRESULT GetModuleInfoList([in] LONGLONG hwnd, [out, retval] BSTR* retstr);
 	[id(419)] HRESULT VirtualProtectEx([in] LONGLONG hwnd, [in] BSTR address, [in] LONG size, [in] LONG new_protect, [out] LONG* old_protect, [out, retval] LONG* ret);
 	[id(420)] HRESULT VirtualAllocEx([in] LONGLONG hwnd, [in] BSTR address, [in] LONG size, [in] LONG alloc_type, [in] LONG protect, [out, retval] BSTR* retstr);
+	[id(421)] HRESULT CvRotate([in] BSTR src_file, [in] BSTR dst_file, [in] DOUBLE angle_deg, [out, retval] LONG* ret);
+	[id(422)] HRESULT CvFlip([in] BSTR src_file, [in] BSTR dst_file, [in] LONG mode, [out, retval] LONG* ret);
 	[id(300)] HRESULT CvLoadTemplate([in] BSTR name, [in] BSTR file_path, [out, retval] LONG* ret);
 	[id(301)] HRESULT CvLoadMaskedTemplate([in] BSTR name, [in] BSTR template_path, [in] BSTR mask_path, [out, retval] LONG* ret);
 	[id(302)] HRESULT CvRemoveTemplate([in] BSTR name, [out, retval] LONG* ret);

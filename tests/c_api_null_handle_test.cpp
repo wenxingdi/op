@@ -225,6 +225,8 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     EXPECT_EQ(OpCvBlur(nullptr, L"", L"", L"", 0), 0) << "OpCvBlur";
     EXPECT_EQ(OpCvSharpen(nullptr, L"", L"", 0.0), 0) << "OpCvSharpen";
     EXPECT_EQ(OpCvCropValid(nullptr, L"", L""), 0) << "OpCvCropValid";
+    EXPECT_EQ(OpCvRotate(nullptr, L"", L"", 0.0), 0) << "OpCvRotate";
+    EXPECT_EQ(OpCvFlip(nullptr, L"", L"", 0), 0) << "OpCvFlip";
     expect_json_failure(OpCvConnectedComponents(nullptr, L"", 0.0), "OpCvConnectedComponents");
     expect_json_failure(OpCvFindContours(nullptr, L"", 0.0), "OpCvFindContours");
     EXPECT_EQ(OpCvPreprocessPipeline(nullptr, L"", L"", L""), 0) << "OpCvPreprocessPipeline";

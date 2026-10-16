@@ -202,6 +202,13 @@ bool Resize(const ImageHandle &source, int width, int height, ImageHandle &outpu
 // 裁剪图像中的有效区域。
 bool CropValid(const ImageHandle &source, ImageHandle &output);
 
+// 旋转图像：角度制，正角逆时针（OpenCV 约定）。90 倍数走无损路径无白边；
+// 任意角按外接矩形扩画布、白色常量边。
+bool Rotate(const ImageHandle &source, ImageHandle &output, double angle_deg);
+
+// 翻转图像：mode 0 上下（绕 x 轴）/ 1 左右（绕 y 轴）/ 2 双向（=旋转 180°）。
+bool Flip(const ImageHandle &source, ImageHandle &output, int mode);
+
 // 获取二值图/mask 中的连通区域。
 bool ConnectedComponents(const ImageHandle &source, double min_area, std::vector<RegionAnalysisResult> &results);
 

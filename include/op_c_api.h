@@ -290,6 +290,10 @@ OP_C_API int OP_CALL OpCvBlur(op_handle handle, const wchar_t *src_file, const w
 OP_C_API int OP_CALL OpCvSharpen(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file,
                                  double strength);
 OP_C_API int OP_CALL OpCvCropValid(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file);
+// 旋转（角度制，正角逆时针）：90 倍数无损无白边；任意角扩画布白边。返回 1 成功。
+OP_C_API int OP_CALL OpCvRotate(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file, double angle_deg);
+// 翻转：mode 0 上下 / 1 左右 / 2 双向（=旋转 180°）。返回 1 成功。
+OP_C_API int OP_CALL OpCvFlip(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file, int mode);
 OP_C_API const wchar_t *OP_CALL OpCvConnectedComponents(op_handle handle, const wchar_t *src_file, double min_area);
 OP_C_API const wchar_t *OP_CALL OpCvFindContours(op_handle handle, const wchar_t *src_file, double min_area);
 OP_C_API int OP_CALL OpCvPreprocessPipeline(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file,

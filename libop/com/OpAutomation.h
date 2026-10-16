@@ -510,6 +510,8 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(CvBlur)(BSTR src_file, BSTR dst_file, BSTR mode, LONG kernel_size, LONG *ret);
     STDMETHOD(CvSharpen)(BSTR src_file, BSTR dst_file, DOUBLE strength, LONG *ret);
     STDMETHOD(CvCropValid)(BSTR src_file, BSTR dst_file, LONG *ret);
+    STDMETHOD(CvRotate)(BSTR src_file, BSTR dst_file, DOUBLE angle_deg, LONG *ret);
+    STDMETHOD(CvFlip)(BSTR src_file, BSTR dst_file, LONG mode, LONG *ret);
     STDMETHOD(CvConnectedComponents)(BSTR src_file, DOUBLE min_area, BSTR *retjson, LONG *ret);
     STDMETHOD(CvFindContours)(BSTR src_file, DOUBLE min_area, BSTR *retjson, LONG *ret);
     STDMETHOD(CvPreprocessPipeline)(BSTR src_file, BSTR dst_file, BSTR pipeline, LONG *ret);

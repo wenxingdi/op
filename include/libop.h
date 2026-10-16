@@ -536,6 +536,10 @@ class OP_API Op {
                _Out_ long *ret);
     void CvSharpen(_In_ const wchar_t *src_file, _In_ const wchar_t *dst_file, _In_ double strength, _Out_ long *ret);
     void CvCropValid(_In_ const wchar_t *src_file, _In_ const wchar_t *dst_file, _Out_ long *ret);
+    // 旋转（角度制，正角逆时针）：90 倍数走无损路径；任意角扩画布白边。ret=1 成功。
+    void CvRotate(_In_ const wchar_t *src_file, _In_ const wchar_t *dst_file, _In_ double angle_deg, _Out_ long *ret);
+    // 翻转：mode 0 上下 / 1 左右 / 2 双向（=旋转 180°）。ret=1 成功。
+    void CvFlip(_In_ const wchar_t *src_file, _In_ const wchar_t *dst_file, _In_ long mode, _Out_ long *ret);
     void CvConnectedComponents(_In_ const wchar_t *src_file, _In_ double min_area, _Out_ std::wstring &retjson,
                                _Out_ long *ret);
     void CvFindContours(_In_ const wchar_t *src_file, _In_ double min_area, _Out_ std::wstring &retjson, _Out_ long *ret);

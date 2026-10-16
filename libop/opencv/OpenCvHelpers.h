@@ -90,6 +90,11 @@ bool equalizeImage(const ImageHandle &source, ImageHandle &output);
 bool claheImage(const ImageHandle &source, ImageHandle &output, double clip_limit, int tile_grid_size);
 bool blurImage(const ImageHandle &source, ImageHandle &output, BlurMode mode, int kernel_size);
 bool sharpenImage(const ImageHandle &source, ImageHandle &output, double strength);
+// 旋转：角度制，正角逆时针（OpenCV 约定）。90 的倍数走 cv::rotate 无损路径；
+// 任意角按外接矩形扩画布，白色常量边（适合截图/文档类底图，黑边会干扰找图）。
+bool rotateImage(const ImageHandle &source, ImageHandle &output, double angle_deg);
+// 翻转：mode 0 上下（绕 x 轴）、1 左右（绕 y 轴）、2 双向（=旋转 180°），其余失败。
+bool flipImage(const ImageHandle &source, ImageHandle &output, int mode);
 bool thinImage(const ImageHandle &source, ImageHandle &output, ThinMode mode);
 bool crop(const ImageHandle &source, const Region &region, ImageHandle &output);
 bool resizeImage(const ImageHandle &source, int width, int height, ImageHandle &output);

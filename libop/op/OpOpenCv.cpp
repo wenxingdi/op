@@ -508,6 +508,20 @@ void op::Op::CvCropValid(const wchar_t *src_file, const wchar_t *dst_file, long 
     });
 }
 
+void op::Op::CvRotate(const wchar_t *src_file, const wchar_t *dst_file, double angle_deg, long *ret) {
+    run_cv_file_preprocess(src_file, dst_file, ret,
+                           [&](const opcv::ImageHandle &source, opcv::ImageHandle &output) {
+        return opcv::Rotate(source, output, angle_deg);
+    });
+}
+
+void op::Op::CvFlip(const wchar_t *src_file, const wchar_t *dst_file, long mode, long *ret) {
+    run_cv_file_preprocess(src_file, dst_file, ret,
+                           [&](const opcv::ImageHandle &source, opcv::ImageHandle &output) {
+        return opcv::Flip(source, output, static_cast<int>(mode));
+    });
+}
+
 void op::Op::CvConnectedComponents(const wchar_t *src_file, double min_area, std::wstring &retjson, long *ret) {
     internal::set_result(ret, 0L);
     retjson = build_cv_components_json({}, false);

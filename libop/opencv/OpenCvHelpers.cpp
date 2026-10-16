@@ -1,6 +1,7 @@
 #include "OpenCvHelpers.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 
@@ -939,6 +940,71 @@ bool sharpenImage(const ImageHandle &source, ImageHandle &output, double strengt
     // 反遮罩锐化：原图增强，模糊图抵消，strength 越大边缘越锐。
     cv::addWeighted(source_mat, 1.0 + safe_strength, blurred, -safe_strength, 0.0, sharpened);
     output = createImageFromMat(sharpened);
+    return output.channels == source.channels && !output.bytes.empty();
+}
+
+bool rotateImage(const ImageHandle &source, ImageHandle &output, double angle_deg) {
+    const cv::Mat source_mat = createMatView(source);
+    if (source_mat.empty()) {
+        output = {};
+        return false;
+    }
+
+    // 归一化到 [0,360)，90 倍数走 cv::rotate：无插值、无白边，像素级可逆。
+    double normalized = std::fmod(angle_deg, 360.0);
+    if (normalized < 0.0)
+        normalized += 360.0;
+
+    cv::Mat rotated;
+    if (normalized < 1e-9) {
+        rotated = source_mat.clone();
+    } else if (std::abs(normalized - 90.0) < 1e-9) {
+        cv::rotate(source_mat, rotated, cv::ROTATE_90_COUNTERCLOCKWISE);
+    } else if (std::abs(normalized - 180.0) < 1e-9) {
+        cv::rotate(source_mat, rotated, cv::ROTATE_180);
+    } else if (std::abs(normalized - 270.0) < 1e-9) {
+        cv::rotate(source_mat, rotated, cv::ROTATE_90_CLOCKWISE);
+    } else {
+        // 任意角：外接矩形扩画布 + 白色常量边（BORDER_CONSTANT）。
+        const cv::Point2f center(source_mat.cols / 2.0f, source_mat.rows / 2.0f);
+        cv::Mat matrix = cv::getRotationMatrix2D(center, angle_deg, 1.0);
+        const cv::Rect2f bbox = cv::RotatedRect(center, source_mat.size(), static_cast<float>(angle_deg)).boundingRect2f();
+        matrix.at<double>(0, 2) += bbox.width / 2.0 - center.x;
+        matrix.at<double>(1, 2) += bbox.height / 2.0 - center.y;
+        cv::warpAffine(source_mat, rotated, matrix, bbox.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT,
+                       cv::Scalar(255, 255, 255, 255));
+    }
+
+    output = createImageFromMat(rotated);
+    return output.channels == source.channels && !output.bytes.empty();
+}
+
+bool flipImage(const ImageHandle &source, ImageHandle &output, int mode) {
+    const cv::Mat source_mat = createMatView(source);
+    if (source_mat.empty()) {
+        output = {};
+        return false;
+    }
+
+    int flip_code = 0;
+    switch (mode) {
+    case 0:
+        flip_code = 0; // 上下翻转（绕 x 轴）
+        break;
+    case 1:
+        flip_code = 1; // 左右翻转（绕 y 轴）
+        break;
+    case 2:
+        flip_code = -1; // 双向 = 旋转 180°
+        break;
+    default:
+        output = {};
+        return false;
+    }
+
+    cv::Mat flipped;
+    cv::flip(source_mat, flipped, flip_code);
+    output = createImageFromMat(flipped);
     return output.channels == source.channels && !output.bytes.empty();
 }
 

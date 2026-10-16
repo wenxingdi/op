@@ -164,6 +164,8 @@ set(OP_TEST_SOURCES
   "crypto_draw_test.cpp"
   # P2 第二十二批（2026-10-15）：内存三件套 + 模块列表，全部走本进程闭环。
   "memory_ext_test.cpp"
+  # P2 第二十三批（2026-10-15）：图像变换 OpCvRotate/OpCvFlip，非对称小图四角像素级断言。
+  "cv_transform_test.cpp"
   # inject_dll 失败上报（2026-09-28 真机暴露：DllInjector 的 -1~-7 被透传，
   # 而对外约定 0=失败非 0=成功 ⇒ 永远无法上报失败）。本测试只注入本进程已加载模块，无需外部进程。
   # run_app(mode=1) 工作目录推导（2026-09-28 真机暴露：裸文件名被截成目录 →

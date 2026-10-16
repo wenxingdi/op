@@ -1778,6 +1778,14 @@ STDMETHODIMP OpAutomation::CvCropValid(BSTR src_file, BSTR dst_file, LONG *ret) 
     return RunCvRetOnly(ret, [&](LONG *out) { obj.CvCropValid(src_file, dst_file, out); });
 }
 
+STDMETHODIMP OpAutomation::CvRotate(BSTR src_file, BSTR dst_file, DOUBLE angle_deg, LONG *ret) {
+    return RunCvRetOnly(ret, [&](LONG *out) { obj.CvRotate(src_file, dst_file, angle_deg, out); });
+}
+
+STDMETHODIMP OpAutomation::CvFlip(BSTR src_file, BSTR dst_file, LONG mode, LONG *ret) {
+    return RunCvRetOnly(ret, [&](LONG *out) { obj.CvFlip(src_file, dst_file, mode, out); });
+}
+
 STDMETHODIMP OpAutomation::CvConnectedComponents(BSTR src_file, DOUBLE min_area, BSTR *retjson, LONG *ret) {
     if (!retjson || !ret) {
         return E_POINTER;
