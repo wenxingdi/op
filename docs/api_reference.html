@@ -64,10 +64,11 @@ table.params th{background:var(--chip);font-weight:600}
 <body>
 <div class="layout">
 <nav>
-  <div class="brand">OP 库 API 参考手册<small>309 个接口 · 10 个服务组</small></div>
+  <div class="brand">OP 库 API 参考手册<small>310 个接口 · 10 个服务组</small></div>
   <input id="q" type="search" placeholder="搜索函数名…" autocomplete="off">
-<div class="nav-group"><a class="nav-g" href="#g-runtime">Runtime 运行时 <span class="cnt">31</span></a>
+<div class="nav-group"><a class="nav-g" href="#g-runtime">Runtime 运行时 <span class="cnt">32</span></a>
 <div class="nav-fns">
+<a class="nav-f" href="#fn-Ver" data-name="ver">Ver</a>
 <a class="nav-f" href="#fn-SetPath" data-name="setpath">SetPath</a>
 <a class="nav-f" href="#fn-GetPath" data-name="getpath">GetPath</a>
 <a class="nav-f" href="#fn-GetBasePath" data-name="getbasepath">GetBasePath</a>
@@ -407,7 +408,7 @@ table.params th{background:var(--chip);font-weight:600}
 </div></div>
 </nav>
 <main>
-<p class="gen">源：include\libop.h · 309 个接口 · 生成于 2026-10-16 11:40 · 由 scripts/gen_api_reference.py 生成</p>
+<p class="gen">源：include\libop.h · 310 个接口 · 生成于 2026-10-16 12:09 · 由 scripts/gen_api_reference.py 生成</p>
 
 <section class="usage">
 <h2>调用方式速览</h2>
@@ -495,7 +496,8 @@ op = 创建COM对象 (“op.opsoft”)
 </ul>
 </section>
 
-<section class="group" id="g-runtime"><h2>Runtime 运行时 <span class="cnt">31</span></h2><p class="g-desc">版本/路径/日志/进程/剪贴板/延时等全局属性与工具</p>
+<section class="group" id="g-runtime"><h2>Runtime 运行时 <span class="cnt">32</span></h2><p class="g-desc">版本/路径/日志/进程/剪贴板/延时等全局属性与工具</p>
+<li class="fn" id="fn-Ver" data-name="ver"><div class="fn-head"><code class="fn-name">Ver</code><span class="fn-sig">Ver() → string</span><button class="copy" data-name="Ver" title="复制方法名">⧉</button></div><div class="fn-desc">1.版本号Version</div><p class="no-params">（无参数）</p></li>
 <li class="fn" id="fn-SetPath" data-name="setpath"><div class="fn-head"><code class="fn-name">SetPath</code><span class="fn-sig">SetPath(path) → (ret)</span><button class="copy" data-name="SetPath" title="复制方法名">⧉</button></div><div class="fn-desc">设置目录</div><table class="params"><thead><tr><th>参数</th><th>类型</th><th>方向</th><th>取值 / 语义</th></tr></thead><tbody><tr><td class="p-name"><code>path</code></td><td class="p-type"><code>const wchar_t*</code></td><td class="p-dir"><span class="dir in">in</span></td><td class="p-doc">设置全局根目录：找图/字库等相对路径均基于此目录解析</td></tr><tr><td class="p-name"><code>ret</code></td><td class="p-type"><code>long*</code></td><td class="p-dir"><span class="dir out">out</span></td><td class="p-doc">1=成功 0=失败（失败原因开 <code>set_show_error_msg(2)</code> 查 cwd/<code>__op.log</code>）</td></tr></tbody></table></li>
 <li class="fn" id="fn-GetPath" data-name="getpath"><div class="fn-head"><code class="fn-name">GetPath</code><span class="fn-sig">GetPath() → (et)</span><button class="copy" data-name="GetPath" title="复制方法名">⧉</button></div><div class="fn-desc">获取目录</div><table class="params"><thead><tr><th>参数</th><th>类型</th><th>方向</th><th>取值 / 语义</th></tr></thead><tbody><tr><td class="p-name"><code>et</code></td><td class="p-type"><code>std::wstring &amp;r</code></td><td class="p-dir"><span class="dir out">out</span></td><td class="p-doc">出参：字符串结果（COM 为 BSTR 出参 / C-API 返回 const wchar_t*）</td></tr></tbody></table></li>
 <li class="fn" id="fn-GetBasePath" data-name="getbasepath"><div class="fn-head"><code class="fn-name">GetBasePath</code><span class="fn-sig">GetBasePath() → (et)</span><button class="copy" data-name="GetBasePath" title="复制方法名">⧉</button></div><div class="fn-desc">获取插件目录</div><table class="params"><thead><tr><th>参数</th><th>类型</th><th>方向</th><th>取值 / 语义</th></tr></thead><tbody><tr><td class="p-name"><code>et</code></td><td class="p-type"><code>std::wstring &amp;r</code></td><td class="p-dir"><span class="dir out">out</span></td><td class="p-doc">出参：字符串结果（COM 为 BSTR 出参 / C-API 返回 const wchar_t*）</td></tr></tbody></table></li>

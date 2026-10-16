@@ -1,11 +1,12 @@
 # OP 插件 API 速查（LLM 上下文版）
 
-> 源：`include/libop.h` · 309 个接口 · 生成于 2026-10-16 11:40 · 由 scripts/gen_api_reference.py 生成（勿手改）
+> 源：`include/libop.h` · 310 个接口 · 生成于 2026-10-16 12:09 · 由 scripts/gen_api_reference.py 生成（勿手改）
 
 调用约定：出参不传入，聚成返回值元组（顺序 = signature 的 → 后列表）；坐标为物理像素，绑定窗口后为客户区坐标；字符串 UTF-16。
 
-## Runtime 运行时（31）
+## Runtime 运行时（32）
 
+- `Ver() → string` — 1.版本号Version
 - `SetPath(path) → (ret)` — 设置目录
 - `GetPath() → (et)` — 获取目录
 - `GetBasePath() → (et)` — 获取插件目录

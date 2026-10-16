@@ -870,14 +870,14 @@ def parse_header(path):
                 comments.append(txt)
             i += 1
             continue
-        # 方法声明：以 void/long + Name( 开头，跨行收集到分号
-        if re.match(r"^(void|long)\s+\w+\s*\(", s) or re.match(r"^void\s+\w+\s*$", s):
+        # 方法声明：以 void/long/std::wstring + Name( 开头，跨行收集到分号
+        if re.match(r"^(void|long|std::wstring)\s+\w+\s*\(", s) or re.match(r"^(void|std::wstring)\s+\w+\s*$", s):
             decl = s
             while ";" not in decl and i + 1 < len(lines):
                 i += 1
                 decl += " " + lines[i].strip()
             decl = decl.rstrip(";").strip()
-            mm = re.match(r"^(void|long)\s+(\w+)\s*\((.*)\)$", decl, re.S)
+            mm = re.match(r"^(void|long|std::wstring)\s+(\w+)\s*\((.*)\)$", decl, re.S)
             if mm:
                 ret, name, pstr = mm.groups()
                 group = REROUTE.get(name) or ("memory" if name in MEMORY_FNS else
@@ -946,8 +946,10 @@ def py_sig(fn):
     sig = f"{fn['name']}({', '.join(ins)})"
     if outs_disp:
         sig += " → (" + ", ".join(outs_disp) + ")"
-    else:
-        sig += " → ret" if fn["ret"] == "long" else ""
+    elif fn["ret"] == "long":
+        sig += " → ret"
+    elif fn["ret"] in ("std::wstring", "std::string"):
+        sig += " → string"
     return sig
 
 
@@ -1013,9 +1015,9 @@ def fn_to_llm(fn):
         d = param_doc_text(fn, p)
         pname = "ret" if p["name"] in ("ret", "bret", "rettitle", "retx", "rety") else p["name"]
         ret_items.append({"name": pname, "type": p["type"], "doc": d})
-    if fn["ret"] == "long" and not any(r["name"] == "ret" for r in ret_items):
-        ret_items.insert(0, {"name": "ret", "type": "long",
-                             "doc": html_to_text(GLOBAL_PARAM_DOCS.get("ret", ""))})
+    if fn["ret"] in ("long", "std::wstring", "std::string") and not any(r["name"] == "ret" for r in ret_items):
+        ret_doc = html_to_text(GLOBAL_PARAM_DOCS.get("ret", "")) if fn["ret"] == "long" else "返回值字符串"
+        ret_items.insert(0, {"name": "ret", "type": fn["ret"], "doc": ret_doc})
 
     # function-calling 工具 schema（OpenAI/Anthropic 通用）：入参为 properties，出参在返回值里
     properties, required = {}, []

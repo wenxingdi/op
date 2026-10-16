@@ -2,9 +2,9 @@
  "meta": {
   "title": "OP 插件 API 目录（大模型 function-calling 版）",
   "source": "include/libop.h",
-  "generated": "2026-10-16 11:40",
+  "generated": "2026-10-16 12:09",
   "generator": "scripts/gen_api_reference.py",
-  "total_functions": 309,
+  "total_functions": 310,
   "usage": {
    "python": "from op import Op; op = Op(dll_path=r'D:\\op\\bin\\x64\\op_c_api_x64.dll'); ret = op.find_pic(x1, y1, x2, y2, files, delta_color, sim, dir)",
    "note": "出参（dir=out）不作为调用入参，聚在返回值元组中，顺序同 signature 的 → 后列表。坐标为物理像素；绑定窗口后为客户区坐标系。字符串均为 UTF-16 文本。"
@@ -16,6 +16,31 @@
    "name": "Runtime 运行时",
    "description": "版本/路径/日志/进程/剪贴板/延时等全局属性与工具",
    "functions": [
+    {
+     "group": "runtime",
+     "group_name": "Runtime 运行时",
+     "name": "Ver",
+     "signature": "Ver() → string",
+     "description": "1.版本号Version",
+     "params": [],
+     "returns": [
+      {
+       "name": "ret",
+       "type": "std::wstring",
+       "doc": "返回值字符串"
+      }
+     ],
+     "returns_summary": "ret: 返回值字符串",
+     "tool_schema": {
+      "name": "Ver",
+      "description": "1.版本号Version",
+      "parameters": {
+       "type": "object",
+       "properties": {},
+       "required": []
+      }
+     }
+    },
     {
      "group": "runtime",
      "group_name": "Runtime 运行时",
