@@ -3,6 +3,25 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-16 第二十四批（P2 #8：卡屏检测 OpIsDisplayDead，feat）
+
+承接 OLA 对比 P2 批排期，新增 1 接口（Op → C API → COM idl 423 → 测试四层），
+全量回归 424 ran / 421 PASS（失败为基线环境 flake：WaitKeyScanAll；
+DownCpuAddsDelayAfterEachCapture 为时序 flake，单独复跑通过）。
+
+- **feat(op): IsDisplayDead**（欧拉同名对等）：复用 with_captured_region 截图链，
+  对区域连续 check_times 次截图（间隔 interval_ms）做 FNV-1a 64 帧哈希比对，
+  全同=卡死 1、任一帧变化=存活 0、截图失败保守返回 0。次数默认 3（钳 2-20），
+  间隔默认 500ms（钳 50-10000）。
+- **test**: display_dead_test.cpp 新增 3 用例。关键设计：IsDisplayDead 内部
+  Sleep 期间主线程无法泵消息，动画对照窗口必须建在**专用工作线程**跑消息循环
+  （WM_TIMER 每 120ms 换色 + WM_PAINT 重绘都在工作线程完成）；静态用例加
+  300ms 首帧绘制等待——否则首帧是未绘制黑底、后续帧才是红色，帧间哈希不一致
+  被误判存活（全量回归高负载下实证）。另修正一处测试预期：未绑定不报错，
+  按 check_bind 既有约定静默回退桌面截图，返回 1 属正确行为。
+
+遗留同前批：swig/python 与 Go 绑定待补（本机无 swig）。
+
 ### 2026-10-15 第二十三批（P2：图像变换 OpCvRotate/OpCvFlip，feat）
 
 承接 OLA 对比 P2 批排期 #7，新增 2 接口（Op → C API → COM idl 421-422 →
