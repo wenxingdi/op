@@ -205,6 +205,14 @@ class Op:
     def find_nearest_pos(self, all_pos: str, pos_type: constants.NearestPosType | int, x: int, y: int) -> str:
         return self._call_string("OpFindNearestPos", all_pos, int(pos_type), int(x), int(y))
 
+    def sort_pos_distance(self, all_pos: str, pos_type: constants.NearestPosType | int, x: int, y: int) -> str:
+        """按与 (x,y) 的距离排序坐标串："x,y|x,y|..."，type 0=近→远 1=远→近。"""
+        return self._call_string("OpSortPosDistance", all_pos, int(pos_type), int(x), int(y))
+
+    def find_nearest_feasible_point(self, x: int, y: int) -> str:
+        """障碍地图上找最近可走点（已设图为前提），返回 "x,y"，找不到返回空串。"""
+        return self._call_string("OpFindNearestFeasiblePoint", int(x), int(y))
+
     def set_astar_map(self, bitmap_file: str | Path, scale: int, offset_x: int, offset_y: int) -> bool:
         """设置寻路障碍地图（位图文件，黑=障碍）。scale 降采样倍率，offset 为位图原点世界坐标；空文件名清空。"""
         return self._call_ok("OpSetAStarMap", str(bitmap_file), int(scale), int(offset_x), int(offset_y))
@@ -419,6 +427,19 @@ class Op:
     def delays(self, min_milliseconds: int, max_milliseconds: int) -> bool:
         return self._call_ok("OpDelays", int(min_milliseconds), int(max_milliseconds))
 
+    def get_window_scale(self, hwnd: int) -> str:
+        """窗口所在显示器缩放比（两位小数字符串，如 "1.50"）；失败返回空串。
+        多屏混合 DPI 时与 get_dpi 的系统级值可不同。"""
+        return self._call_string("OpGetWindowScale", int(hwnd))
+
+    def terminate_process(self, pid: int) -> bool:
+        """按 PID 终止进程。"""
+        return self._call_ok("OpTerminateProcess", int(pid))
+
+    def terminate_process_tree(self, pid: int) -> bool:
+        """终止进程及其整棵子进程树。"""
+        return self._call_ok("OpTerminateProcessTree", int(pid))
+
     # System misc
     def get_screen_width(self) -> int:
         return self._call_int("OpGetScreenWidth")
@@ -474,6 +495,59 @@ class Op:
     def get_fps(self) -> int:
         """获取绑定窗口当前帧率（内部采样约 1 秒）。未绑定/后端无帧返回 0。"""
         return self._call_int("OpGetFPS")
+
+    def is_display_dead(
+        self, x1: int, y1: int, x2: int, y2: int, check_times: int = 3, interval_ms: int = 500
+    ) -> int:
+        """卡屏检测：区域连续 check_times 次截图（间隔 interval_ms）帧哈希全同=卡死返回 1，
+        有变化/截图失败返回 0。check_times<=0 默认 3（钳 2-20），interval_ms<=0 默认 500（钳 50-10000）。"""
+        return self._call_int("OpIsDisplayDead", int(x1), int(y1), int(x2), int(y2), int(check_times),
+                              int(interval_ms))
+
+    def enable_debug_privilege(self) -> bool:
+        """为当前进程启用 SeDebugPrivilege（提权读内存/开进程前置）。"""
+        return self._call_ok("OpEnableDebugPrivilege")
+
+    def get_last_error_string(self) -> str:
+        """最近一次失败的详细错误信息文本。"""
+        return self._call_string("OpGetLastErrorString")
+
+    def md5(self, text: str) -> str:
+        """计算文本的 MD5 摘要（32 位小写十六进制）。"""
+        return self._call_string("OpMd5", text)
+
+    def sha1(self, text: str) -> str:
+        """计算文本的 SHA-1 摘要（40 位小写十六进制）。"""
+        return self._call_string("OpSha1", text)
+
+    def base64_encode(self, text: str) -> str:
+        """文本 Base64 编码。"""
+        return self._call_string("OpBase64Encode", text)
+
+    def base64_decode(self, base64: str) -> str:
+        """Base64 文本解码；输入非法返回空串。"""
+        return self._call_string("OpBase64Decode", base64)
+
+    # Screen draw
+    def draw_rect(self, x1: int, y1: int, x2: int, y2: int, color: str, width: int = 1) -> bool:
+        """屏幕矩形标注（坐标物理像素），color 同找色 RRGGBB 格式。"""
+        return self._call_ok("OpDrawRect", int(x1), int(y1), int(x2), int(y2), color, int(width))
+
+    def draw_line(self, x1: int, y1: int, x2: int, y2: int, color: str, width: int = 1) -> bool:
+        """屏幕线段标注，color 同找色 RRGGBB 格式。"""
+        return self._call_ok("OpDrawLine", int(x1), int(y1), int(x2), int(y2), color, int(width))
+
+    def draw_text(self, x: int, y: int, text: str, color: str, font_size: int) -> bool:
+        """屏幕文本标注（左上角为原点），color 同找色 RRGGBB 格式。"""
+        return self._call_ok("OpDrawText", int(x), int(y), text, color, int(font_size))
+
+    def draw_clear(self) -> bool:
+        """清除全部屏幕标注。"""
+        return self._call_ok("OpDrawClear")
+
+    def draw_set_visible(self, show: bool) -> bool:
+        """显示/隐藏屏幕标注层。"""
+        return self._call_ok("OpDrawSetVisible", 1 if show else 0)
 
     # Background binding
     def bind_window(
@@ -555,6 +629,10 @@ class Op:
 
     def get_cursor_shape(self) -> str:
         return self._call_string("OpGetCursorShape")
+
+    def get_cursor_image(self) -> str:
+        """当前鼠标光标图像：32bpp BMP 的 Base64（top-down BGRA 含 alpha）；失败返回空串。"""
+        return self._call_string("OpGetCursorImage")
 
     def move_r(self, x: int, y: int) -> bool:
         return self._call_ok("OpMoveR", int(x), int(y))
@@ -701,6 +779,10 @@ class Op:
 
     def key_press_str(self, key_str: str, delay: int) -> bool:
         return self._call_ok("OpKeyPressStr", key_str, int(delay))
+
+    def key_press_hotkey(self, combo: str) -> bool:
+        """组合键一次按下：形如 "ctrl+alt+a" / "shift+f1" / "win+d"。"""
+        return self._call_ok("OpKeyPressHotkey", combo)
 
     # Image and color
     def capture(self, x1: int, y1: int, x2: int, y2: int, file_name: str | Path) -> bool:
@@ -1037,6 +1119,14 @@ class Op:
     def cv_crop_valid(self, src_file: str | Path, dst_file: str | Path) -> bool:
         return self._call_ok("OpCvCropValid", str(src_file), str(dst_file))
 
+    def cv_rotate(self, src_file: str | Path, dst_file: str | Path, angle_deg: float) -> bool:
+        """旋转（角度制，正角逆时针）：90 倍数无损无白边；任意角扩画布白边。"""
+        return self._call_ok("OpCvRotate", str(src_file), str(dst_file), float(angle_deg))
+
+    def cv_flip(self, src_file: str | Path, dst_file: str | Path, mode: int) -> bool:
+        """翻转：mode 0 上下 / 1 左右 / 2 双向（=旋转 180°）。"""
+        return self._call_ok("OpCvFlip", str(src_file), str(dst_file), int(mode))
+
     def cv_connected_components(self, src_file: str | Path, min_area: float) -> str:
         return self._call_string("OpCvConnectedComponents", str(src_file), float(min_area))
 
@@ -1272,6 +1362,10 @@ class Op:
     # OCR
     def set_ocr_engine(self, path_of_engine: str | Path, dll_name: str, argv: str) -> bool:
         return self._call_ok("OpSetOcrEngine", str(path_of_engine), dll_name, argv)
+
+    def ocr_warmup(self) -> bool:
+        """OCR 预热：触发引擎懒加载 + 一次小图推理。返回 True 引擎就绪。"""
+        return self._call_ok("OpOcrWarmup")
 
     def set_yolo_engine(self, path_of_engine: str | Path, dll_name: str, argv: str) -> bool:
         return self._call_ok("OpSetYoloEngine", str(path_of_engine), dll_name, argv)
@@ -1660,6 +1754,30 @@ class Op:
         """取目标进程模块基址（大写十六进制串）；失败返回空串。"""
         return self._call_string("OpGetModuleBaseAddr", int(hwnd), str(module))
 
+    def get_module_size(self, module: str, hwnd: int = 0) -> int:
+        """模块大小（字节）；失败/未找到返回 0。"""
+        return self._call_int("OpGetModuleSize", int(hwnd), str(module))
+
+    def get_module_info_list(self, hwnd: int = 0) -> str:
+        """模块列表 JSON：{"ok":1,"modules":[{"name":..,"path":..,"base":"HEX","size":n},...]}。"""
+        return self._call_string("OpGetModuleInfoList", int(hwnd))
+
+    def virtual_protect_ex(self, hwnd: int, address: str, size: int, new_protect: int) -> int | None:
+        """修改目标进程地址保护属性；成功返回原 PAGE_* 值，失败返回 None。"""
+        self._check_open()
+        old = ctypes.c_int(0)
+        ret = self._dll.OpVirtualProtectEx(
+            self._handle, int(hwnd), str(address), int(size), int(new_protect), ctypes.byref(old)
+        )
+        return int(old.value) if ret == 1 else None
+
+    def virtual_alloc_ex(self, hwnd: int, address: str, size: int, alloc_type: int = 0, protect: int = 0) -> str:
+        """在目标进程分配内存，返回分配地址大写十六进制串；失败返回空串。
+        alloc_type/protect 传 0 用默认 MEM_COMMIT|MEM_RESERVE / PAGE_READWRITE。"""
+        return self._call_string(
+            "OpVirtualAllocEx", int(hwnd), str(address), int(size), int(alloc_type), int(protect)
+        )
+
     def find_color_block_ex_s(
         self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float, count: int, height: int, width: int,
         mode: int = 1,
@@ -1677,6 +1795,132 @@ class Op:
         return self._call_string_with_int(
             "OpFindLineExS", int(x1), int(y1), int(x2), int(y2), str(color), float(sim), int(min_points)
         )
+
+    # File system
+    def file_exists(self, file_name: str | Path) -> bool:
+        """文件/目录是否存在（存在返回 True）。"""
+        return self._call_ok("OpFileExists", str(file_name))
+
+    def create_folder(self, folder_name: str | Path) -> bool:
+        """创建目录（支持正斜杠路径）。"""
+        return self._call_ok("OpCreateFolder", str(folder_name))
+
+    def delete_folder(self, folder_name: str | Path) -> bool:
+        """删除目录。"""
+        return self._call_ok("OpDeleteFolder", str(folder_name))
+
+    def get_file_list(self, folder: str | Path, wildcard: str = "") -> str:
+        """遍历目录返回全路径 "p1|p2|..."（wildcard 空=全部）。"""
+        return self._call_string("OpGetFileList", str(folder), wildcard)
+
+    def copy_file(self, src_file: str | Path, dst_file: str | Path) -> bool:
+        return self._call_ok("OpCopyFile", str(src_file), str(dst_file))
+
+    def move_file(self, src_file: str | Path, dst_file: str | Path) -> bool:
+        return self._call_ok("OpMoveFile", str(src_file), str(dst_file))
+
+    def delete_file(self, file_name: str | Path) -> bool:
+        return self._call_ok("OpDeleteFile", str(file_name))
+
+    def get_file_size(self, file_name: str | Path) -> tuple[int, int]:
+        """返回 (size, ret)：size 为文件大小字节数（int64），ret 为成功标志 1/0。"""
+        out_ret = ctypes.c_int(0)
+        size = self._dll.OpGetFileSize(self._handle, str(file_name), ctypes.byref(out_ret))
+        return int(size), int(out_ret.value)
+
+    def read_file_string(self, file_name: str | Path) -> str:
+        """读文本文件（UTF-8 带 BOM）；失败返回空串。"""
+        return self._call_string("OpReadFileString", str(file_name))
+
+    def write_string_to_file(self, file_name: str | Path, content: str) -> bool:
+        """文本覆盖写入（UTF-8 带 BOM）。"""
+        return self._call_ok("OpWriteStringToFile", str(file_name), content)
+
+    def get_file_name(self, file_path: str | Path, flag: int) -> str:
+        """路径解析：flag 0=文件名含扩展名 1=仅文件名 2=仅扩展名(含.) 3=目录部分。"""
+        return self._call_string("OpGetFileName", str(file_path), int(flag))
+
+    def to_absolute_path(self, path: str | Path) -> str:
+        """相对路径转绝对路径（基于 SetPath 全局目录或进程目录）。"""
+        return self._call_string("OpToAbsolutePath", str(path))
+
+    # QR code
+    def decode_qrcode(self, x1: int, y1: int, x2: int, y2: int) -> str:
+        """屏幕区域解码二维码，返回文本；未识别返回空串。"""
+        return self._call_string("OpDecodeQRCode", int(x1), int(y1), int(x2), int(y2))
+
+    def decode_qrcode_from_file(self, file_name: str | Path) -> str:
+        """图片文件解码二维码，返回文本；未识别/读图失败返回空串。"""
+        return self._call_string("OpDecodeQRCodeFromFile", str(file_name))
+
+    def create_qrcode(self, text: str, file_name: str | Path, size: int = 0) -> bool:
+        """生成二维码保存为图片（size<=0 用 256）。"""
+        return self._call_ok("OpCreateQRCode", text, str(file_name), int(size))
+
+    # JSON
+    def json_is_valid(self, json_text: str) -> bool:
+        """校验文本是否合法 JSON（0 是正常答案，不抛异常）。"""
+        return self._call_int("OpJsonIsValid", json_text) == 1
+
+    def json_get_string(self, json_text: str, path: str) -> str:
+        """取字符串值（路径语法 "a.b[0].c"，空路径=根）；失败/类型不符返回空串。"""
+        return self._call_string("OpJsonGetString", json_text, path)
+
+    def json_get_number(self, json_text: str, path: str) -> float | None:
+        """取数值；成功返回 float，失败返回 None。"""
+        self._check_open()
+        value = ctypes.c_double(0.0)
+        ret = self._dll.OpJsonGetNumber(self._handle, json_text, path, ctypes.byref(value))
+        return float(value.value) if ret == 1 else None
+
+    def json_get_bool(self, json_text: str, path: str) -> bool | None:
+        """取布尔值；成功返回 bool，失败返回 None。"""
+        self._check_open()
+        value = ctypes.c_int(0)
+        ret = self._dll.OpJsonGetBool(self._handle, json_text, path, ctypes.byref(value))
+        return bool(value.value) if ret == 1 else None
+
+    def json_get_size(self, json_text: str, path: str) -> int:
+        """数组长度/对象键数；非集合或不存在返回 -1。"""
+        return self._call_int("OpJsonGetSize", json_text, path)
+
+    def json_get_keys(self, json_text: str, path: str) -> str:
+        """对象键名序列化为 JSON 数组文本；非对象返回空串。"""
+        return self._call_string("OpJsonGetKeys", json_text, path)
+
+    def json_set_string(self, json_text: str, path: str, value: str) -> str:
+        """写入字符串（自动创建中间节点），返回新 JSON 串；失败返回空串。"""
+        return self._call_string("OpJsonSetString", json_text, path, value)
+
+    def json_set_number(self, json_text: str, path: str, value: float) -> str:
+        """写入数值，返回新 JSON 串；失败返回空串。"""
+        return self._call_string("OpJsonSetNumber", json_text, path, float(value))
+
+    def json_set_bool(self, json_text: str, path: str, value: bool) -> str:
+        """写入布尔，返回新 JSON 串；失败返回空串。"""
+        return self._call_string("OpJsonSetBool", json_text, path, 1 if value else 0)
+
+    def json_append(self, json_text: str, path: str, raw_json: str) -> str:
+        """数组追加元素（raw_json 为元素文本），返回新 JSON 串；失败返回空串。"""
+        return self._call_string("OpJsonAppend", json_text, path, raw_json)
+
+    def json_delete(self, json_text: str, path: str) -> str:
+        """删除对象键或数组元素，返回新 JSON 串；失败返回空串。"""
+        return self._call_string("OpJsonDelete", json_text, path)
+
+    # HTTP
+    def http_get(self, url: str, headers_json: str = "", timeout_ms: int = 0) -> str:
+        """HTTP GET。headers_json 为 JSON 对象文本（如 {"Authorization":"Bearer sk-xxx"}）；
+        timeout<=0 用 30000。非 2xx 也返回响应体；传输失败返回空串。"""
+        return self._call_string("OpHttpGet", url, headers_json, int(timeout_ms))
+
+    def http_post(self, url: str, body: str, headers_json: str = "", timeout_ms: int = 0) -> str:
+        """HTTP POST（body 为原始文本，如 JSON 请求体）；其余语义同 http_get。"""
+        return self._call_string("OpHttpPost", url, body, headers_json, int(timeout_ms))
+
+    def http_download_file(self, url: str, file_name: str | Path, timeout_ms: int = 0) -> bool:
+        """下载到文件（原始字节流式落盘）。"""
+        return self._call_ok("OpHttpDownloadFile", url, str(file_name), int(timeout_ms))
 
     @staticmethod
     def _normalize_hex_data(data: str | bytes | bytearray | memoryview, size: int | None) -> tuple[str, int]:

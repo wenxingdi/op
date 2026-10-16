@@ -1106,7 +1106,26 @@ def py_sig(fn):
 #   bindings/python（ctypes）：Python 风格 snake_case（见 bindings/python/README），
 #   缩写感知换算（GetID→get_id / CvCLAHE→cv_clahe / DecodeQRCode→decode_qr_code，
 #   已核对绑定真实定义），仅 Ver→version 为非机械特例。
-_PY_SNAKE_SPECIAL = {"Ver": "version"}
+_PY_SNAKE_SPECIAL = {
+    "Ver": "version",
+    # bindings/python 手写命名的缩写连写风格（与 snake_acronym 通用换算不同，以实际代码为准）
+    "SetAStarMap": "set_astar_map",
+    "SetAStarMapData": "set_astar_map_data",
+    "UnBindWindow": "unbind_window",
+    "HWheel": "hwheel",
+    "XButton1Click": "xbutton1_click",
+    "XButton1DoubleClick": "xbutton1_double_click",
+    "XButton1Down": "xbutton1_down",
+    "XButton1Up": "xbutton1_up",
+    "XButton2Click": "xbutton2_click",
+    "XButton2DoubleClick": "xbutton2_double_click",
+    "XButton2Down": "xbutton2_down",
+    "XButton2Up": "xbutton2_up",
+    "AutoOcr": "autoocr",
+    "DecodeQRCode": "decode_qrcode",
+    "DecodeQRCodeFromFile": "decode_qrcode_from_file",
+    "CreateQRCode": "create_qrcode",
+}
 
 
 def snake_acronym(n):
