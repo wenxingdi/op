@@ -3,6 +3,26 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-16 第二十九批（完整性维护批：x86 更新 + api_reference 重生成 + WaitKeyScanAll 修复）
+
+无新增导出（仍为 316）。全量回归 442 ran / **441 PASS 0 FAILED**——套件自基线迭代以来
+首次全绿（此前恒失败的 WaitKeyScanAll 已修，仅剩 DownCpu 时序 flake 本轮未复现）。
+
+- **chore(x86)**: 重跑 `_wb_build_op_x86.py` 产线（需把 cmake 加入 PATH），
+  op_x86.dll / op_c_api_x86.dll 从 9-30 断档追平到本批，dumpbin 核到 316 导出与
+  x64 完全一致；bin/x64+新建 bin/x86 与 OPTool 交付目录全部刷新。
+  x86 固有约束不变：ONNX Runtime 无 32 位包，内置 OCR/YOLO 按架构探测编译出
+  （OP_HAS_ONNX=0），x86 走外挂模型路径。
+- **docs(api)**: api_reference.html 重生成（落后 5 批 17 接口 → 309 条目全量覆盖
+  第二十四~二十八批）。脚本 `scripts/gen_api_reference.py`，接口面变更后重跑，勿手改。
+- **fix(test)**: WaitKeyScanAllWithWaitFindsKey 恒失败根因——非注入被吞，而是
+  WaitKey(0) 语义是"返回调用瞬间第一个按下的键"（i=1..254 顺序扫），本机环境有
+  滞留键 VK 133/179 常驻，调用瞬间立即命中返回，永远等不到 100ms 后的左键点击。
+  修成轮询扫描窗口忽略无关命中只认 LBUTTON（点击窗口内扫描从 i=1 起必然先命中），
+  生产语义不动。根因是诊断脚本实测确认的（点击窗口内左键可见、133/179 全程按下）。
+
+遗留同前批：swig/python 与 Go 绑定待补（本机无 swig，需装）。
+
 ### 2026-10-16 第二十八批（P3 第二项：HTTP 小族 OpHttp* 3 接口，feat）
 
 承接 OLA 对比 P3 批排期，新增 3 接口（Op → C API → COM idl 437-439 → 测试四层），

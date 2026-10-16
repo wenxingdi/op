@@ -394,7 +394,13 @@ TEST(MouseKeyTest, WaitKeyScanAllWithWaitFindsKey) {
         ::Sleep(50);
         SendMouseInput(MOUSEEVENTF_LEFTUP);
     });
-    op.WaitKey(0, 500, &ret);
+    // WaitKey(0) 语义是"返回当前第一个按下的键"：调用瞬间若有环境滞留键
+    // （本机 VK 133/179 常驻）会立刻返回它们而非等到点击。因此轮询扫描窗口、
+    // 忽略无关命中，只认 LBUTTON——点击窗口内扫描从 i=1 开始，必然先命中左键。
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+    do {
+        op.WaitKey(0, 20, &ret);
+    } while (ret != VK_LBUTTON && std::chrono::steady_clock::now() < deadline);
     worker.join();
     EXPECT_EQ(ret, VK_LBUTTON);
 }
