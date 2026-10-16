@@ -456,6 +456,8 @@ class ATL_NO_VTABLE OpAutomation
     (LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr, LONG *ret);
     // 设置 HTTP OCR 引擎地址和参数.
     STDMETHOD(SetOcrEngine)(BSTR path_of_engine, BSTR dll_name, BSTR argv, LONG *ret);
+    // OCR 预热:触发引擎懒加载+一次小图推理;1 就绪 0 不可用
+    STDMETHOD(OcrWarmup)(LONG *ret);
     STDMETHOD(SetYoloEngine)(BSTR path_of_engine, BSTR dll_name, BSTR argv, LONG *ret);
     STDMETHOD(YoloDetect)(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou, BSTR *retjson, LONG *ret);
     STDMETHOD(YoloDetectFromFile)(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR *retjson, LONG *ret);

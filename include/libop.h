@@ -599,6 +599,9 @@ class OP_API Op {
     //                      @zh0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;-+=/|!?%#*()[]~_
     //                      注：白名单缺哪个字符，该字符就被静默吞掉（漏字母时 "Lv99" 只识别出 "99"）。
     long SetOcrEngine(_In_ const wchar_t *path_of_engine, _In_ const wchar_t *dll_name, _In_ const wchar_t *argv);
+    // OCR 预热（P2 第二十六批 2026-10-16，对齐 OLA OcrWarmup）：触发引擎懒加载 + 一次小图推理，
+    // 消掉首次真实调用的模型加载延迟。ret=1 引擎就绪，0 引擎不可用。
+    void OcrWarmup(_Out_ long *ret);
     // 选择 YOLO 引擎并加载模型。统一入口：path_of_engine 直接传 .onnx 模型文件路径
     // （dll_name 留空）即自动切进程内 ONNX 引擎，等价于 ("onnx", 模型路径, argv)。
     // 旧写法仍兼容：engine 以 "onnx" 开头=进程内 ONNX（dll_name=模型路径，空=内置资源段模型）；

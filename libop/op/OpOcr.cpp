@@ -128,6 +128,10 @@ long op::Op::SetOcrEngine(const wchar_t *path_of_engine, const wchar_t *dll_name
     const std::wstring dll = dll_name ? dll_name : L"";
     return op::ocr::HttpOcrService::getInstance()->init(engine, dll, vstr) == 0 ? 1 : 0;
 }
+
+void op::Op::OcrWarmup(long *ret) {
+    internal::set_result(ret, op::ocr::HttpOcrService::getInstance()->warmup() == 0 ? 1L : 0L);
+}
 void op::Op::SetDict(long idx, const wchar_t *file_name, long *ret) {
     internal::set_result(ret, m_context->image_proc.SetDict(idx, file_name));
 }

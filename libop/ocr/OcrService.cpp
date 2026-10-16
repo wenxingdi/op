@@ -322,4 +322,17 @@ int HttpOcrService::ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &resu
     return engine->ocr_line(data, w, h, bpp, result);
 }
 
+int HttpOcrService::warmup() {
+    const auto engine = lazy_engine("warmup");
+    if (!engine)
+        return -1;
+    // 16x16 纯白 BGRA。注意引擎接口的 bpp 是**每像素字节数**（1/3/4），不是位深。
+    // ocr() 返回值语义是"识别出的文本条数"：>=0 即引擎可用
+    // （0=无文本/无检出，正数=检出条数，均视为预热成功；负数才是错误码）。
+    std::vector<byte> pixels(16 * 16 * 4, 255);
+    vocr_rec_t result;
+    const int rc = engine->ocr(pixels.data(), 16, 16, 4, result);
+    return rc >= 0 ? 0 : -1;
+}
+
 } // namespace op::ocr

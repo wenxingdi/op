@@ -1378,6 +1378,10 @@ int OP_CALL OpSetOcrEngine(op_handle handle, const wchar_t *path_of_engine, cons
     });
 }
 
+int OP_CALL OpOcrWarmup(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.OcrWarmup(ret); });
+}
+
 int OP_CALL OpSetYoloEngine(op_handle handle, const wchar_t *path_of_engine, const wchar_t *dll_name,
                             const wchar_t *argv) {
     return call_int(handle, [&](op::Op &op) {

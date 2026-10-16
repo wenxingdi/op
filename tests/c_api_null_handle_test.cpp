@@ -247,6 +247,7 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_json_failure(OpCvShapeMatchTemplate(nullptr, 0, 0, 0, 0, L"", 0.0), "OpCvShapeMatchTemplate");
     expect_json_failure(OpCvMatchTemplateRot(nullptr, 0, 0, 0, 0, L"", L"", 0.0, 0, 0), "OpCvMatchTemplateRot");
     EXPECT_EQ(OpSetOcrEngine(nullptr, L"", L"", L""), 0) << "OpSetOcrEngine";
+    EXPECT_EQ(OpOcrWarmup(nullptr), 0) << "OpOcrWarmup";
     EXPECT_EQ(OpSetYoloEngine(nullptr, L"", L"", L""), 0) << "OpSetYoloEngine";
     expect_json_failure(OpYoloDetect(nullptr, 0, 0, 0, 0, 0.0, 0.0), "OpYoloDetect");
     expect_json_failure(OpYoloDetectFromFile(nullptr, L"", 0.0, 0.0), "OpYoloDetectFromFile");

@@ -57,6 +57,9 @@ public:
   int release();
   int ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result);
   int ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &result);
+  // OCR 预热（P2 第二十六批 2026-10-16）：触发懒加载 + 一次小图推理，
+  // 消掉首次真实调用的模型加载延迟。返回 0 成功（引擎就绪），-1 引擎不可用。
+  int warmup();
 
 private:
   HttpOcrService();

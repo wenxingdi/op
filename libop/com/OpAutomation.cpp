@@ -1484,6 +1484,11 @@ STDMETHODIMP OpAutomation::SetOcrEngine(BSTR path_of_engine, BSTR dll_name, BSTR
     return SetOutValue(ret, obj.SetOcrEngine(path_of_engine, dll_name, argv));
 }
 
+STDMETHODIMP OpAutomation::OcrWarmup(LONG *ret) {
+    obj.OcrWarmup(ret);
+    return S_OK;
+}
+
 STDMETHODIMP OpAutomation::SetYoloEngine(BSTR path_of_engine, BSTR dll_name, BSTR argv, LONG *ret) {
     return SetOutValue(ret, obj.SetYoloEngine(path_of_engine, dll_name, argv));
 }

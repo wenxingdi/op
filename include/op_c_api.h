@@ -341,6 +341,8 @@ OP_C_API const wchar_t *OP_CALL OpCvMatchTemplateRot(op_handle handle, int x, in
 // OCR
 OP_C_API int OP_CALL OpSetOcrEngine(op_handle handle, const wchar_t *path_of_engine, const wchar_t *dll_name,
                                     const wchar_t *argv);
+// OCR 预热：触发引擎懒加载 + 一次小图推理。返回 1 引擎就绪，0 不可用。
+OP_C_API int OP_CALL OpOcrWarmup(op_handle handle);
 OP_C_API int OP_CALL OpSetYoloEngine(op_handle handle, const wchar_t *path_of_engine, const wchar_t *dll_name,
                                      const wchar_t *argv);
 OP_C_API const wchar_t *OP_CALL OpYoloDetect(op_handle handle, int x1, int y1, int x2, int y2, double conf,
