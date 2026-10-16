@@ -227,6 +227,8 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(SetIme)(LONGLONG hwnd, LONG enable, LONG *ret);
     // 获取绑定窗口当前帧率(采样约 1 秒;未绑定/后端无帧返回 0)
     STDMETHOD(GetFPS)(LONG *ret);
+    // 卡屏检测:区域连续 check_times 次截图(间隔 interval_ms)帧哈希全同=卡死返回 1,有变化/失败返回 0
+    STDMETHOD(IsDisplayDead)(LONG x1, LONG y1, LONG x2, LONG y2, LONG check_times, LONG interval_ms, LONG *ret);
     // 绑定降载:每次截图成功后强制延时 rate 毫秒(0-100)
     STDMETHOD(DownCpu)(LONG type, LONG rate, LONG *ret);
     //--------------------Background -----------------------

@@ -508,6 +508,12 @@ class OP_API Op {
                           _Out_ long *ret);
     //
     void GetScreenFrameInfo(_Out_ long *frame_id, _Out_ long *time);
+    // 卡屏检测（P2 第二十四批 2026-10-16，对齐 OLA IsDisplayDead）：
+    // 对区域连续 check_times 次截图（间隔 interval_ms）做帧哈希比对，全部相同=卡死返回 1，
+    // 任一帧有变化=存活返回 0；截图失败保守返回 0（视为无法判死）。
+    // check_times<=0 默认 3（钳 2-20），interval_ms<=0 默认 500（钳 50-10000）。
+    void IsDisplayDead(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ long check_times,
+                       _In_ long interval_ms, _Out_ long *ret);
     // 获取绑定窗口当前帧率。采样窗口约 1 秒,按 frameId 增量/经过毫秒换算。
     // Hook/DX/WGC 等异步后端=真实渲染帧率;GDI 等按需截图后端=采样窗口内的抓帧频率(无抓帧为 0)。未绑定返回 0。
     void GetFPS(_Out_ long *ret);

@@ -1131,6 +1131,12 @@ int OP_CALL OpGetFPS(op_handle handle) {
     return call_ret(handle, [](op::Op &op, long *ret) { op.GetFPS(ret); });
 }
 
+int OP_CALL OpIsDisplayDead(op_handle handle, int x1, int y1, int x2, int y2, int check_times, int interval_ms) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.IsDisplayDead(x1, y1, x2, y2, check_times, interval_ms, ret);
+    });
+}
+
 const wchar_t *OP_CALL OpMatchPicName(op_handle handle, const wchar_t *pic_name) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.MatchPicName(safe_text(pic_name), ret); });
 }

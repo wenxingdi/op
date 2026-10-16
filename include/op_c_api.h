@@ -264,6 +264,10 @@ OP_C_API uintptr_t OP_CALL OpGetScreenDataBmp(op_handle handle, int x1, int y1, 
 OP_C_API void OP_CALL OpGetScreenFrameInfo(op_handle handle, int *frame_id, int *time);
 // 获取绑定窗口当前帧率(采样约 1 秒)。未绑定/后端无帧返回 0。
 OP_C_API int OP_CALL OpGetFPS(op_handle handle);
+// 卡屏检测：区域连续 check_times 次截图（间隔 interval_ms）帧哈希全同=卡死返回 1，
+// 有变化/截图失败返回 0。check_times<=0 默认 3（钳 2-20），interval_ms<=0 默认 500（钳 50-10000）。
+OP_C_API int OP_CALL OpIsDisplayDead(op_handle handle, int x1, int y1, int x2, int y2, int check_times,
+                                     int interval_ms);
 OP_C_API const wchar_t *OP_CALL OpMatchPicName(op_handle handle, const wchar_t *pic_name);
 
 // OpenCV

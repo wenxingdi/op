@@ -591,6 +591,12 @@ STDMETHODIMP OpAutomation::GetFPS(LONG *ret) {
     return S_OK;
 }
 
+STDMETHODIMP OpAutomation::IsDisplayDead(LONG x1, LONG y1, LONG x2, LONG y2, LONG check_times, LONG interval_ms,
+                                         LONG *ret) {
+    obj.IsDisplayDead(x1, y1, x2, y2, check_times, interval_ms, ret);
+    return S_OK;
+}
+
 STDMETHODIMP OpAutomation::DownCpu(LONG type, LONG rate, LONG *ret) {
     obj.DownCpu(type, rate, ret);
     return S_OK;

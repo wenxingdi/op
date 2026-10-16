@@ -22,6 +22,17 @@ constexpr int small_block_size = 10;
 constexpr int SC_DATA_TOP = 0;
 constexpr int SC_DATA_BOTTOM = 1;
 
+// FNV-1a 64：帧哈希足够快且对字节序/平台稳定，卡屏检测不需要密码学强度。
+uint64_t fnv1a64(const void *data, size_t size) {
+    const auto *p = static_cast<const unsigned char *>(data);
+    uint64_t hash = 1469598103934665603ULL;
+    for (size_t i = 0; i < size; ++i) {
+        hash ^= p[i];
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
 } // namespace
 
 void op::Op::EnablePicCache(long enable, long *ret) {
@@ -195,6 +206,41 @@ void op::Op::FindColorBlockExS(long x1, long y1, long x2, long y2, const wchar_t
     internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
         m_context->image_proc.FindColorBlockExS(color, sim, count, height, width, mode, retstr);
     });
+}
+
+void op::Op::IsDisplayDead(long x1, long y1, long x2, long y2, long check_times, long interval_ms, long *ret) {
+    internal::set_result(ret, 0L);
+    if (check_times <= 0)
+        check_times = 3;
+    if (check_times < 2)
+        check_times = 2;
+    if (check_times > 20)
+        check_times = 20;
+    if (interval_ms <= 0)
+        interval_ms = 500;
+    if (interval_ms < 50)
+        interval_ms = 50;
+    if (interval_ms > 10000)
+        interval_ms = 10000;
+
+    uint64_t last_hash = 0;
+    for (long i = 0; i < check_times; ++i) {
+        uint64_t hash = 0;
+        bool captured = false;
+        internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+            const auto &img = m_context->image_proc._src;
+            hash = fnv1a64(img.pdata, static_cast<size_t>(img.size()) * 4);
+            captured = true;
+        });
+        if (!captured)
+            return; // 截图失败：保守判活，ret 保持 0
+        if (i > 0 && hash != last_hash)
+            return; // 帧间有变化：存活
+        last_hash = hash;
+        if (i + 1 < check_times)
+            ::Sleep(static_cast<DWORD>(interval_ms));
+    }
+    internal::set_result(ret, 1L); // 全部帧哈希一致：卡死
 }
 
 // 获取(x,y)的颜色

@@ -205,6 +205,7 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     EXPECT_EQ(OpGetScreenDataBmp(nullptr, 0, 0, 0, 0, nullptr, nullptr), 0) << "OpGetScreenDataBmp";
     OpGetScreenFrameInfo(nullptr, nullptr, nullptr);  // void：只保证不崩溃
     EXPECT_EQ(OpGetFPS(nullptr), 0) << "OpGetFPS";
+    EXPECT_EQ(OpIsDisplayDead(nullptr, 0, 0, 0, 0, 0, 0), 0) << "OpIsDisplayDead";
     expect_empty(OpMatchPicName(nullptr, L""), "OpMatchPicName");
     EXPECT_EQ(OpCvLoadTemplate(nullptr, L"", L""), 0) << "OpCvLoadTemplate";
     EXPECT_EQ(OpCvLoadMaskedTemplate(nullptr, L"", L"", L""), 0) << "OpCvLoadMaskedTemplate";
