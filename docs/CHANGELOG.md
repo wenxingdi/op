@@ -3,6 +3,28 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-16 第三十一批（docs(api)：颜色/DPI/OCR 全局约定实证落地）
+
+无新增导出（仍为 316）。本批把源码实证的三项全局约定写入手册，消除"实际行为 vs
+文档"的最后灰区（此前用户口头确认"都更新吧"的三项结论）。**无二进制改动，注解
+覆盖保持 100%（1177/1177），total 310 不变**。
+
+- **docs(api) 颜色格式全局一致**：PARAM_DOCS `color` 全局注解补实证结论——全库
+  统一 RGB hex `RRGGBB`，解析收敛于单一入口 `color_t::str2color`（找色/多点找色/
+  找图透明色/OCR 二值化背景色/Draw 标注同入口，`GetColor` 输出闭环一致）；唯一
+  例外 `CvInRange` 的 lower/upper 按 `color_space` 参数声明的通道序（BGR/HSV/gray），
+  属参数化设计非不一致。
+- **docs(api) DPI 感知策略**：`GetDPI`/`GetWindowScale` 补函数级注解——前者为进程级
+  系统值（System-DPI 感知，主显示器，本机 144=150%），后者为窗口级实际缩放
+  （GetDpiForWindow→Monitor→96 三级退化，两位小数）；多屏混合 DPI 时两者可不同
+  （设计如此）。大模型 JSON 的 meta.usage.note 与 HTML 排错区同补两条操作要点：
+  ①坐标全物理像素，坐标操作前先建 Op 实例（首个 Op 构造时一次性提升 DPI 感知）；
+  ②混合 DPI 多屏用 GetWindowScale 实测自行换算。
+- **docs(api) OCR 引擎免配置**：`SetOcrEngine` 注解补"懒加载免配置"——首次
+  Ocr/AutoOcr/OcrWarmup 任一即自动 init 内置 OnnxOcrEngine，字典内嵌 DLL
+  （PP-OCRv4 全量）；白名单 `--charset` 默认不设=全字典识别，仅形近误识场景按需
+  收窄（缺字符静默吞字警告已有）。
+
 ### 2026-10-16 第三十批（feat(bind)：swig/python 绑定补齐 + CMake 探测修复）
 
 无新增导出（仍为 316）。本批兑现上批遗留"swig/python 绑定待补"：绑定层从
