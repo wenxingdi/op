@@ -1,6 +1,7 @@
 #include "test_support.h"
 
 #include "op_c_api.h"
+#include "Color.h"
 
 #include <algorithm>
 #include <cstring>
@@ -172,6 +173,77 @@ TEST(ImageColorTest, CmpColorUsesSimilarityAndExplicitDelta) {
 
     op.CmpColor(10, 10, L"433222-030202", 1.0, &ret);
     EXPECT_EQ(ret, 1) << "Explicit delta in the color string should still be honored";
+}
+
+// 2026-10-17 加固（偏色短段静默错解析修复）的钉死测试：
+// 旧 str2color 用 swscanf("%02X%02X%02X") 解析，短段/非法段"部分成功"后
+// 逐通道错位（偏色 "20" → r=0x20,g=0,b=0）且无任何报错。try_str2color 只接受
+// 恰好 6 位十六进制（容忍首尾空白与小写），其余一律拒绝并置零。
+TEST(ImageColorTest, TryStr2ColorRejectsMalformedSegments) {
+    color_t c;
+    EXPECT_TRUE(c.try_str2color(L"E01111"));
+    EXPECT_EQ(static_cast<int>(c.r), 0xE0);
+    EXPECT_EQ(static_cast<int>(c.g), 0x11);
+    EXPECT_EQ(static_cast<int>(c.b), 0x11);
+    EXPECT_TRUE(c.try_str2color(L"e01111")) << "lowercase hex accepted";
+    EXPECT_EQ(static_cast<int>(c.r), 0xE0);
+    EXPECT_TRUE(c.try_str2color(L"  E01111  ")) << "surrounding whitespace trimmed";
+    EXPECT_EQ(static_cast<int>(c.b), 0x11);
+    EXPECT_TRUE(c.try_str2color(L"")) << "empty string is a legal zero color";
+    EXPECT_EQ(static_cast<int>(c.r), 0);
+    EXPECT_EQ(static_cast<int>(c.g), 0);
+    EXPECT_EQ(static_cast<int>(c.b), 0);
+
+    // 短偏色段：旧实现静默错解析的元凶，必须显式拒绝
+    EXPECT_FALSE(c.try_str2color(L"20"));
+    EXPECT_EQ(static_cast<int>(c.r), 0) << "rejected input zeroes the color";
+    EXPECT_EQ(static_cast<int>(c.g), 0);
+    EXPECT_EQ(static_cast<int>(c.b), 0);
+    EXPECT_FALSE(c.try_str2color(L"E01111-20"));
+    EXPECT_FALSE(c.try_str2color(L"E011112")) << "7 digits rejected";
+    EXPECT_FALSE(c.try_str2color(L"E0111")) << "5 digits rejected";
+    EXPECT_FALSE(c.try_str2color(L"GGGGGG")) << "non-hex rejected";
+
+    // 窄字符版同语义
+    EXPECT_TRUE(c.try_str2color(std::string("202020")));
+    EXPECT_EQ(static_cast<int>(c.b), 0x20);
+    EXPECT_FALSE(c.try_str2color(std::string("20")));
+
+    // 兼容入口 str2color 失败时同样置零，不再保留错位值
+    c.str2color(L"20");
+    EXPECT_EQ(static_cast<int>(c.r), 0);
+    EXPECT_EQ(static_cast<int>(c.g), 0);
+    EXPECT_EQ(static_cast<int>(c.b), 0);
+}
+
+// 行为级对拍：非法偏色段落到二值化路径时按 000000 精确匹配。
+// 像素 BGR=(00,00,20) 与旧错位 df (b=0,g=0,r=0x20) 全通道吻合、与合法 df=000000
+// 精确匹配不吻合（b 差 0x20），新旧行为在该像素上可区分。
+TEST(ImageColorTest, InvalidDeltaSegmentFallsBackToExactMatchInBinaryPreview) {
+    op::Op op;
+    long ret = 0;
+    const int width = 6;
+    const int height = 4;
+    auto pixels = MakePixels(width, height);
+    for (int dy = 0; dy < 2; ++dy) {
+        for (int dx = 0; dx < 2; ++dx) {
+            PaintPixel(pixels, width, 1 + dx, 1 + dy, 0x00, 0x00, 0x20);
+        }
+    }
+    SetMemBmp(op, width, height, pixels, ret);
+    ASSERT_EQ(ret, 1);
+    op.SetBinaryPreprocess(0, 0, 0, 0, &ret);
+    ASSERT_EQ(ret, 1);
+
+    wstring preview;
+    op.GetBinaryPreview(0, 0, width, height, L"202020-20", 1.0, preview, &ret);
+    EXPECT_EQ(ret, 0) << "malformed delta '20' must fall back to exact 000000: b=0 pixel must not match";
+    EXPECT_EQ(preview, L"6,4\n......\n......\n......\n......");
+
+    // 对照：写满 6 位的合法偏色段语义不变（每通道容 0x20，b=0 命中 2x2 块）
+    op.GetBinaryPreview(0, 0, width, height, L"202020-202020", 1.0, preview, &ret);
+    EXPECT_EQ(ret, 4);
+    EXPECT_EQ(preview, L"6,4\n......\n.##...\n.##...\n......");
 }
 
 TEST(ImageColorTest, FindStrIgnoresEmptyAlternatives) {

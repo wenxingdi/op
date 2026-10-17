@@ -337,7 +337,8 @@ long ImageSearchService::FindPic(const std::wstring &files, const wstring &delta
 void ImageSearchService::prepare_find_pic(const wstring &files, const wstring &delta_colors, double &sim,
                                           find_pic_ctx_t &ctx) {
     files2mats(files, ctx.vmatches, ctx.vpic_name, ctx.holders, ctx.match_holders);
-    ctx.dfcolor.str2color(delta_colors);
+    if (!ctx.dfcolor.try_str2color(delta_colors))
+        setlog(L"FindPic: 非法偏色串 '%s'（期望 6 位十六进制，如 606060），已按 000000 处理", delta_colors.c_str());
     sim = 0.5 + sim / 2;
 }
 //
@@ -985,9 +986,18 @@ int ImageSearchService::str2colordfs(const wstring &color_str, std::vector<color
         if (it.empty()) // 空段（前导/连续 '|'）跳过，防空 vector 取下标
             continue;
         split(it, vstr2, L"-");
-        cr.color.str2color(vstr2[0]);
+        if (vstr2.size() > 2)
+            setlog(L"str2colordfs: 颜色段 '%s' 含多个 '-'（偏色只能有一段），多余部分被忽略", it.c_str());
+        if (!cr.color.try_str2color(vstr2[0]))
+            setlog(L"str2colordfs: 非法颜色段 '%s'（期望 6 位十六进制 RRGGBB），已按 000000 处理", vstr2[0].c_str());
         const bool has_explicit_df = vstr2.size() == 2;
-        cr.df.str2color(has_explicit_df ? vstr2[1] : L"000000");
+        if (has_explicit_df) {
+            if (!cr.df.try_str2color(vstr2[1]))
+                setlog(L"str2colordfs: 非法偏色段 '%s'（必须写满 6 位十六进制，如 202020），已按 000000 处理",
+                       vstr2[1].c_str());
+        } else {
+            cr.df.str2color(L"000000");
+        }
         colors.push_back(cr);
         if (explicit_dfs)
             explicit_dfs->push_back(has_explicit_df);
@@ -1003,7 +1013,8 @@ void ImageSearchService::str2colors(const wstring &color, std::vector<color_t> &
     for (auto &it : vstr) {
         if (it.empty()) // 空段（前导/连续 '|'）跳过
             continue;
-        cr.str2color(it);
+        if (!cr.try_str2color(it))
+            setlog(L"str2colors: 非法颜色段 '%s'（期望 6 位十六进制 RRGGBB），已按 000000 处理", it.c_str());
         vcolor.push_back(cr);
     }
 }

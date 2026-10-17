@@ -3,6 +3,8 @@
 #define OP_IMAGE_COLOR_H_
 #include "../base/Types.h"
 #include <algorithm>
+#include <cwctype>
+#include <cctype>
 #define WORD_BKCOLOR 0
 #define WORD_COLOR 1
 // #include "../Tool.h"
@@ -35,24 +37,58 @@ struct color_t {
     color_t(int b_, int g_, int r_) : b(b_), g(g_), r(r_), alpha(0xffu) {
     }
 
+    // 严格颜色解析（2026-10-17 加固，替代裸 swscanf）：
+    // 仅接受恰好 6 位十六进制（忽略首尾空白）；空串/纯空白视为合法“零颜色”。
+    // 旧实现 swscanf("%02X%02X%02X") 对短段/非法段部分成功后静默错位
+    // （如偏色 "20" → r=0x20,g=0,b=0，逐通道错位且无任何报错），此处显式拒绝。
+    // 返回 false 时已把颜色置为 000000，调用方应 setlog 报错。
+    bool try_str2color(const std::wstring &s) {
+        const size_t bpos = s.find_first_not_of(L" \t\r\n");
+        if (bpos == std::wstring::npos) { // 空/纯空白：合法零颜色
+            b = g = r = 0;
+            return true;
+        }
+        const size_t epos = s.find_last_not_of(L" \t\r\n");
+        std::wstring t = s.substr(bpos, epos - bpos + 1);
+        std::transform(t.begin(), t.end(), t.begin(), ::towupper);
+        const bool hex6 = t.size() == 6 && std::all_of(t.begin(), t.end(), [](wchar_t c) { return iswxdigit(c) != 0; });
+        unsigned int rv = 0, gv = 0, bv = 0;
+        if (!hex6 || swscanf(t.c_str(), L"%02X%02X%02X", &rv, &gv, &bv) != 3) {
+            b = g = r = 0;
+            return false;
+        }
+        b = static_cast<uchar>(bv);
+        g = static_cast<uchar>(gv);
+        r = static_cast<uchar>(rv);
+        return true;
+    }
+    bool try_str2color(const std::string &s) {
+        const size_t bpos = s.find_first_not_of(" \t\r\n");
+        if (bpos == std::string::npos) {
+            b = g = r = 0;
+            return true;
+        }
+        const size_t epos = s.find_last_not_of(" \t\r\n");
+        std::string t = s.substr(bpos, epos - bpos + 1);
+        std::transform(t.begin(), t.end(), t.begin(), ::toupper);
+        const bool hex6 = t.size() == 6 && std::all_of(t.begin(), t.end(), [](char c) { return isxdigit(static_cast<unsigned char>(c)) != 0; });
+        unsigned int rv = 0, gv = 0, bv = 0;
+        if (!hex6 || sscanf(t.c_str(), "%02X%02X%02X", &rv, &gv, &bv) != 3) {
+            b = g = r = 0;
+            return false;
+        }
+        b = static_cast<uchar>(bv);
+        g = static_cast<uchar>(gv);
+        r = static_cast<uchar>(rv);
+        return true;
+    }
+    // 兼容入口：解析失败同样置零但不报错——需要暴露错误的调用点改用 try_str2color。
     color_t &str2color(const std::wstring &s) {
-        int r = 0, g = 0, b = 0;
-        std::wstring ss = s;
-        std::transform(ss.begin(), ss.end(), ss.begin(), ::towupper);
-        swscanf(ss.c_str(), L"%02X%02X%02X", &r, &g, &b);
-        this->b = b;
-        this->r = r;
-        this->g = g;
+        try_str2color(s);
         return *this;
     }
     color_t &str2color(const std::string &s) {
-        int r = 0, g = 0, b = 0;
-        std::string ss = s;
-        std::transform(ss.begin(), ss.end(), ss.begin(), ::toupper);
-        sscanf(ss.c_str(), "%02X%02X%02X", &r, &g, &b);
-        this->b = b;
-        this->r = r;
-        this->g = g;
+        try_str2color(s);
         return *this;
     }
     std::string tostr() {
