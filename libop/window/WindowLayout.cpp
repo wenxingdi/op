@@ -334,13 +334,33 @@ long Apply(const std::vector<HWND> &windows, const std::vector<Rect> &rects, con
                        rect.x, rect.y);
                 return 0;
             }
-        } else if (!MatchesTargetSize(windows[i], rect)) {
-            int width = 0;
-            int height = 0;
-            GetWindowSize(windows[i], width, height);
-            setlog(L"LayoutWindows: hwnd[%zu]=%p 尺寸校验失败，期望 %dx%d 实际 %dx%d", i, windows[i],
-                   rect.width, rect.height, width, height);
-            return 0;
+        } else {
+            if (!MatchesTargetSize(windows[i], rect)) {
+                int width = 0;
+                int height = 0;
+                GetWindowSize(windows[i], width, height);
+                setlog(L"LayoutWindows: hwnd[%zu]=%p 尺寸校验失败，期望 %dx%d 实际 %dx%d", i, windows[i],
+                       rect.width, rect.height, width, height);
+                return 0;
+            }
+            // 位置校验 + 一次重试：SetWindowPos 返回成功不代表位置一定落地——窗口刚显示、
+            // 系统异步布局或外部一次性回弹都可能把它拉回原处。只校验尺寸的旧实现会在这种
+            // 情况下"假成功"（返 1 但窗口没动），全量回归里窗口 0 停在 (100,100) 即此因。
+            RECT now = {};
+            const auto position_matches = [&]() {
+                return ::GetWindowRect(windows[i], &now) && now.left >= rect.x - 2 &&
+                       now.left <= rect.x + 2 && now.top >= rect.y - 2 && now.top <= rect.y + 2;
+            };
+            if (!position_matches()) {
+                ::SetWindowPos(windows[i], nullptr, rect.x, rect.y, rect.width, rect.height,
+                               SWP_NOZORDER | SWP_NOACTIVATE);
+                ::Delay(50);
+                if (!position_matches()) {
+                    setlog(L"LayoutWindows: hwnd[%zu]=%p 位置校验失败，期望(%d,%d) 实际(%ld,%ld)", i,
+                           windows[i], rect.x, rect.y, now.left, now.top);
+                    return 0;
+                }
+            }
         }
     }
 

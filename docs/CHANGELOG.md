@@ -3,6 +3,18 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-09 第三十四批（fix(window)：LayoutWindows「假成功」修复，全量回归归零）
+
+修掉第三十三批留下的红灯 `WindowStateTest.LayoutWindowsCascadeStepsWindows`。**有 C++ 二进制改动**，无新增导出。
+
+- **根因**：`WindowLayout.cpp::Apply()` 阶段2 在 `anchor_mode=0`（窗口外框）分支只 `MatchesTargetSize` 校验尺寸、**不校验位置**；`SetWindowPos` 返回成功但位置被外部一次性回弹 / 系统异步布局拉回时，函数照样返 1。调用方拿到"成功"却没布局，测试才在 `GetWindowRect` 翻红（窗口 0 停在默认 (100,100)、期望 (200,200)）。`anchor_mode=Client` 分支本来就有 `MatchesTargetClientRect`，是 Window 分支漏了对称校验。
+- **修法**：阶段2 补位置校验（±2 容差），不匹配则重发一次 `SetWindowPos` + `Delay(50)` 复检，仍不匹配才 `setlog` 并返回 0（不再谎报成功）。Client 分支保持原样，正常路径零额外开销。
+- **判别力用例**：新增 `WindowStateTest.LayoutWindowsRetriesWhenPositionBounced`——子类化窗口，在首次 `WM_WINDOWPOSCHANGED` 把窗口拉回原点模拟干扰。**反向验证**：旧库 `FAIL(now.left=100 / 期望 300, ret=1)`（精确复现红灯数值），新库 `PASS`。
+- **定位教训（如实记录）**：先怀疑 `geo_lock_worker` 残留条目 + hwnd 复用，写了一条「锁→销毁→复用」用例，但反向验证失败原因是「未能复用 hwnd」（58s、无判别力）；复核 `g_geo_locks` 只在 `OpWindow.cpp` 匿名 namespace，6 个前置用例全走 `window_service` 不碰它、加锁用例还排在目标之后 ⇒ 假设撤销、用例删除。改用「库返回成功但位置没生效」角度才定位到真因。**断言靶子选不对就是白写**。
+- **回归 A/B**：修前全量 3/3 稳定复现红灯（479 项 / 477 过 / 1 SKIP / 1 FAILED）。修后 **480 项**（+1 新用例）：RUN1 478 过 / 1 SKIP / 1 FAILED（`MouseKeyTest.DxModeDeliversAdvancedMouseButtonsAndWheel`，单跑 PASS，偶发环境项），RUN2 **479 过 / 1 SKIP / 0 FAILED**；两次里 `LayoutWindowsCascadeStepsWindows` 与新用例均 PASS。
+- **二进制与发布链**：双架构重建——`op_x64`=`f0d19abf891e`、`op_c_api_x64`=`5c01d5e8fd87`、`op_x86`=`9e4e5ae57c9a`、`op_c_api_x86`=`8d679355f231`。8 处主目标 + 2 处运行时目录 sha1 复核 **DRIFT_COUNT=0**（含 GMAJ 两件，本次未被占用）；发布目录 `bin/x64/op_c_api_x64.dll` 冒烟 **18/18**。
+- **已知项变更**：从「已知全量上下文失败项」移除 `LayoutWindowsCascadeStepsWindows`；新增 `MouseKeyTest.DxModeDeliversAdvancedMouseButtonsAndWheel` 为偶发环境项（RUN1 翻红、RUN2 与单跑全绿）。
+
 ### 2026-10-17 第三十三批（fix(OCR) 颜色容差 + fix(color) 解析加固 + 冒烟沉淀；2026-11-09 补记）
 
 承接第三十二批之后的六个提交（`9a1111a`…`edaba15`）。**有 C++ 二进制改动**，无新增导出（仍 316，`op_c_api.h` 仅注释）。
@@ -17,7 +29,7 @@
 
 **全量回归（2026-11-09 补跑，两轮 A/B 同结论）**：`scripts/probes/run_optest.py` 全量 **479 项 / 477 过 / 1 SKIP / 1 FAILED**，两轮 113.4s / 111.4s，结果逐字一致。SKIP 为 `IntegrationTest.BindUnbindFurMarkIfPresent`（本机无 FurMark，既有）。FAILED 为 `WindowStateTest.LayoutWindowsCascadeStepsWindows`：窗口 0 停在默认 (100,100)、期望 (200,200)（差 100），窗口 1/2 位置正确。**不是随机 flake**——两轮全量稳定复现，但隔离单跑 3/3 通过、`WindowStateTest.*` 整套 17/17 通过 ⇒ 全量上下文的测试隔离/窗口位置异步生效问题，非本批代码回归（本轮零 C++ 改动，二进制仍是 10-17 09:03 产物）。
 - **定位**：`WindowLayout.cpp::Apply()` 在 `anchor_mode=0`（窗口外框）分支只校验尺寸（`MatchesTargetSize`），**不校验位置**；`SetWindowPos` 返回成功但位置未生效时函数仍返 1，测试直到 `GetWindowRect` 才翻红。只有 `anchor_mode=Client` 分支有 `MatchesTargetClientRect` 位置校验。
-- **处置（够用为主，本轮不改代码）**：记为**已知全量上下文失败项**，与 VK133 / WGC / DownCpu 并列，回归判据继续只比对 FAILED 集合。下轮若要消红灯，最小方案二选一：①测试侧 `LayoutWindows` 后跑一次消息泵 / 等位置生效再断言；②库侧 `Apply()` 的 Window 分支补 `GetWindowRect` 位置校验，让"未移动"不再被报成功。两者都需重新构建 + 重同步全链，另开一轮。
+- **处置（够用为主，本轮不改代码）**：记为**已知全量上下文失败项**，与 VK133 / WGC / DownCpu 并列，回归判据继续只比对 FAILED 集合。下轮若要消红灯，最小方案二选一：①测试侧 `LayoutWindows` 后跑一次消息泵 / 等位置生效再断言；②库侧 `Apply()` 的 Window 分支补 `GetWindowRect` 位置校验，让"未移动"不再被报成功。两者都需重新构建 + 重同步全链，另开一轮。**→ 2026-11-09 更正：第三十四批已按方案②修复；根因是库「假成功」而非测试隔离，本条处置作废。**
 - 产物：`workbench/_last_optest.txt`（第二轮全量）、`workbench/_optest_full_20261109.txt`（第一轮备份）。`tests/smoke/smoke_dll.py` 18/18 通过。
 
 ### 2026-10-16 第三十二批（feat(bind)：ctypes 绑定补齐 55 方法 → 310/310 全覆盖）

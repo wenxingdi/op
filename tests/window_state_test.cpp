@@ -239,6 +239,64 @@ void PumpGeoLockWait(int milliseconds) {
 }
 } // namespace
 
+// 回归（2026-11-09）：LayoutWindows 返 1 时，窗口位置必须真的生效。
+// 旧实现 Apply() 在 anchor_mode=0 分支只 MatchesTargetSize 校验尺寸、不校验位置；
+// 窗口位置被外部一次性拉回（全量上下文里的异步布局/系统回弹）时仍返回 1，调用方被假成功骗过。
+// 本例子类化窗口，在第一次 WM_WINDOWPOSCHANGED 把窗口拉回原点来模拟该干扰：
+// 修复后的实现应在阶段2 检出位置偏差并重试一次；旧实现必然把窗口留在原点。
+namespace {
+struct BounceState {
+    WNDPROC old_proc = nullptr;
+    int origin_x = 0;
+    int origin_y = 0;
+    bool consumed = false;
+};
+BounceState g_bounce = {};
+
+LRESULT CALLBACK BounceWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+    if (msg == WM_WINDOWPOSCHANGED && !g_bounce.consumed) {
+        const auto *pos = reinterpret_cast<const WINDOWPOS *>(lparam);
+        if (pos && !(pos->flags & SWP_NOMOVE) &&
+            (pos->x != g_bounce.origin_x || pos->y != g_bounce.origin_y)) {
+            g_bounce.consumed = true;
+            ::SetWindowPos(hwnd, nullptr, g_bounce.origin_x, g_bounce.origin_y, 0, 0,
+                           SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING);
+        }
+    }
+    return ::CallWindowProcW(g_bounce.old_proc, hwnd, msg, wparam, lparam);
+}
+} // namespace
+
+TEST(WindowStateTest, LayoutWindowsRetriesWhenPositionBounced) {
+    op::Op op;
+    TopmostWindow wnd;
+    ASSERT_TRUE(wnd.Create());
+
+    RECT base = {};
+    ASSERT_TRUE(::GetWindowRect(wnd.hwnd, &base) != FALSE);
+    g_bounce = {};
+    g_bounce.origin_x = base.left;
+    g_bounce.origin_y = base.top;
+    g_bounce.old_proc = reinterpret_cast<WNDPROC>(
+        ::SetWindowLongPtrW(wnd.hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(BounceWndProc)));
+    ASSERT_TRUE(g_bounce.old_proc != nullptr);
+
+    wchar_t list[64] = {};
+    _snwprintf_s(list, _countof(list), _TRUNCATE, L"%lld",
+                 static_cast<long long>(reinterpret_cast<intptr_t>(wnd.hwnd)));
+    long ret = 0;
+    op.LayoutWindows(list, 2, 1, 300, 300, 32, 32, 0, 0, 0, 0, &ret);
+
+    ::SetWindowLongPtrW(wnd.hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(g_bounce.old_proc));
+    g_bounce = {};
+
+    EXPECT_EQ(ret, 1);
+    RECT now = {};
+    ASSERT_TRUE(::GetWindowRect(wnd.hwnd, &now) != FALSE);
+    EXPECT_NEAR(now.left, 300, 2) << "位置被拉回后未重试，LayoutWindows 假成功";
+    EXPECT_NEAR(now.top, 300, 2) << "位置被拉回后未重试，LayoutWindows 假成功";
+}
+
 // 位置锁判别力：锁定后外部 MoveWindow 必须被拉回锚点；解锁后再移动必须能生效（证明锁真的关了，
 // 防止实现退化成"永远拉回"或"从不拉回"两种恒真错误）。
 TEST(WindowStateTest, LockWindowPositionPullsBackExternalMove) {
