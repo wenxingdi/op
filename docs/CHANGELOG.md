@@ -3,6 +3,16 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-09 第三十七批（ops：线上备份刷新至最新 HEAD + 新运行件快照）
+
+用户确认「刷线上备份」。**零代码 / 零二进制改动**，纯发布运维：把 `wenxingdi/op` 的 Release `backup-2026-11-09`（id 438882958）5 个附件，从 16:26 那份快照刷到本次 HEAD 与当前发布件。
+
+- **漂移实证**：`verify_assets.py` 对旧目录判 **5/5 全等**（线上与旧本地逐字节一致，不是上传失败）。但旧 `op-repo.bundle` 的 `refs/heads/master` = `b62383b8730f`，落后 2 个提交（`7346518`、`b1e6a78`）；旧 `runtime-snapshot.zip` 内 6 处 `op_x64.dll` 全是 `f0d19abf891e`（第三十四批产物），而现网 8 主目标 + 2 运行时目录已是 `8d547767f8ea`（第三十六批版本资源修复后重链）；`op_c_api_x64.dll` 仍 `5c01d5e8fd87`，未变。
+- **路径选择**：不用 `refresh_bundle.py`——它只补 bundle，脚本头明确写「若二进制也变了，应重跑 `make_backup.py` 生成新备份而不是用本脚本打补丁」。本轮二进制变了，故**整份重打**，保证 `manifest.json` / `恢复说明.md` / `runtime-snapshot.zip` 内嵌 manifest 与 bundle 同源、不留半新半旧。
+- **顺序（铁律）**：先追加本条并提交推送 → 再 `make_backup.py` 生成 `2026-11-09_stable_2` → 本地 `--verify` + 抽验 zip 内 DLL sha1 → `replace_assets.py` 逐件 DELETE+上传 5 个附件 → `verify_assets.py` 按 sha256+size 判 5/5。旧目录 `2026-11-09_stable/` 原地保留，作为线上被替换附件的唯一本地回滚副本。
+- **Release 正文**：`release_assets.py` 创建 Release 时把 `| op | b62383b8730f |` 写进了 body；本次同步 PATCH 到最新 commit 并标注 v2，避免正文与附件口径分叉。
+- **风险与兜底**：`replace_assets.py` 先 DELETE 后上传，中途失败会短暂缺件；`release_assets.py` 幂等补齐可重传补件。**唯一判据是 `verify_assets.py` 的 sha256+size**，不认上传返回值、不认时间戳（刚上传完 API 可能返回缓存旧 digest，脚本内置 3 轮重查）。
+
 ### 2026-11-09 第三十六批（对外暴露面收敛：版本资源 / 注册路径 / 机器码口径）
 
 用户确认「都修」，对应上一轮只读盘点的 P1 + P2a + P2b。**零 C++ 逻辑改动**；仅改 COM 资源脚本、文档生成器、C API 手册，新增 1 个发布注册脚本。
@@ -38,7 +48,7 @@
 - **验证（重跑安全性）**：先重生成到 `workbench/_apigen_check/`，除生成时间戳外正文与当前 HTML **逐字一致**（`BODY_EQUAL=True`），函数 id 集合 310 零差异，参数注解 1177/1177（100%）。再正式重生成 docs 三件：`api_reference.html` 正文不变（仅时间戳 → 2026-11-09 16:37），`api_llm.md` / `api_llm.json` 同步补上 10-17 措辞。函数面复核：COM 310 ↔ HTML 310、C API 316 ↔ 手册 316，**0 缺 0 多 0 重**。
 - **附带修掉的格式漂移**：`emit_llm_json()` 原写 `indent=1`，而仓库既有 `docs/api_llm.json` 是 2 空格缩进 ⇒ 重跑会产出 4.4 万行纯排版 diff（语义完全等价）。恢复 `indent=2` 后整批 diff 从 22274/22197 行收敛到 **104/24 行**；JSON 语义核对：键集合不变、310 函数不变，仅 `meta.generated` 与 OCR 组描述变化。
 - **判据变更**：`scripts/gen_api_reference.py` 现在可安全重跑；`docs/api_reference.html` 继续「勿手改」，改描述走 `DESC_OVERRIDE` 或 `include/libop.h` 注释。
-- **未做**：线上 `backup-2026-11-09`（id 438882958）的 `op-repo.bundle` 是本批提交之前的快照；若要与最新 master 对齐，另跑 `refresh_bundle.py` + `replace_assets.py`（后者会先 DELETE 旧附件，属外部写，需单独确认）。运行件二进制未变，恢复使用不受影响。
+- **未做**：线上 `backup-2026-11-09`（id 438882958）的 `op-repo.bundle` 是本批提交之前的快照；若要与最新 master 对齐，另跑 `refresh_bundle.py` + `replace_assets.py`（后者会先 DELETE 旧附件，属外部写，需单独确认）。运行件二进制未变，恢复使用不受影响。**→ 2026-11-09 第三十七批闭环更正**：用户已确认刷新；因第三十六批又改了 COM 版本资源（运行件二进制**已变**），最终不是 `refresh_bundle.py` 补 bundle，而是整份重打 `make_backup.py` 并替换线上 5 附件，本条「运行件二进制未变」仅适用于第三十五批当时时点。
 
 ### 2026-11-09 第三十四批（fix(window)：LayoutWindows「假成功」修复，全量回归归零）
 
