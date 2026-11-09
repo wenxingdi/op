@@ -3,6 +3,18 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-09 第三十五批（docs：API 手册三处漂移更正 + 生成器措辞回灌）
+
+无 C++ / 二进制改动，无新增导出。修的是上一轮「API 手册函数面核对」查出的 3 处文档漂移；全部按 **v1→v2 更正**发布（保留原值 + 写明依据），不静默改。
+
+- **漂移① 手册头部计数**：`docs/2026-10/OP_API手册_20261015.md` 原记「318 个 OP_CALL 导出」。实据：`include/op_c_api.h` **316** 个 `OP_CALL` 声明、手册 316 条签名、20 分区计数全对；318 是 `libop/com/op.idl` 的 COM 方法数（318 个 `id(...)`，DISPID 1~439、编号不连续），口径不同。改为 316，函数清单零改动；下一行「op.idl 318 id」本就正确，保留。
+- **漂移② 索引统计**：`docs/INDEX.md:12` 原记「253 个接口 / 966/988 参数（97.8%）」，系 9 月旧统计。按当前 `include/libop.h` 实测 **310 个接口 / 1177/1177 参数（100%）**，已校正并附 v1→v2 说明。
+- **漂移③ 生成器与手工修订分叉（实质隐患）**：10-17 `edaba15` 对 `docs/api_reference.html` 的 6 条 `fn-desc` 做了 OCR 容差场景化手工修订，未回灌数据源 ⇒ 重跑 `scripts/gen_api_reference.py` 会退回 10-16 版，丢失别名门面语义、58 张实测偏色结论、短段/非法段加固、免字库 `color_format` 说明。本批在生成器新增 `DESC_OVERRIDE`（6 条，共享 `_OCR_COLOR_TOL` 常量）**无条件覆盖** `desc`，与「desc 为空才启用」的 `FN_DESC` 兜底区分开。**不动 `include/libop.h` 头注释**：那会触发全量 C++ 重编 + 重同步发布链，成本远大于收益；待头注释同步后可删该表。
+- **验证（重跑安全性）**：先重生成到 `workbench/_apigen_check/`，除生成时间戳外正文与当前 HTML **逐字一致**（`BODY_EQUAL=True`），函数 id 集合 310 零差异，参数注解 1177/1177（100%）。再正式重生成 docs 三件：`api_reference.html` 正文不变（仅时间戳 → 2026-11-09 16:37），`api_llm.md` / `api_llm.json` 同步补上 10-17 措辞。函数面复核：COM 310 ↔ HTML 310、C API 316 ↔ 手册 316，**0 缺 0 多 0 重**。
+- **附带修掉的格式漂移**：`emit_llm_json()` 原写 `indent=1`，而仓库既有 `docs/api_llm.json` 是 2 空格缩进 ⇒ 重跑会产出 4.4 万行纯排版 diff（语义完全等价）。恢复 `indent=2` 后整批 diff 从 22274/22197 行收敛到 **104/24 行**；JSON 语义核对：键集合不变、310 函数不变，仅 `meta.generated` 与 OCR 组描述变化。
+- **判据变更**：`scripts/gen_api_reference.py` 现在可安全重跑；`docs/api_reference.html` 继续「勿手改」，改描述走 `DESC_OVERRIDE` 或 `include/libop.h` 注释。
+- **未做**：线上 `backup-2026-11-09`（id 438882958）的 `op-repo.bundle` 是本批提交之前的快照；若要与最新 master 对齐，另跑 `refresh_bundle.py` + `replace_assets.py`（后者会先 DELETE 旧附件，属外部写，需单独确认）。运行件二进制未变，恢复使用不受影响。
+
 ### 2026-11-09 第三十四批（fix(window)：LayoutWindows「假成功」修复，全量回归归零）
 
 修掉第三十三批留下的红灯 `WindowStateTest.LayoutWindowsCascadeStepsWindows`。**有 C++ 二进制改动**，无新增导出。

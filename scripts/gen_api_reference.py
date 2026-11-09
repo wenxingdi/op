@@ -1298,7 +1298,10 @@ def emit_llm_json(fns, gen_time, ctypes_methods=None):
         },
         "groups": groups,
     }
-    return _json.dumps(doc, ensure_ascii=False, indent=1)
+    # v1→v2（2026-11-09）：仓库既有 api_llm.json 是 2 空格缩进，脚本此前写成 indent=1，
+    # 重跑会产出 4.4 万行纯排版 diff（语义完全等价）。恢复 2 空格，让「生成器可安全重跑」
+    # 不只语义等价，版本库 diff 也干净。
+    return _json.dumps(doc, ensure_ascii=False, indent=2)
 
 
 def emit_llm_md(fns, gen_time):
@@ -1487,6 +1490,64 @@ document.querySelectorAll('.copy').forEach(b=>b.addEventListener('click',()=>{
 """
 
 
+# ---------------------------------------------------------------------------
+# v1→v2 更正（2026-11-09）：10-17「OCR 容差措辞场景化」是对生成后的
+# docs/api_reference.html 做的手工修订，当时没有回灌数据源 —— 直接重跑本脚本会
+# 把这 6 条描述退回 10-16 版（别名门面语义、58 张实测的偏色取值结论、短段/非法段
+# 加固、免字库路径 color_format 说明全部丢失）。此处把手工修订固化为描述覆盖层，
+# 使生成器重新成为唯一可重跑的权威源。
+# 之所以不动 include/libop.h 的头注释：那会触发全量 C++ 重编 + 重同步发布链，
+# 成本远大于收益；待头注释同步后，可删除本表并改由头注释直接提供 desc。
+# 与 FN_DESC 的区别：FN_DESC 是「desc 为空才启用」的兜底，本表是**无条件覆盖**。
+# ---------------------------------------------------------------------------
+_OCR_COLOR_TOL = (
+    '颜色容差：带偏色段 "RRGGBB-DRDGDB"（如 0F1721-606060）按偏色值逐通道匹配；不带偏色段默认容差 0x60。'
+    '容差按场景选（2026-10-16 三场景 58 张实测）：浅色底+深色小字 → 留空走默认 0x60；'
+    '深色/花纹底+彩色字（典型游戏 UI）→ 显式小偏色 0x10~0x30，0x60 会把近色背景混进 mask 打出乱码；'
+    '字色变化时用 | 枚举多色，如 "E01111-202020|33EE33-202020"（实测 58/58 全对）。'
+    '偏色段必须写满 6 位十六进制，短段/非法段会被拒绝并按 000000 处理（写 __op.log 报错）。'
+)
+
+DESC_OVERRIDE = {
+    'AutoOcr': (
+        '免字库 OCR 家族速查（免字库 = 未 SetDict/UseDict，走内置 ONNX 引擎；有字库 = 点阵字库匹配）：\n'
+        'AutoOcr / AutoOcrLine / AutoOcrEx / AutoOcrFromFile（归一入口，推荐；后三者为旧别名，空颜色同门面语义）\n'
+        'color 为空 → 原图直识别（同 OcrAuto）；\n'
+        'color 非空 → 按颜色二值化（同 OcrAutoColor，含字库协同）\n'
+        'OcrAuto / OcrAutoFromFile        显式原图：不二值化，原图直喂引擎，无需颜色（= AutoOcr 空色分支）\n'
+        'Ocr / OcrFromFile / OcrEx        免字库时不二值化（颜色不参与）；有字库时按颜色二值化\n'
+        'OcrAutoColor / OcrAutoColorFromFile / OcrAutoColorLine / OcrAutoColorEx\n'
+        '显式二值化：先按颜色二值化（支持 "@背景色" 反白）再识别，必须给颜色\n'
+        '⚠️ sim 语义双关：免字库路径 = 置信度阈值（默认 0.7，ONNX 置信度 ≈0.85+，传 1.0 会全滤光）；\n'
+        '字库路径 = 颜色/点阵相似度 (0.1-1.0)。\n'
+        '免字库 OCR 归一入口（推荐）：color 为空走原图直识别，非空走按颜色二值化。\n'
+        '两分支行为分别与 OcrAuto / OcrAutoColor 完全一致，已有脚本可无缝换用本入口。'
+    ),
+    'OcrAutoColor': (
+        '区域截图后按颜色二值化再做免字库 OCR。' + _OCR_COLOR_TOL
+        + 'sim 为置信度过滤阈值（非颜色容差），建议 0.8 左右。'
+    ),
+    'OcrAutoColorLine': (
+        '单行快模式 OcrAutoColor：颜色二值化后整图直接 rec（跳过检测），适用于读出区/固定单行文本。'
+        + _OCR_COLOR_TOL
+        + '\n区域须只含单行文本，否则结果语义由使用方承担。\n'
+        + '行切分参数为硬编码阈值（OC6，暂不提供参数）：行间隙 >3px 切段、段高 <5px 视为噪点丢弃。'
+    ),
+    'OcrAutoColorEx': (
+        '结构化 OcrAutoColor：输出 "x1,y1,x2,y2,conf,text|..."'
+        '（bbox 为客户区坐标，相对绑定窗口客户区左上角），返回命中行数。'
+        + _OCR_COLOR_TOL
+    ),
+    'OcrFromFile': (
+        '从文件中识别图片，规则同 Ocr。免字库路径 color_format 不参与识别'
+        '（直接对原图跑引擎，要按颜色过滤请用 OcrAutoColorFromFile/AutoOcrFromFile）。'
+    ),
+    'OcrAutoColorFromFile': (
+        '文件版 OcrAutoColor：读取图片后按颜色二值化再做免字库 OCR。' + _OCR_COLOR_TOL
+    ),
+}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=os.path.join(ROOT, "docs", "api_reference.html"))
@@ -1499,6 +1560,10 @@ def main():
     for f in fns:
         if not f["desc"] and f["name"] in FN_DESC:
             f["desc"] = FN_DESC[f["name"]]
+    # 10-17 手工修订措辞回灌：无条件覆盖，保证 HTML / LLM 两路同源且可安全重跑
+    for f in fns:
+        if f["name"] in DESC_OVERRIDE:
+            f["desc"] = DESC_OVERRIDE[f["name"]]
     n_fallback = sum(1 for f in fns if not f["desc"])
     if n_fallback:
         print(f"WARN 无描述且 FN_DESC 未覆盖: {n_fallback} 个")

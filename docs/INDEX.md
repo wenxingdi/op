@@ -9,7 +9,9 @@
 | 文档 | 说明 |
 |---|---|
 | [CHANGELOG.md](CHANGELOG.md) | 本仓库自有迭代日志（基线：上游 0.4.8.3） |
-| [api_reference.html](api_reference.html) | **API 参考手册**：253 个接口按 10 服务组分类，含参数表/**取值语义注解**（966/988 参数，97.8%）/搜索 + 六语言调用示例（`scripts/gen_api_reference.py` 从 libop.h + PARAM_DOCS 注解层生成，勿手改） |
+| [api_reference.html](api_reference.html) | **API 参考手册**：310 个接口按 10 服务组分类，含参数表/**取值语义注解**（1177/1177 参数，100%）/搜索 + 六语言调用示例（`scripts/gen_api_reference.py` 从 libop.h + PARAM_DOCS 注解层生成，勿手改） |
+
+> **v1→v2 更正（2026-11-09）**：本行原记「253 个接口 / 966/988 参数（97.8%）」，是 9 月建索引时的旧统计。按当前 `include/libop.h` 与生成器实测输出校正为 **310 个接口 / 1177/1177 参数（100%）**；服务组数 10 未变。数字取自 `scripts/gen_api_reference.py` 的 `total` 与「参数注解覆盖」两行，不是估算。
 
 ## docs/2026-07 —— 环境搭建期
 
