@@ -3,6 +3,23 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-10-17 第三十三批（fix(OCR) 颜色容差 + fix(color) 解析加固 + 冒烟沉淀；2026-11-09 补记）
+
+承接第三十二批之后的六个提交（`9a1111a`…`edaba15`）。**有 C++ 二进制改动**，无新增导出（仍 316，`op_c_api.h` 仅注释）。
+
+- **fix(OCR) 免字库颜色二值化默认容差 0x60**（`9a1111a`）：`ocr_auto_color/line/ex` 无显式偏色段时从精确匹配改为 0x60——实测抗锯齿小字号零容差字形碎裂、0x40 半边缘更糟，0x60 包全笔画且背景色差 >200 不误包；显式偏色段仍按用户值（`str2binaryfbk` 增 `implicit_df_override`）。`OpAutoOcrLine/Ex/FromFile` 三个废弃别名补与 `OpAutoOcr` 同款空颜色门面（此前空颜色直转 `OcrAutoColor*` → 全背景二值图恒空）；`OpAutoOcrEx` 空颜色转发 `OpOcrEx`，两种分支坐标串格式不同，头文件注释已标明。
+- **docs(OCR) 颜色容差场景化结论**（`4d04e7e`/`d7e07e1`/`962c3d8`/`e84514b`）：58 张游戏实拍批次实测默认 0x60 仅 5% 合格、双色枚举 58/58 全对；`api_llm.md/json`、`api_reference.html` 同步容差措辞与空颜色门面语义；大模型对接示例补 agnes 文本模型清单核对结论。
+- **fix(color) `str2color` 短段/非法段静默错解析加固**（`edaba15`）：`Color.h` 新增 `try_str2color` 宽/窄两版，只接受恰好 6 位 hex（容忍首尾空白与小写），空串视为零颜色，其余拒绝并置 000000；`ImageSearchService.cpp` 四处调用点（`prepare_find_pic`/`str2colordfs`/`str2colors` 等）切到 try 版 + `setlog` 报错，文案指明正确写法并落 `__op.log`。旧 `str2color` 改为委托调用，保持兼容。
+- **test/smoke 沉淀**：新增 gtest 2 条（12 项解析判据 + 非法偏色段行为级对拍），`ImageColorTest` 全套 92 条通过；`tests/smoke/` 新增 `smoke_dll.py`（18 项无头冒烟）/`ocr_batch_score.py`/`README.md`，替代早年丢失的 GuiSmoke。
+- **双架构重建**：`op_c_api_x64` = `ac9be6b1823a`、`op_x64` = `85ca96a1c1d8`、`op_c_api_x86` = `223e35cabcfd`、`op_x86` = `3bb6b6f7b5b6`（10-17 09:01~09:10）。
+
+**2026-11-09 补记（发布件收口）**：复盘发现上批"已同步 OPTool 四副本 + GMPLUG"只覆盖 C API 门面的部分目录——`bin/x64`、`bindings/python/op/bin/x64`、`optool_verify/.../Dll` 三处门面仍是旧版，且 `op_x64.dll`/`op_x86.dll` **全链无一处**等于 10-17 源产物（OPTool/GMAJ 停留在 10-14 版）。按 `_sync_release_b2.py` + `sync_extra_copies.py` 全量重同步，8 处主目标 + 2 处运行时目录逐处 sha1 复核 **DRIFT_COUNT=0**；旧版本按 sha1 去重备份于 `workbench/backup_20261109_dll/`（10 个唯一版本 + 清单）。发布目录 `bin/x64/op_c_api_x64.dll` 跑 `smoke_dll.py` **18/18 通过**（含非法偏色段写 `__op.log` 的加固钉死项；Pillow 临时装于 `workbench/_pydeps`，未污染全局 Python）。
+
+**全量回归（2026-11-09 补跑，两轮 A/B 同结论）**：`scripts/probes/run_optest.py` 全量 **479 项 / 477 过 / 1 SKIP / 1 FAILED**，两轮 113.4s / 111.4s，结果逐字一致。SKIP 为 `IntegrationTest.BindUnbindFurMarkIfPresent`（本机无 FurMark，既有）。FAILED 为 `WindowStateTest.LayoutWindowsCascadeStepsWindows`：窗口 0 停在默认 (100,100)、期望 (200,200)（差 100），窗口 1/2 位置正确。**不是随机 flake**——两轮全量稳定复现，但隔离单跑 3/3 通过、`WindowStateTest.*` 整套 17/17 通过 ⇒ 全量上下文的测试隔离/窗口位置异步生效问题，非本批代码回归（本轮零 C++ 改动，二进制仍是 10-17 09:03 产物）。
+- **定位**：`WindowLayout.cpp::Apply()` 在 `anchor_mode=0`（窗口外框）分支只校验尺寸（`MatchesTargetSize`），**不校验位置**；`SetWindowPos` 返回成功但位置未生效时函数仍返 1，测试直到 `GetWindowRect` 才翻红。只有 `anchor_mode=Client` 分支有 `MatchesTargetClientRect` 位置校验。
+- **处置（够用为主，本轮不改代码）**：记为**已知全量上下文失败项**，与 VK133 / WGC / DownCpu 并列，回归判据继续只比对 FAILED 集合。下轮若要消红灯，最小方案二选一：①测试侧 `LayoutWindows` 后跑一次消息泵 / 等位置生效再断言；②库侧 `Apply()` 的 Window 分支补 `GetWindowRect` 位置校验，让"未移动"不再被报成功。两者都需重新构建 + 重同步全链，另开一轮。
+- 产物：`workbench/_last_optest.txt`（第二轮全量）、`workbench/_optest_full_20261109.txt`（第一轮备份）。`tests/smoke/smoke_dll.py` 18/18 通过。
+
 ### 2026-10-16 第三十二批（feat(bind)：ctypes 绑定补齐 55 方法 → 310/310 全覆盖）
 
 兑现第三十批遗留"bindings/python 落后 libop.h 68 个函数"：`op/_ffi.py` 补 46 条 C 导出
