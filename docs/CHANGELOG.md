@@ -3,6 +3,31 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-09 第三十六批（对外暴露面收敛：版本资源 / 注册路径 / 机器码口径）
+
+用户确认「都修」，对应上一轮只读盘点的 P1 + P2a + P2b。**零 C++ 逻辑改动**；仅改 COM 资源脚本、文档生成器、C API 手册，新增 1 个发布注册脚本。
+
+- **P1｜COM DLL 版本资源是 VS 模板占位符**（`libop/com/op.rc`；UTF-16 资源脚本，git 视为二进制、diff 不可读，故逐条列值）。改前 `op_x64.dll` / `op_x86.dll` 对外宣称 `0.4.8.3`（上游 fork 基线）、公司名 `TODO: <公司名>`，与同目录 `op_c_api_*.dll`（`5.2.0.0`）及 `OpVer()`（`5.2.0`）三处口径不一致，右键属性即可见 `TODO:`。
+  - `FILEVERSION` / `PRODUCTVERSION`：`0,4,8,3` → `5,2,0,0`
+  - `CompanyName` / `ProductName`：`TODO: <公司名>` / `TODO: <产品名>` → `op` / `op`
+  - `FileDescription`：`TODO: <文件说明>` → `op COM DLL`（与 C API 侧 `op C API DLL` 对称）
+  - `FileVersion` / `ProductVersion`：`0.4.8.3` → `5.2.0.0`
+  - 删除 `LegalCopyright` 的 `TODO: (C) <公司名>。  保留所有权利。`（`op_c_api.rc` 本就无此字段；版权声明以仓库 `LICENSE` 为准）
+  - `InternalName` / `OriginalFilename` 保留逻辑名 `op.dll`：架构后缀由构建决定，与 C API 侧 `op_c_api.dll` 同口径，不为 x64/x86 各写一份
+  - 判据：4 个 DLL 版本资源全部 `Company=op / Product=op / 5.2.0.0 / Copyright 空`；二进制内 `TODO` 字符串 **0**；改前备份 `workbench/op_rc_utf16_before_20261109.bak`（workbench 在 .gitignore）
+- **P2a｜注册表开发机绝对路径**：查明是 **COM 规范硬要求**，`InprocServer32`、`TypeLib\1.0\0\win32` 必须是绝对路径，`HELPDIR` 由 ATL 写入 DLL 所在目录；`regsvr32` 从哪个目录执行就写哪个路径。删掉或改相对路径会导致 COM 加载失败 ⇒ **不改注册代码、不动本机注册表**。已核实 DLL 二进制内 **0 本地绝对路径 / 0 PDB 路径**，路径只存在于注册表、不随文件传播。
+  - 新增 `scripts/register_release.bat`（`install` / `uninstall` / `query`）：要求先把 DLL 放到最终中性目录再注册，`query` 打印三处注册值便于核对；`install`/`uninstall` 需管理员，`query` 只读。
+  - 验证：`query` EXIT=0、`usage` EXIT=1（设计值）。⚠ 本机安全策略把 `reg.exe` 列入黑名单，`query` 的实际键值输出在本轮沙箱内取不到（键值已另用 PowerShell `Get-ItemProperty` 核实为 `D:\AutoPro\op-master\op\bin\x64\op_x64.dll` 等）；脚本在普通 Windows 环境正常。
+- **P2b｜`GetMachineCode()` 机器指纹标注**：该 API 读 `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid`（64 位视图），是 Windows 安装时生成的**设备唯一标识**。
+  - `scripts/gen_api_reference.py` 的 `DESC_OVERRIDE` 增一条无条件描述覆盖（不动 `include/libop.h` 注释，避免无谓全量 C++ 重编），`docs/api_reference.html` / `api_llm.md` / `api_llm.json` 重生成；`docs/2026-10/OP_API手册_20261015.md` 的 C API 条目补同口径提示：勿直接外传、勿写日志/请求体，对外标识请加盐哈希或改用业务 ID。
+  - 已核实该 API **未被任何网络模块自动调用**（仅 COM/C API 出口 + `OpRuntime.cpp` 实现三处）；OCR/YOLO HTTP UA 固定 `op-ocr-client/1.0` / `op-yolo-client/1.0`，无遥测、无自动外联。
+  - 判据：重生成后 310 函数、参数注解 1177/1177(100%)、`py_compile` OK；除 `GetMachineCode` 描述与生成时间戳外手册正文零漂移。
+
+**构建与回归（实测）**：双架构增量构建 EXIT=0（x86 日志明确只重编 `op.rc.res` + 重链接，未重编 C++）；新 sha1 x64 `8d547767f8ea` / `5c01d5e8fd87`（C API DLL 未变）、x86 `04d922b3b4ac` / `8d679355f231`（C API DLL 未变）。全链 8 主目标 + 2 运行时目录 + GMAJ **DRIFT_COUNT=0**；发布目录冒烟 **18/18**；OPTool `GuiSmoke.exe` **EXIT=0 / 447 OK / 0 FAIL**。
+全量回归 A/B：RUN1 480 项 / 478 过 / 1 SKIP / 1 FAILED = `WindowServiceTest.GetCmdStrReturnsPartialOutputOnTimeout`；隔离单跑 **3/3 PASS**，RUN2 **480 / 479 过 / 1 SKIP / 0 FAILED** ⇒ 负载敏感时序 flake，加入已知环境项（该用例本身即 timeout 语义）。本轮零 C++ 逻辑改动，非改动引入。
+
+**观察项（未改）**：① 二进制内有静态链入的第三方库 `getBuildInformation()` 字符串 `Version control: 0.4.8.3-120-g8cd3579-dirty`（x64 为 `0.4.8.3-dirty`），是上游库编译期 git describe 输出，不含本机路径/身份，需重编依赖才能消除，成本>收益；② `op.rgs` 仍注册 ATL 模板残留的 `CompReg` CLSID `{54ca0535-…}`（IDL 里 coclass 已注释、TypeLib GUID 与主库不一致），属无效公开注册项，删除需改注册行为并回归，本轮不动。
+
 ### 2026-11-09 第三十五批（docs：API 手册三处漂移更正 + 生成器措辞回灌）
 
 无 C++ / 二进制改动，无新增导出。修的是上一轮「API 手册函数面核对」查出的 3 处文档漂移；全部按 **v1→v2 更正**发布（保留原值 + 写明依据），不静默改。

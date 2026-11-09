@@ -2,7 +2,7 @@
   "meta": {
     "title": "OP 插件 API 目录（大模型 function-calling 版）",
     "source": "include/libop.h",
-    "generated": "2026-11-09 16:40",
+    "generated": "2026-11-09 17:00",
     "generator": "scripts/gen_api_reference.py",
     "total_functions": 310,
     "usage": {
@@ -1457,7 +1457,7 @@
           "python_example": "op.GetMachineCode()  # → (et)",
           "python_ctypes_name": "get_machine_code",
           "in_ctypes_binding": true,
-          "description": "获取本机机器码(注册表 MachineGuid), 失败返回空串",
+          "description": "获取本机机器码（读注册表 MachineGuid，64 位视图；失败返回空串）。⚠️ 该值由 Windows 安装时生成，是本机唯一标识、属于设备指纹：仅在本机使用，不要直接作为授权令牌外传，也不要写进日志或 HTTP 请求体上传到远端；如确需对外标识设备，请先加盐哈希或改用业务侧账号 ID。",
           "params": [
             {
               "name": "et",
@@ -1477,7 +1477,7 @@
           "returns_summary": "et: 出参：字符串结果（COM 为 BSTR 出参 / C-API 返回 const wchar_t*）",
           "tool_schema": {
             "name": "GetMachineCode",
-            "description": "获取本机机器码(注册表 MachineGuid), 失败返回空串",
+            "description": "获取本机机器码（读注册表 MachineGuid，64 位视图；失败返回空串）。⚠️ 该值由 Windows 安装时生成，是本机唯一标识、属于设备指纹：仅在本机使用，不要直接作为授权令牌外传，也不要写进日志或 HTTP 请求体上传到远端；如确需对外标识设备，请先加盐哈希或改用业务侧账号 ID。",
             "parameters": {
               "type": "object",
               "properties": {},

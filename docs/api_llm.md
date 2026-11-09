@@ -1,6 +1,6 @@
 # OP 插件 API 速查（LLM 上下文版）
 
-> 源：`include/libop.h` · 310 个接口 · 生成于 2026-11-09 16:40 · 由 scripts/gen_api_reference.py 生成（勿手改）
+> 源：`include/libop.h` · 310 个接口 · 生成于 2026-11-09 17:00 · 由 scripts/gen_api_reference.py 生成（勿手改）
 
 调用约定：出参不传入，聚成返回值元组（顺序 = signature 的 → 后列表）；坐标为物理像素，绑定窗口后为客户区坐标；字符串 UTF-16。
 
@@ -36,7 +36,7 @@
 - `GetRandomNumber(min, max) → (ret)` — 获取 [min, max] 区间内随机整数(闭区间, 含两端)
 - `GetRandomDouble(min, max) → (ret)` — 获取 [min, max] 区间内随机浮点数
 - `GaiLu(p) → (ret)` — 概率判定: 以 1/p 的概率返回1, 否则返回0. p<=0 返回0, p==1 恒返回1(拟人化核心)
-- `GetMachineCode() → (et)` — 获取本机机器码(注册表 MachineGuid), 失败返回空串
+- `GetMachineCode() → (et)` — 获取本机机器码（读注册表 MachineGuid，64 位视图；失败返回空串）。⚠️ 该值由 Windows 安装时生成，是本机唯一标识、属于设备指纹：仅在本机使用，不要直接作为授权令牌外传，也不要写进日志或 HTTP 请求体上传到远端；如确需对外标识设备，请先加盐哈希或改用业务侧账号 ID。
 - `IsElevated() → (ret)` — 检测当前进程是否以管理员权限运行. 1是 0否
 
 ## Window 窗口（49）

@@ -1509,6 +1509,12 @@ _OCR_COLOR_TOL = (
 )
 
 DESC_OVERRIDE = {
+    'GetMachineCode': (
+        '获取本机机器码（读注册表 MachineGuid，64 位视图；失败返回空串）。'
+        '⚠️ 该值由 Windows 安装时生成，是本机唯一标识、属于设备指纹：仅在本机使用，'
+        '不要直接作为授权令牌外传，也不要写进日志或 HTTP 请求体上传到远端；'
+        '如确需对外标识设备，请先加盐哈希或改用业务侧账号 ID。'
+    ),
     'AutoOcr': (
         '免字库 OCR 家族速查（免字库 = 未 SetDict/UseDict，走内置 ONNX 引擎；有字库 = 点阵字库匹配）：\n'
         'AutoOcr / AutoOcrLine / AutoOcrEx / AutoOcrFromFile（归一入口，推荐；后三者为旧别名，空颜色同门面语义）\n'
