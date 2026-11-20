@@ -25,6 +25,8 @@ public:
   // 单行直识别：整图直接 rec，跳过 det。bbox 恒为整图 (0,0)-(w,h)。
   int ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &result) override;
   int ocr_line_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result, vocr_line_ext_t &ext) override;
+  // 上一次 OCR 的分项耗时（P3 2026-11-21）：det/cls/rec 三次 Run 分别计时。
+  ocr_profile_t profile() const override;
 
 private:
   // ocr/ocr_ext 共享实现：ext_out 非空时额外回填逐字信息。

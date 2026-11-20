@@ -29,6 +29,31 @@ struct ocr_line_ext_t {
 };
 using vocr_line_ext_t = std::vector<ocr_line_ext_t>;
 
+// OCR 分项耗时自省（P3 2026-11-21）。
+// 只保留"上一次 ocr_ext/ocr_line_ext 调用"的数据——不做历史环形缓冲，也不做
+// p50/p99 聚合：那会让锁与内存开销失控，而统计交给调用方拿多次 total_ms 自己算。
+// ⚠ 并发调用同一引擎实例时，数值对应"任意一次"调用（最后写入者胜：
+//   profile 是诊断信息，加锁采样的开销会污染计时本身）。
+struct ocr_profile_t {
+    double pre_ms = 0;   // 入口预处理（放大 + det 输入 resize/归一化）
+    double det_ms = 0;   // det 的 session.Run
+    double cls_ms = 0;   // cls 的 session.Run（0/180 方向修正）
+    double rec_ms = 0;   // rec 的 session.Run（批量，N 框一次）
+    double post_ms = 0;  // DB 后处理 + 逐字映射 + 结果组装
+    double total_ms = 0; // 从入口到返回的总耗时
+    long boxes = 0;      // det 出来的框数
+    long lines = 0;      // 最终非空文本行数
+    long chars = 0;      // 逐字条目总数
+    long det_calls = 0;
+    long rec_calls = 0;
+    long cls_calls = 0;
+    long runs_failed = 0; // ort_run 失败次数（异常被吞的情况）
+    bool upscale = false; // 是否走了入口 2x 放大
+    float oscale = 1.0f;  // 放大倍数
+    long rec_width = 0;   // 本次 rec 实际用的 RW（P2 动态宽度的可观测值）
+    bool valid = false;   // false = 还没跑过任何一次 OCR
+};
+
 // 抽象 OCR 引擎接口：所有 OCR 后端统一实现此接口。
 // 当前仅内置进程内 ONNX 引擎；HTTP 远程后端已隐藏（条件宏 OP_ENABLE_HTTP_OCR_BACKEND，
 // 定义后在 OcrService.cpp 恢复，且需把 network/HttpClient.cpp 加回 CMake 源列表）。
@@ -63,6 +88,8 @@ public:
     ext.assign(result.size(), ocr_line_ext_t{});
     return ret;
   }
+  // 上一次 OCR 的分项耗时（P3）。默认实现返回 valid=false（本引擎不采集）。
+  virtual ocr_profile_t profile() const { return ocr_profile_t{}; }
 };
 
 #ifdef OP_ENABLE_HTTP_OCR_BACKEND
@@ -99,6 +126,8 @@ public:
   // 带逐字信息的变体（P0）：引擎不支持时 ext 为空（长度 0），result 语义不变。
   int ocr_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result, vocr_line_ext_t &ext);
   int ocr_line_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result, vocr_line_ext_t &ext);
+  // 上一次 OCR 的分项耗时（P3）。引擎不支持 profile 或还没跑过 → valid=false。
+  ocr_profile_t last_profile();
   // OCR 预热（P2 第二十六批 2026-10-16）：触发懒加载 + 一次小图推理，
   // 消掉首次真实调用的模型加载延迟。返回 0 成功（引擎就绪），-1 引擎不可用。
   int warmup();

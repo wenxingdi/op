@@ -12,6 +12,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -148,8 +149,11 @@ void planar_rgb_imagenet(const BGR &s, std::vector<float> &dst) {
 }
 
 // 运行一次 ONNX 推理（单输入单输出，输入由 shape 描述）。
+// ms（可选出参，P3）：累加本次 Run 的墙钟耗时；nullptr 不计时（零开销）。
+// failed（可选出参）：Run 抛异常或被吞时 +1，供 profile 暴露"静默失败"次数。
 bool ort_run(Ort::Session &sess, const std::vector<float> &in, const std::vector<int64_t> &shape,
-             std::vector<float> &out, std::vector<int64_t> &oshape) {
+             std::vector<float> &out, std::vector<int64_t> &oshape, double *ms = nullptr,
+             long *failed = nullptr) {
     Ort::AllocatorWithDefaultOptions alloc;
     // CreateTensor 只要非 const 指针（签名历史原因）；ORT 推理不写输入张量，
     // 直接借用调用方 buffer，省一次整份拷贝（det 输入 960×960×3 float ≈ 11MB/次 OCR）。
@@ -163,18 +167,27 @@ bool ort_run(Ort::Session &sess, const std::vector<float> &in, const std::vector
     const char *oname_c = oname.get();
     Ort::RunOptions ropts;
     std::vector<Ort::Value> res;
+    const auto t_begin = std::chrono::steady_clock::now();
     try {
         res = sess.Run(ropts, &iname_c, &v, 1, &oname_c, 1);
     } catch (const std::exception &e) {
         // ORT 抛异常时必须在引擎内吞掉并返回 false，不能让它冒到 C 边界
         // （call_string 只回空串，上层无法区分"识别失败"和"没有文字"）。
         std::cerr << "ort_run: Run threw: " << e.what() << std::endl;
+        if (ms) *ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_begin).count();
+        if (failed) ++*failed;
         return false;
     } catch (...) {
         std::cerr << "ort_run: Run threw unknown exception" << std::endl;
+        if (ms) *ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_begin).count();
+        if (failed) ++*failed;
         return false;
     }
-    if (res.empty()) return false;
+    if (ms) *ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_begin).count();
+    if (res.empty()) {
+        if (failed) ++*failed;
+        return false;
+    }
     oshape = res[0].GetTensorTypeAndShapeInfo().GetShape();
     const float *p = res[0].GetTensorData<float>();
     size_t n = 1;
@@ -423,6 +436,14 @@ public:
     bool cls_on = true;                        // --cls= 0/180 orientation fix (default: on for v6, off for v4)
     bool ok = false;
 
+    // P3 profile (2026-11-21): per-section timings of the last OCR call.
+    // Deliberately lock-free: this is diagnostic data, and taking a lock inside the
+    // hot path would perturb the very numbers we measure. Concurrent callers on the
+    // same instance may therefore see any one call's values (last writer wins) --
+    // documented in OcrService.h's ocr_profile_t comment.
+    ocr_profile_t m_prof;
+    bool m_prof_on = true; // OP_OCR_PROFILE=0 disables it (saves two clock reads per call)
+
     // 对单张 BGR 图直接做 rec（跳过检测）：缩放+归一化+CTC 解码。
     // 返回 false = 推理失败；txt 为 UTF-8（可为空）。
     // spans（可选出参）：逐字跨度（P0），t→x 已按该图自己的 tw 映射为 ROI 内像素坐标。
@@ -446,7 +467,10 @@ public:
         std::vector<int64_t> rshape = {1, 3, RH, RW};
         std::vector<float> rout;
         std::vector<int64_t> roshape;
-        if (!ort_run(*rec, rin, rshape, rout, roshape)) return false;
+        ++m_prof.rec_calls;
+        if (!ort_run(*rec, rin, rshape, rout, roshape, m_prof_on ? &m_prof.rec_ms : nullptr,
+                     m_prof_on ? &m_prof.runs_failed : nullptr))
+            return false;
         if (roshape.size() != 3) return false;
         txt = ctc_greedy(rout.data(), roshape, keys, conf, m_mask, spans);
         if (spans && !spans->empty()) {
@@ -580,7 +604,11 @@ public:
         std::vector<int64_t> rshape = {int64_t(N), 3, RH, RW};
         std::vector<float> rout;
         std::vector<int64_t> roshape;
-        if (!ort_run(*rec, rin, rshape, rout, roshape)) return false;
+        ++m_prof.rec_calls;
+        m_prof.rec_width = RW; // P2 dynamic width is worth exposing in profile
+        if (!ort_run(*rec, rin, rshape, rout, roshape, m_prof_on ? &m_prof.rec_ms : nullptr,
+                     m_prof_on ? &m_prof.runs_failed : nullptr))
+            return false;
         if (roshape.size() != 3 || roshape[0] != int64_t(N)) return false;
         const size_t per = size_t(roshape[1]) * size_t(roshape[2]); // 每行输出 {T,C} 或 {C,T}
         const int T = int(std::min(roshape[1], roshape[2]));
@@ -683,7 +711,10 @@ public:
         std::vector<int64_t> cshape = {int64_t(N), 3, CH, CW};
         std::vector<float> cout_;
         std::vector<int64_t> coshape;
-        if (!ort_run(*cls, cin, cshape, cout_, coshape)) return false;
+        ++m_prof.cls_calls;
+        if (!ort_run(*cls, cin, cshape, cout_, coshape, m_prof_on ? &m_prof.cls_ms : nullptr,
+                     m_prof_on ? &m_prof.runs_failed : nullptr))
+            return false;
         if (coshape.size() != 2 || coshape[0] != int64_t(N) || coshape[1] < 2) return false;
         for (size_t n = 0; n < N; ++n) {
             const float *row = cout_.data() + size_t(n) * size_t(coshape[1]);
@@ -769,10 +800,25 @@ public:
 OnnxOcrEngine::OnnxOcrEngine() : m_impl(std::make_unique<Impl>()) {}
 OnnxOcrEngine::~OnnxOcrEngine() = default;
 
+// P3: expose the last call's per-section timings. Returns a copy so callers never
+// see a torn read while a concurrent inference is updating the counters.
+ocr_profile_t OnnxOcrEngine::profile() const {
+    if (!m_impl) return ocr_profile_t{};
+    return m_impl->m_prof;
+}
+
 int OnnxOcrEngine::init(const std::wstring &engine, const std::wstring &dllName,
                         const std::vector<std::string> &argv) {
     (void)dllName;
     m_impl->use_v4 = (engine == L"v4"); // B8: engine name selects resource tier
+    // P3: OP_OCR_PROFILE=0 turns off the per-section timers. Default on: the cost is
+    // two steady_clock reads per OCR call (well under 1us), negligible next to det/rec.
+    {
+        wchar_t buf[8] = {0};
+        const DWORD n = GetEnvironmentVariableW(L"OP_OCR_PROFILE", buf, 8);
+        if (n > 0 && n < 8 && buf[0] == L'0')
+            m_impl->m_prof_on = false;
+    }
     bool have_threads = false;
     int threads = 0;
     bool cls_set = false;
@@ -819,8 +865,33 @@ int OnnxOcrEngine::ocr_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result
 // 共享实现：ext_out 非空时额外回填逐字信息（不影响 result/返回值的既有语义）。
 int OnnxOcrEngine::ocr_common(byte *data, int w, int h, int bpp, vocr_rec_t &result,
                               vocr_line_ext_t *ext_out) {
+    // P3 profile: reset per-section counters for this call, then stamp the entry time.
+    // The scope guard writes total_ms and the final line/char counts on every exit
+    // path (including early returns), so the profile is never left half-filled.
+    Impl &impl = *m_impl;
+    const auto t_entry = std::chrono::steady_clock::now();
+    impl.m_prof = ocr_profile_t{};
+    impl.m_prof.oscale = impl.oscale;
+    struct ProfileGuard {
+        Impl &impl;
+        std::chrono::steady_clock::time_point t_entry;
+        vocr_rec_t &result;
+        vocr_line_ext_t *ext;
+        ~ProfileGuard() {
+            impl.m_prof.lines = long(result.size());
+            if (ext) {
+                long n = 0;
+                for (const auto &le : *ext) n += long(le.chars.size());
+                impl.m_prof.chars = n;
+            }
+            impl.m_prof.total_ms =
+                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_entry).count();
+            impl.m_prof.valid = true;
+        }
+    } guard{impl, t_entry, result, ext_out};
+
     result.clear();
-    if (!m_impl->ok) return -1;
+    if (!impl.ok) return -1;
     if (data == nullptr || w <= 0 || h <= 0 || (bpp != 1 && bpp != 3 && bpp != 4)) return -1;
     if (size_t(w) * h * bpp > 64ULL * 1024 * 1024) return -2;
 
@@ -832,7 +903,7 @@ int OnnxOcrEngine::ocr_common(byte *data, int w, int h, int bpp, vocr_rec_t &res
     // 坐标最后统一除回 up，调用方看到的仍是原图像素坐标。
     // 已二值化的输入（指定颜色路径喂入的纯白纯黑图）不放大：灰度细节已不存在，
     // 放大只白花 4 倍 det 成本。按 >2% 非黑白像素判定为非二值图。
-    const float up = m_impl->oscale;
+    const float up = impl.oscale;
     const int ow = w, oh = h;
     bool binarized = false;
     if (up > 1.0f && std::max(w, h) < 960) {
@@ -854,6 +925,9 @@ int OnnxOcrEngine::ocr_common(byte *data, int w, int h, int bpp, vocr_rec_t &res
             h = img.h;
         }
     }
+    impl.m_prof.upscale = (!binarized && up > 1.0f);
+    const auto t_pre = std::chrono::steady_clock::now();
+    impl.m_prof.pre_ms = std::chrono::duration<double, std::milli>(t_pre - t_entry).count();
 
     // ---- 检测 ----
     int limit = 960;
@@ -868,7 +942,10 @@ int OnnxOcrEngine::ocr_common(byte *data, int w, int h, int bpp, vocr_rec_t &res
     std::vector<int64_t> dshape = {1, 3, rh, rw};
     std::vector<float> dout;
     std::vector<int64_t> doshape;
-    if (!ort_run(*m_impl->det, din, dshape, dout, doshape)) return -3;
+    ++impl.m_prof.det_calls;
+    if (!ort_run(*impl.det, din, dshape, dout, doshape, impl.m_prof_on ? &impl.m_prof.det_ms : nullptr,
+                 impl.m_prof_on ? &impl.m_prof.runs_failed : nullptr))
+        return -3;
     int nd = int(doshape.size());
     int HH = (nd == 4) ? int(doshape[2]) : (nd == 3 ? int(doshape[1]) : 0);
     int WW = (nd == 4) ? int(doshape[3]) : (nd == 3 ? int(doshape[2]) : 0);
@@ -876,6 +953,7 @@ int OnnxOcrEngine::ocr_common(byte *data, int w, int h, int bpp, vocr_rec_t &res
 
     std::vector<Box> boxes;
     db_postprocess(dout, HH, WW, w, h, boxes);
+    impl.m_prof.boxes = long(boxes.size());
     if (boxes.empty()) return 0;
 
     // 按阅读顺序排序：先 y 后 x
@@ -916,12 +994,14 @@ int OnnxOcrEngine::ocr_common(byte *data, int w, int h, int bpp, vocr_rec_t &res
     if (rois.empty()) return 0;
     // CLS 0/180 方向修正：批量一次 Run，180 度的 ROI 原地翻转后再进 rec。
     // v4 快档默认关闭（见 init），失败静默忽略保持原图。
-    if (m_impl->cls_on) m_impl->cls_fix(rois);
+    if (impl.cls_on) impl.cls_fix(rois);
     std::vector<std::string> texts;
     std::vector<float> confs;
     std::vector<std::vector<CharSpan>> spans;
     const bool want_chars = (ext_out != nullptr);
-    if (!m_impl->rec_images(rois, texts, confs, want_chars ? &spans : nullptr)) return -3;
+    if (!impl.rec_images(rois, texts, confs, want_chars ? &spans : nullptr)) return -3;
+    // Everything after rec is post-processing (per-char mapping + result assembly).
+    const auto t_post = std::chrono::steady_clock::now();
 
     if (ext_out) ext_out->clear();
     int n = 0;
@@ -949,7 +1029,7 @@ int OnnxOcrEngine::ocr_common(byte *data, int w, int h, int bpp, vocr_rec_t &res
                 le.partial_chars = true;
                 for (const CharSpan &cs : spans[i]) {
                     ocr_char_t c;
-                    c.ch = utf8_to_wstring(m_impl->keys[cs.ki]);
+                    c.ch = utf8_to_wstring(impl.keys[cs.ki]);
                     if (c.ch.empty()) continue; // 空串字典条目，不对应可见字形
                     c.confidence = cs.prob;
                     c.t0 = cs.t0;
@@ -963,7 +1043,7 @@ int OnnxOcrEngine::ocr_common(byte *data, int w, int h, int bpp, vocr_rec_t &res
                 // 这里乘 inv 除回放大并加框左偏移还原到原图坐标。
                 for (const CharSpan &cs : spans[i]) {
                     ocr_char_t c;
-                    c.ch = utf8_to_wstring(m_impl->keys[cs.ki]);
+                    c.ch = utf8_to_wstring(impl.keys[cs.ki]);
                     // 字典里存在空串条目（空格/占位符），模型偶尔会输出它。它不对应
                     // 任何可见字形，必须丢弃：否则 chars 会比 text 多一项，且带一个
                     // 无意义的坐标区间，污染"逐字与文本一一对应"的契约（A3/A5）。
@@ -989,6 +1069,7 @@ int OnnxOcrEngine::ocr_common(byte *data, int w, int h, int bpp, vocr_rec_t &res
         }
         ++n;
     }
+    impl.m_prof.post_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_post).count();
     return n;
 }
 
@@ -1004,8 +1085,32 @@ int OnnxOcrEngine::ocr_line_ext(byte *data, int w, int h, int bpp, vocr_rec_t &r
 
 int OnnxOcrEngine::ocr_line_common(byte *data, int w, int h, int bpp, vocr_rec_t &result,
                                    vocr_line_ext_t *ext_out) {
+    // P3 profile: same contract as ocr_common (reset on entry, totals on every exit).
+    Impl &impl = *m_impl;
+    const auto t_entry = std::chrono::steady_clock::now();
+    impl.m_prof = ocr_profile_t{};
+    impl.m_prof.oscale = impl.oscale;
+    impl.m_prof.rec_width = 320; // single-line path still uses the fixed 320 baseline
+    struct ProfileGuard {
+        Impl &impl;
+        std::chrono::steady_clock::time_point t_entry;
+        vocr_rec_t &result;
+        vocr_line_ext_t *ext;
+        ~ProfileGuard() {
+            impl.m_prof.lines = long(result.size());
+            if (ext) {
+                long n = 0;
+                for (const auto &le : *ext) n += long(le.chars.size());
+                impl.m_prof.chars = n;
+            }
+            impl.m_prof.total_ms =
+                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_entry).count();
+            impl.m_prof.valid = true;
+        }
+    } guard{impl, t_entry, result, ext_out};
+
     result.clear();
-    if (!m_impl->ok) return -1;
+    if (!impl.ok) return -1;
     if (data == nullptr || w <= 0 || h <= 0 || (bpp != 1 && bpp != 3 && bpp != 4)) return -1;
     if (size_t(w) * h * bpp > 64ULL * 1024 * 1024) return -2;
 
@@ -1021,17 +1126,19 @@ int OnnxOcrEngine::ocr_line_common(byte *data, int w, int h, int bpp, vocr_rec_t
             rotated = true;
         }
     }
+    impl.m_prof.pre_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_entry).count();
 
     // CLS 0/180 方向修正（与 ocr() 批量路径同一模型/策略）
-    if (m_impl->cls_on) {
+    if (impl.cls_on) {
         std::vector<BGR> one{roi};
-        if (m_impl->cls_fix(one)) roi = std::move(one[0]);
+        if (impl.cls_fix(one)) roi = std::move(one[0]);
     }
 
+    const auto t_post = std::chrono::steady_clock::now();
     std::string txt;
     float conf = 0;
     std::vector<CharSpan> spans;
-    if (!m_impl->rec_image(roi, txt, conf, ext_out ? &spans : nullptr)) return -3;
+    if (!impl.rec_image(roi, txt, conf, ext_out ? &spans : nullptr)) return -3;
     if (txt.empty()) return 0;
 
     ocr_rec_t rec;
@@ -1046,7 +1153,7 @@ int OnnxOcrEngine::ocr_line_common(byte *data, int w, int h, int bpp, vocr_rec_t
         le.partial_chars = rotated;
         for (const CharSpan &cs : spans) {
             ocr_char_t c;
-            c.ch = utf8_to_wstring(m_impl->keys[cs.ki]);
+            c.ch = utf8_to_wstring(impl.keys[cs.ki]);
             if (c.ch.empty()) continue; // 空串字典条目，不对应可见字形
             c.confidence = cs.prob;
             c.t0 = cs.t0;
@@ -1063,6 +1170,7 @@ int OnnxOcrEngine::ocr_line_common(byte *data, int w, int h, int bpp, vocr_rec_t
         }
         ext_out->push_back(std::move(le));
     }
+    impl.m_prof.post_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t_post).count();
     return 1;
 }
 

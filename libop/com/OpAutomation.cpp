@@ -1716,6 +1716,40 @@ STDMETHODIMP OpAutomation::OcrAutoColorEx2(LONG x1, LONG y1, LONG x2, LONG y2, B
     return CopyOutBstr(retstr, s);
 }
 
+STDMETHODIMP OpAutomation::FindStrBatch(LONG x1, LONG y1, LONG x2, LONG y2, BSTR json_targets, BSTR color,
+                                        DOUBLE sim, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    *ret = obj.FindStrBatch(x1, y1, x2, y2, json_targets, color, static_cast<double>(sim), s);
+    // P1: 非法输入返回 -1 且 JSON 为空；这里把空串也明确回成空 BSTR，
+    // 让后期绑定客户端能区分"非法输入"(-1) 与"没找到"(0 或正数 + 合法 JSON)。
+    if (!s.empty())
+        return CopyOutBstr(retstr, s);
+    return CopyOutBstr(retstr, wstring());
+}
+
+STDMETHODIMP OpAutomation::FindStrEx2(LONG x1, LONG y1, LONG x2, LONG y2, BSTR pattern, BSTR color, DOUBLE sim,
+                                      LONG flags, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    *ret = obj.FindStrEx2(x1, y1, x2, y2, pattern, color, static_cast<double>(sim), flags, s);
+    if (!s.empty())
+        return CopyOutBstr(retstr, s);
+    return CopyOutBstr(retstr, wstring());
+}
+
+STDMETHODIMP OpAutomation::OcrLastProfile(BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.OcrLastProfile(s);
+    return CopyOutBstr(retstr, s);
+}
+
 STDMETHODIMP OpAutomation::OcrAutoColorFromFile(BSTR file_name, BSTR color_format, DOUBLE sim, BSTR *retstr) {
     wstring s;
     obj.OcrAutoColorFromFile(file_name, color_format, static_cast<double>(sim), s);

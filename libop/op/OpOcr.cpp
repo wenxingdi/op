@@ -524,6 +524,43 @@ void op::Op::FindStrEx(long x1, long y1, long x2, long y2, const wchar_t *strs, 
     retstr = str;
 }
 
+// P1（2026-11-21）FindStr 增强：多目标结构化查找。
+// 与 FindStr/FindStrEx 共享同一套截图区域与坐标偏移语义（with_captured_region
+// 负责把 _x1/_y1/_dx/_dy 设好，能力层据此客户区化）。
+long op::Op::FindStrBatch(long x1, long y1, long x2, long y2, const wchar_t *json_targets, const wchar_t *color,
+                          double sim, std::wstring &ret_json) {
+    wstring json;
+    const std::wstring targets_text = json_targets ? json_targets : L"";
+    const std::wstring color_text = color ? color : L"";
+    long rc = 0;
+    internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        rc = m_context->image_proc.find_str_batch(targets_text, color_text, sim, json);
+    });
+    ret_json = json;
+    return rc;
+}
+
+// P1：单目标增强查找（标量入参，易语言友好）。
+long op::Op::FindStrEx2(long x1, long y1, long x2, long y2, const wchar_t *pattern, const wchar_t *color, double sim,
+                        long flags, std::wstring &ret_json) {
+    wstring json;
+    const std::wstring pattern_text = pattern ? pattern : L"";
+    const std::wstring color_text = color ? color : L"";
+    long rc = 0;
+    internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        rc = m_context->image_proc.find_str_ex2(pattern_text, flags, color_text, sim, json);
+    });
+    ret_json = json;
+    return rc;
+}
+
+// P3（2026-11-21）上一次 OCR 的分项耗时。不截图、不触发 OCR：纯读取。
+void op::Op::OcrLastProfile(std::wstring &ret_json) {
+    wstring json;
+    internal::guard_exceptions("OcrLastProfile", [&]() { m_context->image_proc.ocr_last_profile(json); });
+    ret_json = json;
+}
+
 void op::Op::OcrAuto(long x1, long y1, long x2, long y2, double sim, std::wstring &retstr) {
     wstring str;
     internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {

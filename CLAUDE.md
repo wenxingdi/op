@@ -82,11 +82,27 @@ build/nmake-x64-Release/tests/op_test.exe --gtest_filter="OcrTest.*"
 
 ## 高频判据（踩坑速查）
 
+- **改 `.h` 后必须确认 obj 真的重编了（2026-11-21 新增，最重要）**：
+  本机构建目录的 `*.obj.d` 大量为 0 字节（cl 的 `/showIncludes` 输出是 UTF-8，而 CMake 写进
+  `build.make` 的 `--filter-prefix` 是 GBK，字节不匹配 → 依赖扫描失效），**改头文件不会触发重新编译**。
+  `_wb_build.py` 已加 dep-guard 自动兜底（构建前删掉 0 字节 `.obj.d` 对应的 `.obj`）。
+  若绕过该脚本构建，或怀疑"修复没生效/断言恒真"，先查
+  `(Get-Item <对应>.obj).LastWriteTime` 是否晚于你改文件的时间。
+  详见 `docs/2026-11/构建缺陷_改头文件不触发重编译_20261121.md`。
+- **跑 `op_test.exe` 前把 TEMP 指到工作区（DSH 沙箱环境）**：DSH 会拦截原生子进程对
+  `%TEMP%` 的写入（`ERROR_ACCESS_DENIED`），导致所有 `GetTempBmpPath` 落盘的用例伪失败
+  （表现为一堆 `path.empty()` 断言失败）。这不是代码问题。
+  `$env:TEMP="$pwd\workbench\tmp"; $env:TMP=$env:TEMP`。
+  详见 `docs/2026-11/环境诊断_原生进程TEMP写入失败_20261120.md`。
 - **颜色**：对外 RGB hex `RRGGBB`；大漠 FindPic delta 是 BGR（迁移红蓝互换）；内部 `color_t` 是 BGRA。
 - **DPI**：Designer 坐标是 96dpi 逻辑值，运行时按 `DeviceDpi/96` 缩放；OpContext 构造 `SetProcessDPIAware()` → 全进程物理像素。
 - **截图验收**：`Capture`/`PrintWindow` ret=1 ≠ 有内容；必须像素级校验（非黑占比/唯一色），像素统计判不出"截到的是谁" → 必须落盘目视。
 - **路径**：`/d/xxx` 不能喂原生 Windows 程序（python.exe、git clone）→ 用 `D:/...` 绝对路径。
 - **shell**：`find`/`sort`/`awk` 在此环境不可用 → Python os.walk；PowerShell 中文输出重定向文件再读。
+- **OCR 逐字坐标**：`chars[].x1/x2` 已是**原图绝对坐标**，消费侧只能加区域偏移，
+  **绝不能再加 det 框原点**（会成倍越界）。旋转降级时退化为整行框并置 `partial_chars=true`。
+- **FindStr 系**：旧 `FindStr`/`FindStrEx` 是纯子串包含；要 exact/正则/形近容错/字符级定位
+  用 `FindStrBatch` / `FindStrEx2`（COM DISPID 442/443）。
 
 ## 备份与恢复
 

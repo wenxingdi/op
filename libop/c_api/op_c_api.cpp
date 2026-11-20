@@ -1698,6 +1698,55 @@ const wchar_t *OP_CALL OpFindStrEx(op_handle handle, int x1, int y1, int x2, int
     });
 }
 
+/* ---- P1（2026-11-21）FindStr 增强 ----
+ * 说明见 include/op_c_api.h 的同名声明。三个函数共用一套匹配内核
+ * （libop/algorithm/StrMatch.h），行为必然一致。
+ * 非法输入（JSON 解析失败 / 未知字段 / 未知 match / 互斥 flags）返回 nullptr，
+ * 与"没找到"（返回合法 JSON 且 found=false）明确区分。 */
+const wchar_t *OP_CALL OpFindStrBatch(op_handle handle, int x1, int y1, int x2, int y2,
+                                       const wchar_t *json_targets, const wchar_t *color, double sim) {
+    if (!handle)
+        return nullptr;
+    try {
+        handle->string_result.clear();
+        const long rc = handle->op.FindStrBatch(x1, y1, x2, y2, safe_text(json_targets), safe_text(color), sim,
+                                                handle->string_result);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpFindStrBatch: %s", e.what());
+        return nullptr;
+    } catch (...) {
+        setlog("op_c_api: unknown exception in OpFindStrBatch");
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpFindStrEx2(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *pattern,
+                                    const wchar_t *color, double sim, int flags) {
+    if (!handle)
+        return nullptr;
+    try {
+        handle->string_result.clear();
+        const long rc = handle->op.FindStrEx2(x1, y1, x2, y2, safe_text(pattern), safe_text(color), sim, flags,
+                                              handle->string_result);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpFindStrEx2: %s", e.what());
+        return nullptr;
+    } catch (...) {
+        setlog("op_c_api: unknown exception in OpFindStrEx2");
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpOcrLastProfile(op_handle handle) {
+    return call_string(handle, [](op::Op &op, std::wstring &ret) { op.OcrLastProfile(ret); });
+}
+
 const wchar_t *OP_CALL OpOcrAuto(op_handle handle, int x1, int y1, int x2, int y2, double sim) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.OcrAuto(x1, y1, x2, y2, sim, ret); });
 }

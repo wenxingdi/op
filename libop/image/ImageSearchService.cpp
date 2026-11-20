@@ -1611,6 +1611,51 @@ long ImageSearchService::legacy_ocr_to_json(const std::wstring &legacy, long cou
     return count;
 }
 
+// 上一次 OCR 的分项耗时（P3 2026-11-21）。
+// 直接从引擎读，**不触发**新的 OCR：连续读两次 profile 不会改变数值。
+// valid=false 时其余字段全 0，调用方据此判断"还没跑过 OCR / 引擎不支持"。
+long ImageSearchService::ocr_last_profile(std::wstring &out_json) {
+    using namespace op::json;
+    out_json.clear();
+    const op::ocr::ocr_profile_t p = HttpOcrService::getInstance()->last_profile();
+
+    auto num = [](double d) {
+        Value n;
+        n.type = Type::Number;
+        n.number = d;
+        return n;
+    };
+    auto boolv = [](bool b) {
+        Value v;
+        v.type = Type::Bool;
+        v.boolean = b;
+        return v;
+    };
+    auto key = [](const wchar_t *k, Value v) { return std::make_pair(std::wstring(k), std::move(v)); };
+
+    Value root;
+    root.type = Type::Object;
+    root.obj.push_back(key(L"valid", boolv(p.valid)));
+    root.obj.push_back(key(L"total_ms", num(p.total_ms)));
+    root.obj.push_back(key(L"pre_ms", num(p.pre_ms)));
+    root.obj.push_back(key(L"det_ms", num(p.det_ms)));
+    root.obj.push_back(key(L"cls_ms", num(p.cls_ms)));
+    root.obj.push_back(key(L"rec_ms", num(p.rec_ms)));
+    root.obj.push_back(key(L"post_ms", num(p.post_ms)));
+    root.obj.push_back(key(L"boxes", num(double(p.boxes))));
+    root.obj.push_back(key(L"lines", num(double(p.lines))));
+    root.obj.push_back(key(L"chars", num(double(p.chars))));
+    root.obj.push_back(key(L"det_calls", num(double(p.det_calls))));
+    root.obj.push_back(key(L"rec_calls", num(double(p.rec_calls))));
+    root.obj.push_back(key(L"cls_calls", num(double(p.cls_calls))));
+    root.obj.push_back(key(L"runs_failed", num(double(p.runs_failed))));
+    root.obj.push_back(key(L"upscale", boolv(p.upscale)));
+    root.obj.push_back(key(L"oscale", num(double(p.oscale))));
+    root.obj.push_back(key(L"rec_width", num(double(p.rec_width))));
+    out_json = op::json::Stringify(root);
+    return p.valid ? 1 : 0;
+}
+
 long ImageSearchService::FindStr(const wstring &str, const wstring &color, double sim, long &retx, long &rety) {
     vector<wstring> vstr;
     split(str, vstr, L"|");
@@ -1648,6 +1693,377 @@ long ImageSearchService::FindStrEx(const wstring &str, const wstring &color, dou
         ImageSearchAlgorithms::bin_ocr(*dict, sim, ocr_res);
     }
     return ImageSearchAlgorithms::FindStrEx(ocr_res, vstr, out_str);
+}
+
+// ============================================================================
+// P1（2026-11-21）FindStr 增强：多目标结构化查找 + 字符级精确范围
+// ============================================================================
+//
+// 与既有 FindStr/FindStrEx 的关系：**不改动旧路径一行代码**，新接口共享独立内核。
+//
+// 旧实现的三个缺口（详见 docs/2026-11/P1_FindStr增强与P3耗时自省_实施方案.md §1.2）：
+//   a) 纯子串包含：找 "909" 会命中 "1909"/"9090"（游戏读数字场景误报高）
+//   b) 只能返回整行 left_top：拿不到被找子串自己的框
+//   c) 无正则、无形近容错
+//
+// 本实现用 P0 产出的逐字坐标把命中定位到字符级，这是"纯匹配层零新增推理成本"
+// 之外的新增价值点。
+
+// P1 辅助：把 OCR 命中块按"阅读顺序"展开（行聚类 -> 行内按 x 升序）。
+// ImageSearchAlgorithms.cpp 里的同名逻辑在匿名 namespace 内、本 TU 不可见，
+// 这里按**完全相同的口径**重写一份（纵向重叠 ≥1px 即并入同一行，行下边缘取
+// 成员最大值）。口径必须一致，否则同一张图上 FindStr 与 FindStrBatch 的行序
+// 会不同，调用方拿两者的 line 下标互相换算就会出错。
+std::vector<std::pair<point_t, ocr_rec_t>>
+reading_order_items(const std::map<point_t, ocr_rec_t> &ps, std::map<point_t, size_t> *index_map) {
+    std::vector<std::pair<point_t, ocr_rec_t>> items;
+    items.reserve(ps.size());
+    if (index_map)
+        index_map->clear();
+    for (const auto &kv : ps) {
+        if (index_map)
+            (*index_map)[kv.first] = items.size();
+        items.emplace_back(kv.first, kv.second);
+    }
+    if (items.size() <= 1)
+        return items;
+
+    std::sort(items.begin(), items.end(), [](const auto &a, const auto &b) {
+        const int ay = a.second.left_top.y, by = b.second.left_top.y;
+        return ay != by ? ay < by : a.first.x < b.first.x;
+    });
+
+    struct line_t {
+        int bottom = 0;
+        std::vector<size_t> idx;
+    };
+    std::vector<line_t> lines;
+    for (size_t i = 0; i < items.size(); ++i) {
+        const int top = items[i].second.left_top.y;
+        int bottom = items[i].second.right_bottom.y;
+        if (bottom <= top)
+            bottom = top + 1; // 退化包围盒按 1px 高处理
+        if (!lines.empty() && top < lines.back().bottom) {
+            lines.back().idx.push_back(i);
+            if (bottom > lines.back().bottom)
+                lines.back().bottom = bottom;
+        } else {
+            line_t ln;
+            ln.bottom = bottom;
+            ln.idx.push_back(i);
+            lines.push_back(std::move(ln));
+        }
+    }
+
+    std::vector<std::pair<point_t, ocr_rec_t>> out;
+    out.reserve(items.size());
+    for (auto &ln : lines) {
+        std::sort(ln.idx.begin(), ln.idx.end(),
+                  [&items](size_t a, size_t b) { return items[a].first.x < items[b].first.x; });
+        for (const size_t i : ln.idx)
+            out.push_back(std::move(items[i]));
+    }
+    return out;
+}
+
+bool ImageSearchService::collect_ocr_lines(const wstring &color, double sim,
+                                           std::vector<ocr_line_view_t> &lines) {
+    lines.clear();
+    sim = clamp_sim_exact(sim);
+
+    auto dict = ActiveDict(_curr_idx);
+    if (!dict) {
+        // 免字库路径：与 FindStr 同源，原图直识（逐字可用）。
+        if (_src.width <= 0 || _src.height <= 0)
+            return false;
+        vocr_rec_t res;
+        vocr_line_ext_t ext;
+        engine_ocr_filtered_ext(_src.pdata, _src.width, _src.height, sim, res, ext);
+
+        // 逐字数据按 left_top 建索引：ocr_res 以 left_top 为 key（与既有 FindStrEx
+        // 一致），这里额外记住 first_index 以便把 ext 的逐字信息对上号。
+        std::map<point_t, ocr_rec_t> keyed;
+        std::map<point_t, size_t> first_index;
+        for (size_t i = 0; i < res.size(); ++i) {
+            if (keyed.find(res[i].left_top) == keyed.end()) {
+                first_index[res[i].left_top] = i;
+                keyed[res[i].left_top] = res[i];
+            }
+        }
+        const auto ordered = reading_order_items(keyed, nullptr);
+
+        const int off_x = _x1 + _dx;
+        const int off_y = _y1 + _dy;
+        for (const auto &it : ordered) {
+            if (it.second.text.empty())
+                continue;
+            const size_t idx = first_index[it.first];
+            ocr_line_view_t v;
+            v.text = it.second.text;
+            v.x1 = it.second.left_top.x + off_x;
+            v.y1 = it.second.left_top.y + off_y;
+            v.x2 = it.second.right_bottom.x + off_x;
+            v.y2 = it.second.right_bottom.y + off_y;
+            v.partial = (idx < ext.size()) ? ext[idx].is_partial : false;
+            // 逐字数据可用性：非旋转降级，且逐字条目数与行文本长度一致。
+            // 不一致说明有字符没产出跨度（模型异常/字典空串残留），此时宁可退化为
+            // 整行范围，也不给可能错位的字符级坐标（P0 的 A3 契约在此处的延伸）。
+            const bool usable = idx < ext.size() && !ext[idx].partial_chars &&
+                                ext[idx].chars.size() == v.text.size();
+            v.chars_usable = usable;
+            if (usable) {
+                v.cx1.resize(v.text.size());
+                v.cx2.resize(v.text.size());
+                for (size_t c = 0; c < v.text.size(); ++c) {
+                    // 逐字 x 已是**原图绝对坐标**：只能加区域偏移 off_x，
+                    // 绝不能再加 det 框原点（P0 修过的坐标成倍越界 bug）。
+                    v.cx1[c] = ext[idx].chars[c].x1 + off_x;
+                    v.cx2[c] = ext[idx].chars[c].x2 + off_x;
+                }
+            }
+            lines.push_back(std::move(v));
+        }
+        return true;
+    }
+
+    // 字库路径：逐字信息不存在（chars 为空数组），cx1/cx2 后续退化为行范围。
+    str2pointbinaryfbk(color, sim);
+    std::map<point_t, ocr_rec_t> ocr_res;
+    ImageSearchAlgorithms::bin_ocr(*dict, sim, ocr_res);
+
+    const int off_x = _x1 + _dx;
+    const int off_y = _y1 + _dy;
+    for (const auto &it : reading_order_items(ocr_res, nullptr)) {
+        if (it.second.text.empty())
+            continue;
+        ocr_line_view_t v;
+        v.text = it.second.text;
+        v.x1 = it.second.left_top.x + off_x;
+        v.y1 = it.second.left_top.y + off_y;
+        v.x2 = it.second.right_bottom.x + off_x;
+        v.y2 = it.second.right_bottom.y + off_y;
+        v.partial = false;
+        v.chars_usable = false;
+        lines.push_back(std::move(v));
+    }
+    return true;
+}
+
+long ImageSearchService::match_targets(const std::vector<op::str_match::Target> &targets, const wstring &color,
+                                       double sim, std::wstring &out_json) {
+    using namespace op::json;
+    out_json.clear();
+
+    std::vector<ocr_line_view_t> lines;
+    if (!collect_ocr_lines(color, sim, lines))
+        return 0;
+
+    auto num = [](double d) {
+        Value n;
+        n.type = Type::Number;
+        n.number = d;
+        return n;
+    };
+    auto strv = [](const std::wstring &s) {
+        Value v;
+        v.type = Type::String;
+        v.str = s;
+        return v;
+    };
+    auto boolv = [](bool b) {
+        Value v;
+        v.type = Type::Bool;
+        v.boolean = b;
+        return v;
+    };
+    auto key = [](const wchar_t *k, Value v) { return std::make_pair(std::wstring(k), std::move(v)); };
+
+    static const wchar_t *kModeNames[] = {L"contains", L"exact", L"prefix", L"suffix", L"regex"};
+
+    Value root;
+    root.type = Type::Object;
+
+    Value results;
+    results.type = Type::Array;
+    long found_targets = 0;
+    long total_hits = 0;
+
+    // 行文本只取一次，供每个目标复用（避免 N 目标 × M 行重复拷贝）
+    std::vector<std::wstring> line_texts;
+    line_texts.reserve(lines.size());
+    for (const auto &ln : lines)
+        line_texts.push_back(ln.text);
+
+    for (const op::str_match::Target &t : targets) {
+        std::vector<op::str_match::Hit> hits;
+        std::vector<op::str_match::Hit> raw;
+        const bool ok = op::str_match::MatchAll(line_texts, t, raw);
+
+        // confirmed_only：剔掉贴边行（其文本可能没读全）
+        if (t.confirmed_only) {
+            for (const auto &h : raw) {
+                if (h.line >= 0 && size_t(h.line) < lines.size() && !lines[size_t(h.line)].partial)
+                    hits.push_back(h);
+            }
+        } else {
+            hits = raw;
+        }
+
+        // 总上限：与 FindStrEx 一致地用 _max_return_obj_ct 兜底，防止超大图 ×
+        // 单字符目标产出几十万条命中把 JSON 撑爆。
+        if (_max_return_obj_ct > 0 && long(hits.size()) > _max_return_obj_ct)
+            hits.resize(size_t(_max_return_obj_ct));
+
+        Value item;
+        item.type = Type::Object;
+        item.obj.push_back(key(L"id", strv(t.id)));
+        item.obj.push_back(key(L"text", strv(t.text)));
+        item.obj.push_back(key(L"match", strv(kModeNames[static_cast<int>(t.mode)])));
+        item.obj.push_back(key(L"found", boolv(ok && !hits.empty())));
+        item.obj.push_back(key(L"count", num(double(hits.size()))));
+        if (!ok)
+            item.obj.push_back(key(L"error", strv(L"invalid configuration or bad regex")));
+
+        Value harr;
+        harr.type = Type::Array;
+        for (const auto &h : hits) {
+            const ocr_line_view_t &ln = lines[size_t(h.line)];
+            // 命中片段的字符级水平范围。逐字不可用时退化为整行（px1/px2 语义）。
+            int cx1 = ln.x1, cx2 = ln.x2;
+            bool char_precise = false;
+            if (ln.chars_usable && h.end > h.begin && size_t(h.end) <= ln.cx1.size() &&
+                size_t(h.begin) < ln.cx2.size()) {
+                cx1 = ln.cx1[size_t(h.begin)];
+                cx2 = ln.cx2[size_t(h.end) - 1];
+                // 保证不越出行框（A1 契约的延伸），且区间非空
+                if (cx1 < ln.x1) cx1 = ln.x1;
+                if (cx2 > ln.x2) cx2 = ln.x2;
+                if (cx2 <= cx1) cx2 = (std::min)(ln.x2, cx1 + 1);
+                char_precise = true;
+            }
+
+            Value hv;
+            hv.type = Type::Object;
+            hv.obj.push_back(key(L"line", num(double(h.line))));
+            // x/y 与旧 FindStr/FindStrEx 的坐标语义保持一致：**行框左上角**
+            // （旧接口返回的就是 span->point，即该行 left_top），这样新旧结果
+            // 可以直接互相校验。命中片段自己的水平范围看 cx1/cx2。
+            hv.obj.push_back(key(L"x", num(ln.x1)));
+            hv.obj.push_back(key(L"y", num(ln.y1)));
+            hv.obj.push_back(key(L"x2", num(ln.x2)));
+            hv.obj.push_back(key(L"y2", num(ln.y2)));
+            hv.obj.push_back(key(L"cx1", num(cx1)));
+            hv.obj.push_back(key(L"cx2", num(cx2)));
+            hv.obj.push_back(key(L"char_precise", boolv(char_precise)));
+            hv.obj.push_back(key(L"ed", num(double(h.ed))));
+            hv.obj.push_back(key(L"exact", boolv(h.ed == 0)));
+            hv.obj.push_back(key(L"partial", boolv(ln.partial)));
+            hv.obj.push_back(key(L"begin", num(double(h.begin))));
+            hv.obj.push_back(key(L"end", num(double(h.end))));
+            hv.obj.push_back(key(L"line_text", strv(ln.text)));
+            harr.arr.push_back(std::move(hv));
+        }
+        item.obj.push_back(key(L"hits", std::move(harr)));
+        if (ok && !hits.empty())
+            ++found_targets;
+        total_hits += long(hits.size());
+        results.arr.push_back(std::move(item));
+    }
+
+    root.obj.push_back(key(L"targets", num(double(targets.size()))));
+    root.obj.push_back(key(L"found", num(double(found_targets))));
+    root.obj.push_back(key(L"hits", num(double(total_hits))));
+    root.obj.push_back(key(L"lines", num(double(lines.size()))));
+    root.obj.push_back(key(L"results", std::move(results)));
+    out_json = op::json::Stringify(root);
+    return found_targets;
+}
+
+long ImageSearchService::find_str_batch(const std::wstring &json_targets, const wstring &color, double sim,
+                                        std::wstring &out_json) {
+    out_json.clear();
+    op::json::Value root;
+    if (!op::json::Parse(json_targets, root) || root.type != op::json::Type::Array)
+        return -1;
+
+    std::vector<op::str_match::Target> targets;
+    targets.reserve(root.arr.size());
+    for (const op::json::Value &item : root.arr) {
+        op::str_match::Target t;
+        if (item.type == op::json::Type::String) {
+            // 裸字符串 = 默认配置的 contains 目标，零学习成本
+            t.text = item.str;
+            t.id = std::to_wstring(targets.size());
+        } else if (item.type == op::json::Type::Object) {
+            bool has_text = false;
+            for (const auto &kv : item.obj) {
+                const std::wstring &k = kv.first;
+                const op::json::Value &v = kv.second;
+                if (k == L"text") {
+                    if (v.type != op::json::Type::String) return -1;
+                    t.text = v.str;
+                    has_text = true;
+                } else if (k == L"id") {
+                    if (v.type == op::json::Type::String)
+                        t.id = v.str;
+                    else if (v.type == op::json::Type::Number)
+                        t.id = std::to_wstring(long(v.number));
+                    else
+                        return -1;
+                } else if (k == L"match") {
+                    if (v.type != op::json::Type::String) return -1;
+                    if (v.str == L"contains") t.mode = op::str_match::MatchMode::Contains;
+                    else if (v.str == L"exact") t.mode = op::str_match::MatchMode::Exact;
+                    else if (v.str == L"prefix") t.mode = op::str_match::MatchMode::Prefix;
+                    else if (v.str == L"suffix") t.mode = op::str_match::MatchMode::Suffix;
+                    else if (v.str == L"regex") t.mode = op::str_match::MatchMode::Regex;
+                    else return -1; // 未知模式：显式报错，不静默当 contains
+                } else if (k == L"fuzzy") {
+                    if (v.type != op::json::Type::Number) return -1;
+                    t.fuzzy = int(v.number);
+                } else if (k == L"max_hits") {
+                    if (v.type != op::json::Type::Number) return -1;
+                    t.max_hits = int(v.number);
+                } else if (k == L"ci") {
+                    if (v.type != op::json::Type::Bool) return -1;
+                    t.ci = v.boolean;
+                } else if (k == L"confirmed_only") {
+                    if (v.type != op::json::Type::Bool) return -1;
+                    t.confirmed_only = v.boolean;
+                } else {
+                    return -1; // 未知字段：显式报错，避免拼写错误静默失效
+                }
+            }
+            if (!has_text)
+                return -1;
+            if (t.id.empty())
+                t.id = std::to_wstring(targets.size());
+        } else {
+            return -1; // 元素只能是 string 或 object
+        }
+        if (op::str_match::ValidateTarget(t).bad)
+            return -1;
+        targets.push_back(std::move(t));
+    }
+    // 空数组是**合法**输入（调用方可能动态拼目标列表）：返回
+    // {"targets":0,"found":0,"hits":0,"lines":N,"results":[]} 而不是 nullptr，
+    // 这样"没目标"与"输入非法"在调用方看来是可区分的两种状态。
+    match_targets(targets, color, sim, out_json);
+    return long(targets.size());
+}
+
+long ImageSearchService::find_str_ex2(const std::wstring &pattern, long flags, const wstring &color, double sim,
+                                      std::wstring &out_json) {
+    out_json.clear();
+    op::str_match::Target t;
+    if (!op::str_match::TargetFromFlags(pattern, flags, t))
+        return -1;
+    if (op::str_match::ValidateTarget(t).bad)
+        return -1;
+    t.id = L"0";
+    std::vector<op::str_match::Target> targets;
+    targets.push_back(std::move(t));
+    return match_targets(targets, color, sim, out_json);
 }
 
 long ImageSearchService::OcrAuto(double sim, std::wstring &retstr) {

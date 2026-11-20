@@ -409,6 +409,25 @@ interface IOpAutomation : IDispatch
 	[id(440)] HRESULT OcrEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out] BSTR* retstr);
 	[id(441)] HRESULT OcrAutoColorEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out] BSTR* retstr, [out, retval] LONG* ret);
 
+	// ---- P1 FindStr 增强（2026-11-21）：多目标结构化查找 + 字符级精确范围 ----
+	// FindStrBatch：json_targets 为 JSON 数组，元素可为主字符串或配置对象
+	//   {"id","text","match":"contains|exact|prefix|suffix|regex","fuzzy","max_hits","ci","confirmed_only"}；
+	//   一次 det+rec 后在引擎内匹配全部目标，返回每目标的全部命中。
+	// FindStrEx2：单目标标量入参（易语言友好）。flags 位：
+	//   1=regex 2=exact 4=ci 64=fuzzy<=1 128=fuzzy<=2 256=confirmed_only（位 8/16/32 预留）。
+	//   位 1/2/64/128 互斥，同时给多个 -> @ret 返回 -1 且 retstr 为空。
+	// 两者返回的 JSON 同构，见 include/op_c_api.h 的 OpFindStrBatch 注释。
+	// ⚠ cx1/cx2 为命中片段的字符级水平范围（P0 逐字坐标）；旋转降级或已装载字库时
+	//   退化为整行范围，此时 char_precise=false。匹配不跨行。
+	[id(442)] HRESULT FindStrBatch([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR json_targets, [in] BSTR color, [in] DOUBLE sim, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(443)] HRESULT FindStrEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR pattern, [in] BSTR color, [in] DOUBLE sim, [in] LONG flags, [out] BSTR* retstr, [out, retval] LONG* ret);
+
+	// ---- P3 OCR 分项耗时自省（2026-11-21） ----
+	// 返回上次 OCR 的 {"valid","total_ms","pre_ms","det_ms","cls_ms","rec_ms","post_ms",
+	//   "boxes","lines","chars","det_calls","rec_calls","cls_calls","runs_failed",
+	//   "upscale","oscale","rec_width"}。不触发新的 OCR。
+	[id(444)] HRESULT OcrLastProfile([out, retval] BSTR* retstr);
+
 
 
 };

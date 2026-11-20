@@ -750,6 +750,26 @@ class OP_API Op {
     // 返回符合color_format的所有坐标位置
     void FindStrEx(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *strs, _In_ const wchar_t *color,
                    _In_ double sim, _Out_ std::wstring &retstr);
+    // 【P1 2026-11-21】多目标结构化查找：一次 det+rec，引擎内匹配全部目标。
+    // json_targets 为 JSON 数组，元素可为主字符串或配置对象：
+    //   {"id","text","match":"contains|exact|prefix|suffix|regex",
+    //    "fuzzy"(0..3),"max_hits","ci","confirmed_only"}
+    // 返回每个目标的全部命中，含**字符级**精确范围 cx1/cx2（来自 P0 逐字坐标；
+    // 旋转降级或已装载字库时退化为整行范围，char_precise=false）。
+    // 返回值 = 目标数；json_targets 非法（解析失败/未知字段/未知 match）返回 -1。
+    // ⚠ 匹配不跨行：命中片段必须完整落在同一行内。
+    long FindStrBatch(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2,
+                      _In_ const wchar_t *json_targets, _In_ const wchar_t *color, _In_ double sim,
+                      _Out_ std::wstring &ret_json);
+    // 【P1】单目标增强查找（标量入参）。flags 位：
+    //   1=regex  2=exact（默认 contains）  4=ci(ASCII)  64=fuzzy<=1  128=fuzzy<=2
+    //   256=confirmed_only；位 8/16/32 预留。位 1/2/64/128 互斥 -> 返回 -1。
+    // 返回值 = 命中数；返回 JSON 与 FindStrBatch 的单目标 results[0] 同构。
+    long FindStrEx2(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *pattern,
+                    _In_ const wchar_t *color, _In_ double sim, _In_ long flags, _Out_ std::wstring &ret_json);
+    // 【P3 2026-11-21】上一次 OCR 的分项耗时（det/cls/rec 分别计时），JSON 输出。
+    // 不触发新的 OCR。valid=false = 还没跑过 OCR 或引擎不支持。
+    void OcrLastProfile(_Out_ std::wstring &ret_json);
     // 识别屏幕范围(x1,y1,x2,y2)内的字符串，无需指定颜色。
     // ⚠️ 并非"自动二值化"：免字库时原图 BGRA 直喂 ONNX 引擎（引擎自带预处理，二值化反而可能丢信息）；
     // 已装载字库时按空颜色串二值化 + 字库匹配（≈无颜色筛选）。要按颜色二值化请用 OcrAutoColor 系。

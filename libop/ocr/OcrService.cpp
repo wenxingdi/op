@@ -437,4 +437,16 @@ int HttpOcrService::warmup() {
     return rc >= 0 ? 0 : -1;
 }
 
+// 上一次 OCR 的分项耗时（P3 2026-11-21）。
+// 与 warmup 同样走 lazy_engine：首次调用前若有显式 SetOcrEngine 则用该档位，
+// 否则触发默认档位懒初始化（这样"先 OCR 再读 profile"与"先读 profile 再 OCR"
+// 两条调用顺序都能拿到合理结果，不会因为没跑过 OCR 就永远 valid=false）。
+// 引擎不支持 profile（基类默认实现）时返回 valid=false 的全零结构。
+ocr_profile_t HttpOcrService::last_profile() {
+    const auto engine = lazy_engine("last_profile");
+    if (!engine)
+        return ocr_profile_t{};
+    return engine->profile();
+}
+
 } // namespace op::ocr

@@ -422,6 +422,56 @@ OP_C_API int OP_CALL OpFindStr(op_handle handle, int x1, int y1, int x2, int y2,
                                const wchar_t *color, double sim, int *x, int *y);
 OP_C_API const wchar_t *OP_CALL OpFindStrEx(op_handle handle, int x1, int y1, int x2, int y2,
                                             const wchar_t *strs, const wchar_t *color, double sim);
+/* 【P1 2026-11-21】FindStr 增强：多目标结构化查找（一次 det+rec，引擎内匹配）。
+ *
+ * json_targets 为 JSON 数组，元素可以是：
+ *   - 字符串：  "击倒机关兽"            （等价于 {"text":"击倒机关兽"} 的 contains 目标）
+ *   - 对象：    {"id":"hp","text":"909","match":"exact","fuzzy":0,"max_hits":0,
+ *               "ci":false,"confirmed_only":false}
+ *     match 取值 contains(默认) | exact | prefix | suffix | regex
+ *     fuzzy 允许编辑距离 0..3（与 regex 互斥）；ci 忽略 ASCII 大小写；
+ *     confirmed_only 只匹配未贴边裁切的行（is_partial=false）
+ *     未知字段 / 未知 match 取值 / 类型错误 -> 整个调用返回 nullptr（不静默降级）
+ *
+ * 返回 JSON：
+ *   {"targets":2,"found":1,"hits":1,"lines":29,
+ *    "results":[{"id":"hp","text":"909","match":"exact","found":true,"count":1,
+ *      "hits":[{"line":11,"x":57,"y":112,"x2":77,"y2":126,
+ *               "cx1":57,"cx2":77,"char_precise":true,
+ *               "ed":0,"exact":true,"partial":false,
+ *               "begin":9,"end":12,"line_text":"击倒机关兽(909m)0/5"}]}]}
+ *
+ * ⚠ cx1/cx2 是**命中片段的字符级水平范围**（来自 P0 逐字坐标）；逐字不可用
+ *   （旋转降级 / 已装载字库）时退化为整行范围，此时 char_precise=false，
+ *   但 cx1/cx2 仍然是可用的合法值。
+ * ⚠ x,y 是**所属行框的左上角**，与旧 OpFindStr/OpFindStrEx 返回的坐标语义完全一致
+ *   （便于新旧结果互相校验）；命中片段自己的位置请看 cx1/cx2。
+ * ⚠ 匹配**不跨行**：命中片段必须完整落在同一行内。
+ * ⚠ color 语义与旧 OpFindStr 一致（有字库时用于二值化，无字库时原图直识）。
+ */
+OP_C_API const wchar_t *OP_CALL OpFindStrBatch(op_handle handle, int x1, int y1, int x2, int y2,
+                                                const wchar_t *json_targets, const wchar_t *color,
+                                                double sim);
+/* 【P1】单目标增强查找（标量入参，易语言/脚本友好）。返回 JSON 形状与
+ * OpFindStrBatch 的 results[0] 一致（顶层加 targets/found/hits/lines）。
+ * flags 位：
+ *   1   = regex            2 = exact（默认 contains）
+ *   4   = ci（ASCII）      64 = 模糊 <=1      128 = 模糊 <=2
+ *   256 = confirmed_only
+ * 位 8/16/32 预留（prefix/suffix/normalize）。位 1/2/64/128 互斥，同时给多个返回 nullptr。
+ */
+OP_C_API const wchar_t *OP_CALL OpFindStrEx2(op_handle handle, int x1, int y1, int x2, int y2,
+                                             const wchar_t *pattern, const wchar_t *color, double sim,
+                                             int flags);
+/* 【P3 2026-11-21】上一次 OCR 的分项耗时自省。返回 JSON：
+ *   {"valid":true,"total_ms":139.7,"pre_ms":6.3,"det_ms":41.2,"cls_ms":2.1,
+ *    "rec_ms":88.4,"post_ms":1.7,"boxes":14,"lines":14,"chars":142,
+ *    "det_calls":1,"rec_calls":1,"cls_calls":1,"runs_failed":0,
+ *    "upscale":true,"oscale":2,"rec_width":320}
+ * 不触发新的 OCR（连续读两次数值不变）。valid=false = 还没跑过 OCR 或引擎不支持。
+ * ⚠ 并发调用同一 Op 时，数值对应"任意一次"调用（不加锁，避免干扰计时本身）。
+ */
+OP_C_API const wchar_t *OP_CALL OpOcrLastProfile(op_handle handle);
 OP_C_API const wchar_t *OP_CALL OpOcrAuto(op_handle handle, int x1, int y1, int x2, int y2, double sim);
 OP_C_API const wchar_t *OP_CALL OpOcrFromFile(op_handle handle, const wchar_t *file_name,
                                               const wchar_t *color_format, double sim);

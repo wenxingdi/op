@@ -3,6 +3,170 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-21 第四十一批（feat：P1 FindStr 增强 + P3 OCR 分项耗时自省）
+
+承接第四十批（P2）。本轮实现交接文档 §五 的 P1 与 P3 两项，并在过程中发现并修复
+一个影响所有人的**构建系统缺陷**（详见本批 §4）。
+
+方案文档：`docs/2026-11/P1_FindStr增强与P3耗时自省_实施方案.md`
+
+#### 1. P1：FindStr 增强（新增 3 层 × 2 个接口）
+
+**现状问题**（读代码后修正交接文档的一处描述）：
+
+| 痛点 | 后果 |
+|---|---|
+| 旧 `FindStr`/`FindStrEx` 是**纯子串包含** | 找 `909` 会命中 `1909`/`9090`；找 `5/5` 会命中 `15/5` |
+| 只能返回**整行** left_top | 在 `击倒机关兽(909m)0/5` 里找 `909`，拿不到 `909` 自己的框 |
+| 无正则、无形近容错 | 形近字误识（`割喉台`→`割喉合`）直接失败 |
+
+> ⚠ 交接文档 §五 写「N 个目标要跑 N 次全图 OCR」——**这对 `FindStrEx` 不成立**。
+> 旧 `FindStrEx` 已支持 `a|b|c` 一次传入、一次 OCR、引擎内循环。P1 的真实价值是
+> **按目标独立配置 + 返回字符级坐标 + 返回全部命中**，而不是"少跑 N 次"。
+
+**新增符号**：
+
+| 层 | 符号 | 说明 |
+|---|---|---|
+| C API | `OpFindStrBatch(handle, x1,y1,x2,y2, json_targets, color, sim)` | 多目标，JSON 数组入参 |
+| C API | `OpFindStrEx2(handle, x1,y1,x2,y2, pattern, color, sim, flags)` | 单目标，标量入参（易语言友好） |
+| C API | `OpOcrLastProfile(handle)` | P3，见 §2 |
+| C++ | `op::Op::FindStrBatch` / `FindStrEx2` / `OcrLastProfile` | libop.h |
+| COM | `FindStrBatch`=**DISPID 442**、`FindStrEx2`=**443**、`OcrLastProfile`=**444** | op.idl |
+
+**匹配模式**（`match`）：`contains`（默认）/ `exact` / `prefix` / `suffix` / `regex`；
+另有 `fuzzy`（编辑距离 ≤1/2/3，与 regex 互斥）、`ci`（仅 ASCII 折叠）、
+`max_hits`、`confirmed_only`（只看未贴边裁切的行）。
+
+**`flags` 位**（`OpFindStrEx2` / COM `FindStrEx2`）：
+`1`=regex、`2`=exact、`4`=ci、`64`=fuzzy≤1、`128`=fuzzy≤2、`256`=confirmed_only；
+位 8/16/32 预留。位 1/2/64/128 互斥，同时给多个 **返回 nullptr / -1**（不静默降级）。
+
+**核心新增价值：字符级定位**。复用 P0 的逐字坐标，把命中片段定位到字符级：
+
+```json
+{"targets":1,"found":1,"hits":1,"lines":1,
+ "results":[{"id":"0","text":"909","match":"contains","found":true,"count":1,
+   "hits":[{"line":0,"x":0,"y":36,"x2":388,"y2":70,
+            "cx1":247,"cx2":344,"char_precise":true,
+            "ed":0,"exact":true,"partial":false,
+            "begin":5,"end":8,"line_text":"击倒机关兽909米"}]}]}
+```
+
+实测（COM 后期绑定，`workbench/verify_com_call.py`）：行宽 0~388，而 `909` 精确落在
+**247~344**，`begin=5/end=8` 与 `line_text` 完全对应。
+
+坐标口径：
+- `x,y` = **行框左上角**（与旧 `FindStr` 完全一致，便于新旧互校）
+- `x2,y2` = 行框右下角
+- `cx1,cx2` = **命中片段的字符级水平范围**；逐字不可用（旋转降级 / 已装载字库）时
+  退化为行框，并置 `char_precise=false`（坐标仍合法可用）
+
+**匹配不跨行**：命中片段必须完整落在同一行内。旧实现把全文拼成一个长串，
+`OK` 可能横跨两个不同 UI 元素；新接口按行约束，语义明确。
+
+**实现要点 / 踩过的坑**：
+- `chars[].x1/x2` 已是**原图绝对坐标**，只能加区域偏移 `off_x`，**绝不能再加 det 框原点**
+  （P0 修过的坐标成倍越界 bug 的同类陷阱）
+- 模糊匹配必须"**同长度优先**"：`fuzzy=1` 找 `割喉台`(3字) 时，`割喉`(2字) 的编辑距离
+  也是 1（删一字），纯按 ed 最小会报出明显不属于目标的 2 字命中。排序键改为
+  `(ed, |候选长度-目标长度|, 起始位置)`
+- 逐字条目数 ≠ 行文本长度时**主动退化**为行框，不给可能错位的字符级坐标
+- 阅读序重写了一份（`ImageSearchAlgorithms.cpp` 的同名逻辑在匿名 namespace 内不可见），
+  口径必须与旧 `FindStr` 完全一致，否则两者 `line` 下标无法互相换算
+
+**保持不变**：旧 `FindStr` / `FindStrEx` **一行未改**，输出逐字节不变；两者共用同一套
+匹配内核，结论一致（有用例交叉校验）。
+
+#### 2. P3：OCR 分项耗时自省
+
+`OpOcrLastProfile` / COM `OcrLastProfile`(444) 返回上一次 OCR 的分项耗时：
+
+```json
+{"valid":true,"total_ms":169.99,"pre_ms":3.16,"det_ms":125.08,"cls_ms":2.28,
+ "rec_ms":22.82,"post_ms":0.02,"boxes":1,"lines":1,"chars":9,
+ "det_calls":1,"rec_calls":1,"cls_calls":1,"runs_failed":0,
+ "upscale":true,"oscale":2,"rec_width":576}
+```
+
+- `ort_run` 加可选出参计时（默认 `nullptr`，旧调用点零改动）
+- 纯读取，**不触发新的 OCR**（连续读两次数值不变，有用例守门）
+- 无锁（"最后写入者胜"）：profile 是诊断信息，加锁采样会污染计时本身；
+  并发时数值对应"任意一次"调用，已在头文件写明
+- `OP_OCR_PROFILE=0` 可关闭（省两次 clock 读取）
+- `rec_width` 顺带把 P2 的动态宽度变成可观测值
+
+#### 3. 新增测试 `tests/find_str_batch_test.cpp`（22 项）
+
+| 组 | 数量 | 是否需要引擎 |
+|---|---|---|
+| `StrMatchTest.*`（纯匹配内核） | 12 | 否 |
+| `FindStrBatchTest.*`（端到端） | 7 | 是 |
+| `OcrProfileTest.*` | 3 | 是 |
+
+**反向验证 5/5 全部如愿变红**（`workbench/reverse_verify.ps1`）：
+
+| 场景 | 改错内容 | 结果 |
+|---|---|---|
+| RV1 | `exact` 位置约束恒真（退化为 contains） | RED ✓ |
+| RV2 | `cx1/cx2` 直接用行框（逐字定位退化） | RED ✓ |
+| RV3 | 逐字 x 上重复加一次 det 框原点 | RED ✓ |
+| RV4 | 模糊判据恒真（不比对编辑距离） | RED ✓ |
+| RV5 | det 计时不累加 | RED ✓ |
+
+> 第一次跑时 3/5 "改错后仍全绿"，一度以为断言恒真，实际是**改头文件不触发重编译**（见 §4）。
+
+#### 4. 附带发现并修复：构建系统缺陷「改头文件不触发重新编译」
+
+**根因**（已完全定位）：`cl /showIncludes` 的输出是 **UTF-8**，而 CMake 写进 `build.make`
+的 `--filter-prefix` 是 **GBK**（`注意:  包含文件:  `）。两者字节不同 →
+`cmake -E cmake_cl_compile_depends` 一行都匹配不到 → `*.obj.d` 恒为 0 字节 →
+**头文件不在依赖图里** → 改 `.h` 不触发任何重编。
+
+实测：`build/nmake-x64-Release` 下 233 个 `.obj.d` 里有 **86 个是 0 字节**；
+非 0 的都是 2026-10-14/15 生成的（说明该缺陷是后来才出现的）。
+
+**修复**：`scripts/build/_wb_build.py` 加入 dep-guard——
+构建前扫描所有 `.obj.d`，0 字节的删掉对应 `.obj` 强制重编；另加"任何 `.h` 比 `.obj` 新
+就删该 obj"的保险。`OP_NO_DEP_GUARD=1` 可关闭。
+
+实测生效：`dep-guard: forced rebuild of 86 obj with empty .obj.d`，
+头文件改动后 `find_str_batch_test.cpp.obj` 时间戳正常更新。
+
+详见 `docs/2026-11/构建缺陷_改头文件不触发重编译_20261121.md`。
+
+#### 5. 验证结果
+
+| 项 | 结果 |
+|---|---|
+| `OcrEx2Test.*`（P0 回归） | **9/9 PASS** |
+| 新增 `StrMatchTest` + `FindStrBatchTest` + `OcrProfileTest` | **22/22 PASS** |
+| OCR 相关合计（含 OcrTest） | **31/31 PASS** |
+| 真实素材 `workbench/test_gmplug.py` | **PASSED 全部校验通过（A1/A2/A3/A5/A6 零违规）** |
+| 全量 `op_test.exe` | 491 PASS / 4 FAILED（**均为既有环境项**，见下） |
+| COM 后期绑定（DISPID 442/443/444） | **全部可达并返回正确数据**（`workbench/verify_com_dispids.py` + `verify_com_call.py`） |
+
+**4 个全量失败均为既有问题**（已用 `git stash` 在干净基线上逐个复现确认）：
+
+```
+MouseKeyTest.BindWindowDxSuffixDoesNotPolluteSessionAttr   baseline FAIL
+WindowStateTest.DxBindToSameIntegrityWindowStillSucceeds   baseline FAIL
+HookCaptureTest.BindLoadsMissingGraphicsAndInputModulesOnDemand baseline FAIL
+WgcTest.RepeatedBindUnbindAndMaximizedRepeatedCapture      单独跑 PASS（既有 flaky，交接文档坑 6）
+```
+
+另发现 `WindowServiceTest.RunAppLaunchesShortcut` 在本机会**访问冲突崩溃**
+（`0xC0000005`，clean baseline 同样崩溃），故全量回归时用
+`--gtest_filter=-WindowServiceTest.RunAppLaunchesShortcut` 排除。
+
+#### 6. 明确未做（范围外）
+
+- x86 构建（用户明确 x86 失败可接受）
+- `D:\AutoPro\OPTool\sync_op_dll.py` 发布件同步（用户要求先不发布）
+- `api_reference.html` 手册重生成（需单独确认口径）
+- 手册/文档未覆盖的 `fuzzy` 与 `ci` 组合的启发式调优
+
+
 ### 2026-11-20 第四十批（feat：P2 动态 rec 长宽比，超长行不再被压扁）
 
 `OnnxOcrEngine::rec_images` 的 rec 输入宽度原先**固定 320**（48×320 ≈ 6.67:1），

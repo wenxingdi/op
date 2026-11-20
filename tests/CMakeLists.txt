@@ -151,6 +151,9 @@ set(OP_TEST_SOURCES
   "wgc_test.cpp"
   "ocr_test.cpp"
   "ocr_ex2_test.cpp"
+  # P1 FindStr 增强 + P3 OCR 耗时自省（2026-11-21）：多目标/正则/模糊匹配，
+  # 字符级精确范围，以及 det/cls/rec 分项计时。
+  "find_str_batch_test.cpp"
   "yolo_test.cpp"
   "utils_test.cpp"
   "memory_search_test.cpp"

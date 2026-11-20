@@ -1,6 +1,7 @@
 #pragma once
 #include "ImageSearchAlgorithms.h"
-#include "../ocr/OcrService.h" // vocr_rec_t / vocr_line_ext_t（P0 逐字 JSON 用）
+#include "../algorithm/StrMatch.h" // P1 FindStr 增强的匹配内核（纯头文件）
+#include "../ocr/OcrService.h"     // vocr_rec_t / vocr_line_ext_t（P0 逐字 JSON 用）
 #include <memory>
 #include <string>
 
@@ -129,13 +130,45 @@ class ImageSearchService : public ImageSearchAlgorithms {
     long ocr_ex2(const wstring &color, double sim, std::wstring &out_json);
     long ocr_auto_color_ex2(const wstring &color, double sim, std::wstring &out_json);
 
+    // P3（2026-11-21）OCR 分项耗时自省：返回上一次 OCR 的 det/cls/rec 分项毫秒数。
+    // 引擎不支持或还没跑过 -> 输出 {"valid":false,...}。返回值 = 1 表示 valid。
+    long ocr_last_profile(std::wstring &out_json);
+
     long OcrEx(const wstring &color, double sim, std::wstring &out_str);
 
     long FindStr(const wstring &str, const wstring &color, double sim, long &retx, long &rety);
 
     long FindStrEx(const wstring &str, const wstring &color, double sim, std::wstring &out_str);
 
+    // P1（2026-11-21）FindStr 增强：多目标结构化查找。
+    // json_targets 为 JSON 数组，元素可以是字符串（等价 {"text":...}）或对象：
+    //   {"id","text","match":"contains|exact|prefix|suffix|regex",
+    //    "fuzzy","max_hits","ci","confirmed_only"}
+    // 一次 det+rec 后引擎内匹配，返回每目标的全部命中（含字符级精确范围）。
+    // 返回值 = 成功解析并执行的目标数；JSON 非法时返回 -1 且 out_json 为空。
+    long find_str_batch(const std::wstring &json_targets, const wstring &color, double sim,
+                        std::wstring &out_json);
+
+    // P1：单目标增强查找（标量入参，易语言友好）。flags 位定义见
+    // docs/2026-11/P1_FindStr增强与P3耗时自省_实施方案.md §2.3。
+    // JSON 结构与 find_str_batch 的同名单目标结果一致。返回值 = 命中总数。
+    long find_str_ex2(const std::wstring &pattern, long flags, const wstring &color, double sim,
+                      std::wstring &out_json);
+
   private:
+    // P1 共用：抓取全图 OCR 行（含逐字）并做匹配。targets 已校验合法。
+    long match_targets(const std::vector<op::str_match::Target> &targets, const wstring &color, double sim,
+                       std::wstring &out_json);
+    // P1 共用：一次 OCR 得到「行文本 + 行框 + 逐字 x 区间」（已客户区化）。
+    struct ocr_line_view_t {
+        std::wstring text;
+        int x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+        bool partial = false;
+        bool chars_usable = false;                  // chars.size()==text.size() 且非旋转降级
+        std::vector<int> cx1, cx2;                  // 与 text 同下标的字符级 x 区间
+    };
+    bool collect_ocr_lines(const wstring &color, double sim, std::vector<ocr_line_view_t> &lines);
+
     // 智能选路（2026-11-20）：统计 _src 中命中指定颜色（逐通道容差）的像素数。
     // 返回 -1 = 无法探测（空串/@反白等特殊写法），调用方应保守沿用颜色路径。
     // out_total_px 输出总像素数，供调用方算占比。
