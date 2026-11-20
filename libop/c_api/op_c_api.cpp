@@ -2219,3 +2219,58 @@ const wchar_t *OP_CALL OpFindStrMem(op_handle handle, const wchar_t *image_handl
 int OP_CALL OpGetImageCount(op_handle handle) {
     return call_ret(handle, [](op::Op &op, long *ret) { op.GetImageCount(ret); });
 }
+
+/* ---- YOLO 增强（2026-11-21）：带过滤/截断的检测 ---- */
+const wchar_t *OP_CALL OpYoloDetectEx2(op_handle handle, int x1, int y1, int x2, int y2, double conf, double iou,
+                                        const wchar_t *json_options, int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloDetectEx2(x1, y1, x2, y2, conf, iou, safe_text(json_options),
+                                                  handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr; // 参数非法
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloDetectEx2: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        setlog("op_c_api: unknown exception in OpYoloDetectEx2");
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+extern "C" {
+const wchar_t *OP_CALL OpYoloDetectFromFileEx2(op_handle handle, const wchar_t *file_name, double conf, double iou,
+                                                const wchar_t *json_options, int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloDetectFromFileEx2(safe_text(file_name), conf, iou, safe_text(json_options),
+                                                          handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr; // 参数非法
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloDetectFromFileEx2: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        setlog("op_c_api: unknown exception in OpYoloDetectFromFileEx2");
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+}

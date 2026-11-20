@@ -2350,3 +2350,28 @@ STDMETHODIMP OpAutomation::GetImageCount(LONG *ret) {
     obj.GetImageCount(ret);
     return S_OK;
 }
+
+// YOLO 增强（2026-11-21）：带过滤/截断的检测
+STDMETHODIMP OpAutomation::YoloDetectEx2(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou,
+                                         BSTR json_options, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    wstring options_text = json_options ? json_options : L"";
+    obj.YoloDetectEx2(x1, y1, x2, y2, static_cast<double>(conf), static_cast<double>(iou), options_text.c_str(), s,
+                      ret);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloDetectFromFileEx2(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR json_options,
+                                                 BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    wstring options_text = json_options ? json_options : L"";
+    obj.YoloDetectFromFileEx2(file_name, static_cast<double>(conf), static_cast<double>(iou), options_text.c_str(), s,
+                              ret);
+    return CopyOutBstr(retstr, s);
+}

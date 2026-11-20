@@ -156,6 +156,8 @@ set(OP_TEST_SOURCES
   "find_str_batch_test.cpp"
   # P4 图像句柄注册表（2026-11-21，内存直操作一期地基）。
   "image_registry_test.cpp"
+  # YOLO 增强（2026-11-21）：Ex2 过滤/截断与 JSON 契约。
+  "yolo_ex2_test.cpp"
   "yolo_test.cpp"
   "utils_test.cpp"
   "memory_search_test.cpp"

@@ -517,6 +517,13 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(CropImage)(BSTR image_handle, LONG x, LONG y, LONG width, LONG height, BSTR *retstr);
     STDMETHOD(FindStrMem)(BSTR image_handle, BSTR json_targets, DOUBLE sim, BSTR *retstr);
     STDMETHOD(GetImageCount)(LONG *ret);
+
+    // YOLO 增强（2026-11-21，idl id 454）：带过滤/截断的检测
+    STDMETHOD(YoloDetectEx2)(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou, BSTR json_options,
+                             BSTR *retstr, LONG *ret);
+    // 文件版 Ex2（不依赖绑定窗口，便于脚本侧验证过滤逻辑）
+    STDMETHOD(YoloDetectFromFileEx2)(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR json_options, BSTR *retstr,
+                                     LONG *ret);
     //-----------------------opcv---------------------------------
     STDMETHOD(CvLoadTemplate)(BSTR name, BSTR file_path, LONG *ret);
     STDMETHOD(CvLoadMaskedTemplate)(BSTR name, BSTR template_path, BSTR mask_path, LONG *ret);

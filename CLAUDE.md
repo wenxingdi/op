@@ -94,6 +94,14 @@ build/nmake-x64-Release/tests/op_test.exe --gtest_filter="OcrTest.*"
   （表现为一堆 `path.empty()` 断言失败）。这不是代码问题。
   `$env:TEMP="$pwd\workbench\tmp"; $env:TMP=$env:TEMP`。
   详见 `docs/2026-11/环境诊断_原生进程TEMP写入失败_20261120.md`。
+- **新增 C API 必须检查导出名是裸名（2026-11-21）**：x64 的 C 导出靠 `include/op_c_api.h` 里的 `extern "C" {` 块，x86 靠 CMake 从该头生成的 `.def`。
+若把新声明追加在**头文件末尾（`#ifdef __cplusplus } #endif` 之后）**，x64 下会变成 **C++ 修饰名**：
+  ```
+  ?OpYoloDetectFromFileEx2@@YAPEB_WPEAUop_c_context@@PEB_WNN1PEAH@Z
+  ```
+  后果：C++ 测试照常链接下来**全绿**，但 Python/易语言按裸名 `GetProcAddress` **调不到**。
+  自查：`dumpbin /exports build\nmake-x64-Release\libop\op_c_api_x64.dll`，必须是裸名。
+  实现侧（`op_c_api.cpp`）的追加代码同样要补 `extern "C" { ... }` 包裹。
 - **颜色**：对外 RGB hex `RRGGBB`；大漠 FindPic delta 是 BGR（迁移红蓝互换）；内部 `color_t` 是 BGRA。
 - **DPI**：Designer 坐标是 96dpi 逻辑值，运行时按 `DeviceDpi/96` 缩放；OpContext 构造 `SetProcessDPIAware()` → 全进程物理像素。
 - **截图验收**：`Capture`/`PrintWindow` ret=1 ≠ 有内容；必须像素级校验（非黑占比/唯一色），像素统计判不出"截到的是谁" → 必须落盘目视。

@@ -612,6 +612,22 @@ class OP_API Op {
     long SetYoloEngine(_In_ const wchar_t *path_of_engine, _In_ const wchar_t *dll_name, _In_ const wchar_t *argv);
     void YoloDetect(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
                     _Out_ std::wstring &retjson, _Out_ long *ret);
+
+    // 【YOLO 增强 2026-11-21】带过滤/截断的检测。
+    // json_options 形如 {"class_ids":[0,2],"labels":["person"],"max_results":20}，
+    // 空串等价于不过滤（但仍输出更完整的 JSON）。语义：
+    //   - class_ids 与 labels 同时给时取**并集**（满足任一即保留）
+    //   - max_results 按 confidence 降序截断（要"最可信的 N 个"，不是"原序前 N 个"）
+    //   - 非法 options（坏 JSON / 未知字段 / 类型错）返回 -1，与"没检测到"区分
+    // 返回 JSON 比旧接口多 total/returned/index/cx/cy/w/h 字段。
+    // 坐标口径与 OCR/找图一致（截图偏移 + 客户区偏移）。
+    long YoloDetectEx2(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
+                       _In_ const wchar_t *json_options, _Out_ std::wstring &retjson, _Out_ long *ret);
+    // 文件版 Ex2：同样支持 class_ids/labels/max_results 过滤。
+    // 存在的理由：屏幕版依赖绑定窗口，无窗口环境下无法验证过滤逻辑；
+    // 文件版让过滤/截断/JSON 契约能用真实模型闭环验证。
+    long YoloDetectFromFileEx2(_In_ const wchar_t *file_name, _In_ double conf, _In_ double iou,
+                                _In_ const wchar_t *json_options, _Out_ std::wstring &retjson, _Out_ long *ret);
     void YoloDetectFromFile(_In_ const wchar_t *file_name, _In_ double conf, _In_ double iou, _Out_ std::wstring &retjson,
                             _Out_ long *ret);
     // 设置字库文件

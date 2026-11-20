@@ -347,6 +347,25 @@ OP_C_API int OP_CALL OpSetYoloEngine(op_handle handle, const wchar_t *path_of_en
                                      const wchar_t *argv);
 OP_C_API const wchar_t *OP_CALL OpYoloDetect(op_handle handle, int x1, int y1, int x2, int y2, double conf,
                                              double iou);
+
+/* 【YOLO 增强 2026-11-21】带过滤/截断的检测。
+ *
+ * json_options（可为 nullptr/空串 = 不过滤）：
+ *   {"class_ids":[0,2], "labels":["person"], "max_results":20}
+ *   - class_ids 与 labels 同时给时取**并集**（满足任一即保留）
+ *   - max_results 按 confidence **降序**截断（取最可信的 N 个）
+ *
+ * 返回 JSON：
+ *   {"ok":1,"code":0,"total":3,"returned":2,
+ *    "results":[{"index":0,"class_id":0,"label":"person",
+ *                "bbox":[x1,y1,x2,y2],"confidence":0.91,
+ *                "cx":60,"cy":120,"w":100,"h":200}]}
+ *
+ * 返回 nullptr = 参数非法（坏 JSON / 未知字段 / 类型错），与"没检测到"区分。
+ * 坐标口径与 OpOcrEx2 / OpFindStrBatch 一致（截图偏移 + 客户区偏移）。
+ */
+OP_C_API const wchar_t *OP_CALL OpYoloDetectEx2(op_handle handle, int x1, int y1, int x2, int y2, double conf,
+                                                 double iou, const wchar_t *json_options, int *find_count);
 OP_C_API const wchar_t *OP_CALL OpYoloDetectFromFile(op_handle handle, const wchar_t *file_name, double conf,
                                                      double iou);
 OP_C_API int OP_CALL OpSetDict(op_handle handle, int idx, const wchar_t *file_name);
@@ -653,6 +672,12 @@ OP_C_API const wchar_t *OP_CALL OpHttpPost(op_handle handle, const wchar_t *url,
 OP_C_API int OP_CALL OpHttpDownloadFile(op_handle handle, const wchar_t *url, const wchar_t *file_name,
                                         int timeout_ms);
 
+/* 【YOLO 增强 2026-11-21】文件版 Ex2：从磁盘图片检测并支持过滤/截断。
+ * 存在的理由：OpYoloDetectEx2 依赖绑定窗口截图，无窗口环境下无法验证过滤逻辑；
+ * 文件版让过滤/截断/JSON 契约可以用真实模型闭环验证。
+ * 参数与返回 JSON 同 OpYoloDetectEx2；find_count 输出过滤后条数。 */
+OP_C_API const wchar_t *OP_CALL OpYoloDetectFromFileEx2(op_handle handle, const wchar_t *file_name, double conf,
+                                                        double iou, const wchar_t *json_options, int *find_count);
 #ifdef __cplusplus
 }
 #endif

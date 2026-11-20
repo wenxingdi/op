@@ -3,6 +3,97 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-21 第四十四批（feat：YOLO 结果过滤/截断 + 坐标口径修正 + JSON 改 DOM）
+
+承接第四十三批。按用户要求进入 YOLO 模块优化。
+方案与实测记录：`docs/2026-11/YOLO模块优化_缺口与方案_20261121.md`
+
+#### 1. 缺口盘点
+
+引擎侧质量已很好（**类别感知 NMS**、v8/v11 anchor-free 解析、ultralytics metadata
+labels 自动加载、异常保护全覆盖），**缺口全在 API 层**：
+
+| # | 缺口 | 后果 |
+|---|---|---|
+| Y1 | 无类别过滤 | 80 类模型想只取"人"要调用方自己遍历 JSON |
+| Y2 | 无最大结果数 | 密集场景可能返回上百条 |
+| Y4 | **坐标缺客户区补偿** | 只加了截图偏移，窗口模式下与 OCR/找图**坐标错位** |
+| Y5 | **JSON 手拼字符串** | 与 P0/P1 已统一的 `op::json` DOM 不一致，改结构易漏转义 |
+
+#### 2. 新增接口（三层，COM DISPID 454/455）
+
+| 接口 | 作用 |
+|---|---|
+| `OpYoloDetectEx2(x1..y2, conf, iou, json_options)` | 屏幕版，带过滤/截断 |
+| `OpYoloDetectFromFileEx2(file, conf, iou, json_options)` | **文件版，本轮新增** |
+
+`json_options` = `{"class_ids":[0,2],"labels":["person"],"max_results":20}`：
+- `class_ids` 与 `labels` 取**并集**（满足任一即保留）——取交集会让"以为能命中"变空结果
+- `max_results` 按 confidence **降序**截断（要"最可信的 N 个"，不是"原序前 N 个"）
+- 非法 options（坏 JSON/未知字段/类型错）返回 nullptr / -1，与"没检测到"区分
+
+Ex2 的 JSON 比旧接口多：`total`（过滤前）/ `returned`（过滤后）/ `index` / `cx` / `cy` / `w` / `h`。
+
+> **为什么加文件版 Ex2**：屏幕版依赖"绑定窗口后截图"，测试机没有可绑定窗口，
+> 过滤逻辑无法闭环验证。文件版让过滤/截断/JSON 契约**能用真实模型验证**。
+
+#### 3. 两处修正
+
+**① 坐标口径**：`it.left_top.x += x1` → `+= x1 + _dx`
+原实现只有截图偏移，绑定窗口时坐标会与 OCR/找图整体错位 `(_dx,_dy)`。
+> **这是行为变更**：非绑定窗口 `_dx/_dy` 为 0 不受影响；绑定窗口下 `OpYoloDetect` 的
+> 坐标会平移 —— 这是**修正**，CHANGELOG 明确标注。
+
+**② JSON 改 `op::json` DOM**：原实现逐段拼字符串（`retjson += L"{\"class_id\":"`），
+结构改动易漏转义；改用 DOM 后由 `Stringify` 统一负责。
+旧接口的**字段集合不变**（不加 Ex2 专属字段），有用例断言守门。
+
+#### 4. 验证
+
+| 项 | 结果 |
+|---|---|
+| `Yolo*` 全组 | **17 PASS / 1 SKIPPED** |
+| 全量 `op_test.exe` | **509 PASS / 5 FAILED（既有环境项）** |
+| 反向验证 | **3/3 全部如愿变红** |
+
+**真实模型闭环验证**（`tests/testdata/yolo_meta_test.onnx`）：
+
+| 用例 | 内容 | 结果 |
+|---|---|---|
+| `ClassIdsFilterKeepsOnlyMatching` | `[1]` 保留 / `[9999]` 全滤掉 / `total` 恒为全量 | PASS |
+| `LabelsFilterAndUnionSemantics` | label 匹配 + **并集**两个方向 | PASS |
+| `MaxResultsTruncatesAndReportsTotal` | **SKIPPED** | 见 §5 |
+
+反向验证（`scripts/probes/reverse_verify_yolo.ps1`）：
+`keep_detection` 恒真 → RED ✓；`total` 报成过滤后条数 → RED ✓；并集改交集 → RED ✓。
+
+#### 5. 诚实记录：一个**没能闭环**的验证点
+
+`yolo_meta_test.onnx` 是脚本生成的极简模型，**NMS 后恒定只输出 1 条**。
+实测 320×240 / 1280×960 / 1280×1280 四块拼贴、conf 低到 `0.0001`，始终 `total=1`。
+因此 **`max_results` 的"截断到小于总数"无法用真实数据验证**。
+该用例已改为：`total>1` 时断言真实截断（换台有多条结果的机器会自动生效，不假绿），
+`total==1` 时 `GTEST_SKIP` 并写明原因。
+
+#### 6. 过程中发现一个真实导出缺陷（重要，已写进 CLAUDE.md）
+
+`OpYoloDetectFromFileEx2` 起初被追加在 `op_c_api.h` 的 **`extern "C"` 块之外**，
+x64 下变成 **C++ 修饰名导出**：
+
+```
+?OpYoloDetectFromFileEx2@@YAPEB_WPEAUop_c_context@@PEB_WNN1PEAH@Z
+```
+
+后果：**C++ 测试照常链接下来全绿，但 Python/易语言按裸名 `GetProcAddress` 调不到** ——
+测试全绿而功能不可用。x86 靠 `.def` 生成裸名，**只坑 x64**。
+
+已修正（声明移进 `extern "C"` 块、实现补包裹），`dumpbin /exports` 确认现在是裸名。
+
+#### 7. 未做
+
+D1 DirectML / D3 多模型热切换 / D4 训练链闭环 —— 属**新增能力**或基建级变更，需单独排期。
+- **未发布、未同步发布件、未构建 x86**（沿用用户要求）
+
 ### 2026-11-21 第四十三批（feat：图像句柄注册表，内存直操作一期地基）
 
 承接第四十二批。按用户要求进入内存模块优化。
