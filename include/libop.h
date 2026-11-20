@@ -723,6 +723,22 @@ class OP_API Op {
     // 结构化 OcrAutoColor：输出 "x1,y1,x2,y2,conf,text|..."（bbox 为客户区坐标，相对绑定窗口客户区左上角），返回命中行数。
     long OcrAutoColorEx(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                         _In_ double sim, _Out_ std::wstring &ret_str);
+    // 【P0 2026-11-20】结构化 OCR（JSON）：逐字置信度 + 逐字坐标。
+    // 返回 JSON 数组：
+    //   [{"text","conf","is_partial",["conf_partial",]"box":[x1,y1,x2,y2],
+    //     "partial_chars","chars":[{"ch","conf","x1","x2"}]}]
+    // 坐标系与旧接口一致（原图像素坐标，含入口放大自动除回）。
+    // ⚠ conf（整行）与 chars[].conf（逐字）**口径不同、不可互推**：整行 conf 是全部
+    //   时间步（含 blank）的概率均值（与旧 API 完全一致）；逐字 conf 仅统计该字符
+    //   占用步。is_partial=true 时额外给 conf_partial=conf*0.8，由调用方决定是否采用。
+    // ⚠ partial_chars=true 表示该行经过倾斜旋转校正，逐字 x 已退化为整行框范围
+    //   （chars 仍逐字给出 ch/conf，但 x1/x2 等于 box 左右边界）。
+    // color/sim 语义与该接口原版一致（有字库时走字库匹配，此时 chars 为空数组）。
+    void OcrEx2(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
+                _In_ double sim, _Out_ std::wstring &ret_str);
+    // 同 OcrEx2，但先按 color_format 二值化（与 OcrAutoColorEx 同源）。
+    long OcrAutoColorEx2(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
+                         _In_ double sim, _Out_ std::wstring &ret_str);
     // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
     void FindStr(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *strs, _In_ const wchar_t *color,
                  _In_ double sim, _Out_ long *retx, _Out_ long *rety, _Out_ long *ret);

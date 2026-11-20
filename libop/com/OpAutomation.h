@@ -493,6 +493,9 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(OcrAutoColor)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr);
     STDMETHOD(OcrAutoColorLine)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr);
     STDMETHOD(OcrAutoColorEx)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr, LONG *ret);
+    // P0 结构化 OCR（2026-11-20）：逐字置信度 + 逐字坐标，JSON 输出（idl id 440-441）
+    STDMETHOD(OcrEx2)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr);
+    STDMETHOD(OcrAutoColorEx2)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr, LONG *ret);
     STDMETHOD(OcrAutoColorFromFile)(BSTR file_name, BSTR color_format, DOUBLE sim, BSTR *retstr);
     // 免字库 OCR 归一入口：color 为空 → 原图直识别；非空 → 按颜色二值化（idl id 384）
     STDMETHOD(AutoOcr)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr);

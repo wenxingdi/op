@@ -404,6 +404,18 @@ OP_C_API const wchar_t *OP_CALL OpOcrAutoColorLine(op_handle handle, int x1, int
 /* 结构化 OcrAutoColor：返回 "x1,y1,x2,y2,conf,text|..."（客户区坐标，相对绑定窗口客户区左上角），find_count 输出命中行数 */
 OP_C_API const wchar_t *OP_CALL OpOcrAutoColorEx(op_handle handle, int x1, int y1, int x2, int y2,
                                                  const wchar_t *color, double sim, int *find_count);
+/* 【P0】结构化 OCR（JSON）：逐字置信度 + 逐字坐标。返回 JSON 数组，每行：
+ *   {"text","conf","is_partial",["conf_partial",]"box":[x1,y1,x2,y2],
+ *    "partial_chars","chars":[{"ch","conf","x1","x2"}]}
+ * 坐标为原图像素坐标（含入口放大自动除回）。
+ * ⚠ conf（整行）与 chars[].conf（逐字）口径不同、不可互推。
+ * ⚠ partial_chars=true：该行经倾斜旋转校正，逐字 x 已退化为整行框范围。
+ * 语义同 OpOcrEx（有字库时走字库匹配，此时 chars 为空数组）。 */
+OP_C_API const wchar_t *OP_CALL OpOcrEx2(op_handle handle, int x1, int y1, int x2, int y2,
+                                         const wchar_t *color, double sim);
+/* 【P0】同 OpOcrEx2，但先按 color 二值化（语义同 OpOcrAutoColorEx），find_count 输出命中行数。 */
+OP_C_API const wchar_t *OP_CALL OpOcrAutoColorEx2(op_handle handle, int x1, int y1, int x2, int y2,
+                                                  const wchar_t *color, double sim, int *find_count);
 OP_C_API int OP_CALL OpFindStr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *strs,
                                const wchar_t *color, double sim, int *x, int *y);
 OP_C_API const wchar_t *OP_CALL OpFindStrEx(op_handle handle, int x1, int y1, int x2, int y2,

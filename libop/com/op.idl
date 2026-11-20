@@ -398,6 +398,15 @@ interface IOpAutomation : IDispatch
 	[id(438)] HRESULT HttpPost([in] BSTR url, [in] BSTR body, [in] BSTR headers_json, [in] LONG timeout_ms, [out, retval] BSTR* retstr);
 	[id(439)] HRESULT HttpDownloadFile([in] BSTR url, [in] BSTR file_name, [in] LONG timeout_ms, [out, retval] LONG* ret);
 
+	// ---- P0 结构化 OCR（2026-11-20）：逐字置信度 + 逐字坐标，JSON 输出 ----
+	// JSON 数组，每行 {"text","conf","is_partial",["conf_partial",]"box":[x1,y1,x2,y2],
+	//   "partial_chars","chars":[{"ch","conf","x1","x2"}]}；坐标为原图像素坐标。
+	// ⚠ conf（整行）与 chars[].conf（逐字）口径不同、不可互推。
+	// ⚠ partial_chars=true：该行经倾斜旋转校正，逐字 x 退化为整行框范围。
+	// 语义对齐 C API 的 OpOcrEx2 / OpOcrAutoColorEx2（DISPID 440 / 441）。
+	[id(440)] HRESULT OcrEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out] BSTR* retstr);
+	[id(441)] HRESULT OcrAutoColorEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out] BSTR* retstr, [out, retval] LONG* ret);
+
 
 
 };

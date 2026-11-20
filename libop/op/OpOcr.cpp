@@ -473,6 +473,30 @@ long op::Op::OcrAutoColorEx(long x1, long y1, long x2, long y2, const wchar_t *c
     retstr = str;
     return ct;
 }
+// P0（2026-11-20）结构化 OCR：逐字置信度 + 逐字坐标，JSON 输出。
+// 与 OcrEx 同源（有字库走字库匹配，无逐字信息），语义见 include/libop.h。
+void op::Op::OcrEx2(long x1, long y1, long x2, long y2, const wchar_t *color, double sim,
+                    std::wstring &retstr) {
+    wstring str;
+    const std::wstring color_text = color ? color : L"";
+    internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        m_context->image_proc.ocr_ex2(color_text, sim, str);
+    });
+    retstr = str;
+}
+
+// P0：颜色二值化版结构化 OCR，与 OcrAutoColorEx 同源。
+long op::Op::OcrAutoColorEx2(long x1, long y1, long x2, long y2, const wchar_t *color, double sim,
+                             std::wstring &retstr) {
+    wstring str;
+    const std::wstring color_text = color ? color : L"";
+    long ct = 0;
+    internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        ct = m_context->image_proc.ocr_auto_color_ex2(color_text, sim, str);
+    });
+    retstr = str;
+    return ct;
+}
 // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
 void op::Op::FindStr(long x1, long y1, long x2, long y2, const wchar_t *strs, const wchar_t *color, double sim,
                     long *retx, long *rety, long *ret) {

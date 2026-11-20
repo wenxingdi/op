@@ -1,6 +1,6 @@
 # OP 插件 API 速查（LLM 上下文版）
 
-> 源：`include/libop.h` · 310 个接口 · 生成于 2026-11-09 17:00 · 由 scripts/gen_api_reference.py 生成（勿手改）
+> 源：`include/libop.h` · 312 个接口 · 生成于 2026-11-20 16:24 · 由 scripts/gen_api_reference.py 生成（勿手改）
 
 调用约定：出参不传入，聚成返回值元组（顺序 = signature 的 → 后列表）；坐标为物理像素，绑定窗口后为客户区坐标；字符串 UTF-16。
 
@@ -222,7 +222,7 @@
 - `CvEdgeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)` — 边缘匹配，返回命中 JSON 数组
 - `CvShapeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)` — 形状匹配，返回命中 JSON 数组
 
-## OCR 文字识别（81）
+## OCR 文字识别（83）
 
 - `SetOcrEngine(path_of_engine, dll_name, argv) → ret` — 选择 OCR 引擎并透传启动参数。engine: "onnx"/空/任意未知名=内置 ONNX（默认）。
 - `OcrWarmup() → (ret)` — OCR 预热（P2 第二十六批 2026-10-16，对齐 OLA OcrWarmup）：触发引擎懒加载 + 一次小图推理，
@@ -259,6 +259,8 @@
 - `OcrAutoColor(x1, y1, x2, y2, color, sim) → (et_str)` — 区域截图后按颜色二值化再做免字库 OCR。颜色容差：带偏色段 "RRGGBB-DRDGDB"（如 0F1721-606060）按偏色值逐通道匹配；不带偏色段默认容差 0x60。容差按场景选（2026-10-16 三场景 58 张实测）：浅色底+深色小字 → 留空走默认 0x60；深色/花纹底+彩色字（典型游戏 UI）→ 显式小偏色 0x10~0x30，0x60 会把近色背景混进 mask 打出乱码；字色变化时用 | 枚举多色，如 "E01111-202020|33EE33-202020"（实测 58/58 全对）。偏色段必须写满 6 位十六进制，短段/非法段会被拒绝并按 000000 处理（写 __op.log 报错）。sim 为置信度过滤阈值（非颜色容差），建议 0.8 左右。
 - `OcrAutoColorLine(x1, y1, x2, y2, color, sim) → (et_str)` — 单行快模式 OcrAutoColor：颜色二值化后整图直接 rec（跳过检测），适用于读出区/固定单行文本。颜色容差：带偏色段 "RRGGBB-DRDGDB"（如 0F1721-606060）按偏色值逐通道匹配；不带偏色段默认容差 0x60。容差按场景选（2026-10-16 三场景 58 张实测）：浅色底+深色小字 → 留空走默认 0x60；深色/花纹底+彩色字（典型游戏 UI）→ 显式小偏色 0x10~0x30，0x60 会把近色背景混进 mask 打出乱码；字色变化时用 | 枚举多色，如 "E01111-202020|33EE33-202020"（实测 58/58 全对）。偏色段必须写满 6 位十六进制，短段/非法段会被拒绝并按 000000 处理（写 __op.log 报错）。
 - `OcrAutoColorEx(x1, y1, x2, y2, color, sim) → (et_str)` — 结构化 OcrAutoColor：输出 "x1,y1,x2,y2,conf,text|..."（bbox 为客户区坐标，相对绑定窗口客户区左上角），返回命中行数。颜色容差：带偏色段 "RRGGBB-DRDGDB"（如 0F1721-606060）按偏色值逐通道匹配；不带偏色段默认容差 0x60。容差按场景选（2026-10-16 三场景 58 张实测）：浅色底+深色小字 → 留空走默认 0x60；深色/花纹底+彩色字（典型游戏 UI）→ 显式小偏色 0x10~0x30，0x60 会把近色背景混进 mask 打出乱码；字色变化时用 | 枚举多色，如 "E01111-202020|33EE33-202020"（实测 58/58 全对）。偏色段必须写满 6 位十六进制，短段/非法段会被拒绝并按 000000 处理（写 __op.log 报错）。
+- `OcrEx2(x1, y1, x2, y2, color, sim) → (et_str)` — 【P0 2026-11-20】结构化 OCR（JSON）：逐字置信度 + 逐字坐标。
+- `OcrAutoColorEx2(x1, y1, x2, y2, color, sim) → (et_str)` — 同 OcrEx2，但先按 color_format 二值化（与 OcrAutoColorEx 同源）。
 - `FindStr(x1, y1, x2, y2, strs, color, sim) → (ret, ret, ret)` — 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
 - `FindStrEx(x1, y1, x2, y2, strs, color, sim) → (etstr)` — 返回符合color_format的所有坐标位置
 - `OcrAuto(x1, y1, x2, y2, sim) → (et_str)` — 识别屏幕范围(x1,y1,x2,y2)内的字符串，无需指定颜色。

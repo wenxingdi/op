@@ -1609,6 +1609,28 @@ const wchar_t *OP_CALL OpOcrAutoColorEx(op_handle handle, int x1, int y1, int x2
     return ret;
 }
 
+/* ---- P0 2026-11-20：结构化 OCR（逐字置信度 + 逐字坐标，JSON）----
+ * JSON 数组，每行：
+ *   {"text","conf","is_partial",["conf_partial",]"box":[x1,y1,x2,y2],
+ *    "partial_chars","chars":[{"ch","conf","x1","x2"}]}
+ * 坐标为原图像素坐标。conf（整行）与 chars[].conf（逐字）口径不同、不可互推。
+ * partial_chars=true 表示该行经倾斜旋转，逐字 x 退化为整行框范围。 */
+const wchar_t *OP_CALL OpOcrEx2(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
+                                double sim) {
+    return call_string(handle,
+                       [&](op::Op &op, std::wstring &ret) { op.OcrEx2(x1, y1, x2, y2, safe_text(color), sim, ret); });
+}
+
+const wchar_t *OP_CALL OpOcrAutoColorEx2(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
+                                         double sim, int *find_count) {
+    long ct = 0;
+    const wchar_t *ret = call_string(handle, [&](op::Op &op, std::wstring &s) {
+        ct = op.OcrAutoColorEx2(x1, y1, x2, y2, safe_text(color), sim, s);
+    });
+    out_int(find_count, ct);
+    return ret;
+}
+
 const wchar_t *OP_CALL OpOcrAutoColorFromFile(op_handle handle, const wchar_t *file_name, const wchar_t *color_format,
                                               double sim) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) {

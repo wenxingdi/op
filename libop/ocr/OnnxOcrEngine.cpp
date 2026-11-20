@@ -282,6 +282,15 @@ CharSetRule parse_charset_rule(const std::string &rule) {
     return r;
 }
 
+// 逐字跨度（P0）：CTC 折叠后一个字符所占的时间步区间与字级置信度。
+struct CharSpan {
+    int ki;          // 字典下标（keys[ki]），非类别号
+    float prob;      // 字级置信度（仅该字符占用步的概率均值）
+    int t0, t1;      // 占用的时间步闭区间
+    int x1, x2;      // ROI 内像素坐标 [x1,x2)，rec_images 内由 t 映射得出
+    float conf_sum;  // 该字符占用步的概率累加（用于求均值）
+};
+
 // CTC 贪婪解码：argmax 后折叠重复并去 blank(0)。每步以最优类别概率作为置信度。
 // 维度判定：类别数 C 是较大的那一维，序列长 T 是较小的那一维。
 // mask：可选类别白名单（非空即启用）。mask[0] 恒 1=blank 始终允许；mask[c]==1
@@ -289,9 +298,13 @@ CharSetRule parse_charset_rule(const std::string &rule) {
 //   尾部错位，无需 mask 与 C 等长）。白名单外字符概率被屏蔽，形近字符
 //   （0/O、,/.、1/l）竞争被消除。空 mask = 全字典（默认）。
 // out 为指针以支持批量推理按行切片（batch Run 后每行是连续的 {1,T,C}/{1,C,T}）。
+// chars（可选出参）：非空时回填逐字跨度。字级概率与行级 conf 口径不同——
+//   行级 conf 是**全部时间步**（含 blank 与重复步）的均值，字级只统计该字符
+//   占用的步，两者不可互推（见 OcrService.h 的 ocr_char_t 注释）。
 std::string ctc_greedy(const float *out, const std::vector<int64_t> &shape,
                         const std::vector<std::string> &keys, float &conf,
-                        const std::vector<uint8_t> &mask) {
+                        const std::vector<uint8_t> &mask,
+                        std::vector<CharSpan> *chars = nullptr) {
     int A = int(shape[1]), B = int(shape[2]);
     int C = std::max(A, B), T = std::min(A, B);
     bool tc_layout = (B == C); // [N,T,C]：类别在 dim2(B)；[N,C,T]：类别在 dim1(A)
@@ -301,6 +314,7 @@ std::string ctc_greedy(const float *out, const std::vector<int64_t> &shape,
     int nsteps = 0;
     std::string text;
     int lastc = -1;
+    if (chars) chars->clear();
     for (int t = 0; t < T; ++t) {
         // 在（白名单内）类别中找最大/最小值做数值稳定，并同时定位 argmax
         float mx = -1e30f, bestv = -1e30f, mn = 1e30f;
@@ -331,7 +345,28 @@ std::string ctc_greedy(const float *out, const std::vector<int64_t> &shape,
             }
             prob = sum > 0.f ? std::exp(bestv - mx) / sum : 0.f;
         }
-        if (best != 0 && best != lastc) {
+        if (chars) {
+            // 维护"当前字符"的时间跨度。CTC collapse 下同一字符连续重复只保留
+            // 首个输出字符，但区间要延伸到最后一次出现的步（t1 随重复步更新）。
+            // 当前字符在遇到 blank 或切换到别的字符时关闭（t1 固定）。
+            if (best != 0 && best == lastc) {
+                if (!chars->empty()) { // 重复步：延长区间并累计概率
+                    chars->back().t1 = t;
+                    chars->back().conf_sum += prob;
+                }
+            } else if (best == 0) {
+                if (!chars->empty() && chars->back().t1 < 0) chars->back().t1 = t - 1;
+            } else {
+                if (!chars->empty() && chars->back().t1 < 0) chars->back().t1 = t - 1;
+                CharSpan cs;
+                cs.ki = best - 1; // blank=0，keys[i] 对应类别 i+1
+                cs.prob = 0.f;
+                cs.t0 = t;
+                cs.t1 = -1; // 未关闭，守到下一个 blank/切换或 T 末尾
+                cs.conf_sum = prob;
+                chars->push_back(cs);
+            }
+        } else if (best != 0 && best != lastc) {
             int ki = best - 1; // blank=0，keys[i] 对应类别 i+1
             if (ki >= 0 && ki < (int)keys.size()) text += keys[ki];
         }
@@ -340,6 +375,14 @@ std::string ctc_greedy(const float *out, const std::vector<int64_t> &shape,
         ++nsteps;
     }
     conf = nsteps > 0 ? float(conf_sum / nsteps) : 0.0f;
+    if (chars) {
+        if (!chars->empty() && chars->back().t1 < 0) chars->back().t1 = T - 1;
+        for (CharSpan &cs : *chars) {
+            int n = cs.t1 - cs.t0 + 1;
+            cs.prob = n > 0 ? cs.conf_sum / n : cs.conf_sum;
+            if (cs.ki >= 0 && cs.ki < (int)keys.size()) text += keys[cs.ki];
+        }
+    }
     return text;
 }
 } // namespace
@@ -362,7 +405,9 @@ public:
 
     // 对单张 BGR 图直接做 rec（跳过检测）：缩放+归一化+CTC 解码。
     // 返回 false = 推理失败；txt 为 UTF-8（可为空）。
-    bool rec_image(const BGR &roi, std::string &txt, float &conf) {
+    // spans（可选出参）：逐字跨度（P0），t→x 已按该图自己的 tw 映射为 ROI 内像素坐标。
+    bool rec_image(const BGR &roi, std::string &txt, float &conf,
+                   std::vector<CharSpan> *spans = nullptr) {
         const int RH = 48, RW = 320;
         float ratio = float(roi.w) / roi.h;
         int tw = int(std::ceil(48.0f * ratio));
@@ -383,8 +428,79 @@ public:
         std::vector<int64_t> roshape;
         if (!ort_run(*rec, rin, rshape, rout, roshape)) return false;
         if (roshape.size() != 3) return false;
-        txt = ctc_greedy(rout.data(), roshape, keys, conf, m_mask);
+        txt = ctc_greedy(rout.data(), roshape, keys, conf, m_mask, spans);
+        if (spans && !spans->empty()) {
+            // Same rule as rec_images: anchor the step->pixel mapping to the
+            // ROI's ink extent, then split at neighbour midpoints (raw spans are
+            // 1-2 steps wide and mark centers, not extents).
+            const int T = int(std::min(roshape[1], roshape[2]));
+            int ink_b = 0, ink_e = tw;
+            ink_extent(roi, tw, ink_b, ink_e);
+            const double span_px = double(ink_e - ink_b);
+            std::vector<double> cents(spans->size());
+            for (size_t k = 0; k < spans->size(); ++k) {
+                const double step_mid =
+                    double((*spans)[k].t0) + 0.5 * double((*spans)[k].t1 - (*spans)[k].t0 + 1);
+                cents[k] = double(ink_b) + step_mid * span_px / double(T);
+            }
+            double gap = (spans->size() > 1) ? (cents.back() - cents.front()) / double(spans->size() - 1)
+                                             : span_px / 4.0;
+            if (gap <= 0.0) gap = span_px / 4.0;
+            const double lo = std::max(0.0, cents.front() - gap * 0.5);
+            const double hi = std::min(double(tw), cents.back() + gap * 0.5);
+            for (size_t k = 0; k < spans->size(); ++k) {
+                double left = (k == 0) ? lo : 0.5 * (cents[k - 1] + cents[k]);
+                double right = (k + 1 == spans->size()) ? hi : 0.5 * (cents[k] + cents[k + 1]);
+                (*spans)[k].x1 = int(std::lround(left));
+                (*spans)[k].x2 = int(std::lround(right));
+                if ((*spans)[k].x2 <= (*spans)[k].x1) (*spans)[k].x2 = (*spans)[k].x1 + 1;
+            }
+        }
         return true;
+    }
+
+    // 计算 ROI 的墨迹水平范围，换算到 resize 后的 tw 宽坐标系（逐字映射用）。
+    // CTC 时间步只铺在文字上，不铺在整个 ROI 上；det 框左右常带空白边距，
+    // 若按 [0,tw] 映射会把每个字心整体平移一个左边距（实测 CJK 行偏移 ~11px）。
+    // 判据：按列统计非背景像素，取第一个与最后一个"有笔墨"的列；
+    // 三档容差从严到宽，全失败时退化整幅 [0,tw] 不报错（保证不影响识别本身）。
+    static void ink_extent(const BGR &roi, int tw, int &out_begin, int &out_end) {
+        out_begin = 0;
+        out_end = tw;
+        if (tw <= 0 || roi.w <= 0 || roi.h <= 0) return;
+        // 以 64 档粗量化颜色直方图的众数估计背景色。
+        // 必须扫描**整幅** ROI，不能只看第一列：二值化路径的 ROI 左上角可能正好
+        // 落在笔画上（颜色路径输入是白字黑底，x=0 列常是文字），只采样一列会把
+        // 前景当背景，导致墨迹范围判成整幅之外。
+        auto bin_of = [](const uint8_t *p) {
+            return (((p[0] >> 4) & 3) << 4) | (((p[1] >> 4) & 3) << 2) | ((p[2] >> 4) & 3);
+        };
+        std::vector<int> histogram(64, 0);
+        for (int y = 0; y < roi.h; y += 2)
+            for (int x = 0; x < roi.w; x += 2) histogram[bin_of(roi.at(y, x)) & 63]++;
+        const int bg_bin = int(std::max_element(histogram.begin(), histogram.end()) - histogram.begin());
+        auto is_ink = [&](int x) {
+            int count = 0;
+            for (int y = 0; y < roi.h; ++y) {
+                if ((bin_of(roi.at(y, x)) & 63) != bg_bin) ++count;
+            }
+            return count * 5 > roi.h; // >20% 的行非背景视为该列有笔墨
+        };
+        int first = -1, last = -1;
+        for (int x = 0; x < roi.w; ++x) {
+            if (is_ink(x)) {
+                if (first < 0) first = x;
+                last = x;
+            }
+        }
+        if (first < 0 || last < first) return; // 无笔墨：保持整幅
+        const double sx = double(tw) / double(roi.w); // ROI 像素 -> tw 坐标
+        out_begin = std::max(0, int(std::floor(first * sx)));
+        out_end = std::min(tw, int(std::ceil((last + 1) * sx)));
+        if (out_end <= out_begin) {
+            out_begin = 0;
+            out_end = tw;
+        }
     }
 
     // 批量 rec：所有 ROI 统一 pad 到 RH×RW 后叠成 {N,3,RH,RW} 一次 Run，再逐行 CTC
@@ -392,18 +508,21 @@ public:
     // batch 数值可能有微差（同模型同权重，行为邻近）。
     // 失败语义：整批 Run 失败返回 false（单次 session 故障），由调用方按推理失败处理。
     bool rec_images(const std::vector<BGR> &rois, std::vector<std::string> &texts,
-                    std::vector<float> &confs) {
+                    std::vector<float> &confs, std::vector<std::vector<CharSpan>> *char_spans = nullptr) {
         const int RH = 48, RW = 320;
         const size_t N = rois.size();
         texts.assign(N, std::string());
         confs.assign(N, 0.0f);
+        if (char_spans) char_spans->assign(N, {});
         if (N == 0) return true;
         std::vector<float> rin(size_t(3) * RH * RW * N, 0.0f);
+        std::vector<int> widths(N, 0); // each line's own resized width tw (P0 char mapping)
         for (size_t n = 0; n < N; ++n) {
             const BGR &roi = rois[n];
             float ratio = float(roi.w) / roi.h;
             int tw = int(std::ceil(48.0f * ratio));
             if (tw > RW) tw = RW;
+            widths[n] = tw;
             BGR rs = resize_bilinear(roi, RH, tw);
             float *dst = rin.data() + size_t(3) * RH * RW * n;
             for (int c = 0; c < 3; ++c) {
@@ -422,9 +541,84 @@ public:
         if (!ort_run(*rec, rin, rshape, rout, roshape)) return false;
         if (roshape.size() != 3 || roshape[0] != int64_t(N)) return false;
         const size_t per = size_t(roshape[1]) * size_t(roshape[2]); // 每行输出 {T,C} 或 {C,T}
-        for (size_t n = 0; n < N; ++n)
-            texts[n] = ctc_greedy(rout.data() + per * n, {1, roshape[1], roshape[2]}, keys,
-                                  confs[n], m_mask);
+        const int T = int(std::min(roshape[1], roshape[2]));
+        for (size_t n = 0; n < N; ++n) {
+            if (char_spans) {
+                texts[n] = ctc_greedy(rout.data() + per * n, {1, roshape[1], roshape[2]}, keys,
+                                      confs[n], m_mask, &(*char_spans)[n]);
+                // Map time steps to ROI pixel x.
+                //
+                // Subtlety 1: the denominator is this line's own resized width tw
+                // (NOT T or 320) - each ROI is resized to its own tw and then
+                // zero-padded to RW, so t/T*320 would land in the padded
+                // coordinate system instead of the ROI's.
+                //
+                // Subtlety 2: the CTC steps only span the *text*, not the whole
+                // ROI. Measured on a CJK line: det box = [1,144] (tw covers 143px)
+                // but the ink runs 13..135, and the steps are distributed evenly
+                // across the ink, not across the box. Mapping t->[0,tw] therefore
+                // offsets every char center left by the box's left blank margin
+                // (measured ~11px). Anchor the mapping to the ROI's ink extent.
+                const int tw = widths[n];
+                std::vector<CharSpan> &sp = (*char_spans)[n];
+                if (!sp.empty()) {
+                    // Ink columns of this ROI in its resized (tw-wide) space.
+                    int ink_b = 0, ink_e = tw;
+                    ink_extent(rois[n], tw, ink_b, ink_e);
+                    // tw is the rec input width at RH=48, i.e. ceil(48*roi.w/roi.h).
+                    // It is NOT roi.w: for a 66x16 ROI tw≈198, so a span expressed in
+                    // tw units is ~3x too large for the caller, which adds the det box
+                    // origin (in roi pixels) to it. Convert back to ROI pixels here so
+                    // every consumer sees one consistent coordinate system.
+                    const double to_roi = double(rois[n].w) / double(std::max(1, tw));
+                    ink_b = int(std::lround(ink_b * to_roi));
+                    ink_e = int(std::lround(ink_e * to_roi));
+                    if (ink_e <= ink_b) {
+                        ink_b = 0;
+                        ink_e = rois[n].w;
+                    }
+                    const double ink_w = double(ink_e - ink_b);
+                    // Place char centers using the *actual* CTC step positions,
+                    // affine-fitted so the first char starts at the ink's left
+                    // edge and the last ends at its right edge.
+                    //
+                    // Why not just k/(n-1)? Real lines are not evenly spaced
+                    // (measured on 需要80点元神力: mixed CJK + digits make the
+                    // per-char advance vary ~2x), and why not mid_k/T? The model
+                    // output is padded to T steps while the decoded chars only
+                    // occupy a sub-range (measured T=40 with chars at steps
+                    // 5,12,19,26), so /T squashes the line into the left half.
+                    // Fit t -> x through the step extents instead: robust to both
+                    // padding and uneven spacing.
+                    const double t_first = double(sp.front().t0);
+                    const double t_last = double(sp.back().t1 + 1);
+                    const double t_span = std::max(1.0, t_last - t_first);
+                    std::vector<double> cents(sp.size());
+                    for (size_t k = 0; k < sp.size(); ++k) {
+                        const double mid = double(sp[k].t0) + 0.5 * double(sp[k].t1 - sp[k].t0 + 1);
+                        const double frac = (mid - t_first) / t_span;
+                        cents[k] = double(ink_b) + frac * ink_w;
+                    }
+                    // Extend the outer two chars by half an average advance so the
+                    // first/last glyph owns its full width, then clip to the ink.
+                    double gap = (sp.size() > 1) ? (cents.back() - cents.front()) / double(sp.size() - 1)
+                                                 : ink_w;
+                    if (gap <= 0.0) gap = ink_w;
+                    const double lo = std::max(double(ink_b), cents.front() - gap * 0.5);
+                    const double hi = std::min(double(ink_e), cents.back() + gap * 0.5);
+                    for (size_t k = 0; k < sp.size(); ++k) {
+                        double left = (k == 0) ? lo : 0.5 * (cents[k - 1] + cents[k]);
+                        double right = (k + 1 == sp.size()) ? hi : 0.5 * (cents[k] + cents[k + 1]);
+                        sp[k].x1 = int(std::lround(left));
+                        sp[k].x2 = int(std::lround(right));
+                        if (sp[k].x2 <= sp[k].x1) sp[k].x2 = sp[k].x1 + 1;
+                    }
+                }
+            } else {
+                texts[n] = ctc_greedy(rout.data() + per * n, {1, roshape[1], roshape[2]}, keys,
+                                      confs[n], m_mask);
+            }
+        }
         return true;
     }
 
@@ -570,6 +764,19 @@ int OnnxOcrEngine::init(const std::wstring &engine, const std::wstring &dllName,
 }
 
 int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
+    return ocr_common(data, w, h, bpp, result, nullptr);
+}
+
+// 带逐字信息的 ocr（P0）：result 与 ocr() 完全一致，ext 为等长逐字附加信息。
+int OnnxOcrEngine::ocr_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result,
+                           vocr_line_ext_t &ext) {
+    ext.clear();
+    return ocr_common(data, w, h, bpp, result, &ext);
+}
+
+// 共享实现：ext_out 非空时额外回填逐字信息（不影响 result/返回值的既有语义）。
+int OnnxOcrEngine::ocr_common(byte *data, int w, int h, int bpp, vocr_rec_t &result,
+                              vocr_line_ext_t *ext_out) {
     result.clear();
     if (!m_impl->ok) return -1;
     if (data == nullptr || w <= 0 || h <= 0 || (bpp != 1 && bpp != 3 && bpp != 4)) return -1;
@@ -642,18 +849,27 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
     std::vector<Box> kept;
     rois.reserve(boxes.size());
     kept.reserve(boxes.size());
+    // Track which lines were PCA-rotated: their per-char x offsets cannot be mapped
+    // back to the axis-aligned box without an inverse rotation, so chars degrade to
+    // the whole-line box instead of reporting wrong coordinates.
+    std::vector<uint8_t> rotated;
+    rotated.reserve(boxes.size());
     for (const Box &box : boxes) {
         BGR roi = crop(img, box.x0, box.y0, box.x1, box.y1);
         if (roi.h < 2 || roi.w < 2) continue;
         // 倾斜校正（PCA 主轴）：仅扁矩形（行文本）才计算 PCA 角度——
         // 旋转守卫本就含 w>1.3h，非扁矩形算了也不会转，纯浪费三趟全像素遍历。
+        uint8_t was_rotated = 0;
         if (roi.w > 1.3 * roi.h) {
             double ang = pca_angle(roi);
-            if (std::abs(ang) > 15.0 && std::abs(ang) < 75.0)
+            if (std::abs(ang) > 15.0 && std::abs(ang) < 75.0) {
                 roi = rotate(roi, -ang);
+                was_rotated = 1;
+            }
         }
         rois.push_back(std::move(roi));
         kept.push_back(box);
+        rotated.push_back(was_rotated);
     }
     if (rois.empty()) return 0;
     // CLS 0/180 方向修正：批量一次 Run，180 度的 ROI 原地翻转后再进 rec。
@@ -661,8 +877,11 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
     if (m_impl->cls_on) m_impl->cls_fix(rois);
     std::vector<std::string> texts;
     std::vector<float> confs;
-    if (!m_impl->rec_images(rois, texts, confs)) return -3;
+    std::vector<std::vector<CharSpan>> spans;
+    const bool want_chars = (ext_out != nullptr);
+    if (!m_impl->rec_images(rois, texts, confs, want_chars ? &spans : nullptr)) return -3;
 
+    if (ext_out) ext_out->clear();
     int n = 0;
     for (size_t i = 0; i < rois.size(); ++i) {
         if (texts[i].empty()) continue;
@@ -678,12 +897,71 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
         rec.text = utf8_to_wstring(texts[i]); // txt 是 PP-OCR 输出的 UTF-8，必须用 CP_UTF8 解码
         rec.confidence = confs[i];
         result.push_back(rec);
+        if (ext_out) {
+            ocr_line_ext_t le;
+            // 框底贴图边界 < 2px 视为可能没读全。判据必须在除回 inv 之后，
+            // 否则 2x 放大时阈值实际退化为 1px。
+            le.is_partial = (int(std::lround(std::min(h, box.y1) * inv)) >= h - 2);
+            if (rotated[i]) {
+                // 旋转行：不给逐字坐标，退化为整行框
+                le.partial_chars = true;
+                for (const CharSpan &cs : spans[i]) {
+                    ocr_char_t c;
+                    c.ch = utf8_to_wstring(m_impl->keys[cs.ki]);
+                    if (c.ch.empty()) continue; // 空串字典条目，不对应可见字形
+                    c.confidence = cs.prob;
+                    c.t0 = cs.t0;
+                    c.t1 = cs.t1;
+                    c.x1 = rec.left_top.x;
+                    c.x2 = rec.right_bottom.x;
+                    le.chars.push_back(std::move(c));
+                }
+            } else {
+                // 未旋转：t→ROI x 已在 rec_images 内用该行自己的 tw 映射好，
+                // 这里乘 inv 除回放大并加框左偏移还原到原图坐标。
+                for (const CharSpan &cs : spans[i]) {
+                    ocr_char_t c;
+                    c.ch = utf8_to_wstring(m_impl->keys[cs.ki]);
+                    // 字典里存在空串条目（空格/占位符），模型偶尔会输出它。它不对应
+                    // 任何可见字形，必须丢弃：否则 chars 会比 text 多一项，且带一个
+                    // 无意义的坐标区间，污染"逐字与文本一一对应"的契约（A3/A5）。
+                    if (c.ch.empty()) continue;
+                    c.confidence = cs.prob;
+                    c.t0 = cs.t0;
+                    c.t1 = cs.t1;
+                    c.x1 = int(std::lround(cs.x1 * inv)) + rec.left_top.x;
+                    c.x2 = int(std::lround(cs.x2 * inv)) + rec.left_top.x;
+                    // Clamp into the line box: A1 (chars inside box) must hold for
+                    // every consumer, including the color path which re-binarizes
+                    // and may shift the glyphs slightly. Order matters: clamp x2
+                    // first, then x1 against the (possibly already clamped) x2 --
+                    // doing it the other way round can yield x1 > x2.
+                    if (c.x2 > rec.right_bottom.x) c.x2 = rec.right_bottom.x;
+                    if (c.x1 < rec.left_top.x) c.x1 = rec.left_top.x;
+                    if (c.x1 >= c.x2) c.x1 = std::max(rec.left_top.x, c.x2 - 1);
+                    if (c.x2 <= c.x1) c.x2 = std::min(rec.right_bottom.x, c.x1 + 1);
+                    le.chars.push_back(std::move(c));
+                }
+            }
+            ext_out->push_back(std::move(le));
+        }
         ++n;
     }
     return n;
 }
 
 int OnnxOcrEngine::ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
+    return ocr_line_common(data, w, h, bpp, result, nullptr);
+}
+
+int OnnxOcrEngine::ocr_line_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result,
+                                vocr_line_ext_t &ext) {
+    ext.clear();
+    return ocr_line_common(data, w, h, bpp, result, &ext);
+}
+
+int OnnxOcrEngine::ocr_line_common(byte *data, int w, int h, int bpp, vocr_rec_t &result,
+                                   vocr_line_ext_t *ext_out) {
     result.clear();
     if (!m_impl->ok) return -1;
     if (data == nullptr || w <= 0 || h <= 0 || (bpp != 1 && bpp != 3 && bpp != 4)) return -1;
@@ -693,10 +971,13 @@ int OnnxOcrEngine::ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &resul
 
     // 倾斜校正（PCA 主轴）：与 ocr() 的单行 rec 分支一致——仅扁矩形才计算 PCA。
     BGR roi = img;
+    bool rotated = false;
     if (roi.w > 1.3 * roi.h) {
         double ang = pca_angle(roi);
-        if (std::abs(ang) > 15.0 && std::abs(ang) < 75.0)
+        if (std::abs(ang) > 15.0 && std::abs(ang) < 75.0) {
             roi = rotate(roi, -ang);
+            rotated = true;
+        }
     }
 
     // CLS 0/180 方向修正（与 ocr() 批量路径同一模型/策略）
@@ -707,7 +988,8 @@ int OnnxOcrEngine::ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &resul
 
     std::string txt;
     float conf = 0;
-    if (!m_impl->rec_image(roi, txt, conf)) return -3;
+    std::vector<CharSpan> spans;
+    if (!m_impl->rec_image(roi, txt, conf, ext_out ? &spans : nullptr)) return -3;
     if (txt.empty()) return 0;
 
     ocr_rec_t rec;
@@ -716,6 +998,29 @@ int OnnxOcrEngine::ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &resul
     rec.text = utf8_to_wstring(txt); // txt 是 PP-OCR 输出的 UTF-8，必须用 CP_UTF8 解码
     rec.confidence = conf;
     result.push_back(rec);
+    if (ext_out) {
+        ocr_line_ext_t le;
+        le.is_partial = false; // single-line path has no det box to clip against
+        le.partial_chars = rotated;
+        for (const CharSpan &cs : spans) {
+            ocr_char_t c;
+            c.ch = utf8_to_wstring(m_impl->keys[cs.ki]);
+            if (c.ch.empty()) continue; // 空串字典条目，不对应可见字形
+            c.confidence = cs.prob;
+            c.t0 = cs.t0;
+            c.t1 = cs.t1;
+            if (rotated) {
+                c.x1 = 0;
+                c.x2 = w;
+            } else {
+                // rec_image already mapped t→x in whole-image pixels (whole image == ROI here).
+                c.x1 = std::max(0, std::min(cs.x1, w - 1));
+                c.x2 = std::max(c.x1 + 1, std::min(cs.x2, w));
+            }
+            le.chars.push_back(std::move(c));
+        }
+        ext_out->push_back(std::move(le));
+    }
     return 1;
 }
 

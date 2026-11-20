@@ -1,5 +1,6 @@
 #pragma once
 #include "ImageSearchAlgorithms.h"
+#include "../ocr/OcrService.h" // vocr_rec_t / vocr_line_ext_t（P0 逐字 JSON 用）
 #include <memory>
 #include <string>
 
@@ -119,6 +120,15 @@ class ImageSearchService : public ImageSearchAlgorithms {
     // 结构化 ocr_auto_color：输出 "x1,y1,x2,y2,conf,text|..."（bbox 已偏移为客户区坐标，相对绑定窗口客户区左上角）。
     long ocr_auto_color_ex(const wstring &color, double sim, std::wstring &out_str);
 
+    // P0（2026-11-20）逐字结构化输出：JSON
+    //   [{"text","conf","conf_partial"?,"is_partial","box":[x1,y1,x2,y2],
+    //     "partial_chars","chars":[{"ch","conf","x1","x2"}]}]
+    // 坐标原图像素系；conf 与旧 API 同一口径（不可与 chars[].conf 互推）。
+    // ocr_ex2 与 OcrEx 同源（有字库时走字库匹配，无逐字信息）；ocr_auto_color_ex2 与
+    // ocr_auto_color_ex 同源。返回值 = 行数。
+    long ocr_ex2(const wstring &color, double sim, std::wstring &out_json);
+    long ocr_auto_color_ex2(const wstring &color, double sim, std::wstring &out_json);
+
     long OcrEx(const wstring &color, double sim, std::wstring &out_str);
 
     long FindStr(const wstring &str, const wstring &color, double sim, long &retx, long &rety);
@@ -126,6 +136,13 @@ class ImageSearchService : public ImageSearchAlgorithms {
     long FindStrEx(const wstring &str, const wstring &color, double sim, std::wstring &out_str);
 
   private:
+    // P0 JSON 构建：把逐字过滤后的结果拼成 JSON。off_x/off_y 为坐标偏移，
+    // force_full_width_chars=true 时逐字退化为整行跨度（字库/旋转降级）。
+    long build_ocr_json(const vocr_rec_t &res, const vocr_line_ext_t &ext, int off_x, int off_y,
+                        int clip_w, int clip_h, bool bbox_known, bool force_full_width_chars,
+                        std::wstring &out_json);
+    // 字库路径 "x,y,text|..." 旧格式转 JSON（无逐字信息）。
+    long legacy_ocr_to_json(const std::wstring &legacy, long count, std::wstring &out_json);
     // 免字库识别（OnnxOcrEngine 直吃 _src 原图，不按颜色二值化）。
     // 供 OCR() 的无字库兜底分支、以及 OcrAuto / OcrAutoFromFile 共用。
     long OcrFree(double sim, std::wstring &out_str);

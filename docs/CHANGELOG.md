@@ -3,6 +3,26 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-20 第三十八批（feat：B4 逐字置信度 + 逐字坐标 JSON 输出，C API + COM 双出）
+
+第二波第一项，方案见 `docs/2026-11/P0_逐字坐标JSON_实施方案.md`（四项评审决策见该文 §7.5）。新增 2 个对外接口 ×2 层：
+C API `OpOcrEx2` / `OpOcrAutoColorEx2`，COM `OcrEx2`(DISPID 440) / `OcrAutoColorEx2`(441)。
+
+**输出格式**（JSON 数组，坐标为原图像素系，含入口放大自动除回）：
+`[{"text","conf","is_partial",["conf_partial",]"box":[x1,y1,x2,y2],"partial_chars","chars":[{"ch","conf","x1","x2"}]}]`
+
+- **口径声明（重要）**：整行 `conf` 与逐字 `chars[].conf` **口径不同、不可互推**。行级沿用历史口径（全部时间步含 blank 的均值，与旧 API 完全一致，零漂移）；字级只统计该字符占用步。`is_partial=true` 时额外给 `conf_partial = conf*0.8`，是否采用由调用方决定（JSON 里 `conf` 永远是引擎原值）。
+- **旋转行降级**：PCA 倾斜校正过的行无法把逐字 x 精确回映射到轴对齐框，此时 `partial_chars=true` 且 `chars` 的 x1/x2 退化为整行框边界（ch/conf 仍逐字给出）——宁可退化也不给错误坐标。
+- **实现要点（两个实测坑，均在方案文档 §2.3 预判）**：
+  1. `ctc_greedy` 原本丢弃字符的 t 区间，新增 `chars` 可选出参加 `CharSpan` 结构回填；旧调用路径走同一函数但 `chars=nullptr`，行级 `conf` 与文本**逐字节不变**。
+  2. 时间步→像素的映射分母是**该行自己的 `tw`**，不是 `T` 或 320（每 ROI 各自缩放到 tw 再右侧补零到 320）；且 CTC 步只铺在**墨迹**上，不铺在整个 det 框上——按 `[0,tw]` 映射会把每个字心整体平移一个左边距（实测 CJK 行偏移 ~11px）。最终用 `ink_extent()`（列级背景色众数 + 非背景占比 >20%）先锚定墨迹范围，再把字心按序号均匀铺在墨迹内。
+  3. 实测发现该模型 **T=40 但每个字符只占 1 个时间步**（5 字行步位 5/12/19/26），故原始 `[t0,t1+1)` 跨度是"字心"而非"字宽"（直接当宽度只有 2-4px 细条）。改用相邻字心中点切分 + 首末字外扩半个平均字距。
+
+**验证**：新增 `tests/ocr_ex2_test.cpp` 5 条用例（A1 落框内 / A2 单调不重叠 / A3 chars 拼回 text / A4 字心落在真实字形邻域 / A5 旧 `OpOcrEx` 文本一致 / A6 行级 conf 与旧 API 同源），连续 3 轮全绿。
+**反向验证（CLAUDE.md 强制）**：把 `x2` 映射改成 `x2=x1` 后 `CharCentersLandOnRealGlyphs` 必须 FAIL —— 实测确实 FAIL（`char 3 center 86 left of glyph range [105,136)`），证明 A4 断言非恒真。
+
+**发布注意**：COM 方法追加在 `IOpAutomation` 尾部（DISPID 440/441），`LIBID_opLib` 与 `version(1.0)` **未改动**，旧 DISPID 1~439 行为不变；但 `.tlb` 打进 `op.rc` 资源，**用户机必须重新 `regsvr32 op_x64.dll`** 才能在易语言「引用」中看到新方法（仅覆盖 DLL 文件不重新注册会报"找不到方法"）。
+
 ### 2026-11-09 第三十七批（ops：线上备份刷新至最新 HEAD + 新运行件快照）
 
 用户确认「刷线上备份」。**零代码 / 零二进制改动**，纯发布运维：把 `wenxingdi/op` 的 Release `backup-2026-11-09`（id 438882958）5 个附件，从 16:26 那份快照刷到本次 HEAD 与当前发布件。

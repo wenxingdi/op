@@ -354,6 +354,27 @@ int HttpOcrService::ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &resu
     return engine->ocr_line(data, w, h, bpp, result);
 }
 
+// 带逐字信息的变体（P0）：不解锁额外路径，直接转发到引擎的 ocr_ext/ocr_line_ext。
+// 引擎不支持逐字时（基类默认实现）ext 为空，result 语义与 ocr()/ocr_line() 完全一致。
+int HttpOcrService::ocr_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result, vocr_line_ext_t &ext) {
+    const auto engine = lazy_engine("ocr_ext");
+    if (!engine) {
+        ext.clear();
+        return -1;
+    }
+    return engine->ocr_ext(data, w, h, bpp, result, ext);
+}
+
+int HttpOcrService::ocr_line_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result,
+                                 vocr_line_ext_t &ext) {
+    const auto engine = lazy_engine("ocr_line_ext");
+    if (!engine) {
+        ext.clear();
+        return -1;
+    }
+    return engine->ocr_line_ext(data, w, h, bpp, result, ext);
+}
+
 int HttpOcrService::warmup() {
     const auto engine = lazy_engine("warmup");
     if (!engine)

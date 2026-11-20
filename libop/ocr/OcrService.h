@@ -8,6 +8,27 @@
 
 namespace op::ocr {
 
+// 逐字识别结果（P0 2026-11-20）：一行文本里单个字符的置信度与几何信息。
+// 与 ocr_rec_t 的整行 confidence 口径**不同、不可互推**（见
+// docs/2026-11/P0_逐字坐标JSON_实施方案.md）：
+//   - 行级 confidence：所有时间步（含 blank 与重复步）的概率平均（历史口径，保持不变）
+//   - 字级 confidence：仅该字符占用的时间步的概率平均
+// 坐标恒为原图像素坐标（已除回入口放大 oscale）。
+struct ocr_char_t {
+  std::wstring ch;      // 单字符（CTCLoss 一个输出步对应一个字典条目 = 一个完整字符）
+  float confidence = 0; // 字级置信度（见上）
+  int t0 = 0;           // 占用时间步区间（闭区间）
+  int t1 = 0;
+  int x1 = 0; // 原图像素坐标 [x1, x2)
+  int x2 = 0;
+};
+struct ocr_line_ext_t {
+  std::vector<ocr_char_t> chars;
+  bool partial_chars = false; // true = 该行被旋转，chars 已退化为整行框
+  bool is_partial = false;    // true = 框底贴图边界，可能没读全（P5）
+};
+using vocr_line_ext_t = std::vector<ocr_line_ext_t>;
+
 // 抽象 OCR 引擎接口：所有 OCR 后端统一实现此接口。
 // 当前仅内置进程内 ONNX 引擎；HTTP 远程后端已隐藏（条件宏 OP_ENABLE_HTTP_OCR_BACKEND，
 // 定义后在 OcrService.cpp 恢复，且需把 network/HttpClient.cpp 加回 CMake 源列表）。
@@ -20,10 +41,27 @@ public:
                    const std::vector<std::string> &argv) = 0;
   // 对 w×h×bpp 像素 buffer 做 OCR，结果写入 result（bbox + text + confidence）
   virtual int ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) = 0;
+  // 带逐字信息的 ocr（P0）：result 与 ocr() 逐项一致（同序、同坐标、同文本、
+  // 同行级 confidence），ext 为等长的逐字附加信息。默认实现退化为 ocr() 且
+  // ext 置空——调用方据此判断"本引擎不支持逐字"。
+  virtual int ocr_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result, vocr_line_ext_t &ext) {
+    ext.clear();
+    int ret = ocr(data, w, h, bpp, result);
+    ext.assign(result.size(), ocr_line_ext_t{});
+    return ret;
+  }
   // 单行直识别：跳过检测，对整图直接做 rec（快路径，适用于读出区/固定单行文本）。
   // 默认实现转调 ocr()（det+rec），兼容无单行能力的后端。
   virtual int ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
     return ocr(data, w, h, bpp, result);
+  }
+  // 带逐字信息的单行直识别（P0）。默认实现退化：ext 置空。
+  virtual int ocr_line_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result,
+                           vocr_line_ext_t &ext) {
+    ext.clear();
+    int ret = ocr_line(data, w, h, bpp, result);
+    ext.assign(result.size(), ocr_line_ext_t{});
+    return ret;
   }
 };
 
@@ -58,6 +96,9 @@ public:
   int release();
   int ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result);
   int ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &result);
+  // 带逐字信息的变体（P0）：引擎不支持时 ext 为空（长度 0），result 语义不变。
+  int ocr_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result, vocr_line_ext_t &ext);
+  int ocr_line_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result, vocr_line_ext_t &ext);
   // OCR 预热（P2 第二十六批 2026-10-16）：触发懒加载 + 一次小图推理，
   // 消掉首次真实调用的模型加载延迟。返回 0 成功（引擎就绪），-1 引擎不可用。
   int warmup();

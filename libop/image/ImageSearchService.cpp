@@ -1,6 +1,7 @@
 // #include "stdafx.h"
 #include "ImageSearchService.h"
 #include "../base/Utils.h"
+#include "../json/JsonValue.h"
 #include "../ocr/OcrService.h"
 #include <algorithm>
 #include <array>
@@ -87,6 +88,27 @@ void engine_ocr_filtered(unsigned char *data, int w, int h, double sim, vocr_rec
     res.erase(std::remove_if(res.begin(), res.end(),
                              [sim](const ocr_rec_t &r) { return r.confidence < sim - 1e-9; }),
               res.end());
+}
+
+// 逐字版（P0）：与 engine_ocr_filtered 完全同一套过滤，ext 与 res 保持等长同序
+// （过滤时按相同条件同步剔除）。引擎不支持逐字时 ext 各元素为空结构。
+void engine_ocr_filtered_ext(unsigned char *data, int w, int h, double sim, vocr_rec_t &res,
+                             vocr_line_ext_t &ext) {
+    HttpOcrService::getInstance()->ocr_ext(data, w, h, 4, res, ext);
+    // 引擎若未回填（长度不匹配），补齐成空结构以保证等长
+    if (ext.size() != res.size()) ext.assign(res.size(), ocr_line_ext_t{});
+    // 同步过滤：按 conf 阈值同时剔除 res 与 ext，保持一一对应
+    size_t out = 0;
+    for (size_t i = 0; i < res.size(); ++i) {
+        if (res[i].confidence < sim - 1e-9) continue;
+        if (out != i) {
+            res[out] = std::move(res[i]);
+            ext[out] = std::move(ext[i]);
+        }
+        ++out;
+    }
+    res.resize(out);
+    ext.resize(out);
 }
 
 template <typename Fn> void for_each_dict_line(const wstring &dict_info, Fn fn) {
@@ -1319,6 +1341,220 @@ long ImageSearchService::OcrEx(const wstring &color, double sim, std::wstring &r
         str2pointbinaryfbk(color, sim);
         return ImageSearchAlgorithms::OcrEx(*dict, sim, retstr);
     }
+}
+
+long ImageSearchService::ocr_ex2(const wstring &color, double sim, std::wstring &out_json) {
+    out_json.clear();
+    sim = clamp_sim_default(sim);
+    auto dict = ActiveDict(_curr_idx);
+    if (!dict) {
+        // 免字库路径：与 OcrEx 同源（原图直识，color 不参与）
+        if (_src.width <= 0 || _src.height <= 0)
+            return 0;
+        vocr_rec_t res;
+        vocr_line_ext_t ext;
+        engine_ocr_filtered_ext(_src.pdata, _src.width, _src.height, sim, res, ext);
+        return build_ocr_json(res, ext, 0, 0, 0, 0, /*bbox_known=*/false, false, out_json);
+    }
+    // 字库路径：字库匹配无逐字信息，仅输出整行结果（chars 为空数组）
+    str2pointbinaryfbk(color, sim);
+    std::wstring legacy;
+    long ct = ImageSearchAlgorithms::OcrEx(*dict, sim, legacy);
+    return legacy_ocr_to_json(legacy, ct, out_json);
+}
+
+long ImageSearchService::ocr_auto_color_ex2(const wstring &color, double sim, std::wstring &out_json) {
+    out_json.clear();
+    // 空颜色 = 不做颜色过滤 -> 走原图直识，与 AutoOcr / AutoOcrLine 的归一语义一致。
+    // 空颜色若继续走二值化会产出全背景图、结果恒空（历史 bug #ocr-empty-color，
+    // 见 op_c_api.cpp 中 OpAutoOcrLine 的注释）。实测 4.bmp 传空色即因此返回 0 行。
+    if (color.empty())
+        return ocr_ex2(color, sim, out_json);
+    sim = clamp_sim_default(sim);
+
+    str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);
+
+    auto dict = ActiveDict(_curr_idx);
+    if (dict) {
+        std::wstring legacy;
+        long ct = ImageSearchAlgorithms::OcrEx(*dict, sim, legacy);
+        return legacy_ocr_to_json(legacy, ct, out_json);
+    }
+
+    int w = _binary.width, h = _binary.height;
+    if (w <= 0 || h <= 0)
+        return 0;
+    std::vector<unsigned char> buf;
+    binary_to_white_on_black_bgra(_binary.data(), w, h, buf);
+    vocr_rec_t res;
+    vocr_line_ext_t ext;
+    engine_ocr_filtered_ext(buf.data(), w, h, sim, res, ext);
+    // 与 ocr_auto_color_ex 同一阅读序排序，且 ext 同步换位以保持一一对应
+    std::vector<size_t> order(res.size());
+    for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+    std::stable_sort(order.begin(), order.end(), [&res](size_t a, size_t b) {
+        if (res[a].left_top.y != res[b].left_top.y) return res[a].left_top.y < res[b].left_top.y;
+        return res[a].left_top.x < res[b].left_top.x;
+    });
+    vocr_rec_t sorted;
+    vocr_line_ext_t sorted_ext;
+    sorted.reserve(res.size());
+    sorted_ext.reserve(ext.size());
+    for (size_t idx : order) {
+        sorted.push_back(std::move(res[idx]));
+        sorted_ext.push_back(std::move(ext[idx]));
+    }
+    // 二值化路径的 is_partial 无 det 框贴边语义参考，统一 false；partial_chars 由引擎给。
+    // 注意：这里不能传 force_full_width_chars=true——引擎已经给出真实逐字 x，
+    // 只有字库路径/旋转降级才需要压平成整行跨度。
+    return build_ocr_json(sorted, sorted_ext, _x1 + _dx, _y1 + _dy, w, h, /*bbox_known=*/true,
+                          /*force_full_width_chars=*/false, out_json);
+}
+
+long ImageSearchService::build_ocr_json(const vocr_rec_t &res, const vocr_line_ext_t &ext, int off_x,
+                                        int off_y, int clip_w, int clip_h, bool bbox_known,
+                                        bool force_full_width_chars, std::wstring &out_json) {
+    using namespace op::json;
+    Value root;
+    root.type = Type::Array;
+    long emitted = 0;
+
+    auto num = [](double v) {
+        Value n;
+        n.type = Type::Number;
+        n.number = v;
+        return n;
+    };
+    auto strv = [](const std::wstring &s) {
+        Value v;
+        v.type = Type::String;
+        v.str = s;
+        return v;
+    };
+    auto boolv = [](bool b) {
+        Value v;
+        v.type = Type::Bool;
+        v.boolean = b;
+        return v;
+    };
+    auto key = [](const wchar_t *k, Value v) { return std::make_pair(std::wstring(k), std::move(v)); };
+
+    for (size_t i = 0; i < res.size(); ++i) {
+        if (emitted >= _max_return_obj_ct) break;
+        const ocr_rec_t &r = res[i];
+        const ocr_line_ext_t empty_ext;
+        const ocr_line_ext_t &e = (i < ext.size()) ? ext[i] : empty_ext;
+
+        int x1 = r.left_top.x + off_x;
+        int y1 = r.left_top.y + off_y;
+        int x2 = r.right_bottom.x + off_x;
+        int y2 = r.right_bottom.y + off_y;
+
+        Value line;
+        line.type = Type::Object;
+        line.obj.push_back(key(L"text", strv(r.text)));
+        line.obj.push_back(key(L"conf", num(double(r.confidence))));
+        // is_partial：框底贴图边界 <2px。仅在坐标可判（原图路径）时给真值。
+        if (e.is_partial) line.obj.push_back(key(L"conf_partial", num(double(r.confidence) * 0.8)));
+        line.obj.push_back(key(L"is_partial", boolv(e.is_partial)));
+        Value box;
+        box.type = Type::Array;
+        box.arr.push_back(num(x1));
+        box.arr.push_back(num(y1));
+        box.arr.push_back(num(x2));
+        box.arr.push_back(num(y2));
+        line.obj.push_back(key(L"box", std::move(box)));
+        line.obj.push_back(key(L"partial_chars", boolv(e.partial_chars)));
+
+        Value chars;
+        chars.type = Type::Array;
+        for (const ocr_char_t &c : e.chars) {
+            Value cv;
+            cv.type = Type::Object;
+            cv.obj.push_back(key(L"ch", strv(c.ch)));
+            cv.obj.push_back(key(L"conf", num(double(c.confidence))));
+            // 注意：引擎回的 ocr_char_t.x1/x2 已是**原图绝对坐标**（ocr() 内已加
+            // rec.left_top.x 并除回放大），这里只能加区域偏移 off_x，不能再加
+            // det 框原点——重复加会导致逐字坐标成倍越界。
+            int cx1 = c.x1 + off_x;
+            int cx2 = c.x2 + off_x;
+            if (force_full_width_chars) { // degraded: whole-line span
+                cx1 = x1;
+                cx2 = x2;
+            }
+            if (bbox_known && clip_w > 0) { // clamp into the line box (A1)
+                if (cx1 < x1) cx1 = x1;
+                if (cx2 > x2) cx2 = x2;
+                if (cx2 <= cx1) cx2 = cx1 + 1;
+            }
+            cv.obj.push_back(key(L"x1", num(cx1)));
+            cv.obj.push_back(key(L"x2", num(cx2)));
+            chars.arr.push_back(std::move(cv));
+        }
+        line.obj.push_back(key(L"chars", std::move(chars)));
+
+        root.arr.push_back(std::move(line));
+        ++emitted;
+    }
+    out_json = op::json::Stringify(root);
+    return emitted;
+}
+
+long ImageSearchService::legacy_ocr_to_json(const std::wstring &legacy, long count, std::wstring &out_json) {
+    using namespace op::json;
+    Value root;
+    root.type = Type::Array;
+    if (!legacy.empty()) {
+        std::vector<std::wstring> items;
+        split(legacy, items, L"|");
+        for (const std::wstring &item : items) {
+            if (item.empty()) continue;
+            // 字库路径格式 "x,y,text"（OcrEx）：拆出坐标与文本，无逐字信息
+            Value line;
+            line.type = Type::Object;
+            std::wstring text = item;
+            int x1 = 0, y1 = 0;
+            size_t c1 = item.find(L',');
+            size_t c2 = (c1 == std::wstring::npos) ? std::wstring::npos : item.find(L',', c1 + 1);
+            if (c1 != std::wstring::npos && c2 != std::wstring::npos) {
+                x1 = _wtoi(item.substr(0, c1).c_str());
+                y1 = _wtoi(item.substr(c1 + 1, c2 - c1 - 1).c_str());
+                text = item.substr(c2 + 1);
+            }
+            Value textv;
+            textv.type = Type::String;
+            textv.str = text;
+            line.obj.push_back(std::make_pair(std::wstring(L"text"), std::move(textv)));
+            Value confv;
+            confv.type = Type::Number;
+            confv.number = 1.0; // 字库匹配为精确匹配，无置信度概念
+            line.obj.push_back(std::make_pair(std::wstring(L"conf"), std::move(confv)));
+            Value isp;
+            isp.type = Type::Bool;
+            isp.boolean = false;
+            line.obj.push_back(std::make_pair(std::wstring(L"is_partial"), std::move(isp)));
+            Value box;
+            box.type = Type::Array;
+            Value vx, vy;
+            vx.type = Type::Number;
+            vx.number = x1;
+            vy.type = Type::Number;
+            vy.number = y1;
+            box.arr.push_back(std::move(vx));
+            box.arr.push_back(std::move(vy));
+            line.obj.push_back(std::make_pair(std::wstring(L"box"), std::move(box)));
+            Value pc;
+            pc.type = Type::Bool;
+            pc.boolean = true; // 字库路径无逐字坐标
+            line.obj.push_back(std::make_pair(std::wstring(L"partial_chars"), std::move(pc)));
+            Value chars;
+            chars.type = Type::Array;
+            line.obj.push_back(std::make_pair(std::wstring(L"chars"), std::move(chars)));
+            root.arr.push_back(std::move(line));
+        }
+    }
+    out_json = op::json::Stringify(root);
+    return count;
 }
 
 long ImageSearchService::FindStr(const wstring &str, const wstring &color, double sim, long &retx, long &rety) {

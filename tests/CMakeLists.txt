@@ -150,6 +150,7 @@ set(OP_TEST_SOURCES
   "capture_mode_test.cpp"
   "wgc_test.cpp"
   "ocr_test.cpp"
+  "ocr_ex2_test.cpp"
   "yolo_test.cpp"
   "utils_test.cpp"
   "memory_search_test.cpp"

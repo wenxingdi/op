@@ -1699,6 +1699,23 @@ STDMETHODIMP OpAutomation::OcrAutoColorEx(LONG x1, LONG y1, LONG x2, LONG y2, BS
     return CopyOutBstr(retstr, s);
 }
 
+STDMETHODIMP OpAutomation::OcrEx2(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.OcrEx2(x1, y1, x2, y2, color, static_cast<double>(sim), s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::OcrAutoColorEx2(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim,
+                                           BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    wstring s;
+    *ret = obj.OcrAutoColorEx2(x1, y1, x2, y2, color, static_cast<double>(sim), s);
+    return CopyOutBstr(retstr, s);
+}
+
 STDMETHODIMP OpAutomation::OcrAutoColorFromFile(BSTR file_name, BSTR color_format, DOUBLE sim, BSTR *retstr) {
     wstring s;
     obj.OcrAutoColorFromFile(file_name, color_format, static_cast<double>(sim), s);
