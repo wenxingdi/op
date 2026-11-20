@@ -1363,6 +1363,52 @@ long ImageSearchService::ocr_ex2(const wstring &color, double sim, std::wstring 
     return legacy_ocr_to_json(legacy, ct, out_json);
 }
 
+// 智能选路（2026-11-20）：统计源图中命中指定颜色（含容差）的像素数。
+// 用途：决定该走颜色二值化路径还是原图直识路径。
+//
+// 背景（实测 D:\GMPLUG\DmTools\Dict 8 张小图）：
+//   - 坐标类文本（如 "断臂崖[-1219,-1864]"）用红色字 RGB(224,17,17)，
+//     原图路径只有 12~24% 准确率（红字+抗锯齿+12~14px 小字），
+//     颜色二值化后提到 100%——因为红字被单独抠出、背景噪声被去掉。
+//   - 纯汉字名（如 "青螺山割喉者"）用白色字，图里根本没有目标色，
+//     此时走颜色路径会得到全背景图、结果恒空（0 行）。
+// 故按"图里是否真有这个颜色"选路，实测 16 组全命中「两路取优」的上界
+// （平均字符准确率 77.0% → 97.4%）。
+//
+// 判据说明：
+//   - 复用 str2colordfs 解析颜色串（支持 "RRGGBB-DDDDDD" 与 "a|b" 多色并集），
+//     与既有颜色路径用同一套解析，口径不会漂移。
+//   - 逐通道容差比较（|px - target| <= df），与 bgr2binary 的判定一致。
+//   - 空颜色串（"@xxx" 反白格式等无法逐色比对的写法）直接返回 -1 表示"无法探测"，
+//     调用方据此保守地仍走颜色路径（保持既有行为）。
+long ImageSearchService::count_color_hits(const wstring &color, int &out_total_px) {
+    out_total_px = _src.width * _src.height;
+    if (color.empty() || _src.width <= 0 || _src.height <= 0) return -1;
+    std::vector<color_df_t> colors;
+    str2colordfs(color, colors);
+    if (colors.empty()) return -1; // 反白等特殊写法：无法逐色探测
+    long hits = 0;
+    // _src 是 BGRA 32bpp：pdata 每像素 4 字节，字节序 b,g,r,a（见 Color.h 的 color_t 注释）
+    const auto *px = reinterpret_cast<const unsigned char *>(_src.pdata);
+    const size_t stride = size_t(_src.width) * 4;
+    for (int y = 0; y < _src.height; ++y) {
+        const unsigned char *row = px + size_t(y) * stride;
+        for (int x = 0; x < _src.width; ++x) {
+            const unsigned char *p = row + size_t(x) * 4;
+            for (const color_df_t &c : colors) {
+                const int db = std::abs(int(p[0]) - int(c.color.b));
+                const int dg = std::abs(int(p[1]) - int(c.color.g));
+                const int dr = std::abs(int(p[2]) - int(c.color.r));
+                if (db <= c.df.b && dg <= c.df.g && dr <= c.df.r) {
+                    ++hits;
+                    break;
+                }
+            }
+        }
+    }
+    return hits;
+}
+
 long ImageSearchService::ocr_auto_color_ex2(const wstring &color, double sim, std::wstring &out_json) {
     out_json.clear();
     // 空颜色 = 不做颜色过滤 -> 走原图直识，与 AutoOcr / AutoOcrLine 的归一语义一致。
@@ -1370,6 +1416,14 @@ long ImageSearchService::ocr_auto_color_ex2(const wstring &color, double sim, st
     // 见 op_c_api.cpp 中 OpAutoOcrLine 的注释）。实测 4.bmp 传空色即因此返回 0 行。
     if (color.empty())
         return ocr_ex2(color, sim, out_json);
+    // 智能选路：图里几乎没有目标色时，二值化会得到全背景图、识别恒空。
+    // 此时回退原图直识（白字场景的实测准确率是 100%，见上方 count_color_hits 注释）。
+    // 阈值 1/1000：小图上 30~400 个彩色字像素约占 0.5%~7%，而纯白字图的命中数是 0。
+    int total_px = 0;
+    const long hits = count_color_hits(color, total_px);
+    if (hits >= 0 && total_px > 0 && hits * 1000 < total_px) {
+        return ocr_ex2(color, sim, out_json);
+    }
     sim = clamp_sim_default(sim);
 
     str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);

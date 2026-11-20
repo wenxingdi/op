@@ -413,7 +413,9 @@ OP_C_API const wchar_t *OP_CALL OpOcrAutoColorEx(op_handle handle, int x1, int y
  * 语义同 OpOcrEx（有字库时走字库匹配，此时 chars 为空数组）。 */
 OP_C_API const wchar_t *OP_CALL OpOcrEx2(op_handle handle, int x1, int y1, int x2, int y2,
                                          const wchar_t *color, double sim);
-/* 【P0】同 OpOcrEx2，但先按 color 二值化（语义同 OpOcrAutoColorEx），find_count 输出命中行数。 */
+/* 【P0】同 OpOcrEx2，但先按 color 二值化（语义同 OpOcrAutoColorEx），find_count 输出命中行数。
+ * ⚠ 颜色为 **RGB 顺序** `RRGGBB-DDDDDD`（红色写 e01111，不是 1111e0）；多色用 | 分隔取并集。
+ * 智能选路：图中命中该色的像素占比 <0.1% 时自动回退原图直识（白字图传色也不会返回空）。 */
 OP_C_API const wchar_t *OP_CALL OpOcrAutoColorEx2(op_handle handle, int x1, int y1, int x2, int y2,
                                                   const wchar_t *color, double sim, int *find_count);
 OP_C_API int OP_CALL OpFindStr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *strs,

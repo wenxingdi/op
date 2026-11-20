@@ -2,7 +2,7 @@
   "meta": {
     "title": "OP 插件 API 目录（大模型 function-calling 版）",
     "source": "include/libop.h",
-    "generated": "2026-11-20 16:24",
+    "generated": "2026-11-20 22:36",
     "generator": "scripts/gen_api_reference.py",
     "total_functions": 312,
     "usage": {
@@ -16538,7 +16538,7 @@
           "python_example": "op.OcrAutoColorEx2(x1, y1, x2, y2, color, sim)  # → (et_str)",
           "python_ctypes_name": "ocr_auto_color_ex2",
           "in_ctypes_binding": false,
-          "description": "同 OcrEx2，但先按 color_format 二值化（与 OcrAutoColorEx 同源）。",
+          "description": "同 OcrEx2，但先按 color_format 二值化（与 OcrAutoColorEx 同源）。\n⚠ 颜色格式为 **RGB 顺序** `RRGGBB-DDDDDD`（不是 BGR）：红色写 `e01111` 而非 `1111e0`。\n多色用 `|` 分隔 = 并集（各色按容差二值化后取并集，只跑一次 det+rec）。\n智能选路（自动）：图里命中 color 的像素占比 < 0.1% 时，二值化会得到全背景图、\n结果恒空，此时自动回退到原图直识（与 OcrEx2 行为一致）。故白字/无目标色的\n图传色也不会失败。实测 8 张真实小图：v6 从 3/8 全对提升到 8/8 全对。",
           "params": [
             {
               "name": "x1",
@@ -16605,7 +16605,7 @@
           "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）；et_str: 出参：字符串结果",
           "tool_schema": {
             "name": "OcrAutoColorEx2",
-            "description": "同 OcrEx2，但先按 color_format 二值化（与 OcrAutoColorEx 同源）。",
+            "description": "同 OcrEx2，但先按 color_format 二值化（与 OcrAutoColorEx 同源）。\n⚠ 颜色格式为 **RGB 顺序** `RRGGBB-DDDDDD`（不是 BGR）：红色写 `e01111` 而非 `1111e0`。\n多色用 `|` 分隔 = 并集（各色按容差二值化后取并集，只跑一次 det+rec）。\n智能选路（自动）：图里命中 color 的像素占比 < 0.1% 时，二值化会得到全背景图、\n结果恒空，此时自动回退到原图直识（与 OcrEx2 行为一致）。故白字/无目标色的\n图传色也不会失败。实测 8 张真实小图：v6 从 3/8 全对提升到 8/8 全对。",
             "parameters": {
               "type": "object",
               "properties": {

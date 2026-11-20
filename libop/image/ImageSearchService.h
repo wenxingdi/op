@@ -136,6 +136,10 @@ class ImageSearchService : public ImageSearchAlgorithms {
     long FindStrEx(const wstring &str, const wstring &color, double sim, std::wstring &out_str);
 
   private:
+    // 智能选路（2026-11-20）：统计 _src 中命中指定颜色（逐通道容差）的像素数。
+    // 返回 -1 = 无法探测（空串/@反白等特殊写法），调用方应保守沿用颜色路径。
+    // out_total_px 输出总像素数，供调用方算占比。
+    long count_color_hits(const wstring &color, int &out_total_px);
     // P0 JSON 构建：把逐字过滤后的结果拼成 JSON。off_x/off_y 为坐标偏移，
     // force_full_width_chars=true 时逐字退化为整行跨度（字库/旋转降级）。
     long build_ocr_json(const vocr_rec_t &res, const vocr_line_ext_t &ext, int off_x, int off_y,

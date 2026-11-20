@@ -38,7 +38,7 @@ struct GlyphImage {
     std::vector<std::pair<int, int>> glyph_x_ranges; // 每个字符的 [x_begin, x_end)
 };
 
-bool BuildTextBmp(const std::wstring &text, GlyphImage &out) {
+bool BuildTextBmp(const std::wstring &text, GlyphImage &out, COLORREF ink = RGB(0, 0, 0)) {
     const int font_height = 40;
     const int pad = 12;
     HDC screen = GetDC(nullptr);
@@ -83,7 +83,7 @@ bool BuildTextBmp(const std::wstring &text, GlyphImage &out) {
     RECT rc{0, 0, w, h};
     FillRect(dc, &rc, static_cast<HBRUSH>(GetStockObject(WHITE_BRUSH)));
     SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, RGB(0, 0, 0));
+    SetTextColor(dc, ink);
     SelectObject(dc, font);
     TextOutW(dc, pad, pad, text.c_str(), static_cast<int>(text.size()));
 
@@ -108,8 +108,9 @@ bool BuildTextBmp(const std::wstring &text, GlyphImage &out) {
     return true;
 }
 
-std::wstring WriteGlyphBmp(const std::wstring &text, const wchar_t *file_name, GlyphImage &img) {
-    if (!BuildTextBmp(text, img))
+std::wstring WriteGlyphBmp(const std::wstring &text, const wchar_t *file_name, GlyphImage &img,
+                           COLORREF ink = RGB(0, 0, 0)) {
+    if (!BuildTextBmp(text, img, ink))
         return L"";
     const auto bmp = test_support::BuildBmp32TopDown(img.width, img.height, img.bgra);
     const std::wstring path = test_support::GetTempBmpPath(file_name);
@@ -352,6 +353,62 @@ TEST(OcrEx2Test, AutoColorEx2WithEmptyColorFallsBackToRawImage) {
 
     EXPECT_GT(count, 0) << "empty color must NOT binarize into an all-background image";
     EXPECT_EQ(json_raw, json_color) << "empty color must fall back to the raw-image path";
+}
+
+// 智能选路（2026-11-20）：AutoColorEx2 在「图里没有目标色」时应自动回退原图直识。
+// 反向验证：删掉 count_color_hits 的选路分支后，白字图传红色会二值化出全背景图、返回 0 行，
+// 本用例必须 FAIL。
+TEST(OcrEx2Test, AutoColorEx2SkipsBinarizeWhenTargetColorAbsent) {
+    if (SkipOcr())
+        GTEST_SKIP() << "OCR tests are disabled by OP_SKIP_OCR_TESTS.";
+
+    // 白色字 + 白底以外无红色：图里没有红色像素
+    GlyphImage img;
+    const std::wstring path =
+        WriteGlyphBmp(kCjkText, L"op_test_ocrex2_smartroute.bmp", img, RGB(0, 0, 0));
+    ASSERT_FALSE(path.empty());
+
+    CApiHandle api;
+    ASSERT_EQ(OpSetOcrEngine(api.handle, L"onnx", L"", L""), 1);
+    ASSERT_EQ(OpSetDisplayInput(api.handle, (L"pic:" + path).c_str()), 1);
+
+    // 传一个图里不存在的颜色（红色）：智能选路应识别出"无此色"并回退原图
+    int count_absent = 0;
+    const wchar_t *raw_absent = OpOcrAutoColorEx2(api.handle, 0, 0, img.width, img.height,
+                                                  L"e01111-000000", 0.3, &count_absent);
+    ASSERT_NE(raw_absent, nullptr);
+    EXPECT_GT(count_absent, 0) << "absent target color must fall back to the raw-image path";
+    EXPECT_NE(std::wstring(raw_absent).find(L'"'), std::wstring::npos);
+
+    // 空颜色同样走原图路径，两者结果应一致
+    const wchar_t *raw_empty =
+        OpOcrEx2(api.handle, 0, 0, img.width, img.height, L"", 0.3);
+    ASSERT_NE(raw_empty, nullptr);
+    EXPECT_EQ(std::wstring(raw_absent), std::wstring(raw_empty))
+        << "absent-color fallback should equal the plain raw-image path";
+}
+
+// 反向一：图里真的含有目标色时应走颜色路径（不回退），结果非空。
+TEST(OcrEx2Test, AutoColorEx2UsesBinarizeWhenTargetColorPresent) {
+    if (SkipOcr())
+        GTEST_SKIP() << "OCR tests are disabled by OP_SKIP_OCR_TESTS.";
+
+    // 用红色字渲染：图里确实存在 RGB(224,17,17)
+    GlyphImage img;
+    const std::wstring path =
+        WriteGlyphBmp(kCjkText, L"op_test_ocrex2_smartroute2.bmp", img, RGB(224, 17, 17));
+    ASSERT_FALSE(path.empty());
+
+    CApiHandle api;
+    ASSERT_EQ(OpSetOcrEngine(api.handle, L"onnx", L"", L""), 1);
+    ASSERT_EQ(OpSetDisplayInput(api.handle, (L"pic:" + path).c_str()), 1);
+
+    int count = 0;
+    // 颜色按 RGB 顺序写：e01111 = R=0xE0,G=0x11,B=0x11 -> RGB(224,17,17)
+    const wchar_t *raw = OpOcrAutoColorEx2(api.handle, 0, 0, img.width, img.height,
+                                           L"e01111-303030", 0.3, &count);
+    ASSERT_NE(raw, nullptr);
+    EXPECT_GT(count, 0) << "target color present -> color path should detect the line";
 }
 
 // 空区域/0 尺寸不得返回 nullptr，且必须给出合法 JSON（"[]" 或空）。

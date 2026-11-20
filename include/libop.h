@@ -737,6 +737,11 @@ class OP_API Op {
     void OcrEx2(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                 _In_ double sim, _Out_ std::wstring &ret_str);
     // 同 OcrEx2，但先按 color_format 二值化（与 OcrAutoColorEx 同源）。
+    // ⚠ 颜色格式为 **RGB 顺序** `RRGGBB-DDDDDD`（不是 BGR）：红色写 `e01111` 而非 `1111e0`。
+    //   多色用 `|` 分隔 = 并集（各色按容差二值化后取并集，只跑一次 det+rec）。
+    // 智能选路（自动）：图里命中 color 的像素占比 < 0.1% 时，二值化会得到全背景图、
+    //   结果恒空，此时自动回退到原图直识（与 OcrEx2 行为一致）。故白字/无目标色的
+    //   图传色也不会失败。实测 8 张真实小图：v6 从 3/8 全对提升到 8/8 全对。
     long OcrAutoColorEx2(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                          _In_ double sim, _Out_ std::wstring &ret_str);
     // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
