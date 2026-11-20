@@ -118,11 +118,24 @@ private:
   // 并发推理期间 release()/重 init 不会销毁正在使用的引擎实例。
   std::shared_ptr<OcrEngine> m_engine; // 当前选中的引擎（默认内置 OnnxOcrEngine）
   bool m_lazy_failed = false;          // 懒初始化已尝试且失败：只试一次，后续快速返回 -1
-  // B8 多档热切换：已加载引擎缓存（name -> engine）。引擎加载后常驻（单例泄漏设计），
-  // SetOcrEngine 在档位间切换为零成本（只换活动指针），首次使用的档位懒加载。
+  // B8 多档热切换：已加载引擎缓存（key -> engine）。同一档位+同一 argv 命中缓存后，
+  // 切换为零成本（只换活动指针），首次使用的档位懒加载。
+  //
+  // 容量上限（2026-11-20 修 bug）：每个内置引擎实例各持有一份 Ort::Env + 完整模型
+  // buffer + det/rec/cls 三个 session，实测常驻约 240MB。原实现无上限缓存且永不释放，
+  // 进程内切过 4 种配置后内存涨到 ~950MB，此后新建实例的 session 创建失败 →
+  // 该档位静默返回 0 行结果（不是崩溃，最难察觉）。改为 LRU 上限，
+  // 超出时淘汰最久未用的实例（正在被 m_engine 引用的不会被淘汰）。
+  static constexpr size_t kMaxCachedEngines = 2;
+  // 插入顺序 + 命中时移到末尾 = LRU；值为 (cache_key, engine)。
   std::map<std::string, std::shared_ptr<OcrEngine>> m_engine_cache;
+  std::vector<std::string> m_cache_lru; // 最近使用顺序，末尾最新
+  // 记录每个引擎实例是否已成功跑过至少一次推理（失败实例不占缓存名额，下次重建）。
   // 归一化档位名：空/"onnx"/"builtin"/未知 -> "v6"（默认精度的档）；"v4" -> 快档。
   static std::string normalize_engine_name(const std::string &eng);
+  // 缓存淘汰：调用方必须已持锁。保留 m_engine 引用的实例，其余按 LRU 淘汰到 cap 以内。
+  void evict_cache_unlocked();
+  void evict_cache_to_unlocked(size_t cap);
   // 取（或首次创建并初始化）名为 name 的内置引擎；调用方必须已持锁。失败返回 nullptr。
   std::shared_ptr<OcrEngine> builtin_engine_unlocked(const std::string &name,
                                                      const std::wstring &dllName,

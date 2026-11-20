@@ -4,6 +4,7 @@
 #include "../network/HttpClient.h"
 #endif
 #include "../base/Utils.h"
+#include <algorithm>
 #include <cctype>
 #include <iostream>
 #include <regex>
@@ -265,6 +266,11 @@ int HttpOcrService::init_unlocked(const std::wstring &engine, const std::wstring
              << endl;
         return -1;
     }
+    // 淘汰判据是"是否被 m_engine 引用"。此处 m_engine 仍指向**旧**实例，
+    // 若不先松手，evict 会把旧实例当成在用而永远跳过它，缓存上限失效。
+    // 先释放引用（调用方已持锁，且在锁内取 shared_ptr 快照后才推理，
+    // 在途推理由各自的快照持有，不受影响），再交给 builtin_engine_unlocked 重设。
+    m_engine.reset();
     m_engine = builtin_engine_unlocked(name, dllName, argv);
     if (!m_engine)
         return -1;
@@ -282,6 +288,31 @@ std::string HttpOcrService::normalize_engine_name(const std::string &eng) {
     return "v6";
 }
 
+// LRU 淘汰：调用方必须已持锁。每个内置引擎常驻约 240MB（Ort::Env + 模型 + 3 session），
+// 无上限缓存会在进程内切过几种配置后耗尽内存，导致新实例 session 创建失败、静默返回 0 行。
+// 保留 m_engine 正在引用的实例（shared_ptr 让在途推理也安全），其余按 m_cache_lru 淘汰。
+void HttpOcrService::evict_cache_unlocked() { evict_cache_to_unlocked(kMaxCachedEngines); }
+
+void HttpOcrService::evict_cache_to_unlocked(size_t cap) {
+    // 最多尝试 LRU 队列长度的次数，避免"全是当前实例"时死循环
+    size_t guard = m_cache_lru.size();
+    while (m_engine_cache.size() > cap && guard-- > 0 && !m_cache_lru.empty()) {
+        const std::string victim = m_cache_lru.front();
+        m_cache_lru.erase(m_cache_lru.begin());
+        auto it = m_engine_cache.find(victim);
+        if (it == m_engine_cache.end()) continue; // 已在淘汰过程中移除
+        if (it->second == m_engine) {
+            // 正在使用的实例不可淘汰：挪到队尾，下一轮再看别人
+            m_cache_lru.push_back(victim);
+            continue;
+        }
+        cout << "HttpOcrService: evict cached engine (cap=" << cap << ")" << endl;
+        cout << "  evict key=" << victim << " engine=" << it->second.get() << " cur=" << m_engine.get()
+             << " use_count=" << it->second.use_count() << endl;
+        m_engine_cache.erase(it);
+    }
+}
+
 std::shared_ptr<OcrEngine> HttpOcrService::builtin_engine_unlocked(
     const std::string &name, const std::wstring &dllName, const std::vector<std::string> &argv) {
 #if defined(OP_HAS_ONNX) && OP_HAS_ONNX
@@ -294,13 +325,31 @@ std::shared_ptr<OcrEngine> HttpOcrService::builtin_engine_unlocked(
         key += a;
     }
     auto it = m_engine_cache.find(key);
-    if (it != m_engine_cache.end())
-        return it->second; // 同档位同参数：零成本复用（热切换只换活动指针）
+    if (it != m_engine_cache.end()) {
+        // 命中：标记为最近使用（移到 LRU 队尾）后零成本复用
+        auto lru = std::find(m_cache_lru.begin(), m_cache_lru.end(), key);
+        if (lru != m_cache_lru.end()) m_cache_lru.erase(lru);
+        m_cache_lru.push_back(key);
+        return it->second;
+    }
+    // 新建前先淘汰，给新实例腾出名额：缓存里最多留 kMaxCachedEngines-1 个，
+    // 否则加载新实例时进程内会同时存在 kMaxCachedEngines+1 份模型（各约 240MB），
+    // 峰值内存不足会让新 session 创建失败 → 该档位静默返回 0 行。
+    // 注意：evict_cache_unlocked 的判据是 size() > kMaxCachedEngines，直接调用并
+    // 不能在"刚好等于上限"时腾出名额，这里必须先收紧上限再调用。
+    evict_cache_to_unlocked(kMaxCachedEngines > 0 ? kMaxCachedEngines - 1 : 0);
     auto e = std::make_shared<OnnxOcrEngine>();
     const std::wstring wname(name.begin(), name.end()); // 档位名 ASCII，直接扩宽
-    if (e->init(wname, dllName, argv) != 0)
+    if (e->init(wname, dllName, argv) != 0) {
+        cout << "HttpOcrService: engine init failed (tier=" << name << ")" << endl;
         return nullptr;
+    }
     m_engine_cache[key] = e;
+    m_cache_lru.push_back(key);
+    // 建好后立刻把新实例登记为"当前"，再淘汰一次：新实例因此受保护，
+    // 淘汰只可能落在别人身上。
+    m_engine = e;
+    evict_cache_unlocked();
     return e;
 #else
     (void)name;

@@ -162,7 +162,19 @@ bool ort_run(Ort::Session &sess, const std::vector<float> &in, const std::vector
     const char *iname_c = iname.get();
     const char *oname_c = oname.get();
     Ort::RunOptions ropts;
-    auto res = sess.Run(ropts, &iname_c, &v, 1, &oname_c, 1);
+    std::vector<Ort::Value> res;
+    try {
+        res = sess.Run(ropts, &iname_c, &v, 1, &oname_c, 1);
+    } catch (const std::exception &e) {
+        // ORT 抛异常时必须在引擎内吞掉并返回 false，不能让它冒到 C 边界
+        // （call_string 只回空串，上层无法区分"识别失败"和"没有文字"）。
+        std::cerr << "ort_run: Run threw: " << e.what() << std::endl;
+        return false;
+    } catch (...) {
+        std::cerr << "ort_run: Run threw unknown exception" << std::endl;
+        return false;
+    }
+    if (res.empty()) return false;
     oshape = res[0].GetTensorTypeAndShapeInfo().GetShape();
     const float *p = res[0].GetTensorData<float>();
     size_t n = 1;
@@ -387,9 +399,17 @@ std::string ctc_greedy(const float *out, const std::vector<int64_t> &shape,
 }
 } // namespace
 
+// 进程级共享 Ort::Env。
+// 每个引擎实例各自持有 Env 会在 LRU 淘汰（析构实例）时反复创建/销毁 Env，
+// 实测导致后续新建实例偶发推理失败（模型能加载，但识别结果为空）。
+// ONNX Runtime 也建议全进程复用一个 Env；Env 本身不持有模型，共享没有副作用。
+Ort::Env &shared_env() {
+    static Ort::Env env{ORT_LOGGING_LEVEL_ERROR, "op-ocr"};
+    return env;
+}
+
 class OnnxOcrEngine::Impl {
 public:
-    Ort::Env env{ORT_LOGGING_LEVEL_ERROR, "op-ocr"};
     Ort::SessionOptions sopts;
     std::unique_ptr<Ort::Session> det;
     std::unique_ptr<Ort::Session> rec;
@@ -700,10 +720,10 @@ public:
             cout << "OnnxOcrEngine: model resource missing (det/rec)" << endl;
             return false;
         }
-        det = std::make_unique<Ort::Session>(env, m_det.data(), m_det.size(), sopts);
-        rec = std::make_unique<Ort::Session>(env, m_rec.data(), m_rec.size(), sopts);
+        det = std::make_unique<Ort::Session>(shared_env(), m_det.data(), m_det.size(), sopts);
+        rec = std::make_unique<Ort::Session>(shared_env(), m_rec.data(), m_rec.size(), sopts);
         if (!m_cls.empty())
-            cls = std::make_unique<Ort::Session>(env, m_cls.data(), m_cls.size(), sopts);
+            cls = std::make_unique<Ort::Session>(shared_env(), m_cls.data(), m_cls.size(), sopts);
         else
             cout << "OnnxOcrEngine: cls resource missing, orientation fix disabled" << endl;
         if (!m_keys.empty()) {
