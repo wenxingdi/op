@@ -745,6 +745,44 @@ class OP_API Op {
     long OcrAutoColorEx2(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                          _In_ double sim, _Out_ std::wstring &ret_str);
     // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
+
+    // ===== 图像句柄注册表（2026-11-21，内存直操作一期地基）=====
+    // 目的：让调用方把**自己手上已有的像素**直接交给 op，省掉落盘再读盘的往返。
+    // 句柄形态为字符串 img:<n>，与既有 pic:<路径> 的显示输入风格一致，
+    // 因此在 C API / COM 层都是普通 BSTR，客户端零学习成本。
+    // 设计见 docs/2026-11/内存模块优化_图像句柄注册表_方案_20261121.md。
+    //
+    // 注册后像素**不可变**：句柄可被多线程并发读，允许就地写会引入数据竞争。
+    //   需要变体请新建句柄（CropImage 即如此）。
+    // 注册表达上限（256）时**拒绝新增并返回空串**，不会淘汰既有句柄。
+
+    // 从原始像素内存注册图像。fmt: bgra(默认) / bgr / gray（也接受 4/3/1）。
+    // stride<=0 表示紧凑排列（width*bpp）；stride>width*bpp 视为带行填充，逐行复制。
+    // 成功返回句柄字符串，失败返回空串（参数非法 / 未知格式 / 尺寸超 64MB / 注册表满）。
+    void LoadImageMem(_In_ void *data, _In_ long width, _In_ long height, _In_ long stride,
+                      _In_ const wchar_t *fmt, _Out_ std::wstring &ret_handle);
+    // 从 BMP 字节流注册（自动解析 24/32bpp、top-down/bottom-up、行填充）。
+    void LoadImageBmp(_In_ void *data, _In_ long size, _Out_ std::wstring &ret_handle);
+    // 释放单个图像句柄。ret: 1=成功，0=句柄不存在。
+    void FreeImage(_In_ const wchar_t *handle, _Out_ long *ret);
+    // 释放全部图像句柄。ret: 被释放的数量。
+    void FreeAllImages(_Out_ long *ret);
+    // 查询图像尺寸。channels 恒为 4（内部统一 BGRA）。ret: 1=成功，0=句柄不存在。
+    void GetImageSize(_In_ const wchar_t *handle, _Out_ long *width, _Out_ long *height, _Out_ long *channels,
+                      _Out_ long *ret);
+    // 读回像素。fmt: raw(BGRA 紧凑) / bmp(带 BMP 头的完整字节流)。
+    // buffer 为调用方提供的缓冲区，buffer_size 为其容量；ret: 实际写出的字节数（不足则 0）。
+    void GetImageData(_In_ const wchar_t *handle, _In_ const wchar_t *fmt, _In_ void *buffer,
+                      _In_ long buffer_size, _Out_ long *ret);
+    // 裁剪并注册为新句柄（深拷贝）。区域自动 clamp 到图像内；空区域返回空串。
+    void CropImage(_In_ const wchar_t *handle, _In_ long x, _In_ long y, _In_ long width, _In_ long height,
+                   _Out_ std::wstring &ret_handle);
+    // 在图像句柄上做多目标查找（复用 P1 FindStrBatch 的匹配内核）。
+    // 返回值 = 目标数；句柄无效或 JSON 非法返回 -1。坐标从图像左上角算起。
+    long FindStrMem(_In_ const wchar_t *handle, _In_ const wchar_t *json_targets, _In_ double sim,
+                    _Out_ std::wstring &ret_json);
+    // 当前注册表条目数（诊断用）。
+    void GetImageCount(_Out_ long *ret);
     void FindStr(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *strs, _In_ const wchar_t *color,
                  _In_ double sim, _Out_ long *retx, _Out_ long *rety, _Out_ long *ret);
     // 返回符合color_format的所有坐标位置

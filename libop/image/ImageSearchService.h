@@ -4,6 +4,7 @@
 #include "../ocr/OcrService.h"     // vocr_rec_t / vocr_line_ext_t（P0 逐字 JSON 用）
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace op::image {
 
@@ -130,6 +131,37 @@ class ImageSearchService : public ImageSearchAlgorithms {
     long ocr_ex2(const wstring &color, double sim, std::wstring &out_json);
     long ocr_auto_color_ex2(const wstring &color, double sim, std::wstring &out_json);
 
+    // ===== 图像句柄注册表（2026-11-21，内存直操作一期地基）=====
+    // 设计见 docs/2026-11/内存模块优化_图像句柄注册表_方案_20261121.md
+    //
+    // 目的：让调用方把**自己手上已有的像素**直接交给 op，不必先落盘再读盘。
+    // 句柄形态为字符串 "img:<n>"，与既有 "pic:<路径>" 的显示输入风格一致，
+    // 因此在 C API / COM 层都是普通 BSTR，客户端零学习成本。
+    //
+    // 返回空串 = 失败（参数非法 / 尺寸过大 / 注册表已满）。不抛异常。
+
+    // 从原始像素内存注册。fmt: "bgra"(默认) / "bgr" / "gray"；stride<=0 按紧凑排列。
+    std::wstring register_image_mem(const void *data, long width, long height, long stride,
+                                    const std::wstring &fmt);
+    // 从 BMP 字节流注册（自动解析 24/32bpp 与 top-down/bottom-up）。
+    std::wstring register_image_bmp(const void *data, long size);
+    // 释放单个句柄；返回 1=成功释放，0=句柄不存在。
+    long release_image(const std::wstring &handle);
+    // 释放全部；返回释放数量。
+    long release_all_images();
+    // 尺寸查询；成功返回 1 并写 width/height/channels(恒 4，内部统一 BGRA)，否则 0。
+    long get_image_size(const std::wstring &handle, long &width, long &height, long &channels);
+    // 读回像素。fmt: "raw"(BGRA 紧凑) / "bmp"(带 BMP 头的完整字节流)。
+    long get_image_bytes(const std::wstring &handle, const std::wstring &fmt, std::vector<unsigned char> &out);
+    // 裁剪并注册为新句柄（深拷贝）；区域自动 clamp，空区域返回空串。
+    std::wstring crop_image(const std::wstring &handle, long x, long y, long w, long h);
+    // 在图像句柄上做多目标查找（复用 P1 的 find_str_batch 内核）。
+    // 返回值 = 目标数；句柄无效或 JSON 非法返回 -1。
+    long find_str_mem(const std::wstring &handle, const std::wstring &json_targets, double sim,
+                      std::wstring &out_json);
+    // 注册表当前条目数（诊断用）。
+    long image_count();
+
     // P3（2026-11-21）OCR 分项耗时自省：返回上一次 OCR 的 det/cls/rec 分项毫秒数。
     // 引擎不支持或还没跑过 -> 输出 {"valid":false,...}。返回值 = 1 表示 valid。
     long ocr_last_profile(std::wstring &out_json);
@@ -168,6 +200,12 @@ class ImageSearchService : public ImageSearchAlgorithms {
         std::vector<int> cx1, cx2;                  // 与 text 同下标的字符级 x 区间
     };
     bool collect_ocr_lines(const wstring &color, double sim, std::vector<ocr_line_view_t> &lines);
+
+    // 图像注册表内部（2026-11-21）：
+    // register_image_shared 把已构造好的 Image 放进注册表并返回句柄（达上限返回空串）；
+    // acquire_image 按句柄取 shared_ptr 快照（不存在返回 nullptr，锁外使用安全）。
+    std::wstring register_image_shared(std::shared_ptr<Image> img);
+    std::shared_ptr<Image> acquire_image(const std::wstring &handle);
 
     // 智能选路（2026-11-20）：统计 _src 中命中指定颜色（逐通道容差）的像素数。
     // 返回 -1 = 无法探测（空串/@反白等特殊写法），调用方应保守沿用颜色路径。

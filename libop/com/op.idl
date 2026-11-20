@@ -427,6 +427,22 @@ interface IOpAutomation : IDispatch
 	//   "boxes","lines","chars","det_calls","rec_calls","cls_calls","runs_failed",
 	//   "upscale","oscale","rec_width"}。不触发新的 OCR。
 	[id(444)] HRESULT OcrLastProfile([out, retval] BSTR* retstr);
+	// ---- 图像句柄注册表（P4 2026-11-21，内存直操作一期地基）----
+	// 句柄为字符串 "img:<n>"，与 pic:<路径> 风格一致。设计见
+	// docs/2026-11/内存模块优化_图像句柄注册表_方案_20261121.md。
+	// 约定：注册后像素不可变；上限 256 条，满则拒绝新增（不淘汰既有句柄）；
+	//       非法输入返回空串/0，不抛异常。
+	// LoadImageMem 的 data 传像素缓冲区首地址（易语言用取变量地址）。
+	[id(445)] HRESULT LoadImageMem([in] LONG_PTR data, [in] LONG width, [in] LONG height, [in] LONG stride, [in] BSTR fmt, [out, retval] BSTR* retstr);
+	[id(446)] HRESULT LoadImageBmp([in] LONG_PTR data, [in] LONG size, [out, retval] BSTR* retstr);
+	[id(447)] HRESULT FreeImage([in] BSTR image_handle, [out, retval] LONG* ret);
+	[id(448)] HRESULT FreeAllImages([out, retval] LONG* ret);
+	[id(449)] HRESULT GetImageSize([in] BSTR image_handle, [in, out] LONG* width, [in, out] LONG* height, [in, out] LONG* channels, [out, retval] LONG* ret);
+	[id(450)] HRESULT GetImageData([in] BSTR image_handle, [in] BSTR fmt, [in] LONG_PTR buffer, [in] LONG buffer_size, [out, retval] LONG* ret);
+	[id(451)] HRESULT CropImage([in] BSTR image_handle, [in] LONG x, [in] LONG y, [in] LONG width, [in] LONG height, [out, retval] BSTR* retstr);
+	[id(452)] HRESULT FindStrMem([in] BSTR image_handle, [in] BSTR json_targets, [in] DOUBLE sim, [out, retval] BSTR* retstr);
+	[id(453)] HRESULT GetImageCount([out, retval] LONG* ret);
+
 
 
 

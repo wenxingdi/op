@@ -154,6 +154,8 @@ set(OP_TEST_SOURCES
   # P1 FindStr 增强 + P3 OCR 耗时自省（2026-11-21）：多目标/正则/模糊匹配，
   # 字符级精确范围，以及 det/cls/rec 分项计时。
   "find_str_batch_test.cpp"
+  # P4 图像句柄注册表（2026-11-21，内存直操作一期地基）。
+  "image_registry_test.cpp"
   "yolo_test.cpp"
   "utils_test.cpp"
   "memory_search_test.cpp"

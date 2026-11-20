@@ -2145,3 +2145,77 @@ int OP_CALL OpHttpDownloadFile(op_handle handle, const wchar_t *url, const wchar
 
 #undef OP_WIDEN_TEXT
 #undef OP_WIDEN_TEXT2
+
+/* ---- P4（2026-11-21）图像句柄注册表：内存直操作一期地基 ---- */
+
+const wchar_t *OP_CALL OpLoadImageMem(op_handle handle, const void *data, int width, int height, int stride,
+                                       const wchar_t *fmt) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.LoadImageMem(const_cast<void *>(data), width, height, stride, safe_text(fmt), ret);
+    });
+}
+
+const wchar_t *OP_CALL OpLoadImageBmp(op_handle handle, const void *data, int size) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.LoadImageBmp(const_cast<void *>(data), size, ret);
+    });
+}
+
+int OP_CALL OpFreeImage(op_handle handle, const wchar_t *image_handle) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.FreeImage(safe_text(image_handle), ret); });
+}
+
+int OP_CALL OpFreeAllImages(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.FreeAllImages(ret); });
+}
+
+int OP_CALL OpGetImageSize(op_handle handle, const wchar_t *image_handle, int *width, int *height, int *channels) {
+    out_int(width, 0);
+    out_int(height, 0);
+    out_int(channels, 0);
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        long w = 0, h = 0, c = 0;
+        op.GetImageSize(safe_text(image_handle), &w, &h, &c, ret);
+        out_int(width, w);
+        out_int(height, h);
+        out_int(channels, c);
+    });
+}
+
+int OP_CALL OpGetImageData(op_handle handle, const wchar_t *image_handle, const wchar_t *fmt, void *buffer,
+                           int buffer_size) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.GetImageData(safe_text(image_handle), safe_text(fmt), buffer, buffer_size, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpCropImage(op_handle handle, const wchar_t *image_handle, int x, int y, int width,
+                                    int height) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.CropImage(safe_text(image_handle), x, y, width, height, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpFindStrMem(op_handle handle, const wchar_t *image_handle, const wchar_t *json_targets,
+                                     double sim) {
+    if (!handle)
+        return nullptr;
+    try {
+        handle->string_result.clear();
+        const long rc = handle->op.FindStrMem(safe_text(image_handle), safe_text(json_targets), sim,
+                                              handle->string_result);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpFindStrMem: %s", e.what());
+        return nullptr;
+    } catch (...) {
+        setlog("op_c_api: unknown exception in OpFindStrMem");
+        return nullptr;
+    }
+}
+
+int OP_CALL OpGetImageCount(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.GetImageCount(ret); });
+}

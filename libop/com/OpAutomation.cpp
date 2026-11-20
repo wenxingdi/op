@@ -2261,3 +2261,92 @@ STDMETHODIMP OpAutomation::HttpDownloadFile(BSTR url, BSTR file_name, LONG timeo
     obj.HttpDownloadFile(url, file_name, timeout_ms, ret);
     return S_OK;
 }
+
+// ===== P4 图像句柄注册表（2026-11-21，内存直操作一期地基）=====
+
+STDMETHODIMP OpAutomation::LoadImageMem(LONG_PTR data, LONG width, LONG height, LONG stride, BSTR fmt,
+                                        BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.LoadImageMem(reinterpret_cast<void *>(data), width, height, stride, fmt, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::LoadImageBmp(LONG_PTR data, LONG size, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.LoadImageBmp(reinterpret_cast<void *>(data), size, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::FreeImage(BSTR image_handle, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring handle_text = image_handle ? image_handle : L"";
+    obj.FreeImage(handle_text.c_str(), ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::FreeAllImages(LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    obj.FreeAllImages(ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetImageSize(BSTR image_handle, LONG *width, LONG *height, LONG *channels, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    LONG w = 0, h = 0, c = 0;
+    wstring handle_text = image_handle ? image_handle : L"";
+    obj.GetImageSize(handle_text.c_str(), &w, &h, &c, ret);
+    if (width)
+        *width = w;
+    if (height)
+        *height = h;
+    if (channels)
+        *channels = c;
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetImageData(BSTR image_handle, BSTR fmt, LONG_PTR buffer, LONG buffer_size, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring handle_text = image_handle ? image_handle : L"";
+    wstring fmt_text = fmt ? fmt : L"";
+    obj.GetImageData(handle_text.c_str(), fmt_text.c_str(), reinterpret_cast<void *>(buffer), buffer_size, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::CropImage(BSTR image_handle, LONG x, LONG y, LONG width, LONG height, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    wstring handle_text = image_handle ? image_handle : L"";
+    obj.CropImage(handle_text.c_str(), x, y, width, height, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::FindStrMem(BSTR image_handle, BSTR json_targets, DOUBLE sim, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    wstring handle_text = image_handle ? image_handle : L"";
+    wstring targets_text = json_targets ? json_targets : L"";
+    obj.FindStrMem(handle_text.c_str(), targets_text.c_str(), static_cast<double>(sim), s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::GetImageCount(LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    obj.GetImageCount(ret);
+    return S_OK;
+}

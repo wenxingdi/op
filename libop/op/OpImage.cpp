@@ -436,3 +436,91 @@ void op::Op::MatchPicName(const wchar_t *pic_name, std::wstring &retstr) {
     }
     });
 }
+
+// ===== 图像句柄注册表门面（2026-11-21，内存直操作一期地基）=====
+
+void op::Op::LoadImageMem(void *data, long width, long height, long stride, const wchar_t *fmt,
+                          std::wstring &ret_handle) {
+    ret_handle.clear();
+    const std::wstring fmt_text = fmt ? fmt : L"";
+    internal::guard_exceptions("LoadImageMem", [&]() {
+        ret_handle = m_context->image_proc.register_image_mem(data, width, height, stride, fmt_text);
+    });
+}
+
+void op::Op::LoadImageBmp(void *data, long size, std::wstring &ret_handle) {
+    ret_handle.clear();
+    internal::guard_exceptions("LoadImageBmp", [&]() {
+        ret_handle = m_context->image_proc.register_image_bmp(data, size);
+    });
+}
+
+void op::Op::FreeImage(const wchar_t *handle, long *ret) {
+    internal::set_result(ret, 0L);
+    const std::wstring handle_text = handle ? handle : L"";
+    internal::guard_exceptions("FreeImage",
+                               [&]() { internal::set_result(ret, m_context->image_proc.release_image(handle_text)); });
+}
+
+void op::Op::FreeAllImages(long *ret) {
+    internal::set_result(ret, 0L);
+    internal::guard_exceptions("FreeAllImages",
+                               [&]() { internal::set_result(ret, m_context->image_proc.release_all_images()); });
+}
+
+void op::Op::GetImageSize(const wchar_t *handle, long *width, long *height, long *channels, long *ret) {
+    internal::set_result(width, 0L);
+    internal::set_result(height, 0L);
+    internal::set_result(channels, 0L);
+    internal::set_result(ret, 0L);
+    const std::wstring handle_text = handle ? handle : L"";
+    internal::guard_exceptions("GetImageSize", [&]() {
+        long w = 0, h = 0, c = 0;
+        const long ok = m_context->image_proc.get_image_size(handle_text, w, h, c);
+        internal::set_result(width, w);
+        internal::set_result(height, h);
+        internal::set_result(channels, c);
+        internal::set_result(ret, ok);
+    });
+}
+
+void op::Op::GetImageData(const wchar_t *handle, const wchar_t *fmt, void *buffer, long buffer_size, long *ret) {
+    internal::set_result(ret, 0L);
+    if (buffer == nullptr || buffer_size <= 0)
+        return;
+    const std::wstring handle_text = handle ? handle : L"";
+    const std::wstring fmt_text = fmt ? fmt : L"";
+    internal::guard_exceptions("GetImageData", [&]() {
+        std::vector<unsigned char> bytes;
+        const long n = m_context->image_proc.get_image_bytes(handle_text, fmt_text, bytes);
+        if (n <= 0 || n > buffer_size)
+            return; // 容量不足：不截断写（截断的 BMP 是坏数据，静默失败更危险）
+        memcpy(buffer, bytes.data(), static_cast<size_t>(n));
+        internal::set_result(ret, n);
+    });
+}
+
+void op::Op::CropImage(const wchar_t *handle, long x, long y, long width, long height, std::wstring &ret_handle) {
+    ret_handle.clear();
+    const std::wstring handle_text = handle ? handle : L"";
+    internal::guard_exceptions("CropImage", [&]() {
+        ret_handle = m_context->image_proc.crop_image(handle_text, x, y, width, height);
+    });
+}
+
+long op::Op::FindStrMem(const wchar_t *handle, const wchar_t *json_targets, double sim, std::wstring &ret_json) {
+    ret_json.clear();
+    const std::wstring handle_text = handle ? handle : L"";
+    const std::wstring targets_text = json_targets ? json_targets : L"";
+    long rc = -1;
+    internal::guard_exceptions("FindStrMem", [&]() {
+        rc = m_context->image_proc.find_str_mem(handle_text, targets_text, sim, ret_json);
+    });
+    return rc;
+}
+
+void op::Op::GetImageCount(long *ret) {
+    internal::set_result(ret, 0L);
+    internal::guard_exceptions("GetImageCount",
+                               [&]() { internal::set_result(ret, m_context->image_proc.image_count()); });
+}

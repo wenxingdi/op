@@ -506,6 +506,17 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(OcrAutoColorFromFile)(BSTR file_name, BSTR color_format, DOUBLE sim, BSTR *retstr);
     // 免字库 OCR 归一入口：color 为空 → 原图直识别；非空 → 按颜色二值化（idl id 384）
     STDMETHOD(AutoOcr)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr);
+
+    // P4 图像句柄注册表（2026-11-21，内存直操作一期地基；idl id 445-453）
+    STDMETHOD(LoadImageMem)(LONG_PTR data, LONG width, LONG height, LONG stride, BSTR fmt, BSTR *retstr);
+    STDMETHOD(LoadImageBmp)(LONG_PTR data, LONG size, BSTR *retstr);
+    STDMETHOD(FreeImage)(BSTR image_handle, LONG *ret);
+    STDMETHOD(FreeAllImages)(LONG *ret);
+    STDMETHOD(GetImageSize)(BSTR image_handle, LONG *width, LONG *height, LONG *channels, LONG *ret);
+    STDMETHOD(GetImageData)(BSTR image_handle, BSTR fmt, LONG_PTR buffer, LONG buffer_size, LONG *ret);
+    STDMETHOD(CropImage)(BSTR image_handle, LONG x, LONG y, LONG width, LONG height, BSTR *retstr);
+    STDMETHOD(FindStrMem)(BSTR image_handle, BSTR json_targets, DOUBLE sim, BSTR *retstr);
+    STDMETHOD(GetImageCount)(LONG *ret);
     //-----------------------opcv---------------------------------
     STDMETHOD(CvLoadTemplate)(BSTR name, BSTR file_path, LONG *ret);
     STDMETHOD(CvLoadMaskedTemplate)(BSTR name, BSTR template_path, BSTR mask_path, LONG *ret);

@@ -3,6 +3,94 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-21 第四十三批（feat：图像句柄注册表，内存直操作一期地基）
+
+承接第四十二批。按用户要求进入内存模块优化。
+方案与实测记录：`docs/2026-11/内存模块优化_图像句柄注册表_方案_20261121.md`
+
+#### 1. 缺口实证：图像句柄注册表完全不存在
+
+检索 `include/op_c_api.h` + `include/libop.h` + `libop/com/op.idl`：
+`OpLoadImageFromMem` / `OpLoadImage` / `OpFreeImage` / `OpGetImageData` /
+`OpCropImage` / `FromMem` / `FromPtr` / `ImageHandle` **全部 0 命中**。
+
+后果：所有识别入口（OCR / 找图 / 找色 / YOLO）要么吃"屏幕区域"，要么吃"文件路径"，
+调用方**无法把自己手上已有的像素直接喂进来**。从游戏内存或其他采集工具拿到像素后，
+必须先落盘成 bmp 再让 op 读盘（该链路实测 50~200ms，内存注册 <5ms）。
+
+> 内存读写侧（`OpReadData`/`OpFindData` 全家桶）本身质量已很好，不需要动：
+> `FindData` 有分块读（16MB）、跨块防漏检（多读 m-1 字节）、锚点优化、
+> 地址回绕保护、按需分配缓冲。本期**只补图像句柄这一块地基**。
+
+#### 2. 新增接口（三层 9 个符号，COM DISPID 445~453）
+
+| 接口 | 作用 |
+|---|---|
+| `OpLoadImageMem(data, w, h, stride, fmt)` | 从原始像素注册（fmt: bgra/bgr/gray） |
+| `OpLoadImageBmp(data, size)` | 从 BMP 字节流注册 |
+| `OpFreeImage(handle)` / `OpFreeAllImages()` | 释放单个 / 全部 |
+| `OpGetImageSize(handle)` | 宽高 + 通道数 |
+| `OpGetImageData(handle, fmt, buf, cap)` | 读回像素（raw / bmp） |
+| `OpCropImage(handle, x, y, w, h)` | 裁剪为新句柄 |
+| `OpFindStrMem(handle, json_targets, sim)` | **首个消费者**：在句柄图像上跑 P1 FindStrBatch |
+| `OpGetImageCount()` | 诊断用 |
+
+句柄形态 `img:<n>`，与既有 `pic:<路径>` 风格一致 → C/COM/Python 各层都是普通字符串。
+
+#### 3. 关键设计决策
+
+- **上限满时拒绝新增，不淘汰既有句柄**。与 `g_pic_cache`（满了整体清空）有意不同：
+  图像句柄是调用方**显式创建**的，静默清空会让对方手里的句柄突然失效，是更糟的失败模式。
+- **注册后像素不可变**。句柄可被多线程并发读；允许就地写会引入数据竞争。
+  要变体就新建句柄（`CropImage` 即如此）。
+- **shared_ptr 快照**：读的同时别的线程 Free 也不会悬垂（沿用 `g_pic_cache` 的策略）。
+- **未知格式/非法 stride 显式失败**，不猜。
+- **GetImageData 容量不足返回 0 且不写任何字节**（截断的 BMP 是坏数据，静默截断更危险）。
+
+#### 4. 验证
+
+| 项 | 结果 |
+|---|---|
+| 新增 `ImageRegistryTest.*` + `ImageRegistryFindStr.*` | **11/11 PASS** |
+| OCR/FindStr 全组（31） + OpenCV 全组（35） | **66/66 PASS** |
+| 全量 `op_test.exe` | **502 PASS / 5 FAILED（均为既有环境项）** |
+| 反向验证 | **4/4 全部如愿变红** |
+
+反向验证（`scripts/probes/reverse_verify_image_registry.ps1`）：
+
+| 场景 | 改错内容 | 结果 |
+|---|---|---|
+| RV-M1 | `copy_to_bgra` 忽略 stride | RED ✓ |
+| RV-M2 | `crop_image` 源偏移漏掉 `x0` | RED ✓ |
+| RV-M3 | 注册表满时静默清空重存 | RED ✓ |
+| RV-M4 | `find_str_mem` 不校验句柄 | RED ✓ |
+
+5 个全量失败：`MouseKeyTest.BindWindowDx...`、`WindowStateTest.DxBindToSameIntegrity...`、
+`HookCaptureTest.BindLoadsMissingGraphics...`、`WgcTest.NormalDxgiMaximize...`、
+`WgcTest.RepeatedBindUnbind...`（后者单独跑 PASS，既有 flaky）。
+其中 `WgcTest.NormalDxgiMaximize...` 已用 `git stash` 在干净基线复现为 FAIL，与本轮无关。
+
+#### 5. 过程中踩的两个坑（已写进方案文档 §8.4）
+
+**① C API 字符串返回值是复用缓冲区，下一次调用就失效**
+`OpLoadImageMem` 返回的 `const wchar_t*` 指向 `handle->string_result`，
+任何后续 C API 调用都会清空重写它。测试里若先拿句柄再调别的接口，
+句柄指针就变成空串，表现极像"句柄传递丢了"。**正确做法：立刻复制成 `std::wstring`。**
+
+**② 行号编辑脚本两次差点毁文件**
+一次 `$lines` 为空导致 `ImageSearchService.cpp` 被覆盖成 274 行（git checkout 救回）；
+一次 PowerShell 引号转义把脚本自身解析坏。
+改用 Python 脚本插入（`scripts/probes/insert_image_registry*.py`），
+内置"读入校验 → 备份 → 写入复检 → 自动回滚"三道保护。
+
+#### 6. 未做（明确，需单独排期）
+
+二期全家桶 `OpOcrFromMem` / `OpFindPicInMem` / `OpGetColorFromMem` / `OpYoloDetectFromMem`。
+它们属于**新增功能**而非单模块优化，规模远超本轮，且会牵动 OCR/YOLO/找图全部路径。
+本期已把地基做好（`acquire_image` + 现有屏幕版实现即可复用），二期接上去成本很低。
+
+- **未发布、未同步发布件、未构建 x86**（沿用用户要求）
+
 ### 2026-11-21 第四十二批（perf：OpenCV 尺度精修接入金字塔，满屏匹配显著提速）
 
 承接第四十一批。按用户要求进入 OpenCV 模块优化。详细实测记录见

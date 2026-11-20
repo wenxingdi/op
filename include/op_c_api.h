@@ -418,6 +418,48 @@ OP_C_API const wchar_t *OP_CALL OpOcrEx2(op_handle handle, int x1, int y1, int x
  * 智能选路：图中命中该色的像素占比 <0.1% 时自动回退原图直识（白字图传色也不会返回空）。 */
 OP_C_API const wchar_t *OP_CALL OpOcrAutoColorEx2(op_handle handle, int x1, int y1, int x2, int y2,
                                                   const wchar_t *color, double sim, int *find_count);
+
+/* ===== 图像句柄注册表（P4 2026-11-21，内存直操作一期地基）=====
+ * 目的：让调用方把**自己手上已有的像素**直接交给 op，省掉"落盘再读盘"的往返
+ * （该链路实测 50~200ms，内存注册 <5ms）。
+ *
+ * 句柄是字符串 "img:<n>"，与既有 "pic:<路径>" 的显示输入风格一致，
+ * 因此在 C/COM/Python 各层都是普通字符串，客户端零学习成本。
+ *
+ * 约定：
+ *  - 注册后像素**不可变**（句柄可被多线程并发读；要变体就新建句柄）
+ *  - 注册表上限 256 条，达上限**拒绝新增并返回空串**（不淘汰既有句柄）
+ *  - 非法输入（nullptr/0 尺寸/未知格式/超 64MB）一律返回空串或 0，不崩溃
+ */
+
+/* 从原始像素内存注册。fmt: "bgra"(默认)/"bgr"/"gray"（也接受 "4"/"3"/"1"）。
+ * stride<=0 表示紧凑排列；stride>width*bpp 视为带行填充，逐行复制。
+ * 返回句柄字符串；失败返回空串。 */
+OP_C_API const wchar_t *OP_CALL OpLoadImageMem(op_handle handle, const void *data, int width, int height,
+                                                int stride, const wchar_t *fmt);
+/* 从 BMP 字节流注册（支持 24/32bpp、top-down/bottom-up、行填充）。返回句柄；失败空串。 */
+OP_C_API const wchar_t *OP_CALL OpLoadImageBmp(op_handle handle, const void *data, int size);
+/* 释放单个图像句柄。返回 1=成功，0=句柄不存在。 */
+OP_C_API int OP_CALL OpFreeImage(op_handle handle, const wchar_t *image_handle);
+/* 释放全部图像句柄。返回被释放的数量。 */
+OP_C_API int OP_CALL OpFreeAllImages(op_handle handle);
+/* 查询图像尺寸。channels 恒为 4（内部统一 BGRA）。返回 1=成功，0=句柄不存在。 */
+OP_C_API int OP_CALL OpGetImageSize(op_handle handle, const wchar_t *image_handle, int *width, int *height,
+                                    int *channels);
+/* 读回像素到调用方缓冲区。fmt: "raw"(BGRA 紧凑)/"bmp"(带 BMP 头)。
+ * 返回实际写出的字节数；缓冲区不足或句柄无效返回 0。
+ * 提示：先调 OpGetImageSize 算好容量（raw = w*h*4，bmp = w*h*4 + 54）。 */
+OP_C_API int OP_CALL OpGetImageData(op_handle handle, const wchar_t *image_handle, const wchar_t *fmt,
+                                    void *buffer, int buffer_size);
+/* 裁剪并注册为新句柄（深拷贝）。区域自动 clamp；空区域返回空串。 */
+OP_C_API const wchar_t *OP_CALL OpCropImage(op_handle handle, const wchar_t *image_handle, int x, int y, int width,
+                                             int height);
+/* 在图像句柄上做多目标查找（复用 OpFindStrBatch 的匹配内核与 JSON 格式）。
+ * 返回 JSON；句柄无效或 JSON 非法返回 nullptr。坐标从图像左上角算起。 */
+OP_C_API const wchar_t *OP_CALL OpFindStrMem(op_handle handle, const wchar_t *image_handle,
+                                              const wchar_t *json_targets, double sim);
+/* 当前注册表条目数（诊断用）。 */
+OP_C_API int OP_CALL OpGetImageCount(op_handle handle);
 OP_C_API int OP_CALL OpFindStr(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *strs,
                                const wchar_t *color, double sim, int *x, int *y);
 OP_C_API const wchar_t *OP_CALL OpFindStrEx(op_handle handle, int x1, int y1, int x2, int y2,
