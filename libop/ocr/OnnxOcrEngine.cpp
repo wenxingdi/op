@@ -515,7 +515,7 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
     // 坐标最后统一除回 up，调用方看到的仍是原图像素坐标。
     const float up = m_impl->oscale;
     const int ow = w, oh = h;
-    if (up > 1.0f && std::max(w, h) <= 1920) {
+    if (up > 1.0f && std::max(w, h) < 960) {
         img = resize_bilinear(img, int(h * up + 0.5f), int(w * up + 0.5f));
         w = img.w;
         h = img.h;
@@ -582,7 +582,7 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
         ocr_rec_t rec;
         const Box &box = kept[i];
         // 放大识别时框坐标处于放大图像素系，除回 up 还原为原图坐标
-        const float inv = (up > 1.0f && std::max(ow, oh) <= 1920) ? 1.0f / up : 1.0f;
+        const float inv = (up > 1.0f && std::max(ow, oh) < 960) ? 1.0f / up : 1.0f;
         rec.left_top =
             point_t(int(std::lround(std::max(0, box.x0) * inv)), int(std::lround(std::max(0, box.y0) * inv)));
         rec.right_bottom =
