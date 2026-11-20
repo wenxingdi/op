@@ -244,6 +244,10 @@ set(_op_ocr_models_dir "${CMAKE_CURRENT_SOURCE_DIR}/../build/_deps/ocr_models")
 set(OCR_MODEL_DET "${_op_ocr_models_dir}/PP-OCRv6_small_det.onnx")
 set(OCR_MODEL_REC "${_op_ocr_models_dir}/PP-OCRv6_small_rec.onnx")
 set(OCR_MODEL_KEYS "${_op_ocr_models_dir}/ppocrv6small_dict.txt")
+# B8 多档热切换：V4 快档（坐标小图等速度敏感场景，模型文件为本地构建产物不入 git）
+set(OCR_MODEL_V4_DET "${_op_ocr_models_dir}/v4_backup/ch_PP-OCRv4_det_infer.onnx")
+set(OCR_MODEL_V4_REC "${_op_ocr_models_dir}/v4_backup/ch_PP-OCRv4_rec_infer.onnx")
+set(OCR_MODEL_V4_KEYS "${_op_ocr_models_dir}/v4_backup/ppocr_keys_v1.txt")
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/ocr/ocr_models.rc.in"
   "${CMAKE_CURRENT_BINARY_DIR}/ocr_models.rc"

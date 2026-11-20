@@ -341,6 +341,7 @@ public:
     CharSetRule m_rule;                        // --charset= 解析结果（空=全字典）
     std::vector<uint8_t> m_mask;               // 类别白名单（尺寸=keys+1；空=全放行）
     float oscale = 2.0f;                       // entry upscale factor for low-res small text (<=1 disables)
+    bool use_v4 = false;                       // B8: load V4 fast-tier resources instead of V6
     bool ok = false;
 
     // 对单张 BGR 图直接做 rec（跳过检测）：缩放+归一化+CTC 解码。
@@ -442,9 +443,13 @@ public:
     }
 
     bool load() {
-        m_det = LoadRes(IDR_OCR_DET);
-        m_rec = LoadRes(IDR_OCR_REC);
-        m_keys = LoadRes(IDR_OCR_KEYS);
+        // B8: resource set selected by engine name ("v4" -> V4 fast tier, else V6 default)
+        const int id_det = use_v4 ? IDR_OCR_V4_DET : IDR_OCR_DET;
+        const int id_rec = use_v4 ? IDR_OCR_V4_REC : IDR_OCR_REC;
+        const int id_keys = use_v4 ? IDR_OCR_V4_KEYS : IDR_OCR_KEYS;
+        m_det = LoadRes(id_det);
+        m_rec = LoadRes(id_rec);
+        m_keys = LoadRes(id_keys);
         if (m_det.empty() || m_rec.empty()) {
             cout << "OnnxOcrEngine: model resource missing (det/rec)" << endl;
             return false;
@@ -461,7 +466,7 @@ public:
             }
         }
         build_mask();
-        cout << "OnnxOcrEngine: models loaded, keys=" << keys.size()
+        cout << "OnnxOcrEngine: models loaded (" << (use_v4 ? "v4" : "v6") << "), keys=" << keys.size()
              << ", charset_mask=" << (m_mask.empty() ? 0 : int(m_mask.size()) - 1)
              << ", oscale=" << oscale << endl;
         ok = true;
@@ -474,8 +479,8 @@ OnnxOcrEngine::~OnnxOcrEngine() = default;
 
 int OnnxOcrEngine::init(const std::wstring &engine, const std::wstring &dllName,
                         const std::vector<std::string> &argv) {
-    (void)engine;
     (void)dllName;
+    m_impl->use_v4 = (engine == L"v4"); // B8: engine name selects resource tier
     bool have_threads = false;
     int threads = 0;
     // 解析 --charset=<规则>：如 --charset=@zh0123456789[],-+；--threads=N：推理 intra-op 线程数

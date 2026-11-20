@@ -2,6 +2,7 @@
 #include "../base/Types.h"
 #include <mutex>
 #include <memory>
+#include <map>
 #include <vector>
 #include <string>
 
@@ -76,6 +77,15 @@ private:
   // 并发推理期间 release()/重 init 不会销毁正在使用的引擎实例。
   std::shared_ptr<OcrEngine> m_engine; // 当前选中的引擎（默认内置 OnnxOcrEngine）
   bool m_lazy_failed = false;          // 懒初始化已尝试且失败：只试一次，后续快速返回 -1
+  // B8 多档热切换：已加载引擎缓存（name -> engine）。引擎加载后常驻（单例泄漏设计），
+  // SetOcrEngine 在档位间切换为零成本（只换活动指针），首次使用的档位懒加载。
+  std::map<std::string, std::shared_ptr<OcrEngine>> m_engine_cache;
+  // 归一化档位名：空/"onnx"/"builtin"/未知 -> "v6"（默认精度的档）；"v4" -> 快档。
+  static std::string normalize_engine_name(const std::string &eng);
+  // 取（或首次创建并初始化）名为 name 的内置引擎；调用方必须已持锁。失败返回 nullptr。
+  std::shared_ptr<OcrEngine> builtin_engine_unlocked(const std::string &name,
+                                                     const std::wstring &dllName,
+                                                     const std::vector<std::string> &argv);
 };
 
 } // namespace op::ocr
