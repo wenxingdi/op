@@ -31,9 +31,12 @@ using op::img::utf8_to_wstring;
 namespace {
 
 // 从当前 DLL 资源段加载内置模型（若有；方案B 下默认构建不含）
+// 用「函数地址反查模块句柄」：不再硬编码 DLL 名，x64/x86 及任意重命名均正确。
 std::vector<uint8_t> LoadYoloRes(int id) {
-    HMODULE h = GetModuleHandleW(L"op_x64.dll");
-    if (!h) h = GetModuleHandleW(L"op_c_api_x64.dll");
+    HMODULE h = nullptr;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                           GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                       reinterpret_cast<LPCWSTR>(&LoadYoloRes), &h);
     if (!h) h = GetModuleHandleW(nullptr);
     if (!h) return {};
     HRSRC hrs = FindResourceW(h, MAKEINTRESOURCE(id), L"YOLOMODEL");

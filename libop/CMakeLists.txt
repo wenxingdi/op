@@ -240,9 +240,10 @@ endif()
 
 # 由模板生成 ocr_models.rc，把模型文件绝对路径注入资源（避免仓库迁移后路径失效）。
 set(_op_ocr_models_dir "${CMAKE_CURRENT_SOURCE_DIR}/../build/_deps/ocr_models")
-set(OCR_MODEL_DET "${_op_ocr_models_dir}/ch_PP-OCRv4_det_infer.onnx")
-set(OCR_MODEL_REC "${_op_ocr_models_dir}/ch_PP-OCRv4_rec_infer.onnx")
-set(OCR_MODEL_KEYS "${_op_ocr_models_dir}/ppocr_keys_v1.txt")
+# 2026-11-20 升级：PP-OCRv4 → PP-OCRv6 small（v4 模型备份在 ocr_models/v4_backup/）
+set(OCR_MODEL_DET "${_op_ocr_models_dir}/PP-OCRv6_small_det.onnx")
+set(OCR_MODEL_REC "${_op_ocr_models_dir}/PP-OCRv6_small_rec.onnx")
+set(OCR_MODEL_KEYS "${_op_ocr_models_dir}/ppocrv6small_dict.txt")
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/ocr/ocr_models.rc.in"
   "${CMAKE_CURRENT_BINARY_DIR}/ocr_models.rc"

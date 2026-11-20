@@ -33,10 +33,13 @@ using op::img::utf8_to_wstring;
 namespace {
 const double PI = 3.14159265358979323846;
 
-// 从当前 DLL 资源段加载模型 buffer（资源随 op_x64.dll / op_c_api_x64.dll 编译进去）
+// 从当前 DLL 资源段加载模型 buffer（资源随 op DLL 一起编译进去）
+// 用「函数地址反查模块句柄」：不再硬编码 DLL 名，x64/x86 及任意重命名均正确。
 std::vector<uint8_t> LoadRes(int id) {
-    HMODULE h = GetModuleHandleW(L"op_x64.dll");
-    if (!h) h = GetModuleHandleW(L"op_c_api_x64.dll");
+    HMODULE h = nullptr;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                           GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                       reinterpret_cast<LPCWSTR>(&LoadRes), &h);
     if (!h) h = GetModuleHandleW(nullptr);
     if (!h) return {};
     HRSRC hrs = FindResourceW(h, MAKEINTRESOURCE(id), L"OCRMODEL");

@@ -1,0 +1,17 @@
+#!/bin/sh
+# OP 仓库自动备份钩子：每次 commit 后自动推送到 origin（当前分支）。
+# 策略：直连优先；失败时回退代理 127.0.0.1:7897（若 Clash 正在运行）。
+# 注意：推送失败不阻塞提交，只在控制台提示。
+branch=$(git rev-parse --abbrev-ref HEAD)
+echo "[auto-backup] pushing to origin/$branch ..."
+if git push origin "$branch" 2>&1; then
+    echo "[auto-backup] pushed OK."
+    exit 0
+fi
+echo "[auto-backup] direct push failed, trying proxy 127.0.0.1:7897 ..."
+if git -c http.proxy=http://127.0.0.1:7897 push origin "$branch" 2>&1; then
+    echo "[auto-backup] pushed OK via proxy."
+    exit 0
+fi
+echo "[auto-backup] FAILED (网络不可达?)，恢复后手动执行: git push origin $branch"
+exit 0
