@@ -179,6 +179,7 @@ TEST_F(WgcTest, NormalDxgiFirstCaptureAfterBindUsesFreshFrame) {
 TEST_F(WgcTest, NormalDxgiMaximizeAfterBindCapturesClippedClientArea) {
     ColorPulseWindow window;
     ASSERT_TRUE(window.Create(false));
+    window.SetColor(RGB(32, 32, 40)); // dark fill: avoid full-screen red flash during smoke, keeps maximize coverage
 
     SetForegroundWindow(window.hwnd);
     BringWindowToTop(window.hwnd);
@@ -202,7 +203,7 @@ TEST_F(WgcTest, NormalDxgiMaximizeAfterBindCapturesClippedClientArea) {
 
     std::wstring color;
     op.GetColor(client.right - 12, client.bottom - 12, color);
-    EXPECT_EQ(color, L"FF0000") << "DXGI 最大化后客户区右下角截图不应因 DWM 边界越界失败";
+    EXPECT_EQ(color, L"202028") << "DXGI 最大化后客户区右下角截图不应因 DWM 边界越界失败";
 
     long cap_ret = 0;
     const std::wstring capture_path = test_support::GetTempBmpPath(L"op_dxgi_maximized_capture.bmp");
@@ -335,6 +336,7 @@ TEST_F(WgcTest, MinimizeRestoreStillCaptures) {
 TEST_F(WgcTest, MaximizeAfterBindCapturesFullClientArea) {
     ColorPulseWindow window;
     ASSERT_TRUE(window.Create(false));
+    window.SetColor(RGB(32, 32, 40)); // dark fill: avoid full-screen red flash during smoke, keeps maximize coverage
 
     op::Op op;
     long ret = 0;
@@ -354,7 +356,7 @@ TEST_F(WgcTest, MaximizeAfterBindCapturesFullClientArea) {
 
     std::wstring color;
     op.GetColor(client.right - 12, client.bottom - 12, color);
-    EXPECT_EQ(color, L"FF0000") << "最大化后客户区右下角截图不完整";
+    EXPECT_EQ(color, L"202028") << "最大化后客户区右下角截图不完整";
 
     long cap_ret = 0;
     const std::wstring capture_path = test_support::GetTempBmpPath(L"op_wgc_maximized_capture.bmp");
@@ -372,6 +374,7 @@ TEST_F(WgcTest, MaximizeAfterBindCapturesFullClientArea) {
 TEST_F(WgcTest, MaximizedWindowBindCapturesFullClientArea) {
     ColorPulseWindow window;
     ASSERT_TRUE(window.Create(false));
+    window.SetColor(RGB(32, 32, 40)); // dark fill: avoid full-screen red flash during smoke, keeps maximize coverage
 
     ShowWindow(window.hwnd, SW_MAXIMIZE);
     PumpMessagesFor(1000);
@@ -391,7 +394,7 @@ TEST_F(WgcTest, MaximizedWindowBindCapturesFullClientArea) {
 
     std::wstring color;
     op.GetColor(client.right - 12, client.bottom - 12, color);
-    EXPECT_EQ(color, L"FF0000") << "最大化窗口绑定后客户区右下角截图不完整";
+    EXPECT_EQ(color, L"202028") << "最大化窗口绑定后客户区右下角截图不完整";
 
     long cap_ret = 0;
     const std::wstring capture_path = test_support::GetTempBmpPath(L"op_wgc_bind_maximized_capture.bmp");
@@ -409,6 +412,7 @@ TEST_F(WgcTest, MaximizedWindowBindCapturesFullClientArea) {
 TEST_F(WgcTest, RepeatedBindUnbindAndMaximizedRepeatedCapture) {
     ColorPulseWindow window;
     ASSERT_TRUE(window.Create(false));
+    window.SetColor(RGB(32, 32, 40)); // dark fill: avoid full-screen red flash during smoke, keeps maximize coverage
 
     for (int i = 0; i < 3; ++i) {
         op::Op op;
@@ -423,7 +427,7 @@ TEST_F(WgcTest, RepeatedBindUnbindAndMaximizedRepeatedCapture) {
 
         std::wstring color;
         op.GetColor(60, 60, color);
-        EXPECT_EQ(color, L"FF0000");
+        EXPECT_EQ(color, L"202028");
 
         long unbind_ret = 0;
         op.UnBindWindow(&unbind_ret);
@@ -448,11 +452,11 @@ TEST_F(WgcTest, RepeatedBindUnbindAndMaximizedRepeatedCapture) {
 
     std::wstring first_color;
     op.GetColor(client.right - 12, client.bottom - 12, first_color);
-    EXPECT_EQ(first_color, L"FF0000");
+    EXPECT_EQ(first_color, L"202028");
 
     std::wstring second_color;
     op.GetColor(client.right - 12, client.bottom - 12, second_color);
-    EXPECT_EQ(second_color, L"FF0000");
+    EXPECT_EQ(second_color, L"202028");
 
     long unbind_ret = 0;
     op.UnBindWindow(&unbind_ret);
