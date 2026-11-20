@@ -3,6 +3,73 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-21 第四十二批（perf：OpenCV 尺度精修接入金字塔，满屏匹配显著提速）
+
+承接第四十一批。按用户要求进入 OpenCV 模块优化。详细实测记录见
+`docs/2026-11/OpenCV模块优化_实测记录与结论_20261121.md`。
+
+#### 1. 先量后改：三次假设全被实测推翻
+
+| 假设 | 实测结论 |
+|---|---|
+| "尺度粗筛没实现" | **错**。`probeAutomaticScaleCandidates` / `prepareScaleProbeSourceCache` / 自适应降采样 / 快路径 / 强探针跳过**全部已存在** |
+| "自动模式调用次数太多（10 次）" | **错**。实测只做 **3 次**全分辨率精修 |
+| "探针阶段慢" | **错**。探针仅 35ms，占 1029ms 的 3% |
+
+**真正根因**：单次全分辨率匹配要 **330ms**（1920×1200 区域 × 144×144 模板），
+而同仓库 `MatchTemplate(named)` 走金字塔只要 76ms —— 差 4.3 倍。
+差别纯粹在"是否用金字塔定位"。`refineScaleCandidate` 调的是
+`findBestPreparedMatch`（纯暴力全分辨率），**尺度精修这条路从未接过金字塔**。
+
+#### 2. 两处改动
+
+**① 尺度精修接入金字塔**（`refineScaleCandidate`）
+`shouldTryPyramid` 成立时改走 `pyramidFindFirstMatch`；否则逐字节回退原路径。
+金字塔返回 ROI 内坐标，必须加回 `roi.x/roi.y`。`definitive_miss` 为真时直接判不命中。
+
+**② `pyramidFindFirstMatch` 候选数 12 → 4**（新增常量 `kPyramidFirstMatchCandidates`）
+原实现只要一个最佳命中，却传 12 个候选，level-0 要做 12 次局部精修只用第 1 个。
+返回前经 `dedupe + suppressOverlappingMatchResults`（按 score 降序），故 `front()` 即全局最高分。
+
+#### 3. 实测收益（同机同进程 median）
+
+| 场景 | 优化前 | 优化后 | 变化 |
+|---|---|---|---|
+| `bench_real_named_match` | 76ms | **43ms** | -43% |
+| `bench_hard_scale_auto` | 331ms | **60ms** | **-82%** |
+| `bench_real_scale_manual` | 718ms | **337ms** | -53% |
+| `bench_real_scale_auto` | 1208ms | **755ms** | **-37%** |
+| `bench_real_direct_candidates` | 371ms | **261ms** | -30% |
+| `bench_game_coin_all` | 621ms | **447ms** | -28% |
+
+#### 4. 反向验证发现一个真实测试盲区（重要）
+
+第一次跑反向验证时，**故意把金字塔坐标的 ROI 原点写错，全部 34 个 OpenCv 用例仍然 GREEN**。
+排查发现：唯一相关用例用 `18x18` 源图 + `4x4` 模板，`shouldTryPyramid` 不成立，
+**金字塔分支从未被执行**。
+
+补测又踩了两坑：
+- 96×96 模板 + 1.5 倍贴图 → x 偏 109px（条纹图案 1.5 倍后周期非整数）
+- 原样贴图但 **ROI = 整图** → sabotage 也通过（**整图时 `roi.x` 恒为 0**，天然测不出偏移）
+
+最终新增 `PyramidMatchKeepsAccurateCoordinatesOnLargeImage`：
+1920×1080 大图 + 96×96 模板原样贴 (1500,700)，**ROI 带偏移 (900,400,1000,640)**，
+断言坐标误差 ≤4px。**反向验证：ROI 原点写错 → 偏差正好 900px → 用例 RED**（已实测）。
+
+#### 5. 为什么停在这里
+
+`scale_auto` 剩余 755ms 的绝大部分是"在 1080p 整屏上做 3 次带金字塔的精确匹配"，
+属**算法固有成本**，不是实现缺陷。再做数量级改善只能重编 OpenCV（OpenCL/AVX2），
+属基建级变更（改第三方库与构建链、影响体积/依赖/全量回归），**超出模块优化范围，本轮不做**。
+真实游戏找图几乎总有明确 ROI（任务面板 220×236、血条 400×20），
+那些规模下 `shouldTryPyramid` 往往不触发，走的是轻量路径。
+
+#### 6. 验证
+
+- `OpenCv*` + `*Cv*` **35/35 PASS**（新增 1 条金字塔坐标精度用例）
+- 反向验证脚本：`scripts/probes/reverse_verify_opencv.ps1`
+- **未发布、未同步发布件、未构建 x86**（沿用用户要求）
+
 ### 2026-11-21 第四十一批（feat：P1 FindStr 增强 + P3 OCR 分项耗时自省）
 
 承接第四十批（P2）。本轮实现交接文档 §五 的 P1 与 P3 两项，并在过程中发现并修复

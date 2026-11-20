@@ -3213,3 +3213,100 @@ TEST(OpenCvTest, BlueStacksScreenshotTemplateMatching) {
 
     opcv::RemoveAllTemplates();
 }
+
+
+// 大图 + 大模板的金字塔匹配**坐标精度**回归（2026-11-21 新增）。
+//
+// 为什么必须单独加这一条：现有 `MatchTemplateScaleFindsScaledTemplate` 用
+// 18x18 源图 + 4x4 模板，`shouldTryPyramid`（需 >=960x540 且模板 >=32x32）不成立，
+// **金字塔分支从未被执行**。反向验证实测：把金字塔精修的 roi 原点故意写错，
+// 当时的全部 OpenCv 用例仍然 GREEN —— 这是真实的测试盲区。
+//
+// 本用例把模板**原样（1.0 倍）**贴在大图远离原点的位置，尺度唯一确定，
+// 不引入缩放插值误差，只校验"金字塔定位是否准确"。
+TEST(OpenCvTest, PyramidMatchKeepsAccurateCoordinatesOnLargeImage) {
+    opcv::RemoveAllTemplates();
+
+    // 模板 96x96：buildPyramidLevels 每级减半，因此 level-1 仍有 48x48，
+    // 粗层纹理充足（用 32 的话 level-1 只剩 16x16，粗层会直接判不命中，
+    // 金字塔分支被跳过，用例测不到该测的东西 —— 这一点实测踩过）。
+    const int templ_size = 96;
+    std::vector<uchar> templ_bgra(static_cast<size_t>(templ_size * templ_size * 4), 0);
+    for (int y = 0; y < templ_size; ++y) {
+        for (int x = 0; x < templ_size; ++x) {
+            const size_t index = static_cast<size_t>((y * templ_size + x) * 4);
+            // 不规则色块（不是纯条纹），保证在任何缩放下都有唯一峰值
+            const uchar value = static_cast<uchar>(
+                ((x / 11) * 37 + (y / 13) * 53 + (x * y) / 41) % 200 + 27);
+            templ_bgra[index + 0] = value;
+            templ_bgra[index + 1] = static_cast<uchar>((value + 61) % 256);
+            templ_bgra[index + 2] = static_cast<uchar>((value + 137) % 256);
+            templ_bgra[index + 3] = 255;
+        }
+    }
+    const auto template_bmp = test_support::BuildBmp32TopDown(templ_size, templ_size, templ_bgra);
+    const std::wstring template_path = test_support::GetTempBmpPath(L"opencv_pyramid_coord_template.bmp");
+    ASSERT_TRUE(WriteBytesToFile(template_path, template_bmp));
+    ASSERT_TRUE(opcv::LoadTemplate(L"pyramid_coord_target", template_path));
+
+    // 源图 1920x1080（> 960x540 触发金字塔）
+    const int source_width = 1920;
+    const int source_height = 1080;
+    std::vector<uchar> source_bgra(static_cast<size_t>(source_width * source_height * 4), 0);
+    for (int y = 0; y < source_height; ++y) {
+        for (int x = 0; x < source_width; ++x) {
+            const size_t index = static_cast<size_t>((y * source_width + x) * 4);
+            // 平滑渐变背景，不会与模板撞出伪峰
+            const uchar base = static_cast<uchar>(100 + (x * 20) / source_width + (y * 20) / source_height);
+            source_bgra[index + 0] = base;
+            source_bgra[index + 1] = base;
+            source_bgra[index + 2] = base;
+            source_bgra[index + 3] = 255;
+        }
+    }
+
+    // 原样（1.0 倍）贴在右下区域，远离原点
+    const int target_x = 1500;
+    const int target_y = 700;
+    ASSERT_LE(target_x + templ_size, source_width);
+    ASSERT_LE(target_y + templ_size, source_height);
+    for (int y = 0; y < templ_size; ++y) {
+        for (int x = 0; x < templ_size; ++x) {
+            const size_t src = static_cast<size_t>((y * templ_size + x) * 4);
+            const size_t dst = static_cast<size_t>(((target_y + y) * source_width + (target_x + x)) * 4);
+            for (int c = 0; c < 4; ++c) {
+                source_bgra[dst + c] = templ_bgra[src + c];
+            }
+        }
+    }
+
+    opcv::ImageHandle source_image;
+    const opcv::RawImageView view{source_bgra.data(), source_width, source_height, source_width * 4,
+                                  opcv::PixelFormat::Bgra};
+    ASSERT_TRUE(opcv::LoadImageFromMemory(view, source_image));
+
+    // 关键：用**带偏移的 ROI**（不是整图）。整图时 roi.x/roi.y 恒为 0，
+    // 金字塔精修即使忘记加 roi 原点也测不出来 —— 这一点实测踩过。
+    const int search_x = 900;
+    const int search_y = 400;
+    const int search_w = 1000;
+    const int search_h = 640;
+    ASSERT_LE(target_x + templ_size, search_x + search_w);
+    ASSERT_LE(target_y + templ_size, search_y + search_h);
+    ASSERT_GT(search_x, 0) << "ROI must be offset from origin to expose the offset bug";
+
+    opcv::MatchResult match;
+    // 原样贴图，分数应当很高；阈值 0.90
+    ASSERT_TRUE(opcv::MatchTemplate(source_image, L"pyramid_coord_target",
+                                   {search_x, search_y, search_w, search_h}, 0.90, match,
+                                   opcv::SearchDirection::LeftToRight, opcv::StripMode::None, 1,
+                                   opcv::MatchColorMode::Color))
+        << "pyramid matching must find the pasted template";
+
+    // 决定性断言：坐标必须精确等于 (target_x, target_y)。
+    // 若金字塔精修忘记加 roi 原点，会得到 ROI 内相对坐标（约 0..380），偏差一个数量级。
+    EXPECT_NEAR(match.x, target_x, 4) << "pyramid match x drifted (roi origin offset bug?)";
+    EXPECT_NEAR(match.y, target_y, 4) << "pyramid match y drifted (roi origin offset bug?)";
+    EXPECT_GT(match.x, source_width / 2) << "x must be in the right half, not near origin";
+    EXPECT_GT(match.y, source_height / 2) << "y must be in the bottom half, not near origin";
+}
