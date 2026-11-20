@@ -340,6 +340,7 @@ public:
     std::vector<uint8_t> m_det, m_rec, m_keys; // 持有模型 buffer 保证会话生命周期内有效
     CharSetRule m_rule;                        // --charset= 解析结果（空=全字典）
     std::vector<uint8_t> m_mask;               // 类别白名单（尺寸=keys+1；空=全放行）
+    float oscale = 2.0f;                       // entry upscale factor for low-res small text (<=1 disables)
     bool ok = false;
 
     // 对单张 BGR 图直接做 rec（跳过检测）：缩放+归一化+CTC 解码。
@@ -461,7 +462,8 @@ public:
         }
         build_mask();
         cout << "OnnxOcrEngine: models loaded, keys=" << keys.size()
-             << ", charset_mask=" << (m_mask.empty() ? 0 : int(m_mask.size()) - 1) << endl;
+             << ", charset_mask=" << (m_mask.empty() ? 0 : int(m_mask.size()) - 1)
+             << ", oscale=" << oscale << endl;
         ok = true;
         return true;
     }
@@ -483,6 +485,8 @@ int OnnxOcrEngine::init(const std::wstring &engine, const std::wstring &dllName,
         } else if (a.rfind("--threads=", 0) == 0) {
             threads = atoi(a.c_str() + 10);
             have_threads = true;
+        } else if (a.rfind("--oscale=", 0) == 0) {
+            m_impl->oscale = float(atof(a.c_str() + 9));
         }
     }
     // 线程策略：--threads=N>0 显式指定；--threads=0 不调用 Set（走 ORT 默认=全物理核）；
@@ -504,6 +508,18 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
     if (size_t(w) * h * bpp > 64ULL * 1024 * 1024) return -2;
 
     BGR img = to_bgr(data, w, h, bpp);
+
+    // ---- 低清小字增强：入口 2x 放大（--oscale= 可配，<=1 关闭）----
+    // 小图放大后 det 输入分辨率直接翻倍（仍在 960 limit 内），rec 裁剪源也更清晰；
+    // 大图放大无益（det 本就被限到 960），按 max side 阈值跳过，零额外成本。
+    // 坐标最后统一除回 up，调用方看到的仍是原图像素坐标。
+    const float up = m_impl->oscale;
+    const int ow = w, oh = h;
+    if (up > 1.0f && std::max(w, h) <= 1920) {
+        img = resize_bilinear(img, int(h * up + 0.5f), int(w * up + 0.5f));
+        w = img.w;
+        h = img.h;
+    }
 
     // ---- 检测 ----
     int limit = 960;
@@ -565,8 +581,12 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
 
         ocr_rec_t rec;
         const Box &box = kept[i];
-        rec.left_top = point_t(std::max(0, box.x0), std::max(0, box.y0));
-        rec.right_bottom = point_t(std::min(w, box.x1), std::min(h, box.y1));
+        // 放大识别时框坐标处于放大图像素系，除回 up 还原为原图坐标
+        const float inv = (up > 1.0f && std::max(ow, oh) <= 1920) ? 1.0f / up : 1.0f;
+        rec.left_top =
+            point_t(int(std::lround(std::max(0, box.x0) * inv)), int(std::lround(std::max(0, box.y0) * inv)));
+        rec.right_bottom =
+            point_t(int(std::lround(std::min(w, box.x1) * inv)), int(std::lround(std::min(h, box.y1) * inv)));
         rec.text = utf8_to_wstring(texts[i]); // txt 是 PP-OCR 输出的 UTF-8，必须用 CP_UTF8 解码
         rec.confidence = confs[i];
         result.push_back(rec);
