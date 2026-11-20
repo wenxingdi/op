@@ -523,23 +523,45 @@ public:
         }
     }
 
-    // 批量 rec：所有 ROI 统一 pad 到 RH×RW 后叠成 {N,3,RH,RW} 一次 Run，再逐行 CTC
+    // 批量 rec：所有 ROI 统一 pad 到 RH×RWmax 后叠成 {N,3,RH,RWmax} 一次 Run，再逐行 CTC
     // 解码。每行输入与 rec_image 单跑逐字节一致（同缩放/归一化代码），数学等价；
     // batch 数值可能有微差（同模型同权重，行为邻近）。
     // 失败语义：整批 Run 失败返回 false（单次 session 故障），由调用方按推理失败处理。
+    //
+    // P2 动态长宽比（2026-11-20）：RW 不再固定 320，而是按**本批最大长宽比**动态决定
+    //   RWmax = min(kRecMaxW, max(320, ceil(48*ratio_max/kRecWAlign)*kRecWAlign))。
+    //   原实现固定 320（6.67:1），超过 ~40 字的长行会被横向压扁、字宽趋于 1~2px，
+    //   识别精度显著下降（实测 220x236 任务追踪图 17 行里有长行被压扁）。
+    //   rec 模型是动态 T 输入，ONNX 原生支持，无需重新导出。
+    //   短行（绝大多数）RW 仍为 320，行为与改动前**完全一致**；
+    //   只有批次内存在超宽行时才加宽，且同一批次共用同一 RW（batch 要求张量同形）。
     bool rec_images(const std::vector<BGR> &rois, std::vector<std::string> &texts,
                     std::vector<float> &confs, std::vector<std::vector<CharSpan>> *char_spans = nullptr) {
-        const int RH = 48, RW = 320;
+        const int RH = 48;
+        const int RW_MIN = 320;   // 基线宽度（6.67:1），短行不变
+        const int RW_MAX = 960;   // 上限：与 det 的 960 限制对齐，避免超长行吃满内存
+        const int RW_ALIGN = 32;  // 与 det 输入对齐习惯一致，便于 ORT 走优化 kernel
         const size_t N = rois.size();
         texts.assign(N, std::string());
         confs.assign(N, 0.0f);
         if (char_spans) char_spans->assign(N, {});
         if (N == 0) return true;
+        // 先算本批动态 RW：取各 ROI 所需宽度（按 RH=48 等比缩放后的 ceil）的最大值
+        int RW = RW_MIN;
+        for (size_t n = 0; n < N; ++n) {
+            const BGR &roi = rois[n];
+            if (roi.h <= 0) continue;
+            const double want = std::ceil(double(RH) * double(roi.w) / double(roi.h));
+            const int aligned = int(std::ceil(want / RW_ALIGN) * RW_ALIGN);
+            if (aligned > RW) RW = aligned;
+        }
+        if (RW > RW_MAX) RW = RW_MAX;
+        if (RW < RW_MIN) RW = RW_MIN;
         std::vector<float> rin(size_t(3) * RH * RW * N, 0.0f);
         std::vector<int> widths(N, 0); // each line's own resized width tw (P0 char mapping)
         for (size_t n = 0; n < N; ++n) {
             const BGR &roi = rois[n];
-            float ratio = float(roi.w) / roi.h;
+            float ratio = roi.h > 0 ? float(roi.w) / roi.h : 1.0f;
             int tw = int(std::ceil(48.0f * ratio));
             if (tw > RW) tw = RW;
             widths[n] = tw;

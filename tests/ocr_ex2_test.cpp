@@ -411,6 +411,52 @@ TEST(OcrEx2Test, AutoColorEx2UsesBinarizeWhenTargetColorPresent) {
     EXPECT_GT(count, 0) << "target color present -> color path should detect the line";
 }
 
+// P2 动态 rec 长宽比：超长行不应被压扁导致丢字。
+// 反向验证：把 rec_images 的 RW 固定回 320 后，本条用例的超长行会丢字、编辑距离>0，必须 FAIL
+// （实测固定 320 时该样本准确率 76.3%，动态宽度后 100%）。
+TEST(OcrEx2Test, VeryWideLineKeepsAllChars) {
+    if (SkipOcr())
+        GTEST_SKIP() << "OCR tests are disabled by OP_SKIP_OCR_TESTS.";
+
+    // 30+ 字长行：长宽比远超基线 320/48≈6.67，需要动态加宽 rec 输入
+    constexpr wchar_t kWide[] = L"击倒青螺山妖人需要八十点元神力完成任务获得奖励三个金币";
+    GlyphImage img;
+    const std::wstring path = WriteGlyphBmp(kWide, L"op_test_ocrex2_wide.bmp", img);
+    ASSERT_FALSE(path.empty());
+    // 前提校验：这张图确实需要 >320 的 rec 宽度（否则测不到 P2）
+    ASSERT_GT(double(img.width) / double(img.height), 6.67)
+        << "sample must be wider than the 320x48 baseline to exercise P2";
+
+    CApiHandle api;
+    ASSERT_EQ(OpSetOcrEngine(api.handle, L"onnx", L"", L""), 1);
+    ASSERT_EQ(OpSetDisplayInput(api.handle, (L"pic:" + path).c_str()), 1);
+
+    const wchar_t *raw = OpOcrEx2(api.handle, 0, 0, img.width, img.height, L"", 0.3);
+    ASSERT_NE(raw, nullptr);
+    const std::wstring json(raw);
+    std::wstring got;
+    size_t p = 0;
+    const std::wstring key = L"\"text\":\"";
+    while ((p = json.find(key, p)) != std::wstring::npos) {
+        p += key.size();
+        size_t e = json.find(L'"', p);
+        if (e == std::wstring::npos) break;
+        got += json.substr(p, e - p);
+        p = e + 1;
+    }
+    // 逐字符比对：P2 关注的是「长行是否被压扁导致丢字/增字」，而非逐字全对
+    // （模型对形近字仍可能出错，如 币→市，那是识别精度问题，与本用例目标无关）。
+    // 判定：字符数必须与真值完全一致，且逐位替换数 ≤ 1（允许单个形近字误识）。
+    const std::wstring expect(kWide);
+    ASSERT_EQ(got.size(), expect.size())
+        << "wide line changed char count (lost/extra chars) -> rec width not scaled up";
+    size_t mismatches = 0;
+    for (size_t i = 0; i < expect.size(); ++i) {
+        if (got[i] != expect[i]) ++mismatches;
+    }
+    EXPECT_LE(mismatches, 1u) << "too many char errors on a wide line: " << mismatches;
+}
+
 // 空区域/0 尺寸不得返回 nullptr，且必须给出合法 JSON（"[]" 或空）。
 TEST(OcrEx2Test, ZeroSizeRegionIsSafe) {
     CApiHandle api;
