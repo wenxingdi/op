@@ -513,12 +513,29 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
     // 小图放大后 det 输入分辨率直接翻倍（仍在 960 limit 内），rec 裁剪源也更清晰；
     // 大图放大无益（det 本就被限到 960），按 max side 阈值跳过，零额外成本。
     // 坐标最后统一除回 up，调用方看到的仍是原图像素坐标。
+    // 已二值化的输入（指定颜色路径喂入的纯白纯黑图）不放大：灰度细节已不存在，
+    // 放大只白花 4 倍 det 成本。按 >2% 非黑白像素判定为非二值图。
     const float up = m_impl->oscale;
     const int ow = w, oh = h;
+    bool binarized = false;
     if (up > 1.0f && std::max(w, h) < 960) {
-        img = resize_bilinear(img, int(h * up + 0.5f), int(w * up + 0.5f));
-        w = img.w;
-        h = img.h;
+        const size_t n = size_t(w) * h;
+        size_t bad = 0, lim = n / 50 + 1;
+        for (size_t i = 0; i < n; ++i) {
+            const uint8_t *p = &img.d[i * 3];
+            const uint8_t mx = (std::max)({p[0], p[1], p[2]});
+            const uint8_t mn = (std::min)({p[0], p[1], p[2]});
+            if ((mx > 8) && (mn < 247)) { // 中间调像素：非二值图
+                if (++bad > lim)
+                    break;
+            }
+        }
+        binarized = bad <= lim;
+        if (!binarized) {
+            img = resize_bilinear(img, int(h * up + 0.5f), int(w * up + 0.5f));
+            w = img.w;
+            h = img.h;
+        }
     }
 
     // ---- 检测 ----
@@ -582,7 +599,7 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
         ocr_rec_t rec;
         const Box &box = kept[i];
         // 放大识别时框坐标处于放大图像素系，除回 up 还原为原图坐标
-        const float inv = (up > 1.0f && std::max(ow, oh) < 960) ? 1.0f / up : 1.0f;
+        const float inv = (!binarized && up > 1.0f) ? 1.0f / up : 1.0f;
         rec.left_top =
             point_t(int(std::lround(std::max(0, box.x0) * inv)), int(std::lround(std::max(0, box.y0) * inv)));
         rec.right_bottom =
