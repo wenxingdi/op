@@ -285,14 +285,22 @@ std::string HttpOcrService::normalize_engine_name(const std::string &eng) {
 std::shared_ptr<OcrEngine> HttpOcrService::builtin_engine_unlocked(
     const std::string &name, const std::wstring &dllName, const std::vector<std::string> &argv) {
 #if defined(OP_HAS_ONNX) && OP_HAS_ONNX
-    auto it = m_engine_cache.find(name);
+    // Cache key must include argv: --charset/--threads/--oscale/--cls are per-instance
+    // settings; keying on tier name alone silently discards them on re-init (found
+    // during CLS testing: "--cls=0" returned the cached cls=on engine).
+    std::string key = name;
+    for (const auto &a : argv) {
+        key += '\x1f';
+        key += a;
+    }
+    auto it = m_engine_cache.find(key);
     if (it != m_engine_cache.end())
-        return it->second; // 已加载档位：零成本复用（热切换只换活动指针）
+        return it->second; // 同档位同参数：零成本复用（热切换只换活动指针）
     auto e = std::make_shared<OnnxOcrEngine>();
     const std::wstring wname(name.begin(), name.end()); // 档位名 ASCII，直接扩宽
     if (e->init(wname, dllName, argv) != 0)
         return nullptr;
-    m_engine_cache[name] = e;
+    m_engine_cache[key] = e;
     return e;
 #else
     (void)name;

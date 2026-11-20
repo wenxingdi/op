@@ -244,6 +244,8 @@ set(_op_ocr_models_dir "${CMAKE_CURRENT_SOURCE_DIR}/../build/_deps/ocr_models")
 set(OCR_MODEL_DET "${_op_ocr_models_dir}/PP-OCRv6_small_det.onnx")
 set(OCR_MODEL_REC "${_op_ocr_models_dir}/PP-OCRv6_small_rec.onnx")
 set(OCR_MODEL_KEYS "${_op_ocr_models_dir}/ppocrv6small_dict.txt")
+# CLS 方向分类（PP-LCNet x0.25 textline_ori，0/180 度，v4/v6 两档共用）
+set(OCR_MODEL_CLS "${_op_ocr_models_dir}/PP-LCNet_x0.25_textline_ori.onnx")
 # B8 多档热切换：V4 快档（坐标小图等速度敏感场景，模型文件为本地构建产物不入 git）
 set(OCR_MODEL_V4_DET "${_op_ocr_models_dir}/v4_backup/ch_PP-OCRv4_det_infer.onnx")
 set(OCR_MODEL_V4_REC "${_op_ocr_models_dir}/v4_backup/ch_PP-OCRv4_rec_infer.onnx")

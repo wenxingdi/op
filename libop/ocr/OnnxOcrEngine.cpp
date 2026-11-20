@@ -91,6 +91,20 @@ BGR rotate(const BGR &s, double theta_deg) {
         }
     return o;
 }
+// 180-degree flip (used by cls orientation fix).
+BGR rotate180(const BGR &s) {
+    if (s.h == 0 || s.w == 0) return BGR{};
+    BGR o = make_bgr(s.h, s.w);
+    for (int y = 0; y < s.h; ++y)
+        for (int x = 0; x < s.w; ++x) {
+            const uint8_t *p = s.at(s.h - 1 - y, s.w - 1 - x);
+            uint8_t *q = o.at(y, x);
+            q[0] = p[0];
+            q[1] = p[1];
+            q[2] = p[2];
+        }
+    return o;
+}
 // 主成分分析求内容主轴角度（度）。水平文字≈0，旋转文字≈其倾斜角。
 double pca_angle(const BGR &m) {
     long long n = long long(m.h) * m.w;
@@ -336,12 +350,14 @@ public:
     Ort::SessionOptions sopts;
     std::unique_ptr<Ort::Session> det;
     std::unique_ptr<Ort::Session> rec;
+    std::unique_ptr<Ort::Session> cls; // 0/180 orientation, shared by v4/v6 tiers
     std::vector<std::string> keys;
-    std::vector<uint8_t> m_det, m_rec, m_keys; // 持有模型 buffer 保证会话生命周期内有效
+    std::vector<uint8_t> m_det, m_rec, m_cls, m_keys; // 持有模型 buffer 保证会话生命周期内有效
     CharSetRule m_rule;                        // --charset= 解析结果（空=全字典）
     std::vector<uint8_t> m_mask;               // 类别白名单（尺寸=keys+1；空=全放行）
     float oscale = 2.0f;                       // entry upscale factor for low-res small text (<=1 disables)
     bool use_v4 = false;                       // B8: load V4 fast-tier resources instead of V6
+    bool cls_on = true;                        // --cls= 0/180 orientation fix (default: on for v6, off for v4)
     bool ok = false;
 
     // 对单张 BGR 图直接做 rec（跳过检测）：缩放+归一化+CTC 解码。
@@ -412,6 +428,41 @@ public:
         return true;
     }
 
+    // 批量 CLS 方向分类（PP-LCNet x0.25 textline_ori，0/180 两分类）。
+    // 输入直接 resize 到 80x160（H,W，官方预处理不保持长宽比）+ ImageNet 归一化，
+    // 与 planar_rgb_imagenet 完全一致；rois 中被判为 180 度的元素原地翻转。
+    // 返回 false = cls 会话缺失或推理失败（调用方忽略，按未旋转继续）。
+    bool cls_fix(std::vector<BGR> &rois) {
+        if (!cls || rois.empty()) return false;
+        const int CH = 80, CW = 160;
+        const size_t N = rois.size();
+        const size_t plane = size_t(3) * CH * CW;
+        std::vector<float> cin(plane * N);
+        for (size_t n = 0; n < N; ++n) {
+            BGR rs = resize_bilinear(rois[n], CH, CW);
+            std::vector<float> one;
+            planar_rgb_imagenet(rs, one); // resizes to exactly plane floats
+            std::copy(one.begin(), one.end(), cin.begin() + plane * n);
+        }
+        std::vector<int64_t> cshape = {int64_t(N), 3, CH, CW};
+        std::vector<float> cout_;
+        std::vector<int64_t> coshape;
+        if (!ort_run(*cls, cin, cshape, cout_, coshape)) return false;
+        if (coshape.size() != 2 || coshape[0] != int64_t(N) || coshape[1] < 2) return false;
+        for (size_t n = 0; n < N; ++n) {
+            const float *row = cout_.data() + size_t(n) * size_t(coshape[1]);
+            int best = 0;
+            float bv = -1e30f;
+            for (int64_t c = 0; c < coshape[1]; ++c)
+                if (row[c] > bv) {
+                    bv = row[c];
+                    best = int(c);
+                }
+            if (best == 1) rois[n] = rotate180(rois[n]); // 180_degree
+        }
+        return true;
+    }
+
     Impl() {
         // 推理线程数不在构造里设（避免锁死单线程）：init() 按 --threads= 参数决定，
         // 缺省 min(4, 核) —— 单线程跑 PP-OCRv4 rec 约 40ms+，远达不到 9-13ms 目标。
@@ -450,12 +501,17 @@ public:
         m_det = LoadRes(id_det);
         m_rec = LoadRes(id_rec);
         m_keys = LoadRes(id_keys);
+        m_cls = LoadRes(IDR_OCR_CLS); // shared by both tiers; absence is non-fatal
         if (m_det.empty() || m_rec.empty()) {
             cout << "OnnxOcrEngine: model resource missing (det/rec)" << endl;
             return false;
         }
         det = std::make_unique<Ort::Session>(env, m_det.data(), m_det.size(), sopts);
         rec = std::make_unique<Ort::Session>(env, m_rec.data(), m_rec.size(), sopts);
+        if (!m_cls.empty())
+            cls = std::make_unique<Ort::Session>(env, m_cls.data(), m_cls.size(), sopts);
+        else
+            cout << "OnnxOcrEngine: cls resource missing, orientation fix disabled" << endl;
         if (!m_keys.empty()) {
             std::string kt(reinterpret_cast<const char *>(m_keys.data()), m_keys.size());
             std::istringstream iss(kt);
@@ -468,7 +524,7 @@ public:
         build_mask();
         cout << "OnnxOcrEngine: models loaded (" << (use_v4 ? "v4" : "v6") << "), keys=" << keys.size()
              << ", charset_mask=" << (m_mask.empty() ? 0 : int(m_mask.size()) - 1)
-             << ", oscale=" << oscale << endl;
+             << ", oscale=" << oscale << ", cls=" << (cls ? (cls_on ? "on" : "off") : "missing") << endl;
         ok = true;
         return true;
     }
@@ -483,6 +539,7 @@ int OnnxOcrEngine::init(const std::wstring &engine, const std::wstring &dllName,
     m_impl->use_v4 = (engine == L"v4"); // B8: engine name selects resource tier
     bool have_threads = false;
     int threads = 0;
+    bool cls_set = false;
     // 解析 --charset=<规则>：如 --charset=@zh0123456789[],-+；--threads=N：推理 intra-op 线程数
     for (const std::string &a : argv) {
         if (a.rfind("--charset=", 0) == 0) {
@@ -492,8 +549,14 @@ int OnnxOcrEngine::init(const std::wstring &engine, const std::wstring &dllName,
             have_threads = true;
         } else if (a.rfind("--oscale=", 0) == 0) {
             m_impl->oscale = float(atof(a.c_str() + 9));
+        } else if (a.rfind("--cls=", 0) == 0) {
+            m_impl->cls_on = atoi(a.c_str() + 6) != 0;
+            cls_set = true;
         }
     }
+    // CLS 默认策略：v6 精度档常开（180 度翻转检测，批量推理开销 <5ms）；
+    // v4 快档默认关（坐标小图争分夺秒），需要时显式 --cls=1。
+    if (!cls_set) m_impl->cls_on = !m_impl->use_v4;
     // 线程策略：--threads=N>0 显式指定；--threads=0 不调用 Set（走 ORT 默认=全物理核）；
     // 缺省 min(4, 核) —— rec 单行 320x48 4 线程约 10-15ms，覆盖 9-13ms 目标且不失控。
     if (have_threads && threads > 0) {
@@ -593,6 +656,9 @@ int OnnxOcrEngine::ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) {
         kept.push_back(box);
     }
     if (rois.empty()) return 0;
+    // CLS 0/180 方向修正：批量一次 Run，180 度的 ROI 原地翻转后再进 rec。
+    // v4 快档默认关闭（见 init），失败静默忽略保持原图。
+    if (m_impl->cls_on) m_impl->cls_fix(rois);
     std::vector<std::string> texts;
     std::vector<float> confs;
     if (!m_impl->rec_images(rois, texts, confs)) return -3;
@@ -631,6 +697,12 @@ int OnnxOcrEngine::ocr_line(byte *data, int w, int h, int bpp, vocr_rec_t &resul
         double ang = pca_angle(roi);
         if (std::abs(ang) > 15.0 && std::abs(ang) < 75.0)
             roi = rotate(roi, -ang);
+    }
+
+    // CLS 0/180 方向修正（与 ocr() 批量路径同一模型/策略）
+    if (m_impl->cls_on) {
+        std::vector<BGR> one{roi};
+        if (m_impl->cls_fix(one)) roi = std::move(one[0]);
     }
 
     std::string txt;
