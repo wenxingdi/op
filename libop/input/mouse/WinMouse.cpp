@@ -34,17 +34,42 @@ double smoothstep(double t) {
     return t * t * (3.0 - 2.0 * t);
 }
 
-double random_signed_unit() {
-    return rand_unit_signed();
-}
-
 int random_offset(int value) {
     if (value == 0)
         return 0;
     const int span = value == INT_MIN ? INT_MAX : std::abs(value);
-    const int offset = rand_range(0, span - 1);
+    // 正态偏置：σ = span/3，落点密集在目标中心、边缘稀疏（真人点击分布），
+    // 替代旧的均匀分布（边缘与中心等概率是机器特征）。
+    const double n = std::fabs(rand_normal());
+    int offset = static_cast<int>(std::lround(n * (span / 3.0)));
+    offset = (std::clamp)(offset, 0, span - 1);
     return value > 0 ? offset : -offset;
 }
+
+// 速度曲线族：真人每次移动的速度轮廓不完全一样，单一缓动函数本身就是统计特征。
+// 三种都是"S 型起步-滑行-减速"家族，但加速段/减速段的比例不同。
+double apply_easing(int kind, double t) {
+    switch (kind) {
+    case 1: // quintic smootherstep：两端更平缓，中段更果断
+        return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+    case 2: // 正弦 in-out：整段更柔
+        return 0.5 - 0.5 * std::cos(3.14159265358979323846 * t);
+    case 0:
+    default: // 经典 smoothstep
+        return smoothstep(t);
+    }
+}
+
+// 真人双击间隔约 80~150ms；复用单击 down/up 延时（30ms 级）是典型机器特征。
+long human_double_click_gap_ms() {
+    return rand_range(80, 150);
+}
+
+// 末端过冲参数：距离够远时 35% 概率落点偏出 2~5px 后收回（真人手臂运动的固有特征）。
+constexpr int kOvershootMinDistance = 40;
+constexpr int kOvershotTriggerPercent = 35;
+constexpr int kOvershootMinPx = 2;
+constexpr int kOvershootMaxPx = 5;
 
 POINT bezier_point(POINT p0, POINT p1, POINT p2, POINT p3, double t) {
     const double u = 1.0 - t;
@@ -59,12 +84,13 @@ std::vector<POINT> build_linear_path(POINT from, POINT to, int duration) {
     if (point_distance(from, to) < 1.0)
         return {to};
 
+    const int easing_kind = rand_range(0, 2);
     std::vector<POINT> path;
     const int steps = movement_steps(from, to, duration);
     path.reserve(static_cast<size_t>(steps));
     POINT last{LONG_MIN, LONG_MIN};
     for (int i = 1; i <= steps; ++i) {
-        const double t = smoothstep(static_cast<double>(i) / static_cast<double>(steps));
+        const double t = apply_easing(easing_kind, static_cast<double>(i) / static_cast<double>(steps));
         POINT pt{static_cast<LONG>(std::lround(from.x + (to.x - from.x) * t)),
                  static_cast<LONG>(std::lround(from.y + (to.y - from.y) * t))};
         if (pt.x != last.x || pt.y != last.y) {
@@ -88,8 +114,13 @@ std::vector<POINT> build_smooth_path(POINT from, POINT to, int duration, int jit
     const double ny = dx / distance;
     const double raw_bend = distance * static_cast<double>(jitter) / 100.0;
     const double bend = raw_bend > 0.0 ? std::clamp(raw_bend, 3.0, 80.0) : 0.0;
-    const double bend1 = bend * random_signed_unit();
-    const double bend2 = bend * random_signed_unit();
+    // 两个控制点同向弯曲（同一符号、0.5~1.0 倍幅值）：真人一次移动基本朝一侧弧线，
+    // 反向弯曲会互相抵消拉成近直线，且给测试一个"必弯"的下界。
+    const double sign = rand_unit_signed() < 0.0 ? -1.0 : 1.0;
+    const double m1 = 0.5 + 0.5 * std::fabs(rand_unit_signed());
+    const double m2 = 0.5 + 0.5 * std::fabs(rand_unit_signed());
+    const double bend1 = sign * bend * m1;
+    const double bend2 = sign * bend * m2;
 
     // 控制点只做轻微偏移，保留方向感，同时避免完全笔直的机械轨迹。
     POINT c1{static_cast<LONG>(std::lround(from.x + dx * 0.35 + nx * bend1)),
@@ -97,12 +128,13 @@ std::vector<POINT> build_smooth_path(POINT from, POINT to, int duration, int jit
     POINT c2{static_cast<LONG>(std::lround(from.x + dx * 0.70 + nx * bend2)),
              static_cast<LONG>(std::lround(from.y + dy * 0.70 + ny * bend2))};
 
+    const int easing_kind = rand_range(0, 2);
     std::vector<POINT> path;
     const int steps = movement_steps(from, to, duration);
     path.reserve(static_cast<size_t>(steps));
     POINT last{LONG_MIN, LONG_MIN};
     for (int i = 1; i <= steps; ++i) {
-        const double t = smoothstep(static_cast<double>(i) / static_cast<double>(steps));
+        const double t = apply_easing(easing_kind, static_cast<double>(i) / static_cast<double>(steps));
         POINT pt = bezier_point(from, c1, c2, to, t);
         if (pt.x != last.x || pt.y != last.y) {
             path.push_back(pt);
@@ -380,23 +412,24 @@ long WinMouse::button_click(long (WinMouse::*down)(), long (WinMouse::*up)(), lo
     return r1 && r2 ? 1 : 0;
 }
 
-long WinMouse::normal_double_click(long (WinMouse::*click)(), long delay) {
+long WinMouse::normal_double_click(long (WinMouse::*click)(), long /*delay*/) {
     const long r1 = (this->*click)();
-    DelayJitter(delay);
+    // 双击间隔用拟人区间（80~150ms），不复用单击 down/up 延时——30ms 级连击是机器特征。
+    ::Delay(human_double_click_gap_ms());
     const long r2 = (this->*click)();
     return r1 && r2 ? 1 : 0;
 }
 
 long WinMouse::button_double_click(long (WinMouse::*click)(), UINT message, UINT up_message, WPARAM button,
-                                   long delay) {
+                                   long /*delay*/) {
     const long r1 = (this->*click)();
-    DelayJitter(delay);
+    ::Delay(human_double_click_gap_ms());
     const POINT pt = current_client_point();
     const WPARAM state = button_state_with(button, true);
     const long r2 = message::SendTimeout(_hwnd, message, state, MAKELPARAM(pt.x, pt.y));
     if (r2)
         set_button_state(button, true);
-    DelayJitter(delay);
+    ::Delay(human_double_click_gap_ms());
     const long r3 = send_windows_button(up_message, button, false);
     return r1 && r2 && r3 ? 1 : 0;
 }
@@ -411,11 +444,11 @@ long WinMouse::xbutton(WORD xbutton_id, WPARAM button, bool down) {
     return 0;
 }
 
-long WinMouse::xbutton_double_click(long (WinMouse::*click)(), WORD xbutton_id, WPARAM button, long delay) {
+long WinMouse::xbutton_double_click(long (WinMouse::*click)(), WORD xbutton_id, WPARAM button, long /*delay*/) {
     const long r1 = (this->*click)();
-    DelayJitter(delay);
+    ::Delay(human_double_click_gap_ms());
     const long r2 = send_windows_xbutton(WM_XBUTTONDBLCLK, xbutton_id, button, true);
-    DelayJitter(delay);
+    ::Delay(human_double_click_gap_ms());
     const long r3 = send_windows_xbutton(WM_XBUTTONUP, xbutton_id, button, false);
     return r1 && r2 && r3 ? 1 : 0;
 }
@@ -473,8 +506,20 @@ long WinMouse::MoveToSmooth(int x, int y, int duration) {
         build_mouse_path(from, to, resolved_duration, _trajectory_mode, _trajectory_jitter);
     delay_if_needed(_trajectory_start_delay);
     const long ret = run_mouse_path(path, resolved_duration, [this](POINT pt) { return MoveTo(pt.x, pt.y); });
-    if (ret)
+    if (ret) {
+        // 末端过冲：落点偏出 2~5px 后收回，真人手臂运动的固有特征。
+        // jitter=0 或线性模式视为"明确要笔直/确定性轨迹"，不叠加随机量
+        // （MouseKeyTest.MouseTrajectoryJitterBendsPath 以 jitter=0 笔直为不变量）。
+        if (_trajectory_jitter > 0 && _trajectory_mode != 1 && point_distance(from, to) >= kOvershootMinDistance &&
+            rand_range(0, 99) < kOvershotTriggerPercent) {
+            const int ox = rand_range(kOvershootMinPx, kOvershootMaxPx) * (rand_unit_signed() < 0.0 ? -1 : 1);
+            const int oy = rand_range(kOvershootMinPx, kOvershootMaxPx) * (rand_unit_signed() < 0.0 ? -1 : 1);
+            MoveTo(to.x + ox, to.y + oy);
+            ::Delay(rand_range(15, 40));
+            MoveTo(to.x, to.y);
+        }
         delay_if_needed(_trajectory_end_delay);
+    }
     return ret;
 }
 
@@ -507,10 +552,9 @@ long WinMouse::DragPath(const std::wstring &path_text, int duration) {
     if (resolved_duration < 0 || !parse_mouse_path(path_text, key_points))
         return 0;
 
-    const std::vector<POINT> path = expand_mouse_path(key_points);
-    if (path.size() < 2)
+    if (key_points.size() < 2)
         return 0;
-    if (!MoveTo(path.front().x, path.front().y))
+    if (!MoveTo(key_points.front().x, key_points.front().y))
         return 0;
 
     const long down_ret = LeftDown();
@@ -518,9 +562,17 @@ long WinMouse::DragPath(const std::wstring &path_text, int duration) {
         return 0;
 
     delay_if_needed(_trajectory_start_delay);
-    std::vector<POINT> moving_path(path.begin() + 1, path.end());
-    const long move_ret =
-        run_mouse_path(moving_path, resolved_duration, [this](POINT pt) { return MoveTo(pt.x, pt.y); });
+    // 段内走拟人轨迹（贝塞尔 + 速度曲线族），不再线性硬拉——直线拖拽是
+    // 行为检测最好抓的特征之一。时长按段均摊，多段拖拽每段都有完整加减速。
+    long move_ret = 1;
+    const int per_segment = static_cast<int>(key_points.size()) > 2
+                                ? resolved_duration / (static_cast<int>(key_points.size()) - 1)
+                                : resolved_duration;
+    for (size_t i = 1; i < key_points.size() && move_ret; ++i) {
+        const std::vector<POINT> segment =
+            build_mouse_path(key_points[i - 1], key_points[i], per_segment, _trajectory_mode, _trajectory_jitter);
+        move_ret = run_mouse_path(segment, per_segment, [this](POINT pt) { return MoveTo(pt.x, pt.y); });
+    }
     // 拖拽到终点后先停一下再松手，更接近按住后确认落点的操作习惯。
     delay_if_needed(_trajectory_end_delay);
     const long up_ret = LeftUp();

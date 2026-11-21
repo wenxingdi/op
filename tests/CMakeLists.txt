@@ -146,6 +146,7 @@ set(OP_TEST_SOURCES
   "handle_compat_test.cpp"
   "op_algorithm_windows_test.cpp"
   "mouse_keyboard_test.cpp"
+  "mouse_trajectory_test.cpp"
   "image_color_test.cpp"
   "capture_mode_test.cpp"
   "wgc_test.cpp"

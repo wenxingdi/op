@@ -112,5 +112,8 @@ bool SeedProcessRandom();
 long rand_range(long lo, long hi);
 // [-1.0, 1.0] 均匀浮点。
 double rand_unit_signed();
+// 近似标准正态（Box-Muller，截断到 ±3σ）。供"中心偏置"类拟人分布使用：
+// 如点击落点偏向目标中心（|N(0,1)| * σ），而非均匀散布。
+double rand_normal();
 
 #endif // OP_BASE_UTILS_H_

@@ -4,6 +4,7 @@
 #include "Environment.h"
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -341,6 +342,18 @@ long rand_range(long lo, long hi) {
 double rand_unit_signed() {
     std::uniform_real_distribution<double> dist(-1.0, 1.0);
     return dist(thread_rng());
+}
+
+double rand_normal() {
+    // Box-Muller：标准正态，截断 ±3σ 防极端值把落点甩出目标区。
+    std::uniform_real_distribution<double> uni(0.0, 1.0);
+    auto &rng = thread_rng();
+    double u1 = uni(rng);
+    if (u1 < 1e-12)
+        u1 = 1e-12;
+    const double u2 = uni(rng);
+    const double z = std::sqrt(-2.0 * std::log(u1)) * std::cos(6.28318530717958647692 * u2);
+    return (std::clamp)(z, -3.0, 3.0);
 }
 
 // 随机延时。旧实现 mis_min + rand() % mis_max 会溢出上界:
