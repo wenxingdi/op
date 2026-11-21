@@ -112,8 +112,15 @@ void op::Op::TerminateProcessTree(long pid, long *ret) {
     // 复用 ipc/ProcessTree.h（原 Pipe.cpp 匿名命名空间实现，P1 提升为共享）。
     // 语义：先快照子进程列表，终止本进程并等待，再递归各子树。
     proctree::terminate_process_tree(static_cast<DWORD>(pid));
-    // terminate_process_tree 无返回值：以进程已不可打开为准判定成功
-    const op::win32::unique_handle check(::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE,
-                                                       static_cast<DWORD>(pid)));
-    internal::set_result(ret, check ? 0L : 1L);
+    // 判据修正（2026-11-21，补齐端到端测试时发现）：
+    // 原来用"是否还能 OpenProcess"判定成功，但只要**调用方自己还持有该进程的句柄**
+    // （脚本 CreateProcess 之后立刻杀，这是最常见的用法），进程对象就不会销毁，
+    // OpenProcess 依然成功 -> 明明已经杀掉却返回 0。
+    // 改成：打不开 = 进程已不存在（成功）；能打开就等它 signaled，1 秒内未退出才算失败。
+    const op::win32::unique_handle check(::OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE,
+                                                      static_cast<DWORD>(pid)));
+    long ok = 1;
+    if (check && ::WaitForSingleObject(check.get(), 1000) != WAIT_OBJECT_0)
+        ok = 0;
+    internal::set_result(ret, ok);
 }

@@ -164,6 +164,11 @@ set(OP_TEST_SOURCES
   "mem_image_test.cpp"
   "yolo_test.cpp"
   "utils_test.cpp"
+  # C API 覆盖收口（2026-11-21）：补齐 10 个"无任何端到端调用证据"的导出
+  # （二维码三件套 / GetWindowScale / TerminateProcess 两兄弟 / OcrAutoColor 系列 / AutoOcrLine / KeyPressHotkey）。
+  "c_api_coverage_test.cpp"
+  # 并发安全基线（2026-11-21）：多句柄、同句柄、同 OCR 引擎三条并发路径。
+  "concurrency_test.cpp"
   "memory_search_test.cpp"
   "memory_readwrite_test.cpp"
   "window_state_test.cpp"
