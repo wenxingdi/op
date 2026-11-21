@@ -1,6 +1,6 @@
 # OP 插件 API 速查（LLM 上下文版）
 
-> 源：`include/libop.h` · 348 个接口 · 生成于 2026-11-21 17:33 · 由 scripts/gen_api_reference.py 生成（勿手改）
+> 源：`include/libop.h` · 348 个接口 · 生成于 2026-11-21 18:19 · 由 scripts/gen_api_reference.py 生成（勿手改）
 
 调用约定：出参不传入，聚成返回值元组（顺序 = signature 的 → 后列表）；坐标为物理像素，绑定窗口后为客户区坐标；字符串 UTF-16。
 
@@ -280,10 +280,10 @@
 - `AudioQueryWindow(hwnd) → (etjson)` — ===== 音频音量（2026-11-21，WASAPI 会话级 + 系统级）=====
 - `AudioQueryPid(pid) → (etjson)` — 
 - `AudioGetPidFromHwnd(hwnd) → (ret)` — 纯取窗口所属 PID（不碰 COM）。ret: 失败返回 0。
-- `AudioSetSessionVolume(pid, volume) → (ret)` — 设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 0 成功，负数为错误码。
-- `AudioSetSessionMute(pid, muted) → (ret)` — 
+- `AudioSetSessionVolume(pid, volume) → (ret)` — 设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 1 成功 / 0 失败（与全库
+- `AudioSetSessionMute(pid, muted) → (ret)` — ret: 1 成功 / 0 失败，口径同 AudioSetSessionVolume。
 - `AudioGetSystemVolume() → (etjson)` — 系统主音量（同一套 enumerator 上多取 IAudioEndpointVolume，成本很低）。
-- `AudioSetSystemVolume(volume) → (ret)` — 
+- `AudioSetSystemVolume(volume) → (ret)` — ret: 1 成功 / 0 失败，口径同上。
 - `AudioSetSystemMute(muted) → (ret)` — 
 - `LoadImageMem(data, width, height, stride, fmt) → (et_handle)` — ===== 图像句柄注册表（2026-11-21，内存直操作一期地基）=====
 - `LoadImageBmp(data, size) → (et_handle)` — 从 BMP 字节流注册（自动解析 24/32bpp、top-down/bottom-up、行填充）。

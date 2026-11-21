@@ -222,25 +222,25 @@ TEST(AudioTest, SystemVolumeJsonShape) {
     }
 }
 
-// 设置接口的参数校验：非法 PID 必须返回 -4，不崩溃
+// 设置接口的参数校验：非法 PID 必须返回 0（对外契约 0=失败），不崩溃
 TEST(AudioTest, SetSessionRejectsInvalidPid) {
     CApiHandle api;
-    EXPECT_EQ(OpAudioSetSessionVolume(api.handle, 0, 0.5), -4);
-    EXPECT_EQ(OpAudioSetSessionMute(api.handle, 0, 1), -4);
-    // 不存在的 PID：接口本身不崩，返回负错误码
+    EXPECT_EQ(OpAudioSetSessionVolume(api.handle, 0, 0.5), 0);
+    EXPECT_EQ(OpAudioSetSessionMute(api.handle, 0, 1), 0);
+    // 不存在的 PID：接口本身不崩，返回失败 0
     const int rc = OpAudioSetSessionVolume(api.handle, 999999, 0.5);
-    EXPECT_LT(rc, 0) << "setting volume on a nonexistent pid must fail with a negative code";
+    EXPECT_EQ(rc, 0) << "setting volume on a nonexistent pid must fail (0 = failure contract)";
 }
 
 // 音量越界应被 clamp（0.0~1.0），不报错
 TEST(AudioTest, SetVolumeClampsOutOfRange) {
     CApiHandle api;
-    // 对不存在 PID 调用只看"不崩溃且返回负码"，不对具体值断言
-    EXPECT_LT(OpAudioSetSessionVolume(api.handle, 999999, -5.0), 0);
-    EXPECT_LT(OpAudioSetSessionVolume(api.handle, 999999, 5.0), 0);
-    // 系统音量：无设备时返回负码，有设备时返回 0
+    // 对不存在 PID 调用只看"不崩溃且返回失败 0"，不对具体值断言
+    EXPECT_EQ(OpAudioSetSessionVolume(api.handle, 999999, -5.0), 0);
+    EXPECT_EQ(OpAudioSetSessionVolume(api.handle, 999999, 5.0), 0);
+    // 系统音量：无设备返回 0，有设备返回 1；越界值本身不该报错
     const int sys = OpAudioSetSystemVolume(api.handle, 1.5);
-    EXPECT_LE(sys, 0);
+    EXPECT_TRUE(sys == 0 || sys == 1) << "system volume setter must return 1/0, got " << sys;
 }
 
 // A8：真实音频会话的读写闭环。
@@ -346,8 +346,8 @@ TEST(AudioTest, RealSessionReadWriteRoundTrip) {
 
     // 写入 0.42 后读回
     const int rc = OpAudioSetSessionVolume(api.handle, static_cast<int>(pi.dwProcessId), 0.42);
-    EXPECT_EQ(rc, 0) << "setting volume on an existing session must succeed";
-    if (rc == 0) {
+    EXPECT_EQ(rc, 1) << "setting volume on an existing session must succeed (1 = success contract)";
+    if (rc == 1) {
         Sleep(300);
         const wchar_t *after = OpAudioQueryPid(api.handle, static_cast<int>(pi.dwProcessId));
         ASSERT_NE(after, nullptr);

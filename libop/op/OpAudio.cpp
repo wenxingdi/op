@@ -3,6 +3,7 @@
 #include "OpResult.h"
 
 #include "audio/AudioService.h"
+#include "base/Utils.h"
 #include "json/JsonValue.h"
 
 #include <libop.h>
@@ -10,6 +11,20 @@
 #include <string>
 
 namespace {
+
+// 输出契约归一口径（2026-11-21 修，见 docs/2026-11/音量模块_方案_20261121.md §八）。
+//
+// op::audio::Set* 的内部约定是「0 = 成功，负数 = 错误码」，而库内对外契约是
+// 「0 = 失败，非 0 = 成功」（宿主侧普遍 `if (ret)` 判定，OPTool/易语言的布尔化都是
+// `!= 0`）。直接透传会把失败(-5)判成成功、把成功(0)判成失败 —— **语义整体反了**。
+// 这里统一归一为 1/0，具体错误码写 __op.log；要码的调用方走 AudioQueryPid 的 code 字段。
+long setter_result(const wchar_t *api_name, int code) {
+    if (code != 0) {
+        setlog(L"%s: 失败，错误码 %d（-2 COM 不可用 / -4 PID 无效 / -5 设置失败）", api_name, code);
+        return 0L;
+    }
+    return 1L;
+}
 
 // 统一构建会话查询 JSON。字段见 docs/2026-11/音量模块_方案_20261121.md §3.1。
 void build_session_json(const op::audio::SessionInfo &info, std::wstring &retjson) {
@@ -106,18 +121,21 @@ void op::Op::AudioGetPidFromHwnd(long long hwnd, long *ret) {
 }
 
 void op::Op::AudioSetSessionVolume(long pid, double volume, long *ret) {
-    internal::set_result(ret, -4L);
+    internal::set_result(ret, 0L);
     internal::guard_exceptions("AudioSetSessionVolume", [&]() {
-        internal::set_result(ret, pid > 0 ? op::audio::SetSessionVolume(static_cast<unsigned long>(pid), volume)
-                                          : -4);
+        const int code = pid > 0
+                             ? op::audio::SetSessionVolume(static_cast<unsigned long>(pid), volume)
+                             : -4;
+        internal::set_result(ret, setter_result(L"AudioSetSessionVolume", code));
     });
 }
 
 void op::Op::AudioSetSessionMute(long pid, long muted, long *ret) {
-    internal::set_result(ret, -4L);
+    internal::set_result(ret, 0L);
     internal::guard_exceptions("AudioSetSessionMute", [&]() {
-        internal::set_result(ret, pid > 0 ? op::audio::SetSessionMute(static_cast<unsigned long>(pid), muted != 0)
-                                          : -4);
+        const int code =
+            pid > 0 ? op::audio::SetSessionMute(static_cast<unsigned long>(pid), muted != 0) : -4;
+        internal::set_result(ret, setter_result(L"AudioSetSessionMute", code));
     });
 }
 
@@ -129,12 +147,14 @@ void op::Op::AudioGetSystemVolume(std::wstring &retjson) {
 
 void op::Op::AudioSetSystemVolume(double volume, long *ret) {
     internal::set_result(ret, 0L);
-    internal::guard_exceptions("AudioSetSystemVolume",
-                               [&]() { internal::set_result(ret, op::audio::SetSystemVolume(volume)); });
+    internal::guard_exceptions("AudioSetSystemVolume", [&]() {
+        internal::set_result(ret, setter_result(L"AudioSetSystemVolume", op::audio::SetSystemVolume(volume)));
+    });
 }
 
 void op::Op::AudioSetSystemMute(long muted, long *ret) {
     internal::set_result(ret, 0L);
-    internal::guard_exceptions("AudioSetSystemMute",
-                               [&]() { internal::set_result(ret, op::audio::SetSystemMute(muted != 0)); });
+    internal::guard_exceptions("AudioSetSystemMute", [&]() {
+        internal::set_result(ret, setter_result(L"AudioSetSystemMute", op::audio::SetSystemMute(muted != 0)));
+    });
 }

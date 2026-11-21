@@ -2,7 +2,7 @@
   "meta": {
     "title": "OP 插件 API 目录（大模型 function-calling 版）",
     "source": "include/libop.h",
-    "generated": "2026-11-21 17:33",
+    "generated": "2026-11-21 18:19",
     "generator": "scripts/gen_api_reference.py",
     "total_functions": 348,
     "usage": {
@@ -18940,7 +18940,7 @@
           "python_example": "op.AudioSetSessionVolume(pid, volume)  # → (ret)",
           "python_ctypes_name": "audio_set_session_volume",
           "in_ctypes_binding": false,
-          "description": "设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 0 成功，负数为错误码。",
+          "description": "设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 1 成功 / 0 失败（与全库\n「0=失败、非 0=成功」一致）。具体失败原因写 __op.log；要结构化错误码的\n用 AudioQueryPid 的 code 字段（-1 无设备 / -2 COM / -3 枚举 / -5 设置失败）。",
           "params": [
             {
               "name": "pid",
@@ -18974,7 +18974,7 @@
           "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
           "tool_schema": {
             "name": "AudioSetSessionVolume",
-            "description": "设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 0 成功，负数为错误码。",
+            "description": "设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 1 成功 / 0 失败（与全库\n「0=失败、非 0=成功」一致）。具体失败原因写 __op.log；要结构化错误码的\n用 AudioQueryPid 的 code 字段（-1 无设备 / -2 COM / -3 枚举 / -5 设置失败）。",
             "parameters": {
               "type": "object",
               "properties": {
@@ -19002,7 +19002,7 @@
           "python_example": "op.AudioSetSessionMute(pid, muted)  # → (ret)",
           "python_ctypes_name": "audio_set_session_mute",
           "in_ctypes_binding": false,
-          "description": "",
+          "description": "ret: 1 成功 / 0 失败，口径同 AudioSetSessionVolume。",
           "params": [
             {
               "name": "pid",
@@ -19036,7 +19036,7 @@
           "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
           "tool_schema": {
             "name": "AudioSetSessionMute",
-            "description": "OP 插件接口 AudioSetSessionMute",
+            "description": "ret: 1 成功 / 0 失败，口径同 AudioSetSessionVolume。",
             "parameters": {
               "type": "object",
               "properties": {
@@ -19100,7 +19100,7 @@
           "python_example": "op.AudioSetSystemVolume(volume)  # → (ret)",
           "python_ctypes_name": "audio_set_system_volume",
           "in_ctypes_binding": false,
-          "description": "",
+          "description": "ret: 1 成功 / 0 失败，口径同上。",
           "params": [
             {
               "name": "volume",
@@ -19127,7 +19127,7 @@
           "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
           "tool_schema": {
             "name": "AudioSetSystemVolume",
-            "description": "OP 插件接口 AudioSetSystemVolume",
+            "description": "ret: 1 成功 / 0 失败，口径同上。",
             "parameters": {
               "type": "object",
               "properties": {

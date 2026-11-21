@@ -845,11 +845,15 @@ class OP_API Op {
     void AudioQueryPid(_In_ long pid, _Out_ std::wstring &retjson);
     // 纯取窗口所属 PID（不碰 COM）。ret: 失败返回 0。
     void AudioGetPidFromHwnd(_In_ long long hwnd, _Out_ long *ret);
-    // 设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 0 成功，负数为错误码。
+    // 设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 1 成功 / 0 失败（与全库
+    // 「0=失败、非 0=成功」一致）。具体失败原因写 __op.log；要结构化错误码的
+    // 用 AudioQueryPid 的 code 字段（-1 无设备 / -2 COM / -3 枚举 / -5 设置失败）。
     void AudioSetSessionVolume(_In_ long pid, _In_ double volume, _Out_ long *ret);
+    // ret: 1 成功 / 0 失败，口径同 AudioSetSessionVolume。
     void AudioSetSessionMute(_In_ long pid, _In_ long muted, _Out_ long *ret);
     // 系统主音量（同一套 enumerator 上多取 IAudioEndpointVolume，成本很低）。
     void AudioGetSystemVolume(_Out_ std::wstring &retjson);
+    // ret: 1 成功 / 0 失败，口径同上。
     void AudioSetSystemVolume(_In_ double volume, _Out_ long *ret);
     void AudioSetSystemMute(_In_ long muted, _Out_ long *ret);
 
