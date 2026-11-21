@@ -219,6 +219,24 @@ interface IOpAutomation : IDispatch
 	[id(461)] HRESULT AudioGetSystemVolume([out, retval] BSTR* retstr);
 	[id(462)] HRESULT AudioSetSystemVolume([in] DOUBLE volume, [out, retval] LONG* ret);
 	[id(463)] HRESULT AudioSetSystemMute([in] LONG muted, [out, retval] LONG* ret);
+	// ---- 内存直操作二期（2026-11-21）：识别入口的内存版 ----
+	// 与屏幕版唯一区别：x1..y2 是**图像内坐标**（相对 img: 句柄左上角），出参也是图像内坐标。
+	// 区域 (0,0,0,0) 表示整张图。句柄无效时返回与"截屏失败"相同的默认值。
+	[id(464)] HRESULT OcrFromMemEx2([in] BSTR image_handle, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out, retval] BSTR* retstr);
+	[id(465)] HRESULT OcrAutoColorFromMemEx2([in] BSTR image_handle, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(466)] HRESULT FindPicFromMem([in] BSTR image_handle, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR files, [in] BSTR delta_color, [in] DOUBLE sim, [in] LONG dir, [in, out] LONG* x, [in, out] LONG* y, [out, retval] LONG* ret);
+	[id(467)] HRESULT FindPicExFromMem([in] BSTR image_handle, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR files, [in] BSTR delta_color, [in] DOUBLE sim, [in] LONG dir, [out, retval] BSTR* retstr);
+	[id(468)] HRESULT FindColorFromMem([in] BSTR image_handle, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] LONG dir, [in, out] LONG* x, [in, out] LONG* y, [out, retval] LONG* ret);
+	[id(469)] HRESULT FindColorExFromMem([in] BSTR image_handle, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] LONG dir, [out, retval] BSTR* retstr);
+	[id(470)] HRESULT GetColorFromMem([in] BSTR image_handle, [in] LONG x, [in] LONG y, [out, retval] BSTR* retstr);
+	[id(471)] HRESULT CmpColorFromMem([in] BSTR image_handle, [in] LONG x, [in] LONG y, [in] BSTR color, [in] DOUBLE sim, [out, retval] LONG* ret);
+	[id(472)] HRESULT GetColorNumFromMem([in] BSTR image_handle, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out, retval] LONG* ret);
+	[id(473)] HRESULT FindMultiColorFromMem([in] BSTR image_handle, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR first_color, [in] BSTR offset_color, [in] DOUBLE sim, [in] LONG dir, [in, out] LONG* x, [in, out] LONG* y, [out, retval] LONG* ret);
+	[id(474)] HRESULT FindMultiColorExFromMem([in] BSTR image_handle, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR first_color, [in] BSTR offset_color, [in] DOUBLE sim, [in] LONG dir, [out, retval] BSTR* retstr);
+	[id(475)] HRESULT FindColorBlockExFromMem([in] BSTR image_handle, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [in] LONG count, [in] LONG height, [in] LONG width, [out, retval] BSTR* retstr);
+	[id(476)] HRESULT YoloDetectFromMem([in] BSTR image_handle, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE conf, [in] DOUBLE iou, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(477)] HRESULT YoloDetectFromMemEx2([in] BSTR image_handle, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE conf, [in] DOUBLE iou, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
+
 	[id(455)] HRESULT YoloDetectFromFileEx2([in] BSTR file_name, [in] DOUBLE conf, [in] DOUBLE iou, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
 	[id(454)] HRESULT YoloDetectEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE conf, [in] DOUBLE iou, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
 	[id(212)] HRESULT YoloDetect([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE conf, [in] DOUBLE iou, [out] BSTR* retjson, [out, retval] LONG* ret);

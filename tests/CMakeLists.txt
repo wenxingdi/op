@@ -160,6 +160,8 @@ set(OP_TEST_SOURCES
   "yolo_ex2_test.cpp"
   # 音频音量（2026-11-21，WASAPI 会话级 + 系统级）
   "audio_test.cpp"
+  # 内存直操作二期（2026-11-21）：识别入口的内存版
+  "mem_image_test.cpp"
   "yolo_test.cpp"
   "utils_test.cpp"
   "memory_search_test.cpp"

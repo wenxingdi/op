@@ -316,6 +316,8 @@ set(OP_CLASS_SOURCES
   "op/OpYolo.cpp"
   # 音频音量（2026-11-21）
   "op/OpAudio.cpp"
+  # 内存直操作二期（2026-11-21）
+  "op/OpMemImage.cpp"
   "op/OpMemory.cpp"
   "op/OpJson.cpp"
   "op/OpHttp.cpp"

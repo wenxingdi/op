@@ -2310,3 +2310,149 @@ int OP_CALL OpAudioSetSystemMute(op_handle handle, int muted) {
     return call_ret(handle, [&](op::Op &op, long *ret) { op.AudioSetSystemMute(muted, ret); });
 }
 }
+
+extern "C" {
+
+/* ---- 内存直操作二期：识别入口的内存版（2026-11-21） ---- */
+
+const wchar_t *OP_CALL OpOcrFromMemEx2(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2, int y2,
+                                        const wchar_t *color, double sim) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.OcrFromMemEx2(safe_text(image_handle), x1, y1, x2, y2, safe_text(color), sim, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpOcrAutoColorFromMemEx2(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2,
+                                                 int y2, const wchar_t *color, double sim, int *find_count) {
+    long ct = 0;
+    const wchar_t *ret = call_string(handle, [&](op::Op &op, std::wstring &s) {
+        ct = op.OcrAutoColorFromMemEx2(safe_text(image_handle), x1, y1, x2, y2, safe_text(color), sim, s);
+    });
+    out_int(find_count, ct);
+    return ret;
+}
+
+int OP_CALL OpFindPicFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2, int y2,
+                             const wchar_t *files, const wchar_t *delta_color, double sim, int dir, int *x, int *y) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        long lx = -1, ly = -1;
+        op.FindPicFromMem(safe_text(image_handle), x1, y1, x2, y2, safe_text(files), safe_text(delta_color), sim, dir,
+                          &lx, &ly, ret);
+        out_int(x, lx);
+        out_int(y, ly);
+    });
+}
+
+const wchar_t *OP_CALL OpFindPicExFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2,
+                                           int y2, const wchar_t *files, const wchar_t *delta_color, double sim,
+                                           int dir) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.FindPicExFromMem(safe_text(image_handle), x1, y1, x2, y2, safe_text(files), safe_text(delta_color), sim,
+                            dir, ret);
+    });
+}
+
+int OP_CALL OpFindColorFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2, int y2,
+                               const wchar_t *color, double sim, int dir, int *x, int *y) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        long lx = -1, ly = -1;
+        op.FindColorFromMem(safe_text(image_handle), x1, y1, x2, y2, safe_text(color), sim, dir, &lx, &ly, ret);
+        out_int(x, lx);
+        out_int(y, ly);
+    });
+}
+
+const wchar_t *OP_CALL OpFindColorExFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2,
+                                             int y2, const wchar_t *color, double sim, int dir) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.FindColorExFromMem(safe_text(image_handle), x1, y1, x2, y2, safe_text(color), sim, dir, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpGetColorFromMem(op_handle handle, const wchar_t *image_handle, int x, int y) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.GetColorFromMem(safe_text(image_handle), x, y, ret);
+    });
+}
+
+int OP_CALL OpCmpColorFromMem(op_handle handle, const wchar_t *image_handle, int x, int y, const wchar_t *color,
+                              double sim) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.CmpColorFromMem(safe_text(image_handle), x, y, safe_text(color), sim, ret);
+    });
+}
+
+int OP_CALL OpGetColorNumFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2, int y2,
+                                 const wchar_t *color, double sim) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.GetColorNumFromMem(safe_text(image_handle), x1, y1, x2, y2, safe_text(color), sim, ret);
+    });
+}
+
+int OP_CALL OpFindMultiColorFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2, int y2,
+                                    const wchar_t *first_color, const wchar_t *offset_color, double sim, int dir,
+                                    int *x, int *y) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        long lx = -1, ly = -1;
+        op.FindMultiColorFromMem(safe_text(image_handle), x1, y1, x2, y2, safe_text(first_color), safe_text(offset_color),
+                                 sim, dir, &lx, &ly, ret);
+        out_int(x, lx);
+        out_int(y, ly);
+    });
+}
+
+const wchar_t *OP_CALL OpFindMultiColorExFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2,
+                                                  int y2, const wchar_t *first_color, const wchar_t *offset_color,
+                                                  double sim, int dir) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.FindMultiColorExFromMem(safe_text(image_handle), x1, y1, x2, y2, safe_text(first_color),
+                                   safe_text(offset_color), sim, dir, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpFindColorBlockExFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1,
+                                                  int x2, int y2, const wchar_t *color, double sim, int count,
+                                                  int height, int width) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.FindColorBlockExFromMem(safe_text(image_handle), x1, y1, x2, y2, safe_text(color), sim, count, height, width,
+                                   ret);
+    });
+}
+
+const wchar_t *OP_CALL OpYoloDetectFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2,
+                                            int y2, double conf, double iou, int *find_count) {
+    long ct = 0;
+    const wchar_t *ret = call_string(handle, [&](op::Op &op, std::wstring &s) {
+        op.YoloDetectFromMem(safe_text(image_handle), x1, y1, x2, y2, conf, iou, s, &ct);
+    });
+    out_int(find_count, ct);
+    return ret;
+}
+
+const wchar_t *OP_CALL OpYoloDetectFromMemEx2(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2,
+                                               int y2, double conf, double iou, const wchar_t *json_options,
+                                               int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloDetectFromMemEx2(safe_text(image_handle), x1, y1, x2, y2, conf, iou,
+                                                         safe_text(json_options), handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr; // 参数非法
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloDetectFromMemEx2: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        setlog("op_c_api: unknown exception in OpYoloDetectFromMemEx2");
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+}

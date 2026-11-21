@@ -703,6 +703,52 @@ OP_C_API int OP_CALL OpAudioSetSessionMute(op_handle handle, int pid, int muted)
 OP_C_API const wchar_t *OP_CALL OpAudioGetSystemVolume(op_handle handle);
 OP_C_API int OP_CALL OpAudioSetSystemVolume(op_handle handle, double volume);
 OP_C_API int OP_CALL OpAudioSetSystemMute(op_handle handle, int muted);
+
+/* ===== 内存直操作二期：识别入口的内存版（2026-11-21）=====
+ * 设计见 docs/2026-11/内存直操作二期_全家桶_方案_20261121.md
+ *
+ * 与屏幕版的唯一区别是"图从哪来"：
+ *   屏幕版 x1..y2 是客户区坐标；内存版 x1..y2 是**图像内坐标**（相对 img: 句柄左上角）。
+ *   其余参数逐字相同；出参坐标也是图像内坐标。
+ *   区域传 (0,0,0,0) 表示**整张图**。
+ *
+ * 实现直接复用屏幕版（只把截屏换成从句柄取图、偏移清零），
+ * 所以行为严格一致。句柄无效时返回与"截屏失败"相同的默认值。
+ */
+OP_C_API const wchar_t *OP_CALL OpOcrFromMemEx2(op_handle handle, const wchar_t *image_handle, int x1, int y1,
+                                                 int x2, int y2, const wchar_t *color, double sim);
+OP_C_API const wchar_t *OP_CALL OpOcrAutoColorFromMemEx2(op_handle handle, const wchar_t *image_handle, int x1,
+                                                          int y1, int x2, int y2, const wchar_t *color, double sim,
+                                                          int *find_count);
+OP_C_API int OP_CALL OpFindPicFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2, int y2,
+                                      const wchar_t *files, const wchar_t *delta_color, double sim, int dir, int *x,
+                                      int *y);
+OP_C_API const wchar_t *OP_CALL OpFindPicExFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1,
+                                                     int x2, int y2, const wchar_t *files, const wchar_t *delta_color,
+                                                     double sim, int dir);
+OP_C_API int OP_CALL OpFindColorFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2, int y2,
+                                        const wchar_t *color, double sim, int dir, int *x, int *y);
+OP_C_API const wchar_t *OP_CALL OpFindColorExFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1,
+                                                      int x2, int y2, const wchar_t *color, double sim, int dir);
+OP_C_API const wchar_t *OP_CALL OpGetColorFromMem(op_handle handle, const wchar_t *image_handle, int x, int y);
+OP_C_API int OP_CALL OpCmpColorFromMem(op_handle handle, const wchar_t *image_handle, int x, int y,
+                                       const wchar_t *color, double sim);
+OP_C_API int OP_CALL OpGetColorNumFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2, int y2,
+                                          const wchar_t *color, double sim);
+OP_C_API int OP_CALL OpFindMultiColorFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1, int x2,
+                                              int y2, const wchar_t *first_color, const wchar_t *offset_color,
+                                              double sim, int dir, int *x, int *y);
+OP_C_API const wchar_t *OP_CALL OpFindMultiColorExFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1,
+                                                           int x2, int y2, const wchar_t *first_color,
+                                                           const wchar_t *offset_color, double sim, int dir);
+OP_C_API const wchar_t *OP_CALL OpFindColorBlockExFromMem(op_handle handle, const wchar_t *image_handle, int x1,
+                                                           int y1, int x2, int y2, const wchar_t *color, double sim,
+                                                           int count, int height, int width);
+OP_C_API const wchar_t *OP_CALL OpYoloDetectFromMem(op_handle handle, const wchar_t *image_handle, int x1, int y1,
+                                                     int x2, int y2, double conf, double iou, int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloDetectFromMemEx2(op_handle handle, const wchar_t *image_handle, int x1, int y1,
+                                                        int x2, int y2, double conf, double iou,
+                                                        const wchar_t *json_options, int *find_count);
 #ifdef __cplusplus
 }
 #endif

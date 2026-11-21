@@ -534,6 +534,34 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(AudioGetSystemVolume)(BSTR *retstr);
     STDMETHOD(AudioSetSystemVolume)(DOUBLE volume, LONG *ret);
     STDMETHOD(AudioSetSystemMute)(LONG muted, LONG *ret);
+
+    // 内存直操作二期（2026-11-21，idl id 464-477）：识别入口的内存版
+    STDMETHOD(OcrFromMemEx2)(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim,
+                             BSTR *retstr);
+    STDMETHOD(OcrAutoColorFromMemEx2)(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim,
+                                      BSTR *retstr, LONG *ret);
+    STDMETHOD(FindPicFromMem)(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR files, BSTR delta_color,
+                              DOUBLE sim, LONG dir, LONG *x, LONG *y, LONG *ret);
+    STDMETHOD(FindPicExFromMem)(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR files, BSTR delta_color,
+                                DOUBLE sim, LONG dir, BSTR *retstr);
+    STDMETHOD(FindColorFromMem)(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim,
+                                LONG dir, LONG *x, LONG *y, LONG *ret);
+    STDMETHOD(FindColorExFromMem)(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim,
+                                  LONG dir, BSTR *retstr);
+    STDMETHOD(GetColorFromMem)(BSTR image_handle, LONG x, LONG y, BSTR *retstr);
+    STDMETHOD(CmpColorFromMem)(BSTR image_handle, LONG x, LONG y, BSTR color, DOUBLE sim, LONG *ret);
+    STDMETHOD(GetColorNumFromMem)(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim,
+                                  LONG *ret);
+    STDMETHOD(FindMultiColorFromMem)(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR first_color,
+                                     BSTR offset_color, DOUBLE sim, LONG dir, LONG *x, LONG *y, LONG *ret);
+    STDMETHOD(FindMultiColorExFromMem)(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR first_color,
+                                       BSTR offset_color, DOUBLE sim, LONG dir, BSTR *retstr);
+    STDMETHOD(FindColorBlockExFromMem)(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim,
+                                       LONG count, LONG height, LONG width, BSTR *retstr);
+    STDMETHOD(YoloDetectFromMem)(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou,
+                                 BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloDetectFromMemEx2)(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou,
+                                    BSTR json_options, BSTR *retstr, LONG *ret);
     //-----------------------opcv---------------------------------
     STDMETHOD(CvLoadTemplate)(BSTR name, BSTR file_path, LONG *ret);
     STDMETHOD(CvLoadMaskedTemplate)(BSTR name, BSTR template_path, BSTR mask_path, LONG *ret);

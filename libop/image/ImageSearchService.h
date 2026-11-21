@@ -155,6 +155,10 @@ class ImageSearchService : public ImageSearchAlgorithms {
     long get_image_bytes(const std::wstring &handle, const std::wstring &fmt, std::vector<unsigned char> &out);
     // 裁剪并注册为新句柄（深拷贝）；区域自动 clamp，空区域返回空串。
     std::wstring crop_image(const std::wstring &handle, long x, long y, long w, long h);
+    // 按句柄取图像快照（2026-11-21 二期公开）。不存在返回 nullptr，锁外使用安全。
+    // 二期所有 *FromMem 入口靠它把 "img:<n>" 变成像素，再复用屏幕版实现。
+    std::shared_ptr<Image> acquire_image(const std::wstring &handle);
+
     // 在图像句柄上做多目标查找（复用 P1 的 find_str_batch 内核）。
     // 返回值 = 目标数；句柄无效或 JSON 非法返回 -1。
     long find_str_mem(const std::wstring &handle, const std::wstring &json_targets, double sim,
@@ -205,7 +209,6 @@ class ImageSearchService : public ImageSearchAlgorithms {
     // register_image_shared 把已构造好的 Image 放进注册表并返回句柄（达上限返回空串）；
     // acquire_image 按句柄取 shared_ptr 快照（不存在返回 nullptr，锁外使用安全）。
     std::wstring register_image_shared(std::shared_ptr<Image> img);
-    std::shared_ptr<Image> acquire_image(const std::wstring &handle);
 
     // 智能选路（2026-11-20）：统计 _src 中命中指定颜色（逐通道容差）的像素数。
     // 返回 -1 = 无法探测（空串/@反白等特殊写法），调用方应保守沿用颜色路径。

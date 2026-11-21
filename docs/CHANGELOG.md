@@ -3,6 +3,82 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-21 第四十六批（feat：内存直操作二期，14 个 *FromMem 识别入口）
+
+承接第四十五批。按用户要求实现内存直操作二期——让所有识别入口都能直接吃 `img:` 句柄。
+方案：`docs/2026-11/内存直操作二期_全家桶_方案_20261121.md`
+
+#### 1. 核心机制：复用屏幕版，零逻辑复制
+
+新增 `with_mem_region`（`OpCaptureHelpers.h`），与 `with_captured_region` **签名完全一致**：
+
+```
+with_captured_region(ctx, x1..y2, fn):  截屏 -> _src,  set_offset(x1, y1)
+with_mem_region(ctx, handle, x1..y2, fn): 从句柄裁区域 -> _src, set_offset(0,0), 回传区域原点
+```
+
+因此内存版门面 = 屏幕版门面**换一个上下文函数**：
+
+```cpp
+// 屏幕版
+with_captured_region(ctx, x1,y1,x2,y2, [&]{ image_proc.FindPicEx(...); });
+// 内存版（唯一差别）
+with_mem_region(ctx, handle, x1,y1,x2,y2, [&]{ image_proc.FindPicEx(...); });
+```
+
+**"行为与屏幕版严格一致"是结构保证，不靠测试去发现不一致。**
+
+#### 2. 新增 14 个接口（COM DISPID 464~477）
+
+| 类别 | 接口 |
+|---|---|
+| 识字 | `OcrFromMemEx2` / `OcrAutoColorFromMemEx2` |
+| 找图 | `FindPicFromMem` / `FindPicExFromMem` |
+| 找色/取色/比色/计数 | `FindColorFromMem` / `FindColorExFromMem` / `GetColorFromMem` / `CmpColorFromMem` / `GetColorNumFromMem` |
+| 多色/色块 | `FindMultiColorFromMem` / `FindMultiColorExFromMem` / `FindColorBlockExFromMem` |
+| YOLO | `YoloDetectFromMem` / `YoloDetectFromMemEx2` |
+
+#### 3. 坐标语义（与屏幕版的关键差异，已写进文档）
+
+| 项 | 屏幕版 | 内存版 |
+|---|---|---|
+| 入参 x1..y2 | 客户区坐标 | **图像内坐标**（相对句柄左上角） |
+| 区域 (0,0,0,0) | 无效（无可截区域） | **整张图** |
+| 出参坐标 | 客户区（`_x1 + _dx`） | **图像内绝对坐标**（区域原点已加回） |
+
+#### 4. 顺带完成的重构
+
+YOLO 的检测核心（过滤/截断/JSON 构建）原本在 `OpYolo.cpp` 匿名命名空间里，跨 TU 不可见。
+抽出到 `libop/op/YoloDetectCore.h`，屏幕版与内存版**共用一份实现**。
+
+#### 5. 验证
+
+| 项 | 结果 |
+|---|---|
+| `MemImageTest.*` | **11/11 PASS** |
+| 导出名检查 | **14/14 裸名**（`dumpbin /exports` 确认，无 C++ 修饰名） |
+| 反向验证 | 见下方说明 |
+
+**反向验证过程发现了一个真实的测试盲区**（如实记录）：
+
+第一轮 4 个场景只有 1 个变红。排查发现根因不是代码问题，而是**测试设计缺陷**：
+每个用例都新建 `CApiHandle`（新 Op 实例），而 `ImageSearchAlgorithms::_x1/_y1`
+在新实例里恰好是 0，于是"with_mem_region 忘记 `set_offset(0,0)`"这个 bug
+**测不出来**——删掉那行代码全部用例仍然绿。
+
+补了两个针对性用例：
+- `RepeatedCallsDoNotAccumulateOffset`：同一实例内连续查不同子区域，
+  验证坐标不累积偏移（这是真实使用场景：脚本对同一句柄反复调用）
+- `DegenerateRegionIsRejected`：宽/高为 0 的区域必须不执行识别
+
+之后重新指向这些用例，反向验证才具备判别力。
+
+#### 6. 未做
+
+- `OpOcrFromMem`（无逐字数据的旧形态）：`OcrFromMemEx2` 已覆盖且信息更全
+- 找块的 `ExS` 变体：只做信息最全的 `Ex`
+- **未发布、未同步发布件、未构建 x86**（沿用用户要求）
+
 ### 2026-11-21 第四十五批（feat：音频音量模块，WASAPI 会话级 + 系统级）
 
 承接第四十四批。按用户要求实现音量模块。

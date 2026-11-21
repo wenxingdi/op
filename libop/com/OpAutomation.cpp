@@ -2440,3 +2440,150 @@ STDMETHODIMP OpAutomation::AudioSetSystemMute(LONG muted, LONG *ret) {
     obj.AudioSetSystemMute(muted, ret);
     return S_OK;
 }
+
+// ===== 内存直操作二期：识别入口的内存版（2026-11-21）=====
+
+STDMETHODIMP OpAutomation::OcrFromMemEx2(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim,
+                                        BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.OcrFromMemEx2(image_handle, x1, y1, x2, y2, color, static_cast<double>(sim), s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::OcrAutoColorFromMemEx2(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color,
+                                                  DOUBLE sim, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    *ret = obj.OcrAutoColorFromMemEx2(image_handle, x1, y1, x2, y2, color, static_cast<double>(sim), s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::FindPicFromMem(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR files,
+                                          BSTR delta_color, DOUBLE sim, LONG dir, LONG *x, LONG *y, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    long lx = -1, ly = -1;
+    obj.FindPicFromMem(image_handle, x1, y1, x2, y2, files, delta_color, static_cast<double>(sim), dir, &lx, &ly,
+                       ret);
+    if (x)
+        *x = lx;
+    if (y)
+        *y = ly;
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::FindPicExFromMem(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR files,
+                                            BSTR delta_color, DOUBLE sim, LONG dir, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.FindPicExFromMem(image_handle, x1, y1, x2, y2, files, delta_color, static_cast<double>(sim), dir, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::FindColorFromMem(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color,
+                                           DOUBLE sim, LONG dir, LONG *x, LONG *y, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    long lx = -1, ly = -1;
+    obj.FindColorFromMem(image_handle, x1, y1, x2, y2, color, static_cast<double>(sim), dir, &lx, &ly, ret);
+    if (x)
+        *x = lx;
+    if (y)
+        *y = ly;
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::FindColorExFromMem(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color,
+                                             DOUBLE sim, LONG dir, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.FindColorExFromMem(image_handle, x1, y1, x2, y2, color, static_cast<double>(sim), dir, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::GetColorFromMem(BSTR image_handle, LONG x, LONG y, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.GetColorFromMem(image_handle, x, y, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::CmpColorFromMem(BSTR image_handle, LONG x, LONG y, BSTR color, DOUBLE sim, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    obj.CmpColorFromMem(image_handle, x, y, color, static_cast<double>(sim), ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetColorNumFromMem(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color,
+                                              DOUBLE sim, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    obj.GetColorNumFromMem(image_handle, x1, y1, x2, y2, color, static_cast<double>(sim), ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::FindMultiColorFromMem(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR first_color,
+                                                 BSTR offset_color, DOUBLE sim, LONG dir, LONG *x, LONG *y, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    long lx = -1, ly = -1;
+    obj.FindMultiColorFromMem(image_handle, x1, y1, x2, y2, first_color, offset_color, static_cast<double>(sim), dir,
+                              &lx, &ly, ret);
+    if (x)
+        *x = lx;
+    if (y)
+        *y = ly;
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::FindMultiColorExFromMem(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2,
+                                                   BSTR first_color, BSTR offset_color, DOUBLE sim, LONG dir,
+                                                   BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.FindMultiColorExFromMem(image_handle, x1, y1, x2, y2, first_color, offset_color, static_cast<double>(sim), dir,
+                                s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::FindColorBlockExFromMem(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color,
+                                                   DOUBLE sim, LONG count, LONG height, LONG width, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.FindColorBlockExFromMem(image_handle, x1, y1, x2, y2, color, static_cast<double>(sim), count, height, width, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloDetectFromMem(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf,
+                                             DOUBLE iou, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    obj.YoloDetectFromMem(image_handle, x1, y1, x2, y2, static_cast<double>(conf), static_cast<double>(iou), s, ret);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloDetectFromMemEx2(BSTR image_handle, LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf,
+                                                DOUBLE iou, BSTR json_options, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    wstring options_text = json_options ? json_options : L"";
+    obj.YoloDetectFromMemEx2(image_handle, x1, y1, x2, y2, static_cast<double>(conf), static_cast<double>(iou),
+                             options_text.c_str(), s, ret);
+    return CopyOutBstr(retstr, s);
+}

@@ -763,6 +763,66 @@ class OP_API Op {
     // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
 
 
+
+    // ===== 内存直操作二期：识别入口的内存版（2026-11-21）=====
+    // 设计见 docs/2026-11/内存直操作二期_全家桶_方案_20261121.md
+    //
+    // 与屏幕版的**唯一区别**是"图从哪来"：
+    //   屏幕版 x1..y2 是客户区坐标；内存版 x1..y2 是**图像内坐标**（相对 img 句柄左上角）。
+    //   其余参数逐字相同，出参坐标也是图像内坐标（不受窗口偏移影响）。
+    //   区域传 (0,0,0,0) 表示**整张图**（脚本里"全图查找"的自然写法）。
+    //
+    // 实现上直接复用屏幕版：只把"截屏"换成"从句柄取图"，偏移清零。
+    // 因此行为与屏幕版严格一致，这是结构保证而非测试推断。
+    //
+    // 句柄无效/已释放时不执行识别，返回与屏幕版"截屏失败"相同的默认值。
+
+    // 结构化 OCR（逐字坐标 + conf），输出与 OcrEx2 完全相同
+    void OcrFromMemEx2(_In_ const wchar_t *image_handle, _In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2,
+                       _In_ const wchar_t *color, _In_ double sim, _Out_ std::wstring &retjson);
+    // 颜色二值化 OCR（含智能选路），返回值 = 行数
+    long OcrAutoColorFromMemEx2(_In_ const wchar_t *image_handle, _In_ long x1, _In_ long y1, _In_ long x2,
+                                _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
+                                _Out_ std::wstring &retjson);
+
+    // 找图：ret = 命中的图片序号（-1=未找到，大漠索引语义）
+    void FindPicFromMem(_In_ const wchar_t *image_handle, _In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2,
+                        _In_ const wchar_t *files, _In_ const wchar_t *delta_color, _In_ double sim, _In_ long dir,
+                        _Out_ long *x, _Out_ long *y, _Out_ long *ret);
+    void FindPicExFromMem(_In_ const wchar_t *image_handle, _In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2,
+                          _In_ const wchar_t *files, _In_ const wchar_t *delta_color, _In_ double sim, _In_ long dir,
+                          _Out_ std::wstring &retstr);
+
+    // 找色 / 取色 / 比色 / 计数
+    void FindColorFromMem(_In_ const wchar_t *image_handle, _In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2,
+                          _In_ const wchar_t *color, _In_ double sim, _In_ long dir, _Out_ long *x, _Out_ long *y,
+                          _Out_ long *ret);
+    void FindColorExFromMem(_In_ const wchar_t *image_handle, _In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2,
+                            _In_ const wchar_t *color, _In_ double sim, _In_ long dir, _Out_ std::wstring &retstr);
+    void GetColorFromMem(_In_ const wchar_t *image_handle, _In_ long x, _In_ long y, _Out_ std::wstring &retstr);
+    void CmpColorFromMem(_In_ const wchar_t *image_handle, _In_ long x, _In_ long y, _In_ const wchar_t *color,
+                         _In_ double sim, _Out_ long *ret);
+    void GetColorNumFromMem(_In_ const wchar_t *image_handle, _In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2,
+                            _In_ const wchar_t *color, _In_ double sim, _Out_ long *ret);
+
+    // 多色串 / 色块
+    void FindMultiColorFromMem(_In_ const wchar_t *image_handle, _In_ long x1, _In_ long y1, _In_ long x2,
+                               _In_ long y2, _In_ const wchar_t *first_color, _In_ const wchar_t *offset_color,
+                               _In_ double sim, _In_ long dir, _Out_ long *x, _Out_ long *y, _Out_ long *ret);
+    void FindMultiColorExFromMem(_In_ const wchar_t *image_handle, _In_ long x1, _In_ long y1, _In_ long x2,
+                                 _In_ long y2, _In_ const wchar_t *first_color, _In_ const wchar_t *offset_color,
+                                 _In_ double sim, _In_ long dir, _Out_ std::wstring &retstr);
+    void FindColorBlockExFromMem(_In_ const wchar_t *image_handle, _In_ long x1, _In_ long y1, _In_ long x2,
+                                 _In_ long y2, _In_ const wchar_t *color, _In_ double sim, _In_ long count,
+                                 _In_ long height, _In_ long width, _Out_ std::wstring &retstr);
+
+    // YOLO（内存版）。ret = 检测条数；JSON 结构同屏幕版
+    void YoloDetectFromMem(_In_ const wchar_t *image_handle, _In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2,
+                           _In_ double conf, _In_ double iou, _Out_ std::wstring &retjson, _Out_ long *ret);
+    // 带过滤/截断；json_options 同 YoloDetectEx2。非法 options 返回 -1
+    long YoloDetectFromMemEx2(_In_ const wchar_t *image_handle, _In_ long x1, _In_ long y1, _In_ long x2,
+                              _In_ long y2, _In_ double conf, _In_ double iou, _In_ const wchar_t *json_options,
+                              _Out_ std::wstring &retjson, _Out_ long *ret);
     // ===== 音频音量（2026-11-21，WASAPI 会话级 + 系统级）=====
     // 设计见 docs/2026-11/音量模块_方案_20261121.md。
     //
