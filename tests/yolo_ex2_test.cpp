@@ -30,19 +30,30 @@ struct CApiHandle {
 };
 
 // 定位 tests/testdata/yolo_meta_test.onnx（与 yolo_test.cpp 同一套候选路径）
-std::wstring FindYoloMetaTestModel() {
+std::wstring FindTestModel(const wchar_t *file_name) {
     const auto cwd = std::filesystem::current_path();
     const std::vector<std::filesystem::path> candidates = {
-        cwd / L"tests" / L"testdata" / L"yolo_meta_test.onnx",
-        cwd / L"testdata" / L"yolo_meta_test.onnx",
-        cwd.parent_path() / L"tests" / L"testdata" / L"yolo_meta_test.onnx",
-        cwd.parent_path().parent_path() / L"tests" / L"testdata" / L"yolo_meta_test.onnx",
+        cwd / L"tests" / L"testdata" / file_name,
+        cwd / L"testdata" / file_name,
+        cwd.parent_path() / L"tests" / L"testdata" / file_name,
+        cwd.parent_path().parent_path() / L"tests" / L"testdata" / file_name,
     };
     for (const auto &candidate : candidates) {
         if (std::filesystem::exists(candidate))
             return candidate.wstring();
     }
     return L"";
+}
+
+// 单 Constant 假模型：NMS 后只产 1 条（过滤/并集语义用它）
+std::wstring FindYoloMetaTestModel() {
+    return FindTestModel(L"yolo_meta_test.onnx");
+}
+
+// 多目标模型：4 条互不重叠、类别各异（0.9/0.8/0.7/0.6），用于闭环验证
+// max_results 截断与"截断保留高分"顺序。生成脚本 scripts/gen_yolo_multi_test_model.py
+std::wstring FindYoloMultiTestModel() {
+    return FindTestModel(L"yolo_multi_test.onnx");
 }
 
 // 极简 JSON 读取（只供断言）
@@ -366,20 +377,25 @@ TEST(YoloFilterRealTest, LabelsFilterAndUnionSemantics) {
     EXPECT_GT(union2_returned, 0) << "union must work from the labels side too";
 }
 
-// max_results 的截断：**有条件验证**。
+// max_results 的截断：**已闭环**（2026-11-21 19:30）。
 //
-// 诚实说明：本机唯一可用的 yolo_meta_test.onnx 是脚本生成的极简模型，
-// NMS 后**恒定只输出 1 条**（实测 320x240 / 1280x960 / 1280x1280 拼贴、
-// conf 低到 0.0001 都试过，始终 total=1）。因此"截断到小于总数"这一支
-// **无法用真实数据闭环**。
+// 历史：本机原来只有 yolo_meta_test.onnx（单 Constant 节点，NMS 后恒 1 条），
+// 所以"截断到小于总数"这一支一直只能 GTEST_SKIP 记录。
+// 现在补了多目标靶子 tests/testdata/yolo_multi_test.onnx（4 条，类别各异，
+// conf 0.90/0.80/0.70/0.60）—— 生成脚本 scripts/gen_yolo_multi_test_model.py，
+// 截断路径可以真正断言了。
 //
 // 本用例做两件事：
-//   1) total==1 时：验证 total/returned 语义一致、Ex2 专属字段齐全（可闭环的部分）
-//   2) total >1 时：验证真实截断（在有多条结果的机器上会自动生效，不会假绿）
+//   1) total==1 时（只有单目标模型可用）：验证 total/returned 语义一致、Ex2 字段齐全
+//   2) total >1 时（多目标模型）：验证真实截断 + total 保持全量
 TEST(YoloFilterRealTest, MaxResultsTruncatesAndReportsTotal) {
-    const std::wstring model = FindYoloMetaTestModel();
+    // 优先用多目标模型（4 条，类别各异）—— 这是唯一能真正闭环"截断"的靶子；
+    // 退化时仍用单目标模型，走下面的 SKIP 分支（不假绿）。
+    std::wstring model = FindYoloMultiTestModel();
     if (model.empty())
-        GTEST_SKIP() << "tests/testdata/yolo_meta_test.onnx not available";
+        model = FindYoloMetaTestModel();
+    if (model.empty())
+        GTEST_SKIP() << "neither yolo_multi_test.onnx nor yolo_meta_test.onnx available";
 
     CApiHandle api;
     ASSERT_EQ(OpSetYoloEngine(api.handle, model.c_str(), L"", L""), 1);
@@ -453,4 +469,61 @@ TEST(YoloFilterRealTest, MaxResultsTruncatesAndReportsTotal) {
                             "so max_results truncation cannot be closed-loop verified here";
         }
     }
+}
+// 多目标模型下的"过滤 + 截断"组合语义（2026-11-21 补闭环节点）。
+//
+// 语义口径（YoloDetectCore.h）：
+//   total    = NMS 后、过滤前的全量条数
+//   returned = 过滤 + 截断之后真正返回的条数
+// 这两件事同时发生时最容易写错（total 报成过滤后 / 先截断后过滤），所以专门闭环。
+TEST(YoloFilterRealTest, MaxResultsCombinesWithClassFilterOnMultiModel) {
+    const std::wstring model = FindYoloMultiTestModel();
+    if (model.empty())
+        GTEST_SKIP() << "tests/testdata/yolo_multi_test.onnx missing "
+                        "(scripts/gen_yolo_multi_test_model.py)";
+
+    CApiHandle api;
+    ASSERT_EQ(OpSetYoloEngine(api.handle, model.c_str(), L"", L""), 1);
+    const std::wstring image = WriteSolidImage(L"op_yolo_multi_combo.bmp", 320, 240, RGB(30, 30, 30));
+    ASSERT_FALSE(image.empty());
+
+    // 基线：4 条全出
+    int base_count = 0;
+    const wchar_t *base = OpYoloDetectFromFileEx2(api.handle, image.c_str(), 0.01, 0.45, L"", &base_count);
+    ASSERT_NE(base, nullptr);
+    long base_total = 0, base_returned = 0;
+    ASSERT_TRUE(JsonInt(std::wstring(base), L"total", base_total));
+    ASSERT_TRUE(JsonInt(std::wstring(base), L"returned", base_returned));
+    EXPECT_EQ(4, base_total) << "the multi model must emit exactly 4 detections";
+    EXPECT_EQ(4, base_returned);
+    EXPECT_EQ(4, base_count);
+
+    // max_results 大于总数：不截断
+    int big_count = 0;
+    const wchar_t *big = OpYoloDetectFromFileEx2(api.handle, image.c_str(), 0.01, 0.45,
+                                                  L"{\"max_results\":10}", &big_count);
+    ASSERT_NE(big, nullptr);
+    long big_total = 0, big_returned = 0;
+    ASSERT_TRUE(JsonInt(std::wstring(big), L"total", big_total));
+    ASSERT_TRUE(JsonInt(std::wstring(big), L"returned", big_returned));
+    EXPECT_EQ(4, big_total);
+    EXPECT_EQ(4, big_returned) << "max_results larger than the count must not truncate";
+
+    // class_ids=[2,3]（conf 0.7 / 0.6）+ max_results=1：
+    //   total 仍是全量 4（不是过滤后的 2），returned=1，且留的是 conf 更高的 class 2
+    int mix_count = 0;
+    const wchar_t *mix = OpYoloDetectFromFileEx2(
+        api.handle, image.c_str(), 0.01, 0.45, L"{\"class_ids\":[2,3],\"max_results\":1}", &mix_count);
+    ASSERT_NE(mix, nullptr);
+    const std::wstring mix_json(mix);
+    long mix_total = 0, mix_returned = 0;
+    ASSERT_TRUE(JsonInt(mix_json, L"total", mix_total));
+    ASSERT_TRUE(JsonInt(mix_json, L"returned", mix_returned));
+    EXPECT_EQ(4, mix_total) << "total must stay the unfiltered count even when filtering";
+    EXPECT_EQ(1, mix_returned);
+    EXPECT_EQ(1, mix_count);
+    EXPECT_NE(std::wstring::npos, mix_json.find(L"\"class_id\":2"))
+        << "truncation keeps the highest-confidence survivor (class 2 @0.70)";
+    EXPECT_EQ(std::wstring::npos, mix_json.find(L"\"class_id\":3"))
+        << "class 3 (@0.60) must be the one truncated away";
 }
