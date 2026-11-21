@@ -462,17 +462,42 @@ target_include_directories(libop
   PRIVATE ${OP_PRIVATE_INCLUDE_DIRS}
 )
 
+# ⚠ MIDL 经 **cl 预处理器**（代码页 936）读 idl，而 op.idl 是 UTF-8 且在注释里写中文：
+#   UTF-8 多字节序列被按 GBK 双字节配对后会错位，偶发把行尾注释配出一个 `\` -> 续行，
+#   紧邻的下一行声明被整行并入注释而**静默消失**（midl 仍 exit=0，只有 C4819 警告）。
+#   2026-11-21 发布验证检出：OcrEx2(440) / OcrLastProfile(444) / OcrFromMemEx2(464)
+#   三个方法从来没进过类型库 -> 易语言报 DISP_E_UNKNOWNNAME。
+#   修法：先用脚本产出纯 ASCII 副本（非 ASCII 字节 1:1 换成 X，行号不变）再喂 midl。
+#   详见 scripts/build/gen_midl_input.py 头部说明与 docs/2026-11/MIDL注释吞声明_20261121.md。
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND)
+  set(OP_MIDL_PY "${Python3_EXECUTABLE}")
+else()
+  set(OP_MIDL_PY "python")
+endif()
+set(OP_MIDL_IDL "${OP_COM_GENERATED_DIR}/op_midl.idl")
+
 add_custom_command(
   OUTPUT ${OP_COM_GENERATED_FILES}
   COMMAND ${CMAKE_COMMAND} -E make_directory "${OP_COM_GENERATED_DIR}"
-  COMMAND midl "${CMAKE_CURRENT_SOURCE_DIR}/com/op.idl"
+  COMMAND "${OP_MIDL_PY}" "${PROJECT_SOURCE_DIR}/scripts/build/gen_midl_input.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/com/op.idl" "${OP_MIDL_IDL}"
+  COMMAND midl "${OP_MIDL_IDL}"
     /iid "${OP_COM_I_C}" /env win32 /h "${OP_COM_I_H}" /W1 /char signed
     /tlb "${OP_COM_TLB}" /Oicf /target "NT60" /D "NDEBUG" /robust /nologo
     /proxy "${OP_COM_PROXY_C}" /dlldata "${OP_COM_DLLDATA_C}"
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/com/op.idl
+          ${PROJECT_SOURCE_DIR}/scripts/build/gen_midl_input.py
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/com/op.rc" PROPERTIES OBJECT_DEPENDS "${OP_COM_TLB}")
+
+# ⚠ op_i.h 是 GENERATED 文件：cl 的 /showIncludes 能扫到它，但"谁生成它"和
+#   "谁编译 COM 源"之间没有显式依赖。实测（2026-11-21）x86 ninja 树上 op_i.h
+#   更新后 `OpAutomation.cpp.obj` 没重编，DLL 里 IOpAutomation 的 vtable 仍是旧的
+#   （少 10 个方法）-> 32 位 IDispatch/早期绑定调新方法直接访问违例或 E_POINTER。
+#   x64 恰好因为整棵重编没暴露。这里显式兜底，任何位数都必须重编 COM 源。
+set_source_files_properties(${OP_COM_SOURCES} PROPERTIES OBJECT_DEPENDS "${OP_COM_I_H}")
 
 add_library(${op_com} SHARED)
 target_sources(${op_com} PRIVATE ${OP_LIBOP_SOURCES} ${OP_COM_SOURCES})

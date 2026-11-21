@@ -46,7 +46,8 @@ long InvokeByName(IDispatch *disp, const wchar_t *name, VARIANT *args, int argc)
     // 不猜：先按 argc，遇 DISP_E_BADPARAMCOUNT 再按 argc-1 重试，并打印实际生效的口径。
     HRESULT hr = E_FAIL;
     VARIANT result;
-    for (int pass = 0; pass < 2; ++pass) {
+    EXCEPINFO ei{};
+    for (int pass = 0; pass < (argc > 0 ? 2 : 1); ++pass) {
         const int n = (pass == 0) ? argc : argc - 1;
         // ⚠ IDispatch 的 rgvarg 是**逆序**的（最后一个形参在 [0]）。
         // 这是"看起来调通了、其实参数全错位"的经典坑：全 I4 的方法反不反转都能跑，
@@ -56,7 +57,6 @@ long InvokeByName(IDispatch *disp, const wchar_t *name, VARIANT *args, int argc)
             reversed[static_cast<size_t>(i)] = args[n - 1 - i];
         DISPPARAMS dp{reversed.data(), nullptr, static_cast<UINT>(n), 0};
         VariantInit(&result);
-        EXCEPINFO ei{};
         UINT arg_err = 0;
         hr = disp->Invoke(id, IID_NULL, LOCALE_USER_DEFAULT, DISPATCH_METHOD, &dp, &result, &ei, &arg_err);
         std::printf("  [diag] %ls argc=%d -> hr=0x%08lX\n", name, n, static_cast<unsigned long>(hr));
@@ -70,6 +70,12 @@ long InvokeByName(IDispatch *disp, const wchar_t *name, VARIANT *args, int argc)
     }
     if (FAILED(hr)) {
         std::printf("  Invoke(%ls) FAILED hr=0x%08lX\n", name, static_cast<unsigned long>(hr));
+        // 产品侧异常会被 OpAutomation::Invoke 的 catch 转成 E_FAIL + bstrDescription，
+        // 32 位/64 位行为不一致时要靠这条信息定位（别只看 HRESULT 猜）。
+        std::printf("    except scode=0x%08lX desc=%ls\n", static_cast<unsigned long>(ei.scode),
+                    ei.bstrDescription ? ei.bstrDescription : L"(null)");
+        if (ei.bstrDescription)
+            SysFreeString(ei.bstrDescription);
         return -9999;
     }
     const long value = (result.vt == VT_I4) ? result.lVal : -9998;
@@ -146,6 +152,13 @@ int main(int argc, char **argv) {
     LONG out_ret = 0;
     args[6].vt = VT_BYREF | VT_I4;
     args[6].plVal = &out_ret;
+
+    // 先调一个无参方法，确认 IDispatch 基本通路正常（Ver 返回 BSTR，
+    // 成功时本函数取不到 I4 -> -9998；失败 -9999）。
+    // 32 位探针在有参调用上曾报 E_POINTER，这条能把"通用通路"和"参数构造"分开。
+    std::printf("Ver: ");
+    const long ver_probe = InvokeByName(disp, L"Ver", nullptr, 0);
+    std::printf("-> %ld (-9998=调用成功但返回非I4, -9999=失败)\n", ver_probe);
 
     std::printf("SetAStarMapData: ");
     const long set_ret = InvokeByName(disp, L"SetAStarMapData", args, 7);

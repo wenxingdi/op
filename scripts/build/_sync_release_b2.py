@@ -24,9 +24,14 @@ SOURCES = {
     "op_c_api_x64.dll": SRC_X64,
     "op_x86.dll": SRC_X86,
     "op_c_api_x86.dll": SRC_X86,
+    # 32 位运行库：`op_x86.dll` / `op_c_api_x86.dll` 都**静态导入** onnxruntime.dll，
+    # 所以 32 位宿主旁边必须有 32 位 onnxruntime（同名 dll 不可能和 x64 版共目录）。
+    "onnxruntime.dll": SRC_X86,
+    "onnxruntime_providers_shared.dll": SRC_X86,
 }
 X64 = ["op_x64.dll", "op_c_api_x64.dll"]
 X86 = ["op_x86.dll", "op_c_api_x86.dll"]
+X86_RUNTIME = ["onnxruntime.dll", "onnxruntime_providers_shared.dll"]
 
 # COM DLL 只进 op 仓库与 OPTool；optool_verify 只用 C API。
 TARGETS = [
@@ -43,6 +48,12 @@ TARGETS = [
     # 不纳入的后果（2026-09-29 实测踩到）：x86 件停在旧版 → 蜀门 `dx/dx/dx` 一直 bind=0，
     # 看着像"按需加载没生效"，其实是注入的根本不是新 dll。
     (r"D:\AutoPro\op-master\op\build\nmake-x64-Release\libop", X86),
+    # ⚠ 32 位宿主（易语言 32 位 / 32 位 exe 直接 CoCreateInstance）必须用这个目录。
+    #   `bin\x64` 里的 x86 件是给「x64 宿主注入 32 位目标进程」用的：同目录的
+    #   onnxruntime.dll 是 **64 位**，32 位进程加载 op_x86.dll 时静态导入解析失败
+    #   -> DllMain 失败 -> LoadLibrary 返回 1114(ERROR_DLL_INIT_FAILED)。
+    #   2026-11-21 实测踩到：这个目录当时停留在 11-20，32 位验证一直在跑旧 dll。
+    (r"D:\AutoPro\op-master\op\bin\x86", X86 + X86_RUNTIME),
 ]
 
 
