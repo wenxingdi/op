@@ -375,3 +375,5 @@ scripts/five_layer_matrix.json
 # 同理 scripts/probes/ 是探针脚本目录（未被规则命中，无需白名单）。
 !scripts/build/
 !scripts/build/**
+# 但编译缓存不是脚本，别被上面的白名单带进来
+scripts/build/__pycache__/

@@ -1,6 +1,6 @@
 # OP 插件 API 速查（LLM 上下文版）
 
-> 源：`include/libop.h` · 312 个接口 · 生成于 2026-11-20 22:36 · 由 scripts/gen_api_reference.py 生成（勿手改）
+> 源：`include/libop.h` · 348 个接口 · 生成于 2026-11-21 17:33 · 由 scripts/gen_api_reference.py 生成（勿手改）
 
 调用约定：出参不传入，聚成返回值元组（顺序 = signature 的 → 后列表）；坐标为物理像素，绑定窗口后为客户区坐标；字符串 UTF-16。
 
@@ -222,10 +222,12 @@
 - `CvEdgeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)` — 边缘匹配，返回命中 JSON 数组
 - `CvShapeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)` — 形状匹配，返回命中 JSON 数组
 
-## OCR 文字识别（83）
+## OCR 文字识别（119）
 
 - `SetOcrEngine(path_of_engine, dll_name, argv) → ret` — 选择 OCR 引擎并透传启动参数。engine: "onnx"/空/任意未知名=内置 ONNX（默认）。
 - `OcrWarmup() → (ret)` — OCR 预热（P2 第二十六批 2026-10-16，对齐 OLA OcrWarmup）：触发引擎懒加载 + 一次小图推理，
+- `YoloDetectEx2(x1, y1, x2, y2, conf, iou, json_options) → (etjson, ret)` — 【YOLO 增强 2026-11-21】带过滤/截断的检测。
+- `YoloDetectFromFileEx2(file_name, conf, iou, json_options) → (etjson, ret)` — 文件版 Ex2：同样支持 class_ids/labels/max_results 过滤。
 - `SetDict(idx, file_name) → (ret)` — 设置字库文件
 - `GetDict(idx, font_index) → (etstr)` — 获取指定字库中指定条目的字库信息
 - `SetMemDict(idx, data, size) → (ret)` — 设置内存字库文件
@@ -261,8 +263,42 @@
 - `OcrAutoColorEx(x1, y1, x2, y2, color, sim) → (et_str)` — 结构化 OcrAutoColor：输出 "x1,y1,x2,y2,conf,text|..."（bbox 为客户区坐标，相对绑定窗口客户区左上角），返回命中行数。颜色容差：带偏色段 "RRGGBB-DRDGDB"（如 0F1721-606060）按偏色值逐通道匹配；不带偏色段默认容差 0x60。容差按场景选（2026-10-16 三场景 58 张实测）：浅色底+深色小字 → 留空走默认 0x60；深色/花纹底+彩色字（典型游戏 UI）→ 显式小偏色 0x10~0x30，0x60 会把近色背景混进 mask 打出乱码；字色变化时用 | 枚举多色，如 "E01111-202020|33EE33-202020"（实测 58/58 全对）。偏色段必须写满 6 位十六进制，短段/非法段会被拒绝并按 000000 处理（写 __op.log 报错）。
 - `OcrEx2(x1, y1, x2, y2, color, sim) → (et_str)` — 【P0 2026-11-20】结构化 OCR（JSON）：逐字置信度 + 逐字坐标。
 - `OcrAutoColorEx2(x1, y1, x2, y2, color, sim) → (et_str)` — 同 OcrEx2，但先按 color_format 二值化（与 OcrAutoColorEx 同源）。
-- `FindStr(x1, y1, x2, y2, strs, color, sim) → (ret, ret, ret)` — 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
+- `OcrFromMemEx2(image_handle, x1, y1, x2, y2, color, sim) → (etjson)` — 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
+- `OcrAutoColorFromMemEx2(image_handle, x1, y1, x2, y2, color, sim) → (etjson)` — 颜色二值化 OCR（含智能选路），返回值 = 行数
+- `FindPicFromMem(image_handle, x1, y1, x2, y2, files, delta_color, sim, dir) → (x, y, ret)` — 找图：ret = 命中的图片序号（-1=未找到，大漠索引语义）
+- `FindPicExFromMem(image_handle, x1, y1, x2, y2, files, delta_color, sim, dir) → (etstr)` — 
+- `FindColorFromMem(image_handle, x1, y1, x2, y2, color, sim, dir) → (x, y, ret)` — 找色 / 取色 / 比色 / 计数
+- `FindColorExFromMem(image_handle, x1, y1, x2, y2, color, sim, dir) → (etstr)` — 
+- `GetColorFromMem(image_handle, x, y) → (etstr)` — 
+- `CmpColorFromMem(image_handle, x, y, color, sim) → (ret)` — 
+- `GetColorNumFromMem(image_handle, x1, y1, x2, y2, color, sim) → (ret)` — 
+- `FindMultiColorFromMem(image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir) → (x, y, ret)` — 多色串 / 色块
+- `FindMultiColorExFromMem(image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir) → (etstr)` — 
+- `FindColorBlockExFromMem(image_handle, x1, y1, x2, y2, color, sim, count, height, width) → (etstr)` — 
+- `YoloDetectFromMem(image_handle, x1, y1, x2, y2, conf, iou) → (etjson, ret)` — YOLO（内存版）。ret = 检测条数；JSON 结构同屏幕版
+- `YoloDetectFromMemEx2(image_handle, x1, y1, x2, y2, conf, iou, json_options) → (etjson, ret)` — 带过滤/截断；json_options 同 YoloDetectEx2。非法 options 返回 -1
+- `AudioQueryWindow(hwnd) → (etjson)` — ===== 音频音量（2026-11-21，WASAPI 会话级 + 系统级）=====
+- `AudioQueryPid(pid) → (etjson)` — 
+- `AudioGetPidFromHwnd(hwnd) → (ret)` — 纯取窗口所属 PID（不碰 COM）。ret: 失败返回 0。
+- `AudioSetSessionVolume(pid, volume) → (ret)` — 设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 0 成功，负数为错误码。
+- `AudioSetSessionMute(pid, muted) → (ret)` — 
+- `AudioGetSystemVolume() → (etjson)` — 系统主音量（同一套 enumerator 上多取 IAudioEndpointVolume，成本很低）。
+- `AudioSetSystemVolume(volume) → (ret)` — 
+- `AudioSetSystemMute(muted) → (ret)` — 
+- `LoadImageMem(data, width, height, stride, fmt) → (et_handle)` — ===== 图像句柄注册表（2026-11-21，内存直操作一期地基）=====
+- `LoadImageBmp(data, size) → (et_handle)` — 从 BMP 字节流注册（自动解析 24/32bpp、top-down/bottom-up、行填充）。
+- `FreeImage(handle) → (ret)` — 释放单个图像句柄。ret: 1=成功，0=句柄不存在。
+- `FreeAllImages() → (ret)` — 释放全部图像句柄。ret: 被释放的数量。
+- `GetImageSize(handle) → (width, height, channels, ret)` — 查询图像尺寸。channels 恒为 4（内部统一 BGRA）。ret: 1=成功，0=句柄不存在。
+- `GetImageData(handle, fmt, buffer, buffer_size) → (ret)` — 读回像素。fmt: raw(BGRA 紧凑) / bmp(带 BMP 头的完整字节流)。
+- `CropImage(handle, x, y, width, height) → (et_handle)` — 裁剪并注册为新句柄（深拷贝）。区域自动 clamp 到图像内；空区域返回空串。
+- `FindStrMem(handle, json_targets, sim) → (et_json)` — 在图像句柄上做多目标查找（复用 P1 FindStrBatch 的匹配内核）。
+- `GetImageCount() → (ret)` — 当前注册表条目数（诊断用）。
+- `FindStr(x1, y1, x2, y2, strs, color, sim) → (ret, ret, ret)` — 
 - `FindStrEx(x1, y1, x2, y2, strs, color, sim) → (etstr)` — 返回符合color_format的所有坐标位置
+- `FindStrBatch(x1, y1, x2, y2, json_targets, color, sim) → (et_json)` — 【P1 2026-11-21】多目标结构化查找：一次 det+rec，引擎内匹配全部目标。
+- `FindStrEx2(x1, y1, x2, y2, pattern, color, sim, flags) → (et_json)` — 【P1】单目标增强查找（标量入参）。flags 位：
+- `OcrLastProfile() → (et_json)` — 【P3 2026-11-21】上一次 OCR 的分项耗时（det/cls/rec 分别计时），JSON 输出。
 - `OcrAuto(x1, y1, x2, y2, sim) → (et_str)` — 识别屏幕范围(x1,y1,x2,y2)内的字符串，无需指定颜色。
 - `OcrFromFile(file_name, color_format, sim) → (etstr)` — 从文件中识别图片，规则同 Ocr。免字库路径 color_format 不参与识别（直接对原图跑引擎，要按颜色过滤请用 OcrAutoColorFromFile/AutoOcrFromFile）。
 - `OcrAutoColorFromFile(file_name, color_format, sim) → (etstr)` — 文件版 OcrAutoColor：读取图片后按颜色二值化再做免字库 OCR。颜色容差：带偏色段 "RRGGBB-DRDGDB"（如 0F1721-606060）按偏色值逐通道匹配；不带偏色段默认容差 0x60。容差按场景选（2026-10-16 三场景 58 张实测）：浅色底+深色小字 → 留空走默认 0x60；深色/花纹底+彩色字（典型游戏 UI）→ 显式小偏色 0x10~0x30，0x60 会把近色背景混进 mask 打出乱码；字色变化时用 | 枚举多色，如 "E01111-202020|33EE33-202020"（实测 58/58 全对）。偏色段必须写满 6 位十六进制，短段/非法段会被拒绝并按 000000 处理（写 __op.log 报错）。

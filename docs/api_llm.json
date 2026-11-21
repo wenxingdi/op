@@ -2,9 +2,9 @@
   "meta": {
     "title": "OP 插件 API 目录（大模型 function-calling 版）",
     "source": "include/libop.h",
-    "generated": "2026-11-20 22:36",
+    "generated": "2026-11-21 17:33",
     "generator": "scripts/gen_api_reference.py",
-    "total_functions": 312,
+    "total_functions": 348,
     "usage": {
       "python_pyop": "import pyop  # swig 绑定（pip 包 op-plugins），方法名保持 PascalCase；bin/x64/pyop.py + _pyop.pyd 置于工作目录或 sys.path\nop = pyop.Op()\nx, y, ret = op.FindPic(x1, y1, x2, y2, files, delta_color, sim, dir)",
       "python_ctypes": "from op import Op  # ctypes 包装（pip install -e bindings/python），方法名 snake_case（见每函数 python_ctypes_name 字段）\nop = Op(dll_path=r'D:\\op\\bin\\x64\\op_c_api_x64.dll')\nx, y, ret = op.find_pic(x1, y1, x2, y2, files, delta_color, sim, dir)",
@@ -13476,6 +13476,238 @@
         {
           "group": "ocr",
           "group_name": "OCR 文字识别",
+          "name": "YoloDetectEx2",
+          "signature": "YoloDetectEx2(x1, y1, x2, y2, conf, iou, json_options) → (etjson, ret)",
+          "python_example": "op.YoloDetectEx2(x1, y1, x2, y2, conf, iou, json_options)  # → (etjson, ret)",
+          "python_ctypes_name": "yolo_detect_ex2",
+          "in_ctypes_binding": false,
+          "description": "【YOLO 增强 2026-11-21】带过滤/截断的检测。\njson_options 形如 {\"class_ids\":[0,2],\"labels\":[\"person\"],\"max_results\":20}，\n空串等价于不过滤（但仍输出更完整的 JSON）。语义：\n- class_ids 与 labels 同时给时取**并集**（满足任一即保留）\n- max_results 按 confidence 降序截断（要\"最可信的 N 个\"，不是\"原序前 N 个\"）\n- 非法 options（坏 JSON / 未知字段 / 类型错）返回 -1，与\"没检测到\"区分\n返回 JSON 比旧接口多 total/returned/index/cx/cy/w/h 字段。\n坐标口径与 OCR/找图一致（截图偏移 + 客户区偏移）。",
+          "params": [
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "conf",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "置信度阈值 0~1，低于该值的检测结果被丢弃"
+            },
+            {
+              "name": "iou",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "IOU 重叠阈值 0~1，用于抑制重复检测框"
+            },
+            {
+              "name": "json_options",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "YoloDetectEx2",
+            "description": "【YOLO 增强 2026-11-21】带过滤/截断的检测。\njson_options 形如 {\"class_ids\":[0,2],\"labels\":[\"person\"],\"max_results\":20}，\n空串等价于不过滤（但仍输出更完整的 JSON）。语义：\n- class_ids 与 labels 同时给时取**并集**（满足任一即保留）\n- max_results 按 confidence 降序截断（要\"最可信的 N 个\"，不是\"原序前 N 个\"）\n- 非法 options（坏 JSON / 未知字段 / 类型错）返回 -1，与\"没检测到\"区分\n返回 JSON 比旧接口多 total/returned/index/cx/cy/w/h 字段。\n坐标口径与 OCR/找图一致（截图偏移 + 客户区偏移）。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "conf": {
+                  "type": "number",
+                  "description": "置信度阈值 0~1，低于该值的检测结果被丢弃"
+                },
+                "iou": {
+                  "type": "number",
+                  "description": "IOU 重叠阈值 0~1，用于抑制重复检测框"
+                },
+                "json_options": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                }
+              },
+              "required": [
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "conf",
+                "iou",
+                "json_options"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "YoloDetectFromFileEx2",
+          "signature": "YoloDetectFromFileEx2(file_name, conf, iou, json_options) → (etjson, ret)",
+          "python_example": "op.YoloDetectFromFileEx2(file_name, conf, iou, json_options)  # → (etjson, ret)",
+          "python_ctypes_name": "yolo_detect_from_file_ex2",
+          "in_ctypes_binding": false,
+          "description": "文件版 Ex2：同样支持 class_ids/labels/max_results 过滤。\n存在的理由：屏幕版依赖绑定窗口，无窗口环境下无法验证过滤逻辑；\n文件版让过滤/截断/JSON 契约能用真实模型闭环验证。",
+          "params": [
+            {
+              "name": "file_name",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "文件路径；相对路径基于 SetPath 设定的全局目录解析"
+            },
+            {
+              "name": "conf",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "置信度阈值 0~1，低于该值的检测结果被丢弃"
+            },
+            {
+              "name": "iou",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "IOU 重叠阈值 0~1，用于抑制重复检测框"
+            },
+            {
+              "name": "json_options",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "YoloDetectFromFileEx2",
+            "description": "文件版 Ex2：同样支持 class_ids/labels/max_results 过滤。\n存在的理由：屏幕版依赖绑定窗口，无窗口环境下无法验证过滤逻辑；\n文件版让过滤/截断/JSON 契约能用真实模型闭环验证。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "file_name": {
+                  "type": "string",
+                  "description": "文件路径；相对路径基于 SetPath 设定的全局目录解析"
+                },
+                "conf": {
+                  "type": "number",
+                  "description": "置信度阈值 0~1，低于该值的检测结果被丢弃"
+                },
+                "iou": {
+                  "type": "number",
+                  "description": "IOU 重叠阈值 0~1，用于抑制重复检测框"
+                },
+                "json_options": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                }
+              },
+              "required": [
+                "file_name",
+                "conf",
+                "iou",
+                "json_options"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
           "name": "SetDict",
           "signature": "SetDict(idx, file_name) → (ret)",
           "python_example": "op.SetDict(idx, file_name)  # → (ret)",
@@ -16648,12 +16880,2958 @@
         {
           "group": "ocr",
           "group_name": "OCR 文字识别",
+          "name": "OcrFromMemEx2",
+          "signature": "OcrFromMemEx2(image_handle, x1, y1, x2, y2, color, sim) → (etjson)",
+          "python_example": "op.OcrFromMemEx2(image_handle, x1, y1, x2, y2, color, sim)  # → (etjson)",
+          "python_ctypes_name": "ocr_from_mem_ex2",
+          "in_ctypes_binding": false,
+          "description": "在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置\n===== 内存直操作二期：识别入口的内存版（2026-11-21）=====\n设计见 docs/2026-11/内存直操作二期_全家桶_方案_20261121.md\n与屏幕版的**唯一区别**是\"图从哪来\"：\n屏幕版 x1..y2 是客户区坐标；内存版 x1..y2 是**图像内坐标**（相对 img 句柄左上角）。\n其余参数逐字相同，出参坐标也是图像内坐标（不受窗口偏移影响）。\n区域传 (0,0,0,0) 表示**整张图**（脚本里\"全图查找\"的自然写法）。\n实现上直接复用屏幕版：只把\"截屏\"换成\"从句柄取图\"，偏移清零。\n因此行为与屏幕版严格一致，这是结构保证而非测试推断。\n句柄无效/已释放时不执行识别，返回与屏幕版\"截屏失败\"相同的默认值。\n结构化 OCR（逐字坐标 + conf），输出与 OcrEx2 完全相同",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串",
+          "tool_schema": {
+            "name": "OcrFromMemEx2",
+            "description": "在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置\n===== 内存直操作二期：识别入口的内存版（2026-11-21）=====\n设计见 docs/2026-11/内存直操作二期_全家桶_方案_20261121.md\n与屏幕版的**唯一区别**是\"图从哪来\"：\n屏幕版 x1..y2 是客户区坐标；内存版 x1..y2 是**图像内坐标**（相对 img 句柄左上角）。\n其余参数逐字相同，出参坐标也是图像内坐标（不受窗口偏移影响）。\n区域传 (0,0,0,0) 表示**整张图**（脚本里\"全图查找\"的自然写法）。\n实现上直接复用屏幕版：只把\"截屏\"换成\"从句柄取图\"，偏移清零。\n因此行为与屏幕版严格一致，这是结构保证而非测试推断。\n句柄无效/已释放时不执行识别，返回与屏幕版\"截屏失败\"相同的默认值。\n结构化 OCR（逐字坐标 + conf），输出与 OcrEx2 完全相同",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "color": {
+                  "type": "string",
+                  "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "color",
+                "sim"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "OcrAutoColorFromMemEx2",
+          "signature": "OcrAutoColorFromMemEx2(image_handle, x1, y1, x2, y2, color, sim) → (etjson)",
+          "python_example": "op.OcrAutoColorFromMemEx2(image_handle, x1, y1, x2, y2, color, sim)  # → (etjson)",
+          "python_ctypes_name": "ocr_auto_color_from_mem_ex2",
+          "in_ctypes_binding": false,
+          "description": "颜色二值化 OCR（含智能选路），返回值 = 行数",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）；etjson: 出参：JSON 格式结果串",
+          "tool_schema": {
+            "name": "OcrAutoColorFromMemEx2",
+            "description": "颜色二值化 OCR（含智能选路），返回值 = 行数",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "color": {
+                  "type": "string",
+                  "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "color",
+                "sim"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "FindPicFromMem",
+          "signature": "FindPicFromMem(image_handle, x1, y1, x2, y2, files, delta_color, sim, dir) → (x, y, ret)",
+          "python_example": "op.FindPicFromMem(image_handle, x1, y1, x2, y2, files, delta_color, sim, dir)  # → (x, y, ret)",
+          "python_ctypes_name": "find_pic_from_mem",
+          "in_ctypes_binding": false,
+          "description": "找图：ret = 命中的图片序号（-1=未找到，大漠索引语义）",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "files",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "图片文件名串，多图用 | 分隔（相对路径基于 SetPath）"
+            },
+            {
+              "name": "delta_color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "透明色 RGB hex RRGGBB（与 color 同规则；注意与大漠相反——大漠 FindPic delta 为 BGR，迁移需红蓝互换）；不需要透明匹配传 000000 配 sim 普通匹配"
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "dir",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上"
+            },
+            {
+              "name": "x",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "x",
+              "type": "long*",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long*",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "x: 横坐标（物理像素；绑定窗口后为客户区坐标）；y: 纵坐标（物理像素；绑定窗口后为客户区坐标）；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "FindPicFromMem",
+            "description": "找图：ret = 命中的图片序号（-1=未找到，大漠索引语义）",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "files": {
+                  "type": "string",
+                  "description": "图片文件名串，多图用 | 分隔（相对路径基于 SetPath）"
+                },
+                "delta_color": {
+                  "type": "string",
+                  "description": "透明色 RGB hex RRGGBB（与 color 同规则；注意与大漠相反——大漠 FindPic delta 为 BGR，迁移需红蓝互换）；不需要透明匹配传 000000 配 sim 普通匹配"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                },
+                "dir": {
+                  "type": "number",
+                  "description": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "files",
+                "delta_color",
+                "sim",
+                "dir"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "FindPicExFromMem",
+          "signature": "FindPicExFromMem(image_handle, x1, y1, x2, y2, files, delta_color, sim, dir) → (etstr)",
+          "python_example": "op.FindPicExFromMem(image_handle, x1, y1, x2, y2, files, delta_color, sim, dir)  # → (etstr)",
+          "python_ctypes_name": "find_pic_ex_from_mem",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "files",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "图片文件名串，多图用 | 分隔（相对路径基于 SetPath）"
+            },
+            {
+              "name": "delta_color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "透明色 RGB hex RRGGBB（与 color 同规则；注意与大漠相反——大漠 FindPic delta 为 BGR，迁移需红蓝互换）；不需要透明匹配传 000000 配 sim 普通匹配"
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "dir",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上"
+            },
+            {
+              "name": "etstr",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：字符串结果"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etstr",
+              "type": "std::wstring &r",
+              "doc": "出参：字符串结果"
+            }
+          ],
+          "returns_summary": "etstr: 出参：字符串结果",
+          "tool_schema": {
+            "name": "FindPicExFromMem",
+            "description": "OP 插件接口 FindPicExFromMem",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "files": {
+                  "type": "string",
+                  "description": "图片文件名串，多图用 | 分隔（相对路径基于 SetPath）"
+                },
+                "delta_color": {
+                  "type": "string",
+                  "description": "透明色 RGB hex RRGGBB（与 color 同规则；注意与大漠相反——大漠 FindPic delta 为 BGR，迁移需红蓝互换）；不需要透明匹配传 000000 配 sim 普通匹配"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                },
+                "dir": {
+                  "type": "number",
+                  "description": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "files",
+                "delta_color",
+                "sim",
+                "dir"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "FindColorFromMem",
+          "signature": "FindColorFromMem(image_handle, x1, y1, x2, y2, color, sim, dir) → (x, y, ret)",
+          "python_example": "op.FindColorFromMem(image_handle, x1, y1, x2, y2, color, sim, dir)  # → (x, y, ret)",
+          "python_ctypes_name": "find_color_from_mem",
+          "in_ctypes_binding": false,
+          "description": "找色 / 取色 / 比色 / 计数",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "dir",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上"
+            },
+            {
+              "name": "x",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "x",
+              "type": "long*",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long*",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "x: 横坐标（物理像素；绑定窗口后为客户区坐标）；y: 纵坐标（物理像素；绑定窗口后为客户区坐标）；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "FindColorFromMem",
+            "description": "找色 / 取色 / 比色 / 计数",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "color": {
+                  "type": "string",
+                  "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                },
+                "dir": {
+                  "type": "number",
+                  "description": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "color",
+                "sim",
+                "dir"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "FindColorExFromMem",
+          "signature": "FindColorExFromMem(image_handle, x1, y1, x2, y2, color, sim, dir) → (etstr)",
+          "python_example": "op.FindColorExFromMem(image_handle, x1, y1, x2, y2, color, sim, dir)  # → (etstr)",
+          "python_ctypes_name": "find_color_ex_from_mem",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "dir",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上"
+            },
+            {
+              "name": "etstr",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：字符串结果"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etstr",
+              "type": "std::wstring &r",
+              "doc": "出参：字符串结果"
+            }
+          ],
+          "returns_summary": "etstr: 出参：字符串结果",
+          "tool_schema": {
+            "name": "FindColorExFromMem",
+            "description": "OP 插件接口 FindColorExFromMem",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "color": {
+                  "type": "string",
+                  "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                },
+                "dir": {
+                  "type": "number",
+                  "description": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "color",
+                "sim",
+                "dir"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "GetColorFromMem",
+          "signature": "GetColorFromMem(image_handle, x, y) → (etstr)",
+          "python_example": "op.GetColorFromMem(image_handle, x, y)  # → (etstr)",
+          "python_ctypes_name": "get_color_from_mem",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "etstr",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：字符串结果"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etstr",
+              "type": "std::wstring &r",
+              "doc": "出参：字符串结果"
+            }
+          ],
+          "returns_summary": "etstr: 出参：字符串结果",
+          "tool_schema": {
+            "name": "GetColorFromMem",
+            "description": "OP 插件接口 GetColorFromMem",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x": {
+                  "type": "number",
+                  "description": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "y": {
+                  "type": "number",
+                  "description": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x",
+                "y"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "CmpColorFromMem",
+          "signature": "CmpColorFromMem(image_handle, x, y, color, sim) → (ret)",
+          "python_example": "op.CmpColorFromMem(image_handle, x, y, color, sim)  # → (ret)",
+          "python_ctypes_name": "cmp_color_from_mem",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "CmpColorFromMem",
+            "description": "OP 插件接口 CmpColorFromMem",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x": {
+                  "type": "number",
+                  "description": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "y": {
+                  "type": "number",
+                  "description": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "color": {
+                  "type": "string",
+                  "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x",
+                "y",
+                "color",
+                "sim"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "GetColorNumFromMem",
+          "signature": "GetColorNumFromMem(image_handle, x1, y1, x2, y2, color, sim) → (ret)",
+          "python_example": "op.GetColorNumFromMem(image_handle, x1, y1, x2, y2, color, sim)  # → (ret)",
+          "python_ctypes_name": "get_color_num_from_mem",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "GetColorNumFromMem",
+            "description": "OP 插件接口 GetColorNumFromMem",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "color": {
+                  "type": "string",
+                  "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "color",
+                "sim"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "FindMultiColorFromMem",
+          "signature": "FindMultiColorFromMem(image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir) → (x, y, ret)",
+          "python_example": "op.FindMultiColorFromMem(image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir)  # → (x, y, ret)",
+          "python_ctypes_name": "find_multi_color_from_mem",
+          "in_ctypes_binding": false,
+          "description": "多色串 / 色块",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "first_color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "offset_color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "dir",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上"
+            },
+            {
+              "name": "x",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "x",
+              "type": "long*",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long*",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "x: 横坐标（物理像素；绑定窗口后为客户区坐标）；y: 纵坐标（物理像素；绑定窗口后为客户区坐标）；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "FindMultiColorFromMem",
+            "description": "多色串 / 色块",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "first_color": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "offset_color": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                },
+                "dir": {
+                  "type": "number",
+                  "description": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "first_color",
+                "offset_color",
+                "sim",
+                "dir"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "FindMultiColorExFromMem",
+          "signature": "FindMultiColorExFromMem(image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir) → (etstr)",
+          "python_example": "op.FindMultiColorExFromMem(image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir)  # → (etstr)",
+          "python_ctypes_name": "find_multi_color_ex_from_mem",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "first_color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "offset_color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "dir",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上"
+            },
+            {
+              "name": "etstr",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：字符串结果"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etstr",
+              "type": "std::wstring &r",
+              "doc": "出参：字符串结果"
+            }
+          ],
+          "returns_summary": "etstr: 出参：字符串结果",
+          "tool_schema": {
+            "name": "FindMultiColorExFromMem",
+            "description": "OP 插件接口 FindMultiColorExFromMem",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "first_color": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "offset_color": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                },
+                "dir": {
+                  "type": "number",
+                  "description": "0=左上→右下 1=左下→右上 2=右上→左下 3=右下→左上"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "first_color",
+                "offset_color",
+                "sim",
+                "dir"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "FindColorBlockExFromMem",
+          "signature": "FindColorBlockExFromMem(image_handle, x1, y1, x2, y2, color, sim, count, height, width) → (etstr)",
+          "python_example": "op.FindColorBlockExFromMem(image_handle, x1, y1, x2, y2, color, sim, count, height, width)  # → (etstr)",
+          "python_ctypes_name": "find_color_block_ex_from_mem",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "count",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "数量（上限/期望值，见各函数说明）"
+            },
+            {
+              "name": "height",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "高度（像素）"
+            },
+            {
+              "name": "width",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "宽度（像素）"
+            },
+            {
+              "name": "etstr",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：字符串结果"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etstr",
+              "type": "std::wstring &r",
+              "doc": "出参：字符串结果"
+            }
+          ],
+          "returns_summary": "etstr: 出参：字符串结果",
+          "tool_schema": {
+            "name": "FindColorBlockExFromMem",
+            "description": "OP 插件接口 FindColorBlockExFromMem",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "color": {
+                  "type": "string",
+                  "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                },
+                "count": {
+                  "type": "number",
+                  "description": "数量（上限/期望值，见各函数说明）"
+                },
+                "height": {
+                  "type": "number",
+                  "description": "高度（像素）"
+                },
+                "width": {
+                  "type": "number",
+                  "description": "宽度（像素）"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "color",
+                "sim",
+                "count",
+                "height",
+                "width"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "YoloDetectFromMem",
+          "signature": "YoloDetectFromMem(image_handle, x1, y1, x2, y2, conf, iou) → (etjson, ret)",
+          "python_example": "op.YoloDetectFromMem(image_handle, x1, y1, x2, y2, conf, iou)  # → (etjson, ret)",
+          "python_ctypes_name": "yolo_detect_from_mem",
+          "in_ctypes_binding": false,
+          "description": "YOLO（内存版）。ret = 检测条数；JSON 结构同屏幕版",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "conf",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "置信度阈值 0~1，低于该值的检测结果被丢弃"
+            },
+            {
+              "name": "iou",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "IOU 重叠阈值 0~1，用于抑制重复检测框"
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "YoloDetectFromMem",
+            "description": "YOLO（内存版）。ret = 检测条数；JSON 结构同屏幕版",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "conf": {
+                  "type": "number",
+                  "description": "置信度阈值 0~1，低于该值的检测结果被丢弃"
+                },
+                "iou": {
+                  "type": "number",
+                  "description": "IOU 重叠阈值 0~1，用于抑制重复检测框"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "conf",
+                "iou"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "YoloDetectFromMemEx2",
+          "signature": "YoloDetectFromMemEx2(image_handle, x1, y1, x2, y2, conf, iou, json_options) → (etjson, ret)",
+          "python_example": "op.YoloDetectFromMemEx2(image_handle, x1, y1, x2, y2, conf, iou, json_options)  # → (etjson, ret)",
+          "python_ctypes_name": "yolo_detect_from_mem_ex2",
+          "in_ctypes_binding": false,
+          "description": "带过滤/截断；json_options 同 YoloDetectEx2。非法 options 返回 -1",
+          "params": [
+            {
+              "name": "image_handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "conf",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "置信度阈值 0~1，低于该值的检测结果被丢弃"
+            },
+            {
+              "name": "iou",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "IOU 重叠阈值 0~1，用于抑制重复检测框"
+            },
+            {
+              "name": "json_options",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "YoloDetectFromMemEx2",
+            "description": "带过滤/截断；json_options 同 YoloDetectEx2。非法 options 返回 -1",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "image_handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "conf": {
+                  "type": "number",
+                  "description": "置信度阈值 0~1，低于该值的检测结果被丢弃"
+                },
+                "iou": {
+                  "type": "number",
+                  "description": "IOU 重叠阈值 0~1，用于抑制重复检测框"
+                },
+                "json_options": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                }
+              },
+              "required": [
+                "image_handle",
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "conf",
+                "iou",
+                "json_options"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "AudioQueryWindow",
+          "signature": "AudioQueryWindow(hwnd) → (etjson)",
+          "python_example": "op.AudioQueryWindow(hwnd)  # → (etjson)",
+          "python_ctypes_name": "audio_query_window",
+          "in_ctypes_binding": false,
+          "description": "===== 音频音量（2026-11-21，WASAPI 会话级 + 系统级）=====\n设计见 docs/2026-11/音量模块_方案_20261121.md。\n语义区分（误用率最高，务必看清）：\nvolume（滑块值）**与出声大小无直接关系**：滑块 1.0 也可能当前无声。\n判断\"现在有没有声音\"要看 **peak**。\nfound=false = 该 PID 没有音频会话，**不等于没声音**\n（可能在放系统音，或进程刚启动还没建会话）。\n返回 JSON：\n{\"ok\":1,\"code\":0,\"found\":true,\"pid\":12345,\"muted\":false,\"playing\":true,\n\"volume\":0.75,\"peak\":0.3421,\"error\":\"\"}\nok=1 表示查询链路走通（不代表有声音）；ok=0 看 error。\ncode: 0 成功 / -1 无音频设备 / -2 COM 或激活失败 / -3 枚举失败\n/ -4 参数非法 / -5 设置失败\n无状态：峰值保持/衰减/阈值判定留给调用方\n（每次调用重新枚举，不缓存 COM 指针）。",
+          "params": [
+            {
+              "name": "hwnd",
+              "type": "long long",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "窗口句柄（HWND，十进制数值）"
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串",
+          "tool_schema": {
+            "name": "AudioQueryWindow",
+            "description": "===== 音频音量（2026-11-21，WASAPI 会话级 + 系统级）=====\n设计见 docs/2026-11/音量模块_方案_20261121.md。\n语义区分（误用率最高，务必看清）：\nvolume（滑块值）**与出声大小无直接关系**：滑块 1.0 也可能当前无声。\n判断\"现在有没有声音\"要看 **peak**。\nfound=false = 该 PID 没有音频会话，**不等于没声音**\n（可能在放系统音，或进程刚启动还没建会话）。\n返回 JSON：\n{\"ok\":1,\"code\":0,\"found\":true,\"pid\":12345,\"muted\":false,\"playing\":true,\n\"volume\":0.75,\"peak\":0.3421,\"error\":\"\"}\nok=1 表示查询链路走通（不代表有声音）；ok=0 看 error。\ncode: 0 成功 / -1 无音频设备 / -2 COM 或激活失败 / -3 枚举失败\n/ -4 参数非法 / -5 设置失败\n无状态：峰值保持/衰减/阈值判定留给调用方\n（每次调用重新枚举，不缓存 COM 指针）。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "hwnd": {
+                  "type": "string",
+                  "description": "窗口句柄（HWND，十进制数值）"
+                }
+              },
+              "required": [
+                "hwnd"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "AudioQueryPid",
+          "signature": "AudioQueryPid(pid) → (etjson)",
+          "python_example": "op.AudioQueryPid(pid)  # → (etjson)",
+          "python_ctypes_name": "audio_query_pid",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "pid",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "进程 PID"
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串",
+          "tool_schema": {
+            "name": "AudioQueryPid",
+            "description": "OP 插件接口 AudioQueryPid",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "pid": {
+                  "type": "number",
+                  "description": "进程 PID"
+                }
+              },
+              "required": [
+                "pid"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "AudioGetPidFromHwnd",
+          "signature": "AudioGetPidFromHwnd(hwnd) → (ret)",
+          "python_example": "op.AudioGetPidFromHwnd(hwnd)  # → (ret)",
+          "python_ctypes_name": "audio_get_pid_from_hwnd",
+          "in_ctypes_binding": false,
+          "description": "纯取窗口所属 PID（不碰 COM）。ret: 失败返回 0。",
+          "params": [
+            {
+              "name": "hwnd",
+              "type": "long long",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "窗口句柄（HWND，十进制数值）"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "AudioGetPidFromHwnd",
+            "description": "纯取窗口所属 PID（不碰 COM）。ret: 失败返回 0。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "hwnd": {
+                  "type": "string",
+                  "description": "窗口句柄（HWND，十进制数值）"
+                }
+              },
+              "required": [
+                "hwnd"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "AudioSetSessionVolume",
+          "signature": "AudioSetSessionVolume(pid, volume) → (ret)",
+          "python_example": "op.AudioSetSessionVolume(pid, volume)  # → (ret)",
+          "python_ctypes_name": "audio_set_session_volume",
+          "in_ctypes_binding": false,
+          "description": "设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 0 成功，负数为错误码。",
+          "params": [
+            {
+              "name": "pid",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "进程 PID"
+            },
+            {
+              "name": "volume",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "AudioSetSessionVolume",
+            "description": "设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 0 成功，负数为错误码。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "pid": {
+                  "type": "number",
+                  "description": "进程 PID"
+                },
+                "volume": {
+                  "type": "number",
+                  "description": "double"
+                }
+              },
+              "required": [
+                "pid",
+                "volume"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "AudioSetSessionMute",
+          "signature": "AudioSetSessionMute(pid, muted) → (ret)",
+          "python_example": "op.AudioSetSessionMute(pid, muted)  # → (ret)",
+          "python_ctypes_name": "audio_set_session_mute",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "pid",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "进程 PID"
+            },
+            {
+              "name": "muted",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "AudioSetSessionMute",
+            "description": "OP 插件接口 AudioSetSessionMute",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "pid": {
+                  "type": "number",
+                  "description": "进程 PID"
+                },
+                "muted": {
+                  "type": "number",
+                  "description": "long"
+                }
+              },
+              "required": [
+                "pid",
+                "muted"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "AudioGetSystemVolume",
+          "signature": "AudioGetSystemVolume() → (etjson)",
+          "python_example": "op.AudioGetSystemVolume()  # → (etjson)",
+          "python_ctypes_name": "audio_get_system_volume",
+          "in_ctypes_binding": false,
+          "description": "系统主音量（同一套 enumerator 上多取 IAudioEndpointVolume，成本很低）。",
+          "params": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串",
+          "tool_schema": {
+            "name": "AudioGetSystemVolume",
+            "description": "系统主音量（同一套 enumerator 上多取 IAudioEndpointVolume，成本很低）。",
+            "parameters": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "AudioSetSystemVolume",
+          "signature": "AudioSetSystemVolume(volume) → (ret)",
+          "python_example": "op.AudioSetSystemVolume(volume)  # → (ret)",
+          "python_ctypes_name": "audio_set_system_volume",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "volume",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "AudioSetSystemVolume",
+            "description": "OP 插件接口 AudioSetSystemVolume",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "volume": {
+                  "type": "number",
+                  "description": "double"
+                }
+              },
+              "required": [
+                "volume"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "AudioSetSystemMute",
+          "signature": "AudioSetSystemMute(muted) → (ret)",
+          "python_example": "op.AudioSetSystemMute(muted)  # → (ret)",
+          "python_ctypes_name": "audio_set_system_mute",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "muted",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "AudioSetSystemMute",
+            "description": "OP 插件接口 AudioSetSystemMute",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "muted": {
+                  "type": "number",
+                  "description": "long"
+                }
+              },
+              "required": [
+                "muted"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "LoadImageMem",
+          "signature": "LoadImageMem(data, width, height, stride, fmt) → (et_handle)",
+          "python_example": "op.LoadImageMem(data, width, height, stride, fmt)  # → (et_handle)",
+          "python_ctypes_name": "load_image_mem",
+          "in_ctypes_binding": false,
+          "description": "===== 图像句柄注册表（2026-11-21，内存直操作一期地基）=====\n目的：让调用方把**自己手上已有的像素**直接交给 op，省掉落盘再读盘的往返。\n句柄形态为字符串 img:，与既有 pic: 的显示输入风格一致，\n因此在 C API / COM 层都是普通 BSTR，客户端零学习成本。\n设计见 docs/2026-11/内存模块优化_图像句柄注册表_方案_20261121.md。\n注册后像素**不可变**：句柄可被多线程并发读，允许就地写会引入数据竞争。\n需要变体请新建句柄（CropImage 即如此）。\n注册表达上限（256）时**拒绝新增并返回空串**，不会淘汰既有句柄。\n从原始像素内存注册图像。fmt: bgra(默认) / bgr / gray（也接受 4/3/1）。\nstridewidth*bpp 视为带行填充，逐行复制。\n成功返回句柄字符串，失败返回空串（参数非法 / 未知格式 / 尺寸超 64MB / 注册表满）。",
+          "params": [
+            {
+              "name": "data",
+              "type": "void*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "width",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "宽度（像素）"
+            },
+            {
+              "name": "height",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "高度（像素）"
+            },
+            {
+              "name": "stride",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "fmt",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "et_handle",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": ""
+            }
+          ],
+          "returns": [
+            {
+              "name": "et_handle",
+              "type": "std::wstring &r",
+              "doc": ""
+            }
+          ],
+          "returns_summary": "et_handle",
+          "tool_schema": {
+            "name": "LoadImageMem",
+            "description": "===== 图像句柄注册表（2026-11-21，内存直操作一期地基）=====\n目的：让调用方把**自己手上已有的像素**直接交给 op，省掉落盘再读盘的往返。\n句柄形态为字符串 img:，与既有 pic: 的显示输入风格一致，\n因此在 C API / COM 层都是普通 BSTR，客户端零学习成本。\n设计见 docs/2026-11/内存模块优化_图像句柄注册表_方案_20261121.md。\n注册后像素**不可变**：句柄可被多线程并发读，允许就地写会引入数据竞争。\n需要变体请新建句柄（CropImage 即如此）。\n注册表达上限（256）时**拒绝新增并返回空串**，不会淘汰既有句柄。\n从原始像素内存注册图像。fmt: bgra(默认) / bgr / gray（也接受 4/3/1）。\nstridewidth*bpp 视为带行填充，逐行复制。\n成功返回句柄字符串，失败返回空串（参数非法 / 未知格式 / 尺寸超 64MB / 注册表满）。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "string",
+                  "description": "void*"
+                },
+                "width": {
+                  "type": "number",
+                  "description": "宽度（像素）"
+                },
+                "height": {
+                  "type": "number",
+                  "description": "高度（像素）"
+                },
+                "stride": {
+                  "type": "number",
+                  "description": "long"
+                },
+                "fmt": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                }
+              },
+              "required": [
+                "data",
+                "width",
+                "height",
+                "stride",
+                "fmt"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "LoadImageBmp",
+          "signature": "LoadImageBmp(data, size) → (et_handle)",
+          "python_example": "op.LoadImageBmp(data, size)  # → (et_handle)",
+          "python_ctypes_name": "load_image_bmp",
+          "in_ctypes_binding": false,
+          "description": "从 BMP 字节流注册（自动解析 24/32bpp、top-down/bottom-up、行填充）。",
+          "params": [
+            {
+              "name": "data",
+              "type": "void*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "size",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "数据长度（字节）"
+            },
+            {
+              "name": "et_handle",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": ""
+            }
+          ],
+          "returns": [
+            {
+              "name": "et_handle",
+              "type": "std::wstring &r",
+              "doc": ""
+            }
+          ],
+          "returns_summary": "et_handle",
+          "tool_schema": {
+            "name": "LoadImageBmp",
+            "description": "从 BMP 字节流注册（自动解析 24/32bpp、top-down/bottom-up、行填充）。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "string",
+                  "description": "void*"
+                },
+                "size": {
+                  "type": "number",
+                  "description": "数据长度（字节）"
+                }
+              },
+              "required": [
+                "data",
+                "size"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "FreeImage",
+          "signature": "FreeImage(handle) → (ret)",
+          "python_example": "op.FreeImage(handle)  # → (ret)",
+          "python_ctypes_name": "free_image",
+          "in_ctypes_binding": false,
+          "description": "释放单个图像句柄。ret: 1=成功，0=句柄不存在。",
+          "params": [
+            {
+              "name": "handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "FreeImage",
+            "description": "释放单个图像句柄。ret: 1=成功，0=句柄不存在。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                }
+              },
+              "required": [
+                "handle"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "FreeAllImages",
+          "signature": "FreeAllImages() → (ret)",
+          "python_example": "op.FreeAllImages()  # → (ret)",
+          "python_ctypes_name": "free_all_images",
+          "in_ctypes_binding": false,
+          "description": "释放全部图像句柄。ret: 被释放的数量。",
+          "params": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "FreeAllImages",
+            "description": "释放全部图像句柄。ret: 被释放的数量。",
+            "parameters": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "GetImageSize",
+          "signature": "GetImageSize(handle) → (width, height, channels, ret)",
+          "python_example": "op.GetImageSize(handle)  # → (width, height, channels, ret)",
+          "python_ctypes_name": "get_image_size",
+          "in_ctypes_binding": false,
+          "description": "查询图像尺寸。channels 恒为 4（内部统一 BGRA）。ret: 1=成功，0=句柄不存在。",
+          "params": [
+            {
+              "name": "handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "width",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "宽度（像素）"
+            },
+            {
+              "name": "height",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "高度（像素）"
+            },
+            {
+              "name": "channels",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "width",
+              "type": "long*",
+              "doc": "宽度（像素）"
+            },
+            {
+              "name": "height",
+              "type": "long*",
+              "doc": "高度（像素）"
+            },
+            {
+              "name": "channels",
+              "type": "long*",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "width: 宽度（像素）；height: 高度（像素）；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "GetImageSize",
+            "description": "查询图像尺寸。channels 恒为 4（内部统一 BGRA）。ret: 1=成功，0=句柄不存在。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                }
+              },
+              "required": [
+                "handle"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "GetImageData",
+          "signature": "GetImageData(handle, fmt, buffer, buffer_size) → (ret)",
+          "python_example": "op.GetImageData(handle, fmt, buffer, buffer_size)  # → (ret)",
+          "python_ctypes_name": "get_image_data",
+          "in_ctypes_binding": false,
+          "description": "读回像素。fmt: raw(BGRA 紧凑) / bmp(带 BMP 头的完整字节流)。\nbuffer 为调用方提供的缓冲区，buffer_size 为其容量；ret: 实际写出的字节数（不足则 0）。",
+          "params": [
+            {
+              "name": "handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "fmt",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "buffer",
+              "type": "void*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "buffer_size",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "GetImageData",
+            "description": "读回像素。fmt: raw(BGRA 紧凑) / bmp(带 BMP 头的完整字节流)。\nbuffer 为调用方提供的缓冲区，buffer_size 为其容量；ret: 实际写出的字节数（不足则 0）。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "fmt": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "buffer": {
+                  "type": "string",
+                  "description": "void*"
+                },
+                "buffer_size": {
+                  "type": "number",
+                  "description": "long"
+                }
+              },
+              "required": [
+                "handle",
+                "fmt",
+                "buffer",
+                "buffer_size"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "CropImage",
+          "signature": "CropImage(handle, x, y, width, height) → (et_handle)",
+          "python_example": "op.CropImage(handle, x, y, width, height)  # → (et_handle)",
+          "python_ctypes_name": "crop_image",
+          "in_ctypes_binding": false,
+          "description": "裁剪并注册为新句柄（深拷贝）。区域自动 clamp 到图像内；空区域返回空串。",
+          "params": [
+            {
+              "name": "handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "x",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "width",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "宽度（像素）"
+            },
+            {
+              "name": "height",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "高度（像素）"
+            },
+            {
+              "name": "et_handle",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": ""
+            }
+          ],
+          "returns": [
+            {
+              "name": "et_handle",
+              "type": "std::wstring &r",
+              "doc": ""
+            }
+          ],
+          "returns_summary": "et_handle",
+          "tool_schema": {
+            "name": "CropImage",
+            "description": "裁剪并注册为新句柄（深拷贝）。区域自动 clamp 到图像内；空区域返回空串。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "x": {
+                  "type": "number",
+                  "description": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "y": {
+                  "type": "number",
+                  "description": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "width": {
+                  "type": "number",
+                  "description": "宽度（像素）"
+                },
+                "height": {
+                  "type": "number",
+                  "description": "高度（像素）"
+                }
+              },
+              "required": [
+                "handle",
+                "x",
+                "y",
+                "width",
+                "height"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "FindStrMem",
+          "signature": "FindStrMem(handle, json_targets, sim) → (et_json)",
+          "python_example": "op.FindStrMem(handle, json_targets, sim)  # → (et_json)",
+          "python_ctypes_name": "find_str_mem",
+          "in_ctypes_binding": false,
+          "description": "在图像句柄上做多目标查找（复用 P1 FindStrBatch 的匹配内核）。\n返回值 = 目标数；句柄无效或 JSON 非法返回 -1。坐标从图像左上角算起。",
+          "params": [
+            {
+              "name": "handle",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "json_targets",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "et_json",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": ""
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            },
+            {
+              "name": "et_json",
+              "type": "std::wstring &r",
+              "doc": ""
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "FindStrMem",
+            "description": "在图像句柄上做多目标查找（复用 P1 FindStrBatch 的匹配内核）。\n返回值 = 目标数；句柄无效或 JSON 非法返回 -1。坐标从图像左上角算起。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "handle": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "json_targets": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                }
+              },
+              "required": [
+                "handle",
+                "json_targets",
+                "sim"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "GetImageCount",
+          "signature": "GetImageCount() → (ret)",
+          "python_example": "op.GetImageCount()  # → (ret)",
+          "python_ctypes_name": "get_image_count",
+          "in_ctypes_binding": false,
+          "description": "当前注册表条目数（诊断用）。",
+          "params": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "GetImageCount",
+            "description": "当前注册表条目数（诊断用）。",
+            "parameters": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
           "name": "FindStr",
           "signature": "FindStr(x1, y1, x2, y2, strs, color, sim) → (ret, ret, ret)",
           "python_example": "op.FindStr(x1, y1, x2, y2, strs, color, sim)  # → (ret, ret, ret)",
           "python_ctypes_name": "find_str",
           "in_ctypes_binding": true,
-          "description": "在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置",
+          "description": "",
           "params": [
             {
               "name": "x1",
@@ -16746,7 +19924,7 @@
           "returns_summary": "ret: 出参：首个命中横坐标（-1=未找到）；ret: 出参：首个命中纵坐标；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
           "tool_schema": {
             "name": "FindStr",
-            "description": "在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置",
+            "description": "OP 插件接口 FindStr",
             "parameters": {
               "type": "object",
               "properties": {
@@ -16910,6 +20088,308 @@
                 "color",
                 "sim"
               ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "FindStrBatch",
+          "signature": "FindStrBatch(x1, y1, x2, y2, json_targets, color, sim) → (et_json)",
+          "python_example": "op.FindStrBatch(x1, y1, x2, y2, json_targets, color, sim)  # → (et_json)",
+          "python_ctypes_name": "find_str_batch",
+          "in_ctypes_binding": false,
+          "description": "【P1 2026-11-21】多目标结构化查找：一次 det+rec，引擎内匹配全部目标。\njson_targets 为 JSON 数组，元素可为主字符串或配置对象：\n{\"id\",\"text\",\"match\":\"contains|exact|prefix|suffix|regex\",\n\"fuzzy\"(0..3),\"max_hits\",\"ci\",\"confirmed_only\"}\n返回每个目标的全部命中，含**字符级**精确范围 cx1/cx2（来自 P0 逐字坐标；\n旋转降级或已装载字库时退化为整行范围，char_precise=false）。\n返回值 = 目标数；json_targets 非法（解析失败/未知字段/未知 match）返回 -1。\n⚠ 匹配不跨行：命中片段必须完整落在同一行内。",
+          "params": [
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "json_targets",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "et_json",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": ""
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            },
+            {
+              "name": "et_json",
+              "type": "std::wstring &r",
+              "doc": ""
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "FindStrBatch",
+            "description": "【P1 2026-11-21】多目标结构化查找：一次 det+rec，引擎内匹配全部目标。\njson_targets 为 JSON 数组，元素可为主字符串或配置对象：\n{\"id\",\"text\",\"match\":\"contains|exact|prefix|suffix|regex\",\n\"fuzzy\"(0..3),\"max_hits\",\"ci\",\"confirmed_only\"}\n返回每个目标的全部命中，含**字符级**精确范围 cx1/cx2（来自 P0 逐字坐标；\n旋转降级或已装载字库时退化为整行范围，char_precise=false）。\n返回值 = 目标数；json_targets 非法（解析失败/未知字段/未知 match）返回 -1。\n⚠ 匹配不跨行：命中片段必须完整落在同一行内。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "json_targets": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "color": {
+                  "type": "string",
+                  "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                }
+              },
+              "required": [
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "json_targets",
+                "color",
+                "sim"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "FindStrEx2",
+          "signature": "FindStrEx2(x1, y1, x2, y2, pattern, color, sim, flags) → (et_json)",
+          "python_example": "op.FindStrEx2(x1, y1, x2, y2, pattern, color, sim, flags)  # → (et_json)",
+          "python_ctypes_name": "find_str_ex2",
+          "in_ctypes_binding": false,
+          "description": "【P1】单目标增强查找（标量入参）。flags 位：\n1=regex 2=exact（默认 contains） 4=ci(ASCII) 64=fuzzy 返回 -1。\n返回值 = 命中数；返回 JSON 与 FindStrBatch 的单目标 results[0] 同构。",
+          "params": [
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "pattern",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+            },
+            {
+              "name": "sim",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+            },
+            {
+              "name": "flags",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "et_json",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": ""
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            },
+            {
+              "name": "et_json",
+              "type": "std::wstring &r",
+              "doc": ""
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "FindStrEx2",
+            "description": "【P1】单目标增强查找（标量入参）。flags 位：\n1=regex 2=exact（默认 contains） 4=ci(ASCII) 64=fuzzy 返回 -1。\n返回值 = 命中数；返回 JSON 与 FindStrBatch 的单目标 results[0] 同构。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "pattern": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "color": {
+                  "type": "string",
+                  "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+                },
+                "sim": {
+                  "type": "number",
+                  "description": "相似度 0~1（越大越严格）；找色系 sim<0 钳为 1.0，OCR/找字系回退 0.7"
+                },
+                "flags": {
+                  "type": "number",
+                  "description": "long"
+                }
+              },
+              "required": [
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "pattern",
+                "color",
+                "sim",
+                "flags"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "OcrLastProfile",
+          "signature": "OcrLastProfile() → (et_json)",
+          "python_example": "op.OcrLastProfile()  # → (et_json)",
+          "python_ctypes_name": "ocr_last_profile",
+          "in_ctypes_binding": false,
+          "description": "【P3 2026-11-21】上一次 OCR 的分项耗时（det/cls/rec 分别计时），JSON 输出。\n不触发新的 OCR。valid=false = 还没跑过 OCR 或引擎不支持。",
+          "params": [
+            {
+              "name": "et_json",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": ""
+            }
+          ],
+          "returns": [
+            {
+              "name": "et_json",
+              "type": "std::wstring &r",
+              "doc": ""
+            }
+          ],
+          "returns_summary": "et_json",
+          "tool_schema": {
+            "name": "OcrLastProfile",
+            "description": "【P3 2026-11-21】上一次 OCR 的分项耗时（det/cls/rec 分别计时），JSON 输出。\n不触发新的 OCR。valid=false = 还没跑过 OCR 或引擎不支持。",
+            "parameters": {
+              "type": "object",
+              "properties": {},
+              "required": []
             }
           }
         },

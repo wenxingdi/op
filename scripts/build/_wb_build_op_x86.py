@@ -31,6 +31,10 @@ SDK_VER = "10.0.26100.0"
 OPENCV_ROOT = os.path.join(DEPS, "opencv", "install", "nmake-x86")
 BLACKBONE_LIB = os.path.join(DEPS, "BlackBone", "build", "nmake-x86", "BlackBone", "BlackBone.lib")
 BLACKBONE_INC = os.path.join(DEPS, "BlackBone", "src")
+# BlackBone 自带的 3rd_party 头（cor.h 等）。x86 的 cl 不会自动找这个目录
+# （x64 的 cl 会从 VS 安装目录的 Team Tools 找到 cor.h），不补就报
+# image/Image.h -> atlimage.h -> ... -> BlackBone/PE/ImageNET.h(15): fatal error C1083 cor.h。
+BLACKBONE_3RD = os.path.join(BLACKBONE_INC, "3rd_party")
 
 
 def x86_env() -> dict:
@@ -43,6 +47,10 @@ def x86_env() -> dict:
         SDK_ROOT + r"\Include" + "\\" + SDK_VER + r"\shared",
         SDK_ROOT + r"\Include" + "\\" + SDK_VER + r"\winrt",
         SDK_ROOT + r"\Include" + "\\" + SDK_VER + r"\cppwinrt",
+        OPENCV_ROOT + r"\include",
+        BLACKBONE_INC,
+        BLACKBONE_3RD,
+        os.path.join(ROOT, "include"),
     ])
     env["LIB"] = ";".join([
         MSVC_ROOT + r"\lib\x86",
@@ -71,6 +79,10 @@ CONFIGURE = [
     f"-DBLACKBONE_INCLUDE_DIR={BLACKBONE_INC}",
     "-DOP_BUILD_TESTS=OFF",
     "-Dbuild_swig_py=OFF",
+    # 编译器输出落文件（见 _wb_ninja_record.py 头注释）：沙箱下 ninja 接不了子进程的管道，
+    # 不注入包装器 ninja 会直接卡在"等待编译输出"上，永远不 spawn cl.exe。
+    "-DCMAKE_CXX_COMPILER_LAUNCHER=" + sys.executable + ";" +
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "_wb_ninja_record.py"),
     # x86 静态 CRT（与 x64 相同均为 /MT）。全库无一处 /DEFAULTLIB:MSVCRT，但链接器仍会
     # 拉 MSVCRT.lib 的 chandler4gs.obj（x86 SEH 专属路径，x64 无此符号链）→ __except_handler4_common
     # 断链（LNK2019/LNK4098）。静态 CRT 完全自洽，直接忽略 MSVCRT 即通过；
@@ -80,12 +92,19 @@ CONFIGURE = [
 ]
 
 
+LOG_DIR = os.path.join(ROOT, "workbench", "tmp")
+
+
 def run(label: str, args: list[str]) -> int:
+    """执行一步命令。**不留管道**：沙箱下管道会让 ninja/cl 卡死。
+
+    - 编译器输出由 _wb_ninja_record.py 自己落到 workbench/tmp/ninja_compile.log；
+    - cmake 自身的输出很少，直接丢弃（配置失败时看 ninja_compile.log 或退出码）；
+    - 要留档时由调用方在 PowerShell 层 `*> file` 捕获。
+    """
     print(f"===== {label} =====\n$ {' '.join(args)}\n", flush=True)
     p = subprocess.run(args, cwd=ROOT, env=x86_env(),
-                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                       text=True, encoding="utf-8", errors="replace")
-    print((p.stdout or "")[-4000:], flush=True)
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     print(f"[{label}] exit={p.returncode}", flush=True)
     return p.returncode
 
