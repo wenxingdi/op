@@ -2274,3 +2274,39 @@ const wchar_t *OP_CALL OpYoloDetectFromFileEx2(op_handle handle, const wchar_t *
     }
 }
 }
+
+/* ---- 音频音量（2026-11-21，WASAPI 会话级 + 系统级） ---- */
+
+extern "C" {
+const wchar_t *OP_CALL OpAudioQueryWindow(op_handle handle, long long hwnd) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.AudioQueryWindow(hwnd, ret); });
+}
+
+const wchar_t *OP_CALL OpAudioQueryPid(op_handle handle, int pid) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.AudioQueryPid(pid, ret); });
+}
+
+int OP_CALL OpAudioGetPidFromHwnd(op_handle handle, long long hwnd) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.AudioGetPidFromHwnd(hwnd, ret); });
+}
+
+int OP_CALL OpAudioSetSessionVolume(op_handle handle, int pid, double volume) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.AudioSetSessionVolume(pid, volume, ret); });
+}
+
+int OP_CALL OpAudioSetSessionMute(op_handle handle, int pid, int muted) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.AudioSetSessionMute(pid, muted, ret); });
+}
+
+const wchar_t *OP_CALL OpAudioGetSystemVolume(op_handle handle) {
+    return call_string(handle, [](op::Op &op, std::wstring &ret) { op.AudioGetSystemVolume(ret); });
+}
+
+int OP_CALL OpAudioSetSystemVolume(op_handle handle, double volume) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.AudioSetSystemVolume(volume, ret); });
+}
+
+int OP_CALL OpAudioSetSystemMute(op_handle handle, int muted) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.AudioSetSystemMute(muted, ret); });
+}
+}

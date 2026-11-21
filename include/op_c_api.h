@@ -678,6 +678,31 @@ OP_C_API int OP_CALL OpHttpDownloadFile(op_handle handle, const wchar_t *url, co
  * 参数与返回 JSON 同 OpYoloDetectEx2；find_count 输出过滤后条数。 */
 OP_C_API const wchar_t *OP_CALL OpYoloDetectFromFileEx2(op_handle handle, const wchar_t *file_name, double conf,
                                                         double iou, const wchar_t *json_options, int *find_count);
+
+/* ===== 音频音量（2026-11-21，WASAPI 会话级 + 系统级）=====
+ * 设计见 docs/2026-11/音量模块_方案_20261121.md。
+ *
+ * 语义区分（误用率最高）：
+ *   volume（滑块值）与出声大小无直接关系；判断"有没有声音"要看 peak。
+ *   found=false = 该 PID 无音频会话，不等于没声音。
+ *
+ * 返回 JSON：{"ok":1,"code":0,"found":true,"pid":123,"muted":false,"playing":true,
+ *            "volume":0.75,"peak":0.34,"error":""}
+ * code: 0 成功 / -1 无音频设备 / -2 COM 或激活失败 / -3 枚举失败 / -4 参数非法 / -5 设置失败
+ *
+ * 无状态（DLL 不缓存 COM 指针，每次重新枚举），峰值保持留给调用方。
+ */
+OP_C_API const wchar_t *OP_CALL OpAudioQueryWindow(op_handle handle, long long hwnd);
+OP_C_API const wchar_t *OP_CALL OpAudioQueryPid(op_handle handle, int pid);
+/* 纯取窗口所属 PID（不碰 COM）。失败返回 0。 */
+OP_C_API int OP_CALL OpAudioGetPidFromHwnd(op_handle handle, long long hwnd);
+/* 设置会话音量/静音。返回 0 成功，负数为错误码（见上）。 */
+OP_C_API int OP_CALL OpAudioSetSessionVolume(op_handle handle, int pid, double volume);
+OP_C_API int OP_CALL OpAudioSetSessionMute(op_handle handle, int pid, int muted);
+/* 系统主音量 / 静音。 */
+OP_C_API const wchar_t *OP_CALL OpAudioGetSystemVolume(op_handle handle);
+OP_C_API int OP_CALL OpAudioSetSystemVolume(op_handle handle, double volume);
+OP_C_API int OP_CALL OpAudioSetSystemMute(op_handle handle, int muted);
 #ifdef __cplusplus
 }
 #endif

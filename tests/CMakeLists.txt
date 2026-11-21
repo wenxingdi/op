@@ -158,6 +158,8 @@ set(OP_TEST_SOURCES
   "image_registry_test.cpp"
   # YOLO 增强（2026-11-21）：Ex2 过滤/截断与 JSON 契约。
   "yolo_ex2_test.cpp"
+  # 音频音量（2026-11-21，WASAPI 会话级 + 系统级）
+  "audio_test.cpp"
   "yolo_test.cpp"
   "utils_test.cpp"
   "memory_search_test.cpp"
@@ -273,7 +275,9 @@ if(OP_GTEST_INCLUDE_DIR)
   target_include_directories(op_test PRIVATE "${OP_GTEST_INCLUDE_DIR}")
 endif()
 
-target_link_libraries(op_test PRIVATE ${op_com} ${op_c_api} ${OP_GTEST_LINK_LIBS} dinput8.lib dxguid.lib dwmapi.lib shlwapi.lib)
+target_link_libraries(op_test PRIVATE ${op_com} ${op_c_api} ${OP_GTEST_LINK_LIBS} dinput8.lib dxguid.lib dwmapi.lib shlwapi.lib
+    # 音频音量模块：AudioTest.StaHostKeepsComUsableAfterCalls 需要直接 CoCreateInstance IMMDeviceEnumerator
+    mmdevapi.lib)
 
 if(OP_HAS_OPENCV_SOURCES)
   target_include_directories(op_test PRIVATE ${OP_OPENCV_INCLUDE_DIR})

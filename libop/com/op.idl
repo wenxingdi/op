@@ -205,6 +205,20 @@ interface IOpAutomation : IDispatch
 	//   class_ids 与 labels 同时给取并集；max_results 按 confidence 降序截断。
 	//   非法 options 返回 @ret=-1（与"没检测到"区分），retstr 为失败 JSON。
 	//   返回 JSON 比 YoloDetect(212) 多 total/returned/index/cx/cy/w/h。
+
+	// ---- 音频音量（2026-11-21，WASAPI 会话级 + 系统级）----
+	// 设计见 docs/2026-11/音量模块_方案_20261121.md。
+	// 语义区分：volume（滑块）与出声大小无直接关系；"有没有声音"看 peak。
+	//           found=false = 该 PID 无音频会话，不等于没声音。
+	// code: 0 成功 / -1 无音频设备 / -2 COM 或激活失败 / -3 枚举失败 / -4 参数非法 / -5 设置失败
+	[id(456)] HRESULT AudioQueryWindow([in] LONG_PTR hwnd, [out, retval] BSTR* retstr);
+	[id(457)] HRESULT AudioQueryPid([in] LONG pid, [out, retval] BSTR* retstr);
+	[id(458)] HRESULT AudioGetPidFromHwnd([in] LONG_PTR hwnd, [out, retval] LONG* ret);
+	[id(459)] HRESULT AudioSetSessionVolume([in] LONG pid, [in] DOUBLE volume, [out, retval] LONG* ret);
+	[id(460)] HRESULT AudioSetSessionMute([in] LONG pid, [in] LONG muted, [out, retval] LONG* ret);
+	[id(461)] HRESULT AudioGetSystemVolume([out, retval] BSTR* retstr);
+	[id(462)] HRESULT AudioSetSystemVolume([in] DOUBLE volume, [out, retval] LONG* ret);
+	[id(463)] HRESULT AudioSetSystemMute([in] LONG muted, [out, retval] LONG* ret);
 	[id(455)] HRESULT YoloDetectFromFileEx2([in] BSTR file_name, [in] DOUBLE conf, [in] DOUBLE iou, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
 	[id(454)] HRESULT YoloDetectEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE conf, [in] DOUBLE iou, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
 	[id(212)] HRESULT YoloDetect([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE conf, [in] DOUBLE iou, [out] BSTR* retjson, [out, retval] LONG* ret);

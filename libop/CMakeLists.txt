@@ -185,6 +185,8 @@ set(OP_WINDOW_SOURCES
 set(OP_IMAGE_SOURCES
   "image/ImageSearchAlgorithms.cpp"
   "image/ImageSearchService.cpp"
+  # 音频音量（2026-11-21，WASAPI 会话级 + 系统级）
+  "audio/AudioService.cpp"
 )
 
 # HTTP 远程后端整体隐藏（2026-09-18 决策：YOLO 依赖自训模型，不走 HTTP 服务）。
@@ -312,6 +314,8 @@ set(OP_CLASS_SOURCES
   "op/OpOpenCv.cpp"
   "op/OpOcr.cpp"
   "op/OpYolo.cpp"
+  # 音频音量（2026-11-21）
+  "op/OpAudio.cpp"
   "op/OpMemory.cpp"
   "op/OpJson.cpp"
   "op/OpHttp.cpp"
@@ -573,7 +577,9 @@ if(OP_HAS_ONNX)
     # 静态链接：0 新增 DLL（需要 onnxruntime 静态库，预编译通常不含）
     foreach(_t libop ${op_com} ${op_c_api})
       target_link_libraries(${_t} PRIVATE "${_op_onnxrt_static}"
-        advapi32 userenv ole32 shell32 user32 gdi32 crypt32 rpcrt4 ncrypt ws2_32)
+        advapi32 userenv ole32 shell32 user32 gdi32 crypt32 rpcrt4 ncrypt ws2_32
+  # WASAPI 会话级音量（IAudioSessionManager2 / IAudioMeterInformation / IAudioEndpointVolume）
+  mmdevapi)
     endforeach()
     message(STATUS "ONNX Runtime: STATIC linking (0 extra DLL)")
   elseif(EXISTS "${_op_onnxrt_shared}")

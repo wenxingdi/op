@@ -3,6 +3,100 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-21 第四十五批（feat：音频音量模块，WASAPI 会话级 + 系统级）
+
+承接第四十四批。按用户要求实现音量模块。
+方案与实测记录：`docs/2026-11/音量模块_方案_20261121.md`
+
+#### 1. 缺口实证：模块完全不存在
+
+```
+仓库内 *audio*/*volume*/*sound* 相关文件：0
+libop.h / op_c_api.h / op.idl 里 Volume|Audio|Sound|Peak|Mute 命中：0
+```
+
+本期是**从零实现**（不是优化）。
+
+#### 2. 技术路线（沿用规划 §8.1 定稿）
+
+```
+MMDeviceEnumerator
+  -> GetDefaultAudioEndpoint(eRender, eConsole)
+  -> IAudioSessionManager2 -> 按 PID 匹配 IAudioSessionControl2
+       -> ISimpleAudioVolume       （滑块音量 / 静音，可写）
+       -> IAudioMeterInformation   （GetPeakValue 实时响度，只读）
+  -> IAudioEndpointVolume           （系统主音量 / 系统静音，可写）
+```
+
+**为什么是会话级**：需求是"**某个游戏**有没有声音"。全局音量分不清是哪个进程。
+
+#### 3. 新增接口（三层 8 个符号，COM DISPID 456~463）
+
+| 接口 | 作用 |
+|---|---|
+| `OpAudioQueryWindow(hwnd)` | 按窗口：取其 PID 再查会话 |
+| `OpAudioQueryPid(pid)` | 按 PID 直接查 |
+| `OpAudioGetPidFromHwnd(hwnd)` | 纯取 PID（不碰 COM） |
+| `OpAudioSetSessionVolume(pid, v)` / `OpAudioSetSessionMute(pid, m)` | 会话音量/静音 |
+| `OpAudioGetSystemVolume()` / `OpAudioSetSystemVolume(v)` / `OpAudioSetSystemMute(m)` | **系统主音量（规划外增项）** |
+
+> 返回 JSON 而非规划原设想的 POD 结构体：op 全系列已统一 JSON，COM 层传结构体需额外封送。
+
+#### 4. 三个关键设计决策
+
+- **每次调用重新枚举，不缓存任何 COM 指针**：游戏重启 PID 变化，缓存会话指针会指向
+  已失效对象（规划里 Python 版踩过的真机坑之一）。枚举成本 <2ms。
+- **COM 初始化 RAII 且只释放自己成功那次**：接受 `RPC_E_CHANGED_MODE`。
+  op 是插件，宿主可能已在 STA 里初始化过 COM，此时 `CoUninitialize` 会破坏宿主状态。
+- **DLL 无状态**：峰值保持/衰减/阈值判定留给调用方（规划明确要求）。
+
+#### 5. 真机验证（本机有音频设备，全部闭环）
+
+用子进程播放 440Hz 循环音频创建真实会话：
+
+```json
+{"ok":1,"code":0,"found":true,"pid":33596,"muted":false,"playing":true,
+ "volume":1,"peak":0.194206073880196,"error":""}
+```
+`SetSessionVolume(0.42)` → 读回 `0.420`（写入读回一致）。
+
+> **这组数据同时印证了本模块最重要的语义**：`volume=1`（滑块满格）而 `peak=0.194`
+> —— **滑块值与出声大小确实无关**，判断"现在有没有声音"必须看 `peak`。
+> 这正是规划 §8.3 定的验收标准"滑块值不随出声变化"。
+
+其他路径：系统音量 ok、自身进程无会话时 `found=false/ok=1`、
+PID=0 时 `code=-4`、不存在 PID 时 `found=false`、HWND=0 时 `code=-4` —— 全部符合预期。
+
+#### 6. 验证
+
+| 项 | 结果 |
+|---|---|
+| `AudioTest.*` | **11/11 PASS**（含真机读写闭环 + STA 场景） |
+| 全量 `op_test.exe` | **520 PASS / 5 FAILED（既有环境项）** |
+| 反向验证 | **4/4 全部如愿变红** |
+
+反向验证（`scripts/probes/reverse_verify_audio.ps1`）：
+`found` 恒真 → RED ✓；非法 PID 不校验 → RED ✓；`volume`/`peak` 写颠倒 → RED ✓；
+`ComGuard` 把 `RPC_E_CHANGED_MODE` 算作自己初始化 → RED ✓（落在新增 STA 用例上）。
+
+> **RV-A4 值得单独说**：COM 初始化语义在 MTA 主线程测不出来（`owned=true` 时
+> 有无条件释放表现相同）。为此新增 `StaHostKeepsComUsableAfterCalls`：
+> 先让线程以 STA 初始化（模拟宿主），连续调接口，最后自己 `CoCreateInstance`
+> 确认 COM 仍可用。**这个用例把 RV-A4 从"抓不到"变成"能抓到"。**
+
+#### 7. 自己制造并修掉的一个测试缺陷（如实记录）
+
+`StaHostKeepsComUsableAfterCalls` 第一版在开头无条件 `CoUninitialize()` 想"确保干净"，
+结果扣掉了后续用例依赖的 COM 计数 —— `RealSessionReadWriteRoundTrip` 变得偶发失败
+（单独跑则通过）。**这是测试自身制造的污染，不是产品缺陷。**
+改为用探针判断当前线程 COM 状态、只在真正拥有时才释放，之后 11/11 稳定全绿。
+
+#### 8. 未做
+
+峰值保持/衰减（按规划留调用方）、音频采集/环回（`IAudioClient` 属独立能力）、
+麦克风（eCapture）侧。
+- **未发布、未同步发布件、未构建 x86**（沿用用户要求）
+
 ### 2026-11-21 第四十四批（feat：YOLO 结果过滤/截断 + 坐标口径修正 + JSON 改 DOM）
 
 承接第四十三批。按用户要求进入 YOLO 模块优化。

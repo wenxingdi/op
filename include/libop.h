@@ -762,6 +762,37 @@ class OP_API Op {
                          _In_ double sim, _Out_ std::wstring &ret_str);
     // 在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置
 
+
+    // ===== 音频音量（2026-11-21，WASAPI 会话级 + 系统级）=====
+    // 设计见 docs/2026-11/音量模块_方案_20261121.md。
+    //
+    // 语义区分（误用率最高，务必看清）：
+    //   volume（滑块值）**与出声大小无直接关系**：滑块 1.0 也可能当前无声。
+    //   判断"现在有没有声音"要看 **peak**。
+    //   found=false = 该 PID 没有音频会话，**不等于没声音**
+    //   （可能在放系统音，或进程刚启动还没建会话）。
+    //
+    // 返回 JSON：
+    //   {"ok":1,"code":0,"found":true,"pid":12345,"muted":false,"playing":true,
+    //    "volume":0.75,"peak":0.3421,"error":""}
+    //   ok=1 表示查询链路走通（不代表有声音）；ok=0 看 error。
+    //   code: 0 成功 / -1 无音频设备 / -2 COM 或激活失败 / -3 枚举失败
+    //         / -4 参数非法 / -5 设置失败
+    //
+    // 无状态：峰值保持/衰减/阈值判定留给调用方
+    // （每次调用重新枚举，不缓存 COM 指针）。
+    void AudioQueryWindow(_In_ long long hwnd, _Out_ std::wstring &retjson);
+    void AudioQueryPid(_In_ long pid, _Out_ std::wstring &retjson);
+    // 纯取窗口所属 PID（不碰 COM）。ret: 失败返回 0。
+    void AudioGetPidFromHwnd(_In_ long long hwnd, _Out_ long *ret);
+    // 设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 0 成功，负数为错误码。
+    void AudioSetSessionVolume(_In_ long pid, _In_ double volume, _Out_ long *ret);
+    void AudioSetSessionMute(_In_ long pid, _In_ long muted, _Out_ long *ret);
+    // 系统主音量（同一套 enumerator 上多取 IAudioEndpointVolume，成本很低）。
+    void AudioGetSystemVolume(_Out_ std::wstring &retjson);
+    void AudioSetSystemVolume(_In_ double volume, _Out_ long *ret);
+    void AudioSetSystemMute(_In_ long muted, _Out_ long *ret);
+
     // ===== 图像句柄注册表（2026-11-21，内存直操作一期地基）=====
     // 目的：让调用方把**自己手上已有的像素**直接交给 op，省掉落盘再读盘的往返。
     // 句柄形态为字符串 img:<n>，与既有 pic:<路径> 的显示输入风格一致，

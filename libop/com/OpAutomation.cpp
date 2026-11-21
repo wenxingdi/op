@@ -2375,3 +2375,68 @@ STDMETHODIMP OpAutomation::YoloDetectFromFileEx2(BSTR file_name, DOUBLE conf, DO
                               ret);
     return CopyOutBstr(retstr, s);
 }
+// ===== 音频音量（2026-11-21，WASAPI 会话级 + 系统级）=====
+
+STDMETHODIMP OpAutomation::AudioQueryWindow(LONG_PTR hwnd, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.AudioQueryWindow(static_cast<long long>(hwnd), s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::AudioQueryPid(LONG pid, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.AudioQueryPid(pid, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::AudioGetPidFromHwnd(LONG_PTR hwnd, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    obj.AudioGetPidFromHwnd(static_cast<long long>(hwnd), ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::AudioSetSessionVolume(LONG pid, DOUBLE volume, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = -4;
+    obj.AudioSetSessionVolume(pid, static_cast<double>(volume), ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::AudioSetSessionMute(LONG pid, LONG muted, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = -4;
+    obj.AudioSetSessionMute(pid, muted, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::AudioGetSystemVolume(BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.AudioGetSystemVolume(s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::AudioSetSystemVolume(DOUBLE volume, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    obj.AudioSetSystemVolume(static_cast<double>(volume), ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::AudioSetSystemMute(LONG muted, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    obj.AudioSetSystemMute(muted, ret);
+    return S_OK;
+}

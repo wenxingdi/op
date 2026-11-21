@@ -524,6 +524,16 @@ class ATL_NO_VTABLE OpAutomation
     // 文件版 Ex2（不依赖绑定窗口，便于脚本侧验证过滤逻辑）
     STDMETHOD(YoloDetectFromFileEx2)(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR json_options, BSTR *retstr,
                                      LONG *ret);
+
+    // 音频音量（2026-11-21，WASAPI 会话级 + 系统级；idl id 456-463）
+    STDMETHOD(AudioQueryWindow)(LONG_PTR hwnd, BSTR *retstr);
+    STDMETHOD(AudioQueryPid)(LONG pid, BSTR *retstr);
+    STDMETHOD(AudioGetPidFromHwnd)(LONG_PTR hwnd, LONG *ret);
+    STDMETHOD(AudioSetSessionVolume)(LONG pid, DOUBLE volume, LONG *ret);
+    STDMETHOD(AudioSetSessionMute)(LONG pid, LONG muted, LONG *ret);
+    STDMETHOD(AudioGetSystemVolume)(BSTR *retstr);
+    STDMETHOD(AudioSetSystemVolume)(DOUBLE volume, LONG *ret);
+    STDMETHOD(AudioSetSystemMute)(LONG muted, LONG *ret);
     //-----------------------opcv---------------------------------
     STDMETHOD(CvLoadTemplate)(BSTR name, BSTR file_path, LONG *ret);
     STDMETHOD(CvLoadMaskedTemplate)(BSTR name, BSTR template_path, BSTR mask_path, LONG *ret);
