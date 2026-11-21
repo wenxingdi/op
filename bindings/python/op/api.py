@@ -2009,7 +2009,9 @@ class Op:
         return self._call_string("OpCropImage", image_handle, int(x), int(y), int(width), int(height))
 
     def find_str_mem(self, image_handle: str, json_targets: str, sim: float = 0.9) -> str:
-        """在图像句柄上找字（json_targets 形如 {"strs":["主城"],"color":"FFFFFF-101010"}）。"""
+        """在图像句柄上找字。json_targets 是 JSON **数组**，元素为字符串或对象：
+        ["主城"] 或 [{"text":"主城","match":"exact","id":"btn","fuzzy":1,"max_hits":1,"ci":true}]。
+        返回 JSON 结果串 {"targets":N,"found":N,"hits":N,"lines":N,"results":[...]}。"""
         return self._call_string("OpFindStrMem", image_handle, json_targets, float(sim))
 
     # ---- OCR 结构化 / 耗时 ----
@@ -2113,7 +2115,7 @@ class Op:
         sim: float,
         direction: constants.FindDirection | int = constants.FindDirection.LEFT_TOP_TO_RIGHT_BOTTOM,
     ) -> str:
-        """在图像句柄里找图（全部命中，返回 JSON 串）。"""
+        """在图像句柄里找图（全部命中，返回大漠坐标串 "x,y,index|x,y,index|..."，空串=未命中）。"""
         return self._call_string(
             "OpFindPicExFromMem",
             image_handle,
@@ -2156,7 +2158,7 @@ class Op:
         sim: float,
         direction: constants.FindDirection | int = constants.FindDirection.LEFT_TOP_TO_RIGHT_BOTTOM,
     ) -> str:
-        """在图像句柄里找色（全部命中 JSON）。"""
+        """在图像句柄里找色（全部命中，返回大漠坐标串 "x,y|x,y|..."，空串=未命中）。"""
         return self._call_string(
             "OpFindColorExFromMem", image_handle, int(x1), int(y1), int(x2), int(y2), color,
             float(sim), int(direction),
@@ -2210,7 +2212,7 @@ class Op:
         sim: float,
         direction: constants.FindDirection | int = constants.FindDirection.LEFT_TOP_TO_RIGHT_BOTTOM,
     ) -> str:
-        """多色查找（全部命中 JSON）。"""
+        """多色查找（全部命中，返回大漠坐标串 "x,y|x,y|..."，空串=未命中）。"""
         return self._call_string(
             "OpFindMultiColorExFromMem", image_handle, int(x1), int(y1), int(x2), int(y2),
             first_color, offset_color, float(sim), int(direction),
