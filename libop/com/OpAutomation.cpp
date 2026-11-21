@@ -144,6 +144,42 @@ STDMETHODIMP OpAutomation::SetAStarMap(BSTR bitmap_file, LONG scale, LONG offset
     return S_OK;
 }
 
+// 内存版障碍地图（BGRA 字节流）。DISPID 478，补齐 C API 侧的 OpSetAStarMapData ——
+// 此前 COM 只有文件版 SetAStarMap，易语言拿不到"内存里的障碍位图"这条路径。
+// 数据用 SAFEARRAY(BYTE) 送，与 SetMemDict 同一套约定（易语言侧就是字节数组）。
+STDMETHODIMP OpAutomation::SetAStarMapData(LONG width, LONG height, SAFEARRAY *data, LONG scale, LONG offset_x,
+                                          LONG offset_y, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+
+    *ret = 0;
+    if (!data)
+        return S_OK;
+
+    if (SafeArrayGetDim(data) != 1)
+        return S_OK;
+
+    VARTYPE vt = VT_EMPTY;
+    if (FAILED(SafeArrayGetVartype(data, &vt)) || vt != VT_UI1)
+        return S_OK;
+
+    LONG lower = 0;
+    LONG upper = -1;
+    if (FAILED(SafeArrayGetLBound(data, 1, &lower)) || FAILED(SafeArrayGetUBound(data, 1, &upper)) || upper < lower)
+        return S_OK;
+
+    void *bytes = nullptr;
+    const HRESULT hr = SafeArrayAccessData(data, &bytes);
+    if (FAILED(hr))
+        return hr;
+
+    const LONG byte_count = upper - lower + 1;
+    obj.SetAStarMapData(width, height, bytes, byte_count, scale, offset_x, offset_y, ret);
+    SafeArrayUnaccessData(data);
+
+    return S_OK;
+}
+
 STDMETHODIMP OpAutomation::AStarFindPathBM(LONG beginX, LONG beginY, LONG endX, LONG endY, BSTR *path) {
     wstring s;
     obj.AStarFindPathBM(beginX, beginY, endX, endY, s);

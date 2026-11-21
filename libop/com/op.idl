@@ -410,6 +410,7 @@ interface IOpAutomation : IDispatch
 	[id(366)] HRESULT ClearPicCache([out, retval] LONG* ret);
 	[id(367)] HRESULT SetPicCacheMax([in] LONG max_count, [out, retval] LONG* ret);
 	[id(368)] HRESULT SetAStarMap([in] BSTR bitmap_file, [in] LONG scale, [in] LONG offset_x, [in] LONG offset_y, [out, retval] LONG* ret);
+	[id(478)] HRESULT SetAStarMapData([in] LONG width, [in] LONG height, [in] SAFEARRAY(BYTE) data, [in] LONG scale, [in] LONG offset_x, [in] LONG offset_y, [out, retval] LONG* ret);
 	[id(369)] HRESULT AStarFindPathBM([in] LONG beginX, [in] LONG beginY, [in] LONG endX, [in] LONG endY, [out, retval] BSTR* path);
 	[id(370)] HRESULT AStarFindPathWay([in] BSTR points, [out, retval] BSTR* path);
 	[id(371)] HRESULT SmoothPathByLOS([in] BSTR path, [out, retval] BSTR* retstr);

@@ -144,7 +144,8 @@ class OP_API Op {
     // 设置寻路障碍地图（位图文件，黑=障碍：亮度 (r+g+b)/3<128）。scale 降采样倍率（块内任一障碍像素则整格障碍）。
     // offset_x/offset_y：位图 (0,0) 对应的世界坐标（支持负值）。file 为空串清空地图。
     void SetAStarMap(_In_ const wchar_t *bitmap_file, _In_ long scale, _In_ long offset_x, _In_ long offset_y, _Out_ long *ret);
-    // 内存版障碍地图（32bpp BGRA top-down）。C API 专用。
+    // 内存版障碍地图（32bpp BGRA top-down）。C API(=OpSetAStarMapData) 与 COM
+    // (=SetAStarMapData, DISPID 478, SAFEARRAY(BYTE)) 均可用。
     void SetAStarMapData(_In_ long width, _In_ long height, _In_ void *bgra_data, _In_ long size, _In_ long scale,
                          _In_ long offset_x, _In_ long offset_y, _Out_ long *ret);
     // 障碍位图 A*：对已设置地图寻路，输出世界坐标路径 "x,y|x,y"（起点→终点，格中心），不可达/未设图返回空串。

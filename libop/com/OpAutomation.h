@@ -91,6 +91,7 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(ClearPicCache)(LONG *ret);
     STDMETHOD(SetPicCacheMax)(LONG max_count, LONG *ret);
     STDMETHOD(SetAStarMap)(BSTR bitmap_file, LONG scale, LONG offset_x, LONG offset_y, LONG *ret);
+    STDMETHOD(SetAStarMapData)(LONG width, LONG height, SAFEARRAY *data, LONG scale, LONG offset_x, LONG offset_y, LONG *ret);
     STDMETHOD(AStarFindPathBM)(LONG beginX, LONG beginY, LONG endX, LONG endY, BSTR *path);
     STDMETHOD(AStarFindPathWay)(BSTR points, BSTR *path);
     STDMETHOD(SmoothPathByLOS)(BSTR path, BSTR *retstr);

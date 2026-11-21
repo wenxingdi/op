@@ -483,6 +483,10 @@ func bindProcs() {
 	procGetModuleBaseAddr = dll.NewProc("OpGetModuleBaseAddr")
 	procFindColorBlockExS = dll.NewProc("OpFindColorBlockExS")
 	procFindLineExS = dll.NewProc("OpFindLineExS")
+
+	// 2026-11 补齐的那 126 个接口在 extra_windows.go 里（脚本生成），
+	// 它们同样需要 dll.NewProc 初始化。
+	bindExtraProcs()
 }
 
 func defaultDLLPath() string {
