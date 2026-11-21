@@ -173,6 +173,45 @@ int main() {
     }
     std::printf("  抽查 %d/%d 个新方法\n", checked, static_cast<int>(sizeof(kExpected) / sizeof(kExpected[0])));
 
+    // ---------- 4) 文本结果必须走返回值（[out, retval] BSTR*）----------
+    // 2026-11-21 修的一处一致性缺陷：`OcrEx2` 原来写成 `[out] BSTR* retstr`（无 retval），
+    // 而同族 Ocr / OcrEx / OcrFromFile / OcrAutoColor 全是 `[out, retval] BSTR*`。
+    // 后果：后期绑定（易语言/VBScript）只能靠传 byref 参数取文本，返回值是 HRESULT。
+    // 这里直接断言 pVarResult 的类型是 BSTR —— 写回 [out] 就会变 VT_EMPTY。
+    std::printf("\n=== 4) OcrEx2 结果走返回值 ===\n");
+    {
+        LPOLESTR names[2] = {const_cast<LPOLESTR>(L"OcrEx2"), nullptr};
+        DISPID id = 0;
+        if (SUCCEEDED(disp->GetIDsOfNames(IID_NULL, names, 1, LOCALE_USER_DEFAULT, &id))) {
+            VARIANT a[6];
+            for (auto &v : a)
+                VariantInit(&v);
+            a[0].vt = VT_I4; a[0].lVal = 0;
+            a[1].vt = VT_I4; a[1].lVal = 0;
+            a[2].vt = VT_I4; a[2].lVal = 0;
+            a[3].vt = VT_I4; a[3].lVal = 0;
+            a[4].vt = VT_BSTR; a[4].bstrVal = ::SysAllocString(L"");
+            a[5].vt = VT_R8; a[5].dblVal = 0.9;
+            // rgvarg 逆序
+            VARIANT rev[6];
+            for (int i = 0; i < 6; ++i)
+                rev[i] = a[5 - i];
+            DISPPARAMS dp{rev, nullptr, 6, 0};
+            VARIANT res;
+            VariantInit(&res);
+            const HRESULT hr2 = disp->Invoke(id, IID_NULL, LOCALE_USER_DEFAULT, DISPATCH_METHOD, &dp, &res,
+                                             nullptr, nullptr);
+            std::printf("  OcrEx2 Invoke hr=0x%08X vt=%d（8=VT_BSTR）\n", static_cast<unsigned>(hr2),
+                        static_cast<int>(res.vt));
+            check(SUCCEEDED(hr2), "OcrEx2 Invoke 成功");
+            check(res.vt == VT_BSTR, "OcrEx2 结果是 VT_BSTR（说明 [out, retval] 生效）");
+            VariantClear(&res);
+            ::SysFreeString(a[4].bstrVal);
+        } else {
+            check(false, "GetIDsOfNames(OcrEx2)");
+        }
+    }
+
     disp->Release();
     if (tlb)
         tlb->Release();

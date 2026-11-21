@@ -447,8 +447,8 @@ interface IOpAutomation : IDispatch
 	// 语义对齐 C API 的 OpOcrEx2 / OpOcrAutoColorEx2（DISPID 440 / 441）。
 	// ⚠ OcrAutoColorEx2 的颜色为 **RGB 顺序** RRGGBB-DDDDDD（红色写 e01111），多色用 | 取并集；
 	//   且内置智能选路：图中命中该色像素 <0.1% 时自动回退原图直识。
-	[id(440)] HRESULT OcrEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out] BSTR* retstr);
-	[id(441)] HRESULT OcrAutoColorEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(440)] HRESULT OcrEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out, retval] BSTR* retstr);
+	[id(441)] HRESULT OcrAutoColorEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] DOUBLE sim, [out] LONG* ret, [out, retval] BSTR* retstr);
 
 	// ---- P1 FindStr 增强（2026-11-21）：多目标结构化查找 + 字符级精确范围 ----
 	// FindStrBatch：json_targets 为 JSON 数组，元素可为主字符串或配置对象

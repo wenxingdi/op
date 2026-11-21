@@ -1744,7 +1744,7 @@ STDMETHODIMP OpAutomation::OcrEx2(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color
 }
 
 STDMETHODIMP OpAutomation::OcrAutoColorEx2(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim,
-                                           BSTR *retstr, LONG *ret) {
+                                           LONG *ret, BSTR *retstr) {
     if (!retstr || !ret)
         return E_POINTER;
     wstring s;

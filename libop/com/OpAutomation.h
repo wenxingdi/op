@@ -496,7 +496,7 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(OcrAutoColorEx)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr, LONG *ret);
     // P0 结构化 OCR（2026-11-20）：逐字置信度 + 逐字坐标，JSON 输出（idl id 440-441）
     STDMETHOD(OcrEx2)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr);
-    STDMETHOD(OcrAutoColorEx2)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, BSTR *retstr, LONG *ret);
+    STDMETHOD(OcrAutoColorEx2)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, DOUBLE sim, LONG *ret, BSTR *retstr);
     // P1 FindStr 增强（2026-11-21）：多目标结构化查找 + 字符级精确范围（idl id 442-443）
     STDMETHOD(FindStrBatch)(LONG x1, LONG y1, LONG x2, LONG y2, BSTR json_targets, BSTR color, DOUBLE sim,
                             BSTR *retstr, LONG *ret);
