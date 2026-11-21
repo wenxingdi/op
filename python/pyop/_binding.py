@@ -741,6 +741,12 @@ class Op(object):
     def YoloDetect(self, x1, y1, x2, y2, conf, iou):
         return _pyop.Op_YoloDetect(self, x1, y1, x2, y2, conf, iou)
 
+    def YoloDetectEx2(self, x1, y1, x2, y2, conf, iou, json_options):
+        return _pyop.Op_YoloDetectEx2(self, x1, y1, x2, y2, conf, iou, json_options)
+
+    def YoloDetectFromFileEx2(self, file_name, conf, iou, json_options):
+        return _pyop.Op_YoloDetectFromFileEx2(self, file_name, conf, iou, json_options)
+
     def YoloDetectFromFile(self, file_name, conf, iou):
         return _pyop.Op_YoloDetectFromFile(self, file_name, conf, iou)
 
@@ -843,11 +849,119 @@ class Op(object):
     def OcrAutoColorEx(self, x1, y1, x2, y2, color, sim):
         return _pyop.Op_OcrAutoColorEx(self, x1, y1, x2, y2, color, sim)
 
+    def OcrEx2(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_OcrEx2(self, x1, y1, x2, y2, color, sim)
+
+    def OcrAutoColorEx2(self, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_OcrAutoColorEx2(self, x1, y1, x2, y2, color, sim)
+
+    def OcrFromMemEx2(self, image_handle, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_OcrFromMemEx2(self, image_handle, x1, y1, x2, y2, color, sim)
+
+    def OcrAutoColorFromMemEx2(self, image_handle, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_OcrAutoColorFromMemEx2(self, image_handle, x1, y1, x2, y2, color, sim)
+
+    def FindPicFromMem(self, image_handle, x1, y1, x2, y2, files, delta_color, sim, dir):
+        return _pyop.Op_FindPicFromMem(self, image_handle, x1, y1, x2, y2, files, delta_color, sim, dir)
+
+    def FindPicExFromMem(self, image_handle, x1, y1, x2, y2, files, delta_color, sim, dir):
+        return _pyop.Op_FindPicExFromMem(self, image_handle, x1, y1, x2, y2, files, delta_color, sim, dir)
+
+    def FindColorFromMem(self, image_handle, x1, y1, x2, y2, color, sim, dir):
+        return _pyop.Op_FindColorFromMem(self, image_handle, x1, y1, x2, y2, color, sim, dir)
+
+    def FindColorExFromMem(self, image_handle, x1, y1, x2, y2, color, sim, dir):
+        return _pyop.Op_FindColorExFromMem(self, image_handle, x1, y1, x2, y2, color, sim, dir)
+
+    def GetColorFromMem(self, image_handle, x, y):
+        return _pyop.Op_GetColorFromMem(self, image_handle, x, y)
+
+    def CmpColorFromMem(self, image_handle, x, y, color, sim):
+        return _pyop.Op_CmpColorFromMem(self, image_handle, x, y, color, sim)
+
+    def GetColorNumFromMem(self, image_handle, x1, y1, x2, y2, color, sim):
+        return _pyop.Op_GetColorNumFromMem(self, image_handle, x1, y1, x2, y2, color, sim)
+
+    def FindMultiColorFromMem(self, image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir):
+        return _pyop.Op_FindMultiColorFromMem(self, image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir)
+
+    def FindMultiColorExFromMem(self, image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir):
+        return _pyop.Op_FindMultiColorExFromMem(self, image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir)
+
+    def FindColorBlockExFromMem(self, image_handle, x1, y1, x2, y2, color, sim, count, height, width):
+        return _pyop.Op_FindColorBlockExFromMem(self, image_handle, x1, y1, x2, y2, color, sim, count, height, width)
+
+    def YoloDetectFromMem(self, image_handle, x1, y1, x2, y2, conf, iou):
+        return _pyop.Op_YoloDetectFromMem(self, image_handle, x1, y1, x2, y2, conf, iou)
+
+    def YoloDetectFromMemEx2(self, image_handle, x1, y1, x2, y2, conf, iou, json_options):
+        return _pyop.Op_YoloDetectFromMemEx2(self, image_handle, x1, y1, x2, y2, conf, iou, json_options)
+
+    def AudioQueryWindow(self, hwnd):
+        return _pyop.Op_AudioQueryWindow(self, hwnd)
+
+    def AudioQueryPid(self, pid):
+        return _pyop.Op_AudioQueryPid(self, pid)
+
+    def AudioGetPidFromHwnd(self, hwnd):
+        return _pyop.Op_AudioGetPidFromHwnd(self, hwnd)
+
+    def AudioSetSessionVolume(self, pid, volume):
+        return _pyop.Op_AudioSetSessionVolume(self, pid, volume)
+
+    def AudioSetSessionMute(self, pid, muted):
+        return _pyop.Op_AudioSetSessionMute(self, pid, muted)
+
+    def AudioGetSystemVolume(self):
+        return _pyop.Op_AudioGetSystemVolume(self)
+
+    def AudioSetSystemVolume(self, volume):
+        return _pyop.Op_AudioSetSystemVolume(self, volume)
+
+    def AudioSetSystemMute(self, muted):
+        return _pyop.Op_AudioSetSystemMute(self, muted)
+
+    def LoadImageMem(self, data, width, height, stride, fmt):
+        return _pyop.Op_LoadImageMem(self, data, width, height, stride, fmt)
+
+    def LoadImageBmp(self, data, size):
+        return _pyop.Op_LoadImageBmp(self, data, size)
+
+    def FreeImage(self, handle):
+        return _pyop.Op_FreeImage(self, handle)
+
+    def FreeAllImages(self):
+        return _pyop.Op_FreeAllImages(self)
+
+    def GetImageSize(self, handle):
+        return _pyop.Op_GetImageSize(self, handle)
+
+    def GetImageData(self, handle, fmt, buffer, buffer_size):
+        return _pyop.Op_GetImageData(self, handle, fmt, buffer, buffer_size)
+
+    def CropImage(self, handle, x, y, width, height):
+        return _pyop.Op_CropImage(self, handle, x, y, width, height)
+
+    def FindStrMem(self, handle, json_targets, sim):
+        return _pyop.Op_FindStrMem(self, handle, json_targets, sim)
+
+    def GetImageCount(self):
+        return _pyop.Op_GetImageCount(self)
+
     def FindStr(self, x1, y1, x2, y2, strs, color, sim):
         return _pyop.Op_FindStr(self, x1, y1, x2, y2, strs, color, sim)
 
     def FindStrEx(self, x1, y1, x2, y2, strs, color, sim):
         return _pyop.Op_FindStrEx(self, x1, y1, x2, y2, strs, color, sim)
+
+    def FindStrBatch(self, x1, y1, x2, y2, json_targets, color, sim):
+        return _pyop.Op_FindStrBatch(self, x1, y1, x2, y2, json_targets, color, sim)
+
+    def FindStrEx2(self, x1, y1, x2, y2, pattern, color, sim, flags):
+        return _pyop.Op_FindStrEx2(self, x1, y1, x2, y2, pattern, color, sim, flags)
+
+    def OcrLastProfile(self):
+        return _pyop.Op_OcrLastProfile(self)
 
     def OcrAuto(self, x1, y1, x2, y2, sim):
         return _pyop.Op_OcrAuto(self, x1, y1, x2, y2, sim)

@@ -1932,3 +1932,388 @@ class Op:
         if size is None:
             size = len(hex_data) // 2
         return hex_data, int(size)
+
+
+    # ==== 2026-11 批次：图像句柄 / 内存直操作 / 音频 / OCR&FindStr 增强 / YOLO Ex2 ====
+    #
+    # 说明：这批接口此前只在 C API（op_c_api.h）与 COM 层有，Python 绑定漏了整整一批
+    # （`scripts/api_surface_diff.py` 报 40 个缺口）。这里按既有约定补齐：
+    #   返回字符串 -> _call_string；返回 1/0 -> _call_ok；
+    #   "结果 + 出参" -> _call_result_point（返回 (ret, x, y)）/ _call_string_with_int（(str, count)）。
+
+    # ---- 图像句柄注册表（img:n）----
+    def load_image_mem(
+        self,
+        data: bytes | bytearray | memoryview,
+        width: int,
+        height: int,
+        stride: int = 0,
+        fmt: str = "bgra",
+    ) -> str:
+        """从原始像素注册图像句柄，返回 "img:n"；失败返回空串。
+
+        fmt: bgra(默认)/bgr/gray（也接受 4/3/1）；stride<=0 表示紧凑排列。
+        """
+        return self._call_string(
+            "OpLoadImageMem", bytes(data), int(width), int(height), int(stride), fmt
+        )
+
+    def load_image_bmp(self, data: bytes | bytearray | memoryview | str | Path) -> str:
+        """从 BMP 字节流注册图像句柄；也可直接传 BMP 文件路径。返回 "img:n" 或空串。"""
+        if isinstance(data, (str, Path)):
+            raw = Path(data).read_bytes()
+        else:
+            raw = bytes(data)
+        return self._call_string("OpLoadImageBmp", raw, len(raw))
+
+    def free_image(self, image_handle: str) -> bool:
+        """释放单个图像句柄。句柄不存在返回 False（raise_on_error=False 时）。"""
+        return self._call_ok("OpFreeImage", image_handle)
+
+    def free_all_images(self) -> int:
+        """释放全部图像句柄，返回被释放的数量。"""
+        return self._call_int("OpFreeAllImages")
+
+    def get_image_count(self) -> int:
+        """当前存活的图像句柄数量。"""
+        return self._call_int("OpGetImageCount")
+
+    def get_image_size(self, image_handle: str) -> tuple[int, int, int]:
+        """返回 (width, height, channels)；channels 恒为 4（内部统一 BGRA）。"""
+        self._check_open()
+        width = ctypes.c_int()
+        height = ctypes.c_int()
+        channels = ctypes.c_int()
+        ok = self._dll.OpGetImageSize(
+            self._handle, image_handle, ctypes.byref(width), ctypes.byref(height), ctypes.byref(channels)
+        )
+        self._ok(ok, "OpGetImageSize")
+        return int(width.value), int(height.value), int(channels.value)
+
+    def get_image_data(self, image_handle: str, fmt: str = "raw") -> bytes:
+        """读回像素。fmt: raw(BGRA 紧凑) / bmp(带 BMP 头)。失败返回 b""。"""
+        width, height, _channels = self.get_image_size(image_handle)
+        capacity = width * height * 4 + (54 if fmt.lower() == "bmp" else 0)
+        if capacity <= 0:
+            return b""
+        buffer = ctypes.create_string_buffer(capacity)
+        written = self._dll.OpGetImageData(self._handle, image_handle, fmt, buffer, capacity)
+        written = int(written)
+        if written <= 0:
+            self._ok(0, "OpGetImageData")
+            return b""
+        return buffer.raw[:written]
+
+    def crop_image(self, image_handle: str, x: int, y: int, width: int, height: int) -> str:
+        """裁剪出新句柄，返回新的 "img:n"；失败返回空串。"""
+        return self._call_string("OpCropImage", image_handle, int(x), int(y), int(width), int(height))
+
+    def find_str_mem(self, image_handle: str, json_targets: str, sim: float = 0.9) -> str:
+        """在图像句柄上找字（json_targets 形如 {"strs":["主城"],"color":"FFFFFF-101010"}）。"""
+        return self._call_string("OpFindStrMem", image_handle, json_targets, float(sim))
+
+    # ---- OCR 结构化 / 耗时 ----
+    def ocr_ex2(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
+        """结构化 OCR（JSON：逐字坐标 + 置信度）。color 为空走免字库 ONNX。"""
+        return self._call_string("OpOcrEx2", int(x1), int(y1), int(x2), int(y2), color, float(sim))
+
+    def ocr_auto_color_ex2(
+        self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float
+    ) -> tuple[str, int]:
+        """按颜色二值化后的结构化 OCR，返回 (json, 命中行数)。"""
+        return self._call_string_with_int(
+            "OpOcrAutoColorEx2", int(x1), int(y1), int(x2), int(y2), color, float(sim)
+        )
+
+    def ocr_last_profile(self) -> str:
+        """上一次 OCR 的分项耗时 JSON（det/rec/cls 各多少 ms）。"""
+        return self._call_string("OpOcrLastProfile")
+
+    def auto_ocr_from_file(self, file_name: str | Path, color_format: str, sim: float) -> str:
+        """文件版免字库 OCR：color_format 为空=原图直识，非空=按颜色二值化。"""
+        return self._call_string("OpAutoOcrFromFile", str(file_name), color_format, float(sim))
+
+    def ocr_from_mem_ex2(
+        self, image_handle: str, x1: int, y1: int, x2: int, y2: int, color: str, sim: float
+    ) -> str:
+        """内存版结构化 OCR。x1..y2 是**图像内坐标**；(0,0,0,0) 表示整张图。"""
+        return self._call_string(
+            "OpOcrFromMemEx2", image_handle, int(x1), int(y1), int(x2), int(y2), color, float(sim)
+        )
+
+    def ocr_auto_color_from_mem_ex2(
+        self, image_handle: str, x1: int, y1: int, x2: int, y2: int, color: str, sim: float
+    ) -> tuple[str, int]:
+        """内存版颜色二值化结构化 OCR，返回 (json, 命中行数)。"""
+        return self._call_string_with_int(
+            "OpOcrAutoColorFromMemEx2", image_handle, int(x1), int(y1), int(x2), int(y2), color, float(sim)
+        )
+
+    # ---- FindStr 增强 ----
+    def find_str_batch(
+        self, x1: int, y1: int, x2: int, y2: int, json_targets: str, color: str, sim: float
+    ) -> str:
+        """多目标查找（JSON 目标列表 + 字符级坐标）。"""
+        return self._call_string(
+            "OpFindStrBatch", int(x1), int(y1), int(x2), int(y2), json_targets, color, float(sim)
+        )
+
+    def find_str_ex2(
+        self,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        pattern: str,
+        color: str,
+        sim: float,
+        flags: int = 0,
+    ) -> str:
+        """单目标 + flags（正则/精确/形近容错）。"""
+        return self._call_string(
+            "OpFindStrEx2", int(x1), int(y1), int(x2), int(y2), pattern, color, float(sim), int(flags)
+        )
+
+    # ---- 内存直操作二期：找图 ----
+    def find_pic_from_mem(
+        self,
+        image_handle: str,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        files: str,
+        delta_color: str,
+        sim: float,
+        direction: constants.FindDirection | int = constants.FindDirection.LEFT_TOP_TO_RIGHT_BOTTOM,
+    ) -> tuple[int, int, int]:
+        """在图像句柄里找图，返回 (图片序号, x, y)；-1 = 未找到（大漠索引语义）。"""
+        return self._call_result_point(
+            "OpFindPicFromMem",
+            image_handle,
+            int(x1),
+            int(y1),
+            int(x2),
+            int(y2),
+            files,
+            delta_color,
+            float(sim),
+            int(direction),
+        )
+
+    def find_pic_ex_from_mem(
+        self,
+        image_handle: str,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        files: str,
+        delta_color: str,
+        sim: float,
+        direction: constants.FindDirection | int = constants.FindDirection.LEFT_TOP_TO_RIGHT_BOTTOM,
+    ) -> str:
+        """在图像句柄里找图（全部命中，返回 JSON 串）。"""
+        return self._call_string(
+            "OpFindPicExFromMem",
+            image_handle,
+            int(x1),
+            int(y1),
+            int(x2),
+            int(y2),
+            files,
+            delta_color,
+            float(sim),
+            int(direction),
+        )
+
+    # ---- 内存直操作二期：找色 / 取色 / 比色 / 计数 ----
+    def find_color_from_mem(
+        self,
+        image_handle: str,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        color: str,
+        sim: float,
+        direction: constants.FindDirection | int = constants.FindDirection.LEFT_TOP_TO_RIGHT_BOTTOM,
+    ) -> tuple[int, int, int]:
+        """在图像句柄里找色，返回 (是否找到, x, y)。"""
+        return self._call_result_point(
+            "OpFindColorFromMem", image_handle, int(x1), int(y1), int(x2), int(y2), color,
+            float(sim), int(direction),
+        )
+
+    def find_color_ex_from_mem(
+        self,
+        image_handle: str,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        color: str,
+        sim: float,
+        direction: constants.FindDirection | int = constants.FindDirection.LEFT_TOP_TO_RIGHT_BOTTOM,
+    ) -> str:
+        """在图像句柄里找色（全部命中 JSON）。"""
+        return self._call_string(
+            "OpFindColorExFromMem", image_handle, int(x1), int(y1), int(x2), int(y2), color,
+            float(sim), int(direction),
+        )
+
+    def get_color_from_mem(self, image_handle: str, x: int, y: int) -> str:
+        """取图像句柄上某点颜色，返回 RGB hex（如 "FF8000"）。"""
+        return self._call_string("OpGetColorFromMem", image_handle, int(x), int(y))
+
+    def cmp_color_from_mem(
+        self, image_handle: str, x: int, y: int, color: str, sim: float
+    ) -> bool:
+        """比对图像句柄上某点颜色是否匹配（带偏色段 "RRGGBB-DRDGDB"）。"""
+        return self._call_ok("OpCmpColorFromMem", image_handle, int(x), int(y), color, float(sim))
+
+    def get_color_num_from_mem(
+        self, image_handle: str, x1: int, y1: int, x2: int, y2: int, color: str, sim: float
+    ) -> int:
+        """统计区域内符合颜色的像素数。"""
+        return self._call_int(
+            "OpGetColorNumFromMem", image_handle, int(x1), int(y1), int(x2), int(y2), color, float(sim)
+        )
+
+    def find_multi_color_from_mem(
+        self,
+        image_handle: str,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        first_color: str,
+        offset_color: str,
+        sim: float,
+        direction: constants.FindDirection | int = constants.FindDirection.LEFT_TOP_TO_RIGHT_BOTTOM,
+    ) -> tuple[int, int, int]:
+        """多色查找，返回 (是否找到, x, y)。偏移串格式 "dx|dy|color"，段间英文逗号。"""
+        return self._call_result_point(
+            "OpFindMultiColorFromMem", image_handle, int(x1), int(y1), int(x2), int(y2),
+            first_color, offset_color, float(sim), int(direction),
+        )
+
+    def find_multi_color_ex_from_mem(
+        self,
+        image_handle: str,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        first_color: str,
+        offset_color: str,
+        sim: float,
+        direction: constants.FindDirection | int = constants.FindDirection.LEFT_TOP_TO_RIGHT_BOTTOM,
+    ) -> str:
+        """多色查找（全部命中 JSON）。"""
+        return self._call_string(
+            "OpFindMultiColorExFromMem", image_handle, int(x1), int(y1), int(x2), int(y2),
+            first_color, offset_color, float(sim), int(direction),
+        )
+
+    def find_color_block_ex_from_mem(
+        self,
+        image_handle: str,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        color: str,
+        sim: float,
+        count: int,
+        height: int,
+        width: int,
+    ) -> str:
+        """颜色块定位（滑动窗口语义：窗口内匹配像素 >= count 即命中）。"""
+        return self._call_string(
+            "OpFindColorBlockExFromMem", image_handle, int(x1), int(y1), int(x2), int(y2), color,
+            float(sim), int(count), int(height), int(width),
+        )
+
+    # ---- YOLO Ex2 / 内存版 ----
+    def yolo_detect_ex2(
+        self,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        conf: float,
+        iou: float,
+        json_options: str = "",
+    ) -> tuple[str, int]:
+        """带过滤/截断的检测，返回 (json, 命中数)。json_options 形如 {"max_results":5}。"""
+        return self._call_string_with_int(
+            "OpYoloDetectEx2", int(x1), int(y1), int(x2), int(y2), float(conf), float(iou), json_options
+        )
+
+    def yolo_detect_from_file_ex2(
+        self, file_name: str | Path, conf: float, iou: float, json_options: str = ""
+    ) -> tuple[str, int]:
+        """文件版 Ex2（可脱离绑定窗口用真实模型验证过滤/截断）。"""
+        return self._call_string_with_int(
+            "OpYoloDetectFromFileEx2", str(file_name), float(conf), float(iou), json_options
+        )
+
+    def yolo_detect_from_mem(
+        self, image_handle: str, x1: int, y1: int, x2: int, y2: int, conf: float, iou: float
+    ) -> tuple[str, int]:
+        """内存版检测，返回 (json, 命中数)；坐标是图像内坐标。"""
+        return self._call_string_with_int(
+            "OpYoloDetectFromMem", image_handle, int(x1), int(y1), int(x2), int(y2),
+            float(conf), float(iou),
+        )
+
+    def yolo_detect_from_mem_ex2(
+        self,
+        image_handle: str,
+        x1: int,
+        y1: int,
+        x2: int,
+        y2: int,
+        conf: float,
+        iou: float,
+        json_options: str = "",
+    ) -> tuple[str, int]:
+        """内存版 + 过滤/截断，返回 (json, 命中数)。"""
+        return self._call_string_with_int(
+            "OpYoloDetectFromMemEx2", image_handle, int(x1), int(y1), int(x2), int(y2),
+            float(conf), float(iou), json_options,
+        )
+
+    # ---- 音频音量（WASAPI 会话级 + 系统级）----
+    def audio_query_window(self, hwnd: int) -> str:
+        """按窗口查音频会话（JSON）。hwnd 传 0 表示当前绑定窗口。"""
+        return self._call_string("OpAudioQueryWindow", int(hwnd))
+
+    def audio_query_pid(self, pid: int) -> str:
+        """按 PID 查音频会话（JSON：ok/code/found/muted/volume/peak）。"""
+        return self._call_string("OpAudioQueryPid", int(pid))
+
+    def audio_get_pid_from_hwnd(self, hwnd: int) -> int:
+        """纯取窗口所属 PID（不碰 COM）；失败返回 0。"""
+        return self._call_int("OpAudioGetPidFromHwnd", int(hwnd))
+
+    def audio_get_system_volume(self) -> str:
+        """系统主音量（JSON）。"""
+        return self._call_string("OpAudioGetSystemVolume")
+
+    def audio_set_session_volume(self, pid: int, volume: float) -> bool:
+        """设置会话滑块音量（0.0~1.0，越界 clamp）。"""
+        return self._call_ok("OpAudioSetSessionVolume", int(pid), float(volume))
+
+    def audio_set_session_mute(self, pid: int, muted: bool) -> bool:
+        """设置会话静音。"""
+        return self._call_ok("OpAudioSetSessionMute", int(pid), 1 if muted else 0)
+
+    def audio_set_system_volume(self, volume: float) -> bool:
+        """设置系统主音量（0.0~1.0，越界 clamp）。"""
+        return self._call_ok("OpAudioSetSystemVolume", float(volume))
+
+    def audio_set_system_mute(self, muted: bool) -> bool:
+        """设置系统静音。"""
+        return self._call_ok("OpAudioSetSystemMute", 1 if muted else 0)
