@@ -24,12 +24,19 @@ namespace op::yolo {
 //   --conf=0.25   默认置信度阈值（detect 传 conf<=0 时生效）
 //   --iou=0.45    默认 NMS IoU 阈值（detect 传 iou<=0 时生效）
 //   --labels=a,b,c 可选类别名（UTF-8 逗号分隔；缺省 label 为空、只用 class_id）
+//   --threads=N    intra-op 线程数；0/缺省 = 交给 ORT 用物理核（不要再写死 1，
+//                  2026-11-21 实测单线程比默认慢 3.5~4.8 倍）。引擎是进程级单例，
+//                  上一次的 --threads 会保留，传 --threads=0 可显式改回默认。
 class OnnxYoloEngine : public YoloEngine {
   public:
     OnnxYoloEngine();
     ~OnnxYoloEngine() override;
     int init(const std::wstring &engine, const std::wstring &dllName, const vector<string> &argv) override;
     int detect(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_rec_t &result) override;
+
+    // 诊断/测试专用：**实际写进 SessionOptions** 的 intra-op 线程数（0 = 未设置，用 ORT 默认）。
+    // 故意暴露"已生效值"而不是"请求值"——否则把实现改回写死单线程时，用例照样绿。
+    int intra_op_threads() const;
 
   private:
     class Impl;

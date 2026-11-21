@@ -608,7 +608,9 @@ class OP_API Op {
     // 否则=远程 HTTP（http(s):// 完整/基础 URL 或别名 yolo/yolo_http 等）。
     // ONNX 类别名优先自动读取模型内嵌 metadata（ultralytics export 自带），无需 --labels；
     // 无 metadata 或非 ultralytics 导出时才需要 --labels=a,b,c 或 --labels=@classes.txt 兜底。
-    // argv 空格分隔，ONNX 另支持 --conf=0.25 --iou=0.45（detect 传 <=0 时的默认阈值）。
+    // argv 空格分隔，ONNX 另支持 --conf=0.25 --iou=0.45（detect 传 <=0 时的默认阈值）
+    // 与 --threads=N（推理线程数，默认 0=交给 ORT 用物理核；多实例并发时建议压到 1~2
+    // 免得 N 个会话各开满线程互相抢核。2026-11-21 实测放开线程比写死单线程快 3.5~4.8 倍）。
     long SetYoloEngine(_In_ const wchar_t *path_of_engine, _In_ const wchar_t *dll_name, _In_ const wchar_t *argv);
     void YoloDetect(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
                     _Out_ std::wstring &retjson, _Out_ long *ret);

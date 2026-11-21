@@ -163,10 +163,18 @@ class OnnxYoloEngine::Impl {
     float m_iou_def = 0.45f;      // --iou=
     std::vector<std::wstring> m_labels; // --labels=
     int m_in_h = 640, m_in_w = 640;
+    int m_threads = 0;            // --threads=N；0 = 不设置（用 ORT 默认：物理核数）
+    int m_threads_applied = 0;    // 真正写进 SessionOptions 的值（0 = 没设），供诊断/测试
     bool ok = false;
 
     Impl() {
-        sopts.SetIntraOpNumThreads(1);
+        // ⚠ 原来这里写死 SetIntraOpNumThreads(1)。2026-11-21 实测（探针
+        // scripts/probes/yolo_thread_probe.cpp + 2.4GFLOP 的合成模型）：
+        //   1 线程 36.9ms / 2 线程 19.0ms / 4 线程 10.6ms / 8 线程 8.0ms / ORT 默认 7.6ms
+        // 单线程把 YOLO 推理拖慢 3.5~4.8 倍。极小模型（单 Constant 节点 0.2ms）上
+        // 各档无差异，说明放开线程不会在"小图快跑"场景反而变慢。
+        // 因此默认交给 ORT（物理核数），需要压线程时用 --threads=N（如多实例并发，
+        // 避免 N 个会话各开满线程互相抢核）。
         sopts.SetGraphOptimizationLevel(ORT_ENABLE_ALL);
     }
 
@@ -197,6 +205,11 @@ class OnnxYoloEngine::Impl {
             }
         }
         try {
+            // 线程数在建会话前才生效（init 里解析 argv 晚于构造函数）
+            if (m_threads > 0) {
+                sopts.SetIntraOpNumThreads(m_threads);
+                m_threads_applied = m_threads;
+            }
             sess = std::make_unique<Ort::Session>(env, m_buf.data(), m_buf.size(), sopts);
         } catch (const Ort::Exception &e) {
             cout << "OnnxYoloEngine: session create failed: " << e.what() << endl;
@@ -321,14 +334,24 @@ class OnnxYoloEngine::Impl {
 OnnxYoloEngine::OnnxYoloEngine() : m_impl(std::make_unique<Impl>()) {}
 OnnxYoloEngine::~OnnxYoloEngine() = default;
 
+int OnnxYoloEngine::intra_op_threads() const {
+    return m_impl ? m_impl->m_threads_applied : 0;
+}
+
 int OnnxYoloEngine::init(const std::wstring &engine, const std::wstring &dllName, const vector<string> &argv) {
     (void)engine;
     (void)dllName;
-    // 解析 --conf= / --iou= / --labels=
+    // 解析 --conf= / --iou= / --labels= / --threads=
     for (const std::string &a : argv) {
         if (a.rfind("--conf=", 0) == 0) {
             float v = float(atof(a.c_str() + 7));
             if (v > 0.0f && v < 1.0f) m_impl->m_conf_def = v;
+        } else if (a.rfind("--threads=", 0) == 0) {
+            // 0 = 显式回到 auto（YoloDetector 是进程级单例，前一次 SetYoloEngine 的
+            // --threads 会留在同一个 Impl 上，需要能表达"改回默认"）；
+            // 上限 64：超了多半是写错，且会静默吃掉宿主线程配额。
+            const int v = atoi(a.c_str() + 10);
+            if (v >= 0 && v <= 64) m_impl->m_threads = v;
         } else if (a.rfind("--iou=", 0) == 0) {
             float v = float(atof(a.c_str() + 6));
             if (v > 0.0f && v < 1.0f) m_impl->m_iou_def = v;
@@ -363,7 +386,8 @@ int OnnxYoloEngine::init(const std::wstring &engine, const std::wstring &dllName
         }
     }
     cout << "OnnxYoloEngine: conf=" << m_impl->m_conf_def << " iou=" << m_impl->m_iou_def
-         << " labels=" << m_impl->m_labels.size() << endl;
+         << " labels=" << m_impl->m_labels.size()
+         << " threads=" << (m_impl->m_threads > 0 ? std::to_string(m_impl->m_threads) : "auto") << endl;
     return m_impl->load(dllName) ? 0 : -1;
 }
 

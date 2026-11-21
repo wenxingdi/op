@@ -151,3 +151,56 @@ TEST(YoloOnnxTest, RemoteAliasAfterFailedOnnxInitRejectedNoCrash) {
     EXPECT_EQ(0, ret);
     EXPECT_EQ(L"{\"ok\":0,\"code\":-1,\"results\":[]}", json);
 }
+
+// --threads=N 参数（2026-11-21）：默认不再写死单线程。
+//
+// 背景实测（scripts/probes/yolo_thread_probe.cpp，2.4GFLOP 合成模型）：
+//   1 线程 36.9ms / 2 线程 19.0ms / 4 线程 10.6ms / ORT 默认 7.6ms
+// 单线程把推理拖慢 3.5~4.8 倍，所以默认交给 ORT（物理核数），
+// 需要压线程时用 --threads=N。本用例只验证"参数可用且结果等价"——
+// **不断言耗时**（性能断言在 CI/负载波动下必然 flaky）。
+TEST(YoloOnnxTest, ThreadsArgAcceptedAndResultsEquivalent) {
+    const std::wstring model = FindYoloMetaTestModel();
+    if (model.empty())
+        GTEST_SKIP() << "yolo_meta_test.onnx 缺失（scripts/gen_yolo_meta_test_model.py 生成）";
+
+    const std::wstring bmp = GetTempBmpPath(L"__yolo_threads_input__.bmp");
+    {
+        const auto bytes = BuildBmp32TopDown(40, 40, std::vector<uchar>(40 * 40 * 4, 127));
+        std::ofstream out(std::filesystem::path(bmp), std::ios::binary);
+        ASSERT_TRUE(out.good());
+        out.write(reinterpret_cast<const char *>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    }
+
+    std::wstring json1, json4;
+    {
+        op::Op op;
+        ASSERT_EQ(1, op.SetYoloEngine(model.c_str(), L"", L"--threads=1"));
+        long ret = 0;
+        op.YoloDetectFromFile(bmp.c_str(), 0.25, 0.45, json1, &ret);
+        ASSERT_EQ(1, ret) << "threads=1 must still detect";
+    }
+    {
+        op::Op op;
+        ASSERT_EQ(1, op.SetYoloEngine(model.c_str(), L"", L"--threads=4"));
+        long ret = 0;
+        op.YoloDetectFromFile(bmp.c_str(), 0.25, 0.45, json4, &ret);
+        ASSERT_EQ(1, ret) << "threads=4 must detect";
+    }
+    DeleteFileW(bmp.c_str());
+
+    // 线程数只影响速度，不影响结果
+    EXPECT_EQ(json1, json4) << "thread count must not change detection output";
+}
+
+// 越界线程数（>64 / 负数 / 非数字）一律忽略，回落 ORT 默认，而不是 init 失败
+TEST(YoloOnnxTest, InvalidThreadsArgFallsBackToDefault) {
+    const std::wstring model = FindYoloMetaTestModel();
+    if (model.empty())
+        GTEST_SKIP() << "yolo_meta_test.onnx 缺失（scripts/gen_yolo_meta_test_model.py 生成）";
+
+    op::Op op;
+    EXPECT_EQ(1, op.SetYoloEngine(model.c_str(), L"", L"--threads=9999")) << "must clamp/ignore, not fail";
+    op::Op op2;
+    EXPECT_EQ(1, op2.SetYoloEngine(model.c_str(), L"", L"--threads=abc"));
+}
