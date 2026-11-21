@@ -112,12 +112,26 @@ def classify(body):
     return "UNGUARDED", []
 
 
+# 纯转发型白名单（2026-11-21 加）：函数体只做一次转发到另一个**已受护栏保护的导出**，
+# 或直接返回编译期字面量 —— 自己不分配、不碰能力层，异常不可能从它这里穿出去。
+# 静态分类器看不到被调方有没有护栏，会把这类误报成 UNGUARDED；这里单独列一类
+# `delegate_no_throw`（**仍然打印出来**，不隐藏，方便复核），避免名单长期带噪音。
+DELEGATE_SAFE = {
+    "OpVer": "只返回编译期字面量 OP_VERSION（/D 注入）",
+    "OpAutoOcrLine": "转发 OpOcrAuto / OpOcrAutoColorLine（均为 call_string 护栏）",
+    "OpAutoOcrEx": "转发 OpOcrEx / OpOcrAutoColorEx（均为 call_string 护栏）",
+    "OpAutoOcrFromFile": "转发 OpOcrAutoFromFile / OpOcrAutoColorFromFile（均护栏）",
+}
+
+
 def main():
     text = SRC.read_text(encoding="utf-8", errors="replace")
     funcs = split_functions(text)
     rows = []
     for line, name, body in funcs:
         kind, hits = classify(body)
+        if kind == "UNGUARDED" and name in DELEGATE_SAFE:
+            kind = "delegate_no_throw"
         toks = sorted(set(THROW_TOKENS.findall(body)))
         # 是否直接调用 op::Op 方法（其内部异常一律外泄）
         opcalls = len(RE_CALL_OP.findall(body)) + len(RE_HANDLE_OP.findall(body))
@@ -131,6 +145,8 @@ def main():
     macro_rows = expand_macro_rows(text, macros)
     for line, name, body, macro, dline in macro_rows:
         kind, hits = classify(body)
+        if kind == "UNGUARDED" and name in DELEGATE_SAFE:
+            kind = "delegate_no_throw"
         toks = sorted(set(THROW_TOKENS.findall(body)))
         rows.append({
             "line": line, "name": name, "kind": kind,
@@ -145,8 +161,13 @@ def main():
         summary[r["kind"]] = summary.get(r["kind"], 0) + 1
 
     print("=== 导出总数：%d（其中宏生成 %d）===" % (len(rows), len(macro_rows)))
-    for k in ("guarded_helper", "guarded_own", "UNGUARDED"):
-        print("  %-16s %d" % (k, summary.get(k, 0)))
+    for k in ("guarded_helper", "guarded_own", "delegate_no_throw", "UNGUARDED"):
+        print("  %-18s %d" % (k, summary.get(k, 0)))
+    dl = [r for r in rows if r["kind"] == "delegate_no_throw"]
+    if dl:
+        print("\n=== delegate_no_throw（%d 条，纯转发/字面量，白名单见 DELEGATE_SAFE）===" % len(dl))
+        for r in dl:
+            print("  L%-5d %-34s %s" % (r["line"], r["name"], DELEGATE_SAFE.get(r["name"], "")))
     un = [r for r in rows if r["kind"] == "UNGUARDED"]
     print("\n=== UNGUARDED 明细（%d 条）===" % len(un))
     for r in un:

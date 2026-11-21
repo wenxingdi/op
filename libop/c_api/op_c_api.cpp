@@ -196,7 +196,17 @@ op_handle OP_CALL OpCreate(void) {
 }
 
 void OP_CALL OpDestroy(op_handle handle) {
-    delete handle;
+    if (!handle)
+        return;
+    // 析构链会放后端（COM/钩子/线程），异常一旦穿过 extern "C" 就是 std::terminate。
+    // 这里吞掉并记日志：宿主卸载期崩进程比泄漏几十字节恶劣得多。
+    try {
+        delete handle;
+    } catch (const std::exception &e) {
+        setlog("op_c_api: OpDestroy caught exception in destructor: %s", e.what());
+    } catch (...) {
+        setlog("op_c_api: OpDestroy caught unknown exception in destructor");
+    }
 }
 
 // Basic
@@ -727,7 +737,9 @@ int OP_CALL OpUnBindWindow(op_handle handle) {
 }
 
 int OP_CALL OpUnbindWindow(op_handle handle) {
-    return OpUnBindWindow(handle);
+    // 旧名兼容别名。直接走同一条受护栏保护的路径，不再多一层裸转发
+    // （裸转发本身不抛，但静态普查看不到护栏，会长期挂在 UNGUARDED 名单上）。
+    return call_ret(handle, [](op::Op &op, long *ret) { op.UnBindWindow(ret); });
 }
 
 int OP_CALL OpLockInput(op_handle handle, int lock) {
@@ -1021,20 +1033,30 @@ int OP_CALL OpRequestCaptureForTest(const wchar_t *mem_mode, int x1, int y1, int
     // **勿按布尔契约归一为 0**。
     if (!mem_mode || !out_pixel)
         return -2;
-    op::binding::BindingSession session;
-    if (session.set_display_method(mem_mode) != 1)
-        return -1;
-    op::Image out;
-    if (!session.requestCapture(x1, y1, w, h, out))
+    try {
+        op::binding::BindingSession session;
+        if (session.set_display_method(mem_mode) != 1)
+            return -1;
+        op::Image out;
+        if (!session.requestCapture(x1, y1, w, h, out))
+            return 0;
+        if (out.empty())
+            return 0;
+        const auto *p = out.ptr<unsigned char>(0);
+        if (p == nullptr)
+            return 0;
+        out_pixel[0] = p[0];
+        out_pixel[1] = p[1];
+        out_pixel[2] = p[2];
+        out_pixel[3] = p[3];
+        return 1;
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception escaped to C boundary in OpRequestCaptureForTest: %s", e.what());
         return 0;
-    if (out.empty())
+    } catch (...) {
+        setlog("op_c_api: unknown exception escaped to C boundary in OpRequestCaptureForTest");
         return 0;
-    const auto *p = out.ptr<unsigned char>(0);
-    out_pixel[0] = p[0];
-    out_pixel[1] = p[1];
-    out_pixel[2] = p[2];
-    out_pixel[3] = p[3];
-    return 1;
+    }
 }
 
 int OP_CALL OpLoadPic(op_handle handle, const wchar_t *file_name) {
