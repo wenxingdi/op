@@ -314,6 +314,7 @@ set(OP_CLASS_SOURCES
   "op/OpOpenCv.cpp"
   "op/OpOcr.cpp"
   "op/OpYolo.cpp"
+  "op/OpYoloTask.cpp"
   # 音频音量（2026-11-21）
   "op/OpAudio.cpp"
   # 内存直操作二期（2026-11-21）

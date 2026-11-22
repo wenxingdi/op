@@ -437,14 +437,65 @@ class OnnxYoloEngine::Impl {
         if (dshape.size() != 3 || pshape.size() != 4)
             return -8;
         long long A = dshape[1], B = dshape[2];
-        long long nattr = std::min(A, B), nanch = std::max(A, B);
-        const bool ch_first = (A < B);
+        // 不能简单用 min/max 判属性维与 anchor 维：测试模型 nanch=1 时
+        // A=7,B=1，max 会把"属性维"当成 anchor 维（实测 nc=-5）。
+        // 判据改为：**anchor 数由输入尺寸决定**（v8/v11 anchor-free 为
+        // (H/8)^2+(H/16)^2+(H/32)^2，v5 为其 3 倍），哪个轴与它对上就是 anchor 维；
+        // 都对不上再退回 min/max 启发式。真实模型 nanch 恒为 8400/25200 级，
+        // 这条判据比"取较大值"可靠。
+        // anchor 数由**模型输入尺寸**决定（不是原图尺寸）。这里用 m_in_h/m_in_w：
+        // decode_segment 只在 segment() 里被调用，那时 load() 早已完成、尺寸已就绪。
+        const long long na_expected = (long long)(m_in_h / 8) * (m_in_w / 8) +
+                                      (long long)(m_in_h / 16) * (m_in_w / 16) +
+                                      (long long)(m_in_h / 32) * (m_in_w / 32);
+        // 三档判据，从强到弱：
+        //   1) 与"按输入尺寸推出的 anchor 数"对上（真实 v5/v8/v11 模型都命中这条）；
+        //   2) 属性维必须 >= 4+nm（cx,cy,w,h 起头 + nm 个掩码系数）——真实 anchor 数
+        //      永远远大于属性维，所以 **较小的一维必然是属性维**。这条对任意 anchor 数
+        //      （含单 anchor 的测试模型）都成立，是第一档失效时的正确兜底；
+        //   3) 两维都 >= 4+nm 且相等时无法判断，按通道在前处理（ultralytics 默认导出）。
+        // 注意不能直接用 min/max 当作第 2 档：当 A < 4+nm 时（如 A=7,B=1），
+        // 较小维反而是 anchor 维，min/max 会把 nattr 算成 1。
+        const long long min_attr = 4 + nm;
+        long long nattr = 0, nanch = 0;
+        bool ch_first = true;
+        if (A == na_expected || A == 3 * na_expected) {
+            nanch = A;
+            nattr = B;
+            ch_first = false; // [1, nanch, nattr]
+        } else if (B == na_expected || B == 3 * na_expected) {
+            nanch = B;
+            nattr = A;
+            ch_first = true; // [1, nattr, nanch]
+        } else if (A >= min_attr && B >= min_attr) {
+            nattr = std::min(A, B);
+            nanch = std::max(A, B);
+            ch_first = (A < B);
+        } else if (A >= min_attr) {
+            nattr = A;
+            nanch = B;
+            ch_first = true;
+        } else {
+            nattr = B;
+            nanch = A;
+            ch_first = false;
+        }
         const int nc = static_cast<int>(nattr) - 4 - nm;
-        if (nc <= 0)
+        if (nc <= 0) {
+            cout << "OnnxYoloEngine: segment nc=" << nc << " (nattr=" << nattr << ", nm=" << nm << ")" << endl;
             return -8;
+        }
         const long long ph = pshape[2], pw = pshape[3];
-        if (ph <= 0 || pw <= 0 || pshape[1] != nm)
+        if (ph <= 0 || pw <= 0 || pshape[1] != nm) {
+            cout << "OnnxYoloEngine: segment bad proto shape [" << pshape[1] << "," << ph << "," << pw << "] nm=" << nm
+                 << endl;
             return -8;
+        }
+        // 元素访问：i = 属性下标 [0,nattr)，j = anchor 下标 [0,nanch)。
+        // first=true 表示布局是 [1, nattr, nanch]（属性在前 -> 步长为 nanch）；
+        // first=false 表示 [1, nanch, nattr]（anchor 在前 -> 步长为 nattr）。
+        // 两种布局的 **stride 都是"另一维的长度"**，用错会把所有值读串（实测表现为
+        // 框跑到画面外、掩码面积恒 0），所以参数名就叫 st_attr/st_anch 不叫 n_*。
         auto at = [&](const std::vector<float> &t, long long n_attr, long long n_anch, bool first, long long i,
                       long long j) -> float {
             return first ? t[size_t(i * n_anch + j)] : t[size_t(j * n_attr + i)];
@@ -469,6 +520,11 @@ class OnnxYoloEngine::Impl {
             const float cy = at(det, nattr, nanch, ch_first, 1, j);
             const float w = at(det, nattr, nanch, ch_first, 2, j);
             const float h = at(det, nattr, nanch, ch_first, 3, j);
+            if (getenv("OP_YOLO_SEG_DEBUG")) {
+                cout << "OnnxYoloEngine: seg cand cx=" << cx << " cy=" << cy << " w=" << w << " h=" << h
+                     << " conf=" << best << " cls=" << best_c << " nattr=" << nattr << " nanch=" << nanch
+                     << " ch_first=" << ch_first << " j=" << j << endl;
+            }
             cands.push_back({cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f, best, best_c});
             cand_index.push_back(j);
         }
@@ -507,6 +563,10 @@ class OnnxYoloEngine::Impl {
             y1 = std::max(0.0f, std::min(y1, float(ih)));
             x2 = std::max(0.0f, std::min(x2, float(iw)));
             y2 = std::max(0.0f, std::min(y2, float(ih)));
+            if (getenv("OP_YOLO_SEG_DEBUG")) {
+                cout << "OnnxYoloEngine: seg map scale=" << scale << " pad=" << pad_x << "," << pad_y
+                     << " iw/ih=" << iw << "/" << ih << " box=" << x1 << "," << y1 << "," << x2 << "," << y2 << endl;
+            }
             seg.box.class_id = c.cls;
             if (c.cls >= 0 && c.cls < (int)m_labels.size())
                 seg.box.label = m_labels[c.cls];
@@ -514,15 +574,25 @@ class OnnxYoloEngine::Impl {
             seg.box.left_top = point_t(int(std::lround(x1)), int(std::lround(y1)));
             seg.box.right_bottom = point_t(int(std::lround(x2)), int(std::lround(y2)));
 
-            // 掩码：在 letterbox 空间逐像素算 coeff·proto>0，只算框内（+2px 余量）
+            // 掩码：在 **proto 网格**上逐格算 coeff·proto>0，只算框覆盖的格（+2 格余量）。
+            // ⚠ 关键换算：框坐标是 letterbox 像素（模型输入尺寸，如 640），
+            // proto 是降采样网格（如 20x20），两者相差 proto_stride 倍。
+            // 早期版本直接拿框的像素坐标当网格下标，clamp 到 19 后区间恒为空 ->
+            // mask_area 恒 0、polygon 恒空（实测踩到）。
             const long long j = cand_index[idx];
-            int lx1 = int(std::floor(c.x1)) - 2, ly1 = int(std::floor(c.y1)) - 2;
-            int lx2 = int(std::ceil(c.x2)) + 2, ly2 = int(std::ceil(c.y2)) + 2;
+            // 步长 = 模型输入边长 / proto 边长（ultralytics segment 固定 4 倍下采样
+            // 相对 stride-32 特征图，即输入/4；这里按实际形状算，不写死 4/8/32）
+            const float proto_stride_x = (pw > 0) ? float(m_in_w) / float(pw) : 32.0f;
+            const float proto_stride_y = (ph > 0) ? float(m_in_h) / float(ph) : 32.0f;
+            int lx1 = int(std::floor(c.x1 / proto_stride_x)) - 2;
+            int ly1 = int(std::floor(c.y1 / proto_stride_y)) - 2;
+            int lx2 = int(std::ceil(c.x2 / proto_stride_x)) + 2;
+            int ly2 = int(std::ceil(c.y2 / proto_stride_y)) + 2;
             lx1 = std::max(0, lx1);
             ly1 = std::max(0, ly1);
             lx2 = std::min(int(pw) - 1, lx2);
             ly2 = std::min(int(ph) - 1, ly2);
-            if (lx2 <= lx1 || ly2 <= ly1) {
+            if (lx2 < lx1 || ly2 < ly1) {
                 result.push_back(std::move(seg));
                 continue;
             }
@@ -547,7 +617,9 @@ class OnnxYoloEngine::Impl {
                 result.push_back(std::move(seg));
                 continue;
             }
-            seg.mask_area = float(area) / (scale * scale); // proto 空间 -> 原图像素面积
+            // proto 格面积 -> 原图像素面积：一格覆盖 (stride/scale)^2 个原图像素
+            const float cell_px = (proto_stride_x / scale) * (proto_stride_y / scale);
+            seg.mask_area = float(area) * cell_px;
             seg.polygon = trace_outer_polygon(mask, mw, ly2 - ly1 + 1, lx1, ly1, scale, pad_x, pad_y, iw, ih);
             result.push_back(std::move(seg));
         }
@@ -601,8 +673,12 @@ class OnnxYoloEngine::Impl {
                     dshape = shapes[i];
                 }
             }
-            if (!det || !proto)
+            if (!det || !proto) {
+                cout << "OnnxYoloEngine: run_two_outputs could not classify output shapes ("
+                     << n_out << " outputs)" << endl;
                 return false;
+            }
+
             const int nm = int(pshape[1]);
             result.clear();
             m_task = Task::Segment;

@@ -87,7 +87,18 @@ int YoloDetector::init(const std::wstring &engine, const std::wstring &dllName, 
 #if defined(OP_HAS_ONNX) && OP_HAS_ONNX
     if (dynamic_cast<OnnxYoloEngine *>(m_engine.get()) == nullptr)
         m_engine = std::make_unique<OnnxYoloEngine>();
-    return m_engine->init(engine, dllName, argvs);
+    const int rc = m_engine->init(engine, dllName, argvs);
+    if (rc != 0) {
+        // 加载失败时**必须把引擎置回未加载态**。
+        // 原实现直接 return 失败码，但 OnnxYoloEngine::Impl 里上一次成功加载的
+        // Session 还挂着（ok_ 仍为 true），于是：
+        //   SetYoloEngine("不存在.onnx") 返回 0，可 detect/classify 仍在跑**旧模型**。
+        // 这对脚本是极其危险的静默行为（换模型失败却继续用旧模型出结果）。
+        // OnnxYoloEngine::Impl::load 失败分支已清空 sess/m_buf/ok，这里只需重建引擎，
+        // 保证"init 失败 == 没有可用模型"这个语义成立。
+        m_engine = std::make_unique<OnnxYoloEngine>();
+    }
+    return rc;
 #else
     return -1; // OP_HAS_ONNX=0：上面已提前返回，此处仅为编译完整性
 #endif

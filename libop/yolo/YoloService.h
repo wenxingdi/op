@@ -17,7 +17,18 @@ enum class Task {
     Classify = 3, // [1, nc] 或 [1, nc, 1, 1]，整图分类
 };
 
-const wchar_t *TaskName(Task task);
+inline const wchar_t *TaskName(Task task) {
+    switch (task) {
+    case Task::Detect:
+        return L"detect";
+    case Task::Segment:
+        return L"segment";
+    case Task::Classify:
+        return L"classify";
+    default:
+        return L"none";
+    }
+}
 
 // 分类结果（按 score 降序，最多 topk 条）。
 struct yolo_cls_t {

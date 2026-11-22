@@ -687,6 +687,40 @@ OP_C_API int OP_CALL OpHttpDownloadFile(op_handle handle, const wchar_t *url, co
 OP_C_API const wchar_t *OP_CALL OpYoloDetectFromFileEx2(op_handle handle, const wchar_t *file_name, double conf,
                                                         double iou, const wchar_t *json_options, int *find_count);
 
+/* ---- YOLO 任务维度（批 C 2026-11-22）----
+ * 原来只有"检测"。这里补 分类 / 实例分割 两类任务（Pose/Obb 未做，见 docs/2026-11/）。
+ *
+ * 任务由**模型**决定：SetYoloEngine 加载时先读 ONNX metadata 的 task 字段，
+ * 读不到再按输出形状推断。因此：
+ *   * 返回值 -1 = **模型不支持该任务**（比如拿检测模型调 Segment）—— 不是"没结果"；
+ *   * 返回值  0 = 任务支持但**没有结果**；
+ *   * 返回值 >0 = 结果条数（分类为候选数，分割为目标数）。
+ * 调用方必须把 -1 和 0 分开处理，混用会掩盖"模型选错了"这类问题。
+ *
+ * YoloClassify：整图分类，top_k<=0 取 5。JSON 按 score 降序：
+ *   {"ok":1,"code":0,"task":"classify","returned":K,
+ *    "results":[{"class_id":2,"label":"charlie","score":0.71}, ...]}
+ *
+ * YoloSegment：实例分割。polygon 是掩码**外轮廓**（原图像素坐标，与 bbox 同口径；
+ * 可能为空数组 = 掩码面积过小被判为噪声）。mask_area 是原图尺度的掩码像素面积：
+ *   {"ok":1,"code":0,"task":"segment","total":N,"returned":N,
+ *    "results":[{"class_id":0,"label":"blob","bbox":[x1,y1,x2,y2],"confidence":0.9,
+ *                "mask_area":64.0,"polygon":[[x,y],...]}]}
+ *
+ * YoloGetModelInfo：当前已加载模型的元信息（未加载时 task="none"），
+ * 用来在脚本启动时自检"模型选对了没"：
+ *   {"ok":1,"task":"segment","task_code":2,"input_width":640,"input_height":640}
+ */
+OP_C_API const wchar_t *OP_CALL OpYoloClassify(op_handle handle, int x1, int y1, int x2, int y2, int top_k,
+                                              int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloClassifyFromFile(op_handle handle, const wchar_t *file_name, int top_k,
+                                                       int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloSegment(op_handle handle, int x1, int y1, int x2, int y2, double conf, double iou,
+                                              int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloSegmentFromFile(op_handle handle, const wchar_t *file_name, double conf,
+                                                      double iou, int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloGetModelInfo(op_handle handle);
+
 /* ===== 音频音量（2026-11-21，WASAPI 会话级 + 系统级）=====
  * 设计见 docs/2026-11/音量模块_方案_20261121.md。
  *

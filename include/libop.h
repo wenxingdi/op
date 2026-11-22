@@ -653,6 +653,35 @@ class OP_API Op {
                                 _In_ const wchar_t *json_options, _Out_ std::wstring &retjson, _Out_ long *ret);
     void YoloDetectFromFile(_In_ const wchar_t *file_name, _In_ double conf, _In_ double iou, _Out_ std::wstring &retjson,
                             _Out_ long *ret);
+
+    // ---- YOLO 任务维度（批 C 2026-11-22）----
+    // 原来的 YOLO 只有"检测"。这里按 OLA 的 Detect/Classify/Segment 三分类补齐
+    // 其中两个可复用的（Pose/Obb 未做：关键点/旋转框需要额外规格，见 docs）。
+    //
+    // 任务由模型决定：SetYoloEngine 加载时先读 ONNX metadata 的 task，读不到再按输出
+    // 形状推断。任务不符时返回 -1（"模型不支持该任务"），0 表示"没有结果"——两者
+    // 语义不同，调用方必须分开处理。
+    //
+    // 整图分类。top_k<=0 取 5。JSON：
+    //   {"ok":1,"code":0,"task":"classify","returned":K,
+    //    "results":[{"class_id":2,"label":"charlie","score":0.71}, ...]}  // 按 score 降序
+    long YoloClassify(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ long top_k,
+                      _Out_ std::wstring &retjson, _Out_ long *ret);
+    long YoloClassifyFromFile(_In_ const wchar_t *file_name, _In_ long top_k, _Out_ std::wstring &retjson, _Out_ long *ret);
+    // 实例分割。每条的 polygon 是掩码外轮廓（原图像素坐标，可能为空 = 掩码过小），
+    // mask_area 是该掩码在原图尺度的像素面积。JSON：
+    //   {"ok":1,"code":0,"task":"segment","total":N,"returned":N,
+    //    "results":[{"class_id":0,"label":"blob","bbox":[x1,y1,x2,y2],"confidence":0.9,
+    //                "mask_area":64.0,"polygon":[[x,y],...]}]}
+    long YoloSegment(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
+                     _Out_ std::wstring &retjson, _Out_ long *ret);
+    long YoloSegmentFromFile(_In_ const wchar_t *file_name, _In_ double conf, _In_ double iou, _Out_ std::wstring &retjson,
+                             _Out_ long *ret);
+    // 当前已加载模型的元信息（未加载时 task="none"）。用途：脚本启动时自检"模型选对了没"，
+    // 而不是等到识别出一堆空结果才怀疑。JSON：
+    //   {"ok":1,"task":"segment","task_code":2,"input_width":640,"input_height":640,
+    //    "labels":["blob"],"labels_count":1}
+    void YoloGetModelInfo(_Out_ std::wstring &retjson);
     // 设置字库文件
     void SetDict(_In_ long idx, _In_ const wchar_t *file_name, _Out_ long *ret);
     // 获取指定字库中指定条目的字库信息

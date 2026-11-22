@@ -2546,4 +2546,104 @@ const wchar_t *OP_CALL OpYoloDetectFromMemEx2(op_handle handle, const wchar_t *i
         return nullptr;
     }
 }
+
+// ---- YOLO 任务维度（批 C 2026-11-22）----
+// rc<0 时返回 nullptr（与 Ex2 一致：参数非法/任务不支持），并由 find_count 置 0。
+const wchar_t *OP_CALL OpYoloClassify(op_handle handle, int x1, int y1, int x2, int y2, int top_k, int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloClassify(x1, y1, x2, y2, top_k, handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloClassify: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloClassifyFromFile(op_handle handle, const wchar_t *file_name, int top_k, int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloClassifyFromFile(safe_text(file_name), top_k, handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloClassifyFromFile: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloSegment(op_handle handle, int x1, int y1, int x2, int y2, double conf, double iou,
+                                    int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloSegment(x1, y1, x2, y2, conf, iou, handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloSegment: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloSegmentFromFile(op_handle handle, const wchar_t *file_name, double conf, double iou,
+                                             int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloSegmentFromFile(safe_text(file_name), conf, iou, handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloSegmentFromFile: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloGetModelInfo(op_handle handle) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.YoloGetModelInfo(ret); });
+}
 }

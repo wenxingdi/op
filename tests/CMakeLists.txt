@@ -164,6 +164,7 @@ set(OP_TEST_SOURCES
   # 内存直操作二期（2026-11-21）：识别入口的内存版
   "mem_image_test.cpp"
   "yolo_test.cpp"
+  "yolo_task_test.cpp"
   "utils_test.cpp"
   # C API 覆盖收口（2026-11-21）：补齐 10 个"无任何端到端调用证据"的导出
   # （二维码三件套 / GetWindowScale / TerminateProcess 两兄弟 / OcrAutoColor 系列 / AutoOcrLine / KeyPressHotkey）。
