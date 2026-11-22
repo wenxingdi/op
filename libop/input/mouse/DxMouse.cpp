@@ -1,12 +1,47 @@
 #include "DxMouse.h"
 #include "CursorShape.h"
 #include "../InputMessageUtils.h"
+#include "../InputEventBus.h"
 #include "../../hook/HookProtocol.h"
 #include "../../hook/InputHookClient.h"
 #include "../../base/AutomationModes.h"
 #include "../../base/Utils.h"
 
 namespace input_hook_client = op::hook::input_hook_client;
+
+namespace {
+
+// DX 后端的鼠标消息是 OP_WM_*（WM_USER 偏移），按去偏移后的语义映射成
+// SendInput 标志，保证录制文件与 IN_NORMAL 同构（见 InputEvent.h 顶部）。
+long dx_message_button_flag(UINT message) {
+    const UINT base = message - WM_USER;
+    switch (base) {
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONDBLCLK:
+        return MOUSEEVENTF_LEFTDOWN;
+    case WM_LBUTTONUP:
+        return MOUSEEVENTF_LEFTUP;
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONDBLCLK:
+        return MOUSEEVENTF_RIGHTDOWN;
+    case WM_RBUTTONUP:
+        return MOUSEEVENTF_RIGHTUP;
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONDBLCLK:
+        return MOUSEEVENTF_MIDDLEDOWN;
+    case WM_MBUTTONUP:
+        return MOUSEEVENTF_MIDDLEUP;
+    default:
+        return 0;
+    }
+}
+
+long dx_message_wheel_flag(UINT message) {
+    const UINT base = message - WM_USER;
+    return base == WM_MOUSEHWHEEL ? MOUSEEVENTF_HWHEEL : MOUSEEVENTF_WHEEL;
+}
+
+} // namespace
 
 namespace op::input {
 
@@ -76,6 +111,8 @@ long DxMouse::MoveTo(int x, int y) {
     long ret = message::SendTimeout(_hwnd, OP_WM_MOUSEMOVE, button_state(), MAKELPARAM(pt.x, pt.y));
 
     _x = pt.x, _y = pt.y;
+    if (ret)
+        trace_move(_x, _y);
     return ret;
 }
 
@@ -83,8 +120,13 @@ long DxMouse::send_button(UINT message, WPARAM button, bool down) {
     const POINT pt = current_client_point();
     const WPARAM state = button_state_with(button, down);
     const long ret = message::SendTimeout(_hwnd, message, state, MAKELPARAM(pt.x, pt.y));
-    if (ret)
+    if (ret) {
         set_button_state(button, down);
+        // 录制口径与 WinMouse 一致：只记 down/up 原语，双击消息映射成 down
+        const long flag = dx_message_button_flag(message);
+        if (flag)
+            trace_button(flag);
+    }
     return ret;
 }
 
@@ -93,8 +135,10 @@ long DxMouse::send_xbutton(UINT message, WORD xbutton, WPARAM button, bool down)
     const WPARAM state = button_state_with(button, down);
     const long ret =
         message::SendTimeout(_hwnd, message, MAKEWPARAM(static_cast<WORD>(state), xbutton), MAKELPARAM(pt.x, pt.y));
-    if (ret)
+    if (ret) {
         set_button_state(button, down);
+        trace_button(down ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP, xbutton);
+    }
     return ret;
 }
 
@@ -138,9 +182,12 @@ long DxMouse::xbutton_double_click(long (DxMouse::*click_func)(), WORD xbutton_i
 
 long DxMouse::wheel(UINT message, int delta) {
     const POINT pt = current_client_point();
-    return message::SendTimeout(_hwnd, message,
-                                MAKEWPARAM(static_cast<WORD>(button_state()), static_cast<WORD>(delta)),
-                                MAKELPARAM(pt.x, pt.y));
+    const long ret = message::SendTimeout(_hwnd, message,
+                                          MAKEWPARAM(static_cast<WORD>(button_state()), static_cast<WORD>(delta)),
+                                          MAKELPARAM(pt.x, pt.y));
+    if (ret)
+        trace_wheel(dx_message_wheel_flag(message), delta);
+    return ret;
 }
 
 long DxMouse::LeftClick() {

@@ -2680,3 +2680,72 @@ STDMETHODIMP OpAutomation::YoloDetectFromMemEx2(BSTR image_handle, LONG x1, LONG
                              options_text.c_str(), s, ret);
     return CopyOutBstr(retstr, s);
 }
+
+// ---- 时间轴层（批 E 2026-11-22）----
+//
+// 监听回调走 LONG_PTR 而不是 COM 事件接口：与 include/op_c_api.h 的
+// `op_input_monitor_callback` 同签名，调用方（易语言/VB6）用「取函数地址」传入即可。
+// 代价：VBScript/PowerShell 这类无法构造函数指针的宿主用不了监听功能，
+// 但它们仍可用录制/回放（那两条不需要回调）。
+
+STDMETHODIMP OpAutomation::InputSyncEnable(LONG enable, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    obj.InputSyncEnable(enable, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::SetInputMonitor(LONG_PTR callback, LONG_PTR user, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    obj.SetInputMonitor(reinterpret_cast<op::Op::InputMonitorCallback>(callback), reinterpret_cast<void *>(user), ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::InputRecord(LONG action, BSTR path, BSTR *retpath, LONG *ret) {
+    if (!retpath || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring out_path;
+    obj.InputRecord(action, path ? path : L"", out_path, ret);
+    return CopyOutBstr(retpath, out_path);
+}
+
+STDMETHODIMP OpAutomation::InputRecordGetPath(BSTR *retpath) {
+    if (!retpath)
+        return E_POINTER;
+    wstring out_path;
+    obj.InputRecordGetPath(out_path);
+    return CopyOutBstr(retpath, out_path);
+}
+
+STDMETHODIMP OpAutomation::InputPlayback(LONG action, BSTR path, DOUBLE speed, LONG loop, BSTR *retjson, LONG *ret) {
+    if (!retjson || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring json;
+    const long rc =
+        obj.InputPlayback(action, path ? path : L"", static_cast<double>(speed), loop, json, ret);
+    // LOAD 的条数语义走 retjson（*ret 也已是条数）；START 的成败看 rc。
+    if (action != 0 && *ret == 0 && rc != 0)
+        *ret = rc;
+    return CopyOutBstr(retjson, json);
+}
+
+STDMETHODIMP OpAutomation::InputSyncLink(LONG master, LONG slave, LONG enable, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    *ret = 0;
+    obj.InputSyncLink(master, slave, enable, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::InputSyncStatus(BSTR *retjson) {
+    if (!retjson)
+        return E_POINTER;
+    wstring json;
+    obj.InputSyncStatus(json);
+    return CopyOutBstr(retjson, json);
+}

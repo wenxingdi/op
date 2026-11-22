@@ -821,6 +821,81 @@ OP_C_API const wchar_t *OP_CALL OpYoloDetectFromMem(op_handle handle, const wcha
 OP_C_API const wchar_t *OP_CALL OpYoloDetectFromMemEx2(op_handle handle, const wchar_t *image_handle, int x1, int y1,
                                                         int x2, int y2, double conf, double iou,
                                                         const wchar_t *json_options, int *find_count);
+/* ===== 时间轴层（批 E 2026-11-22）：录制 / 回放 / 监听 / 主从同步 =====
+ *
+ * 采集入口挂在**每个输入原语的后端出口**，所以 Down/Up 级、Click 级、KeyPressStr、
+ * DragPath 等全部覆盖；一次 LeftClick 会录成 down+up 两条（回放才能复原按了几下）。
+ *
+ * 坐标系：录的是**客户区坐标**（与 Mouse 各 API 同口径）。录制与回放必须落在
+ * 同一个绑定窗口上；未绑定时坐标 = 屏幕坐标，语义不同。
+ *
+ * 录制文件：JSONL，一行一个事件，字段固定：
+ *   {"t":12.340,"type":"mouse_button","vk":0,"x":300,"y":200,"wheel":0,"flags":4}
+ *   type  : mouse_move / mouse_button / mouse_wheel / key / key_char
+ *   t     : 相对录制起点的毫秒数（回放按 t/speed 等比缩放）
+ *   flags : mouse_button 用 MOUSEEVENTF_*（0x0002/0x0004/…）
+ *           mouse_wheel 用 MOUSEEVENTF_WHEEL(0x0800)/HWHEEL(0x1000)
+ *           key 用 KEYEVENTF_KEYUP(0x0002)
+ *           key_char 用 KEYEVENTF_UNICODE(0x0004)，此时 x 字段存字符码
+ *
+ * 返回值约定（与既有 API 一致：0 失败 / 非 0 成功，*ret 出参另给细节）：
+ *   OpInputSyncEnable  *ret 1 成功
+ *   OpSetInputMonitor  *ret 1 成功
+ *   OpInputRecord      *ret START=1|0；STOP=写入条数
+ *   OpInputPlayback    LOAD *ret=事件条数, 返回 JSON；START *ret=1 放完/0 没东西可放；
+ *                      STOP/FREE *ret=1
+ *   OpInputSyncLink    *ret 1 建立/取消成功、0 失败
+ */
+
+/* 监听回调看到的事件。字段顺序固定，改动即 ABI 变更。
+ * 与 include/libop.h 的 op::op_input_event_view 逐字段一致（同一份布局，两处入口共用）。 */
+typedef struct op_input_event_view {
+    double t;  /* 相对录制起点的毫秒数（未录制时为 0） */
+    int type;  /* 0=mouse_move 1=mouse_button 2=mouse_wheel 3=key 4=key_char */
+    long vk;
+    long x;    /* 客户区坐标；key_char 事件里复用为字符码 */
+    long y;
+    long wheel;
+    long flags; /* MOUSEEVENTF_* / KEYEVENTF_* */
+} op_input_event_view;
+
+/* 回调在**调用方线程**同步触发。回调里不要再调输入 API（会被旁路护栏挡掉，
+ * 不崩溃但那部分输入不录）。user 原样回传。 */
+typedef void (OP_CALL *op_input_monitor_callback)(const op_input_event_view *event, void *user);
+
+/* 采集开关：0 关闭（同时结束正在进行的录制）/ 1 打开。默认关闭。 */
+OP_C_API int OP_CALL OpInputSyncEnable(op_handle handle, int enable, int *ret);
+/* 设置监听回调；callback 为 NULL 取消监听。 */
+OP_C_API int OP_CALL OpSetInputMonitor(op_handle handle, op_input_monitor_callback callback, void *user, int *ret);
+/* 录制。action 0=START（path 为空自动生成 input_record_YYYYmmdd_HHMMSS.jsonl）1=STOP。
+ * START 时返回 path；已在录制时 START 返回 0 且不截断前一段。
+ * STOP 时 *ret = 写入事件条数（0 = 确实没产生输入，不是出错）。 */
+OP_C_API const wchar_t *OP_CALL OpInputRecord(op_handle handle, int action, const wchar_t *path, int *ret);
+/* 取最近一次录制（或正在录制）的文件路径；没录过返回空串。 */
+OP_C_API const wchar_t *OP_CALL OpInputRecordGetPath(op_handle handle);
+/* 回放。action 0=LOAD 1=START 2=STOP 3=FREE。
+ *   LOAD  : *ret = 事件条数；JSON {"ok":1,"events":N,"bound":0|1,"path":"..."}
+ *           ⚠ bound=0 表示当前没绑定窗口，坐标按屏幕语义回放，与录制时不同。
+ *   START : 同步回放到结束（或被 STOP）；*ret = 1 放完 / 0 没东西可放。
+ *   STOP  : 请求停止（下一次事件边界生效）；FREE : 释放已装载事件。
+ * speed<=0 视为 1.0；loop<=0 视为 1。 */
+OP_C_API const wchar_t *OP_CALL OpInputPlayback(op_handle handle, int action, const wchar_t *path, double speed,
+                                                int loop, int *ret);
+/* 主从同步：把 master 实例产生的输入事件**异步**投递到 slave 实例。
+ * enable 1=建立/改绑、0=取消（master 必须确实是当前 master，否则返回 0）。
+ * 投递是异步且**可丢弃**的：队列满（256）时丢事件而不阻塞主实例——迟到的点击会点错地方。
+ * master==slave 会被拒绝（自己投自己会自我放大）。 */
+OP_C_API int OP_CALL OpInputSyncLink(op_handle handle, int master, int slave, int enable, int *ret);
+/* 主从链路诊断：{"ok":1,"enabled":0|1,"master":N,"as_master_of":N,"as_slave_of":N,
+ *               "async_dropped":N,"queue":N} */
+OP_C_API const wchar_t *OP_CALL OpInputSyncStatus(op_handle handle);
+
+/* 诊断（跨模块唯一性）：返回输入事件总线内部状态的标识指针。
+ * 两个模块（op_c_api_x64.dll / op_x64.dll）拿到的指针**必须相同**；
+ * 不同就说明进程里存在多份 InputEventBus 单例（静态变量按模块各一份），
+ * 表现为"录制看得见、回放 STOP 看不见"。仅供测试与排障，业务不应依赖。 */
+OP_C_API const void *OP_CALL OpInputBusIdentity(op_handle handle);
+
 #ifdef __cplusplus
 }
 #endif

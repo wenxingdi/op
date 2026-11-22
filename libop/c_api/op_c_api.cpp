@@ -12,6 +12,8 @@
 #include "../base/Utils.h"
 #include "binding/BindingSession.h"
 #include "image/Image.h"
+// 时间轴层：OpInputBusIdentity 需要 InputEventBus 的完整定义（跨模块唯一性诊断）
+#include "input/InputEventBus.h"
 
 #include <Windows.h>
 #include <cstdint>
@@ -2721,5 +2723,88 @@ const wchar_t *OP_CALL OpDisassemble(op_handle handle, const wchar_t *bytes_hex,
         const long rc = op.Disassemble(safe_text(bytes_hex), safe_text(address), count, out, &ok);
         out_int(ret, rc > 0 ? ok : 0);
     });
+}
+
+// ---- 时间轴层（批 E 2026-11-22）----
+//
+// 监听回调是 C 侧的 `void (*)(const op_input_event_view*, void*)`，而 op::Op 收的是
+// 自己的同名 typedef；两者**布局相同**（都是同一个 struct 的指针 + void*），
+// 直接 reinterpret_cast 即可，不需要再做一层胶水（多一层就多一处可能写错签名的地方）。
+extern "C" {
+int OP_CALL OpInputSyncEnable(op_handle handle, int enable, int *ret) {
+    return call_ret(handle, [&](op::Op &op, long *r) { op.InputSyncEnable(enable, r); });
+}
+
+int OP_CALL OpSetInputMonitor(op_handle handle, op_input_monitor_callback callback, void *user, int *ret) {
+    return call_ret(handle, [&](op::Op &op, long *r) {
+        op.SetInputMonitor(reinterpret_cast<op::Op::InputMonitorCallback>(callback), user, r);
+    });
+}
+
+const wchar_t *OP_CALL OpInputRecord(op_handle handle, int action, const wchar_t *path, int *ret) {
+    if (!handle) {
+        out_int(ret, 0);
+        return L"";
+    }
+    CallScope scope(handle);
+    try {
+        handle->string_result.clear();
+        long written = 0;
+        handle->op.InputRecord(action, safe_text(path), handle->string_result, &written);
+        out_int(ret, written);
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpInputRecord: %s", e.what());
+        out_int(ret, 0);
+        return L"";
+    } catch (...) {
+        setlog("op_c_api: unknown exception in OpInputRecord");
+        out_int(ret, 0);
+        return L"";
+    }
+}
+
+const wchar_t *OP_CALL OpInputRecordGetPath(op_handle handle) {
+    return call_string(handle, [&](op::Op &op, std::wstring &path) { op.InputRecordGetPath(path); });
+}
+
+const wchar_t *OP_CALL OpInputPlayback(op_handle handle, int action, const wchar_t *path, double speed, int loop,
+                                       int *ret) {
+    if (!handle) {
+        out_int(ret, 0);
+        return nullptr;
+    }
+    CallScope scope(handle);
+    try {
+        handle->string_result.clear();
+        long rc = 0;
+        // op::Op::InputPlayback 自己返回 long（LOAD=条数 / START=1|0），
+        // 这里同时把这个值放进 *ret，保证 C 侧不用解析 JSON 也能判断成败。
+        const long self = handle->op.InputPlayback(action, safe_text(path), speed, loop, handle->string_result, &rc);
+        out_int(ret, action == 0 ? self : (rc != 0 ? self : 0));
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpInputPlayback: %s", e.what());
+        out_int(ret, 0);
+        return nullptr;
+    } catch (...) {
+        setlog("op_c_api: unknown exception in OpInputPlayback");
+        out_int(ret, 0);
+        return nullptr;
+    }
+}
+
+int OP_CALL OpInputSyncLink(op_handle handle, int master, int slave, int enable, int *ret) {
+    return call_ret(handle, [&](op::Op &op, long *r) { op.InputSyncLink(master, slave, enable, r); });
+}
+
+const wchar_t *OP_CALL OpInputSyncStatus(op_handle handle) {
+    return call_string(handle, [&](op::Op &op, std::wstring &json) { op.InputSyncStatus(json); });
+}
+
+const void *OP_CALL OpInputBusIdentity(op_handle handle) {
+    (void)handle;
+    return op::input::InputEventBus::instance().identity();
+}
 }
 }

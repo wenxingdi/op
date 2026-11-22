@@ -3,6 +3,197 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-22 第五十二批（feat：汇编补全 —— AsmCall 落地，Assemble/Disassemble 阻塞如实上报）
+
+五模块实施 D 批（提交 `4ea0895`）。方案见 `docs/2026-11/五模块实施规划_20261122.md` §5。
+
+| # | 接口 | 状态 |
+|---|---|---|
+| 1 | `AsmCall(hwnd, code_hex, timeout, retjson)` | ✅ 在目标进程执行机器码并取返回值；`hwnd=0` = 当前进程。纯 BlackBone + Win32，**无新依赖**；执行完立即释放可执行内存；上限 64KB；超时默认 5s |
+| 2 | `Assemble(code, arch)` | ❌ **阻塞**：需要 keystone |
+| 3 | `Disassemble(bytes_hex, addr, count)` | ❌ **阻塞**：需要 capstone |
+
+**阻塞原因（如实记录）**：两者在 vcpkg 都有 port，但本机装不上 —— vcpkg 引导自身工具链时
+用 `CreateFileW` 重定向 stdin 解压 7z，在沙箱里返回 `Access is denied`
+（`calling CreateFileW stdin failed with 5`）。手工把 7z 解包到 `downloads/tools/` 也无效。
+
+**没有偷偷降级成"写个假汇编器"**：那会产出错码且极难排查，比没有更糟。
+两个接口存在且**显式失败**（返回 0 + JSON 带 `error` 说明原因），API 面
+（C++ / C API / COM）已预留，后续接上不用改签名。
+恢复方式：在有网络无沙箱的机器上 `vcpkg install keystone:x64-windows-static capstone:x64-windows-static`，
+然后按 `libop/op/OpAsm.cpp` 底部 TODO 接上。
+
+测试：`tests/asm_batch_test.cpp` 5 条，全部走 `hwnd=0` 当前进程路径（5/5 PASS）。
+未测目标进程路径（需第三方进程 + 管理员权限，属环境依赖项）。
+
+### 2026-11-22 第五十一批（feat：DrawGui 补齐 —— Circle/Image + 绑定窗口内绘制）
+
+五模块实施 B 批（提交 `79c4780`）。方案见 `docs/2026-11/五模块实施规划_20261122.md` §3。
+
+| # | 接口 | 说明 |
+|---|---|---|
+| 1 | `DrawCircle(x, y, r, color, width)` | 屏幕层圆形（`DrawCmdType` 从 Rect/Line/Text 扩出 Circle） |
+| 2 | `DrawImage(x, y, file, alpha)` | 屏幕层叠加图片，带 alpha |
+| 3~7 | `DrawRectEx` / `DrawCircleEx` / `DrawTextEx` / `DrawClearBind` / `DrawGetCount` | 绑定层：坐标 = **绑定窗口客户区**（与找色/鼠标同口径）；画在独立透明窗口，**不写目标 DX 后台缓冲 → 不进 DX 截图**；窗口移动/缩放跟随（250ms 轮询 + 每次绘制校正）；**未绑定时显式返回 0 并记日志** |
+
+**修正既有认知**：`DrawRect`/`DrawLine`/`DrawText`/`DrawClear`/`DrawSetVisible` 最小组**早已存在**
+（2026-10-15 P2 落地），本批是补齐缺口 + 加绑定层。
+
+**已知限制（代码与头文件均已注明）**：`DrawRectEx` 的 `mode=0`（填充）**按描边绘制**并在日志说明，
+不假装支持填充；只支持描边，绑定层无独立 `DrawSetColor`（默认白色）。
+
+层覆盖：C++ / C API（7 个裸名导出）/ COM（DISPID 484~490）。
+坑：`libop/com/OpAutomation.h` 是**手写**声明，改 `op.idl` 必须同步，否则 `error C2509`（已在头文件加注释）。
+测试：`tests/draw_batch_test.cpp` 5 条。**不测像素级视觉正确性**（分层窗口不在本进程截图链里，判据不稳），
+可视化验收走人工目视。
+
+### 2026-11-22 第五十批（feat：YOLO 任务维度 —— Classify / Segment + 模型元信息）
+
+五模块实施 C 批（提交 `fc7f915`）。方案见 `docs/2026-11/五模块实施规划_20261122.md` §4。
+
+引擎抽象从「只有 detect」升为 `Task`（`Detect` / `Segment` / `Classify`）；任务判定顺序：
+先读 ONNX metadata 的 `task` 字段 → 读不到再按输出形状推断。
+
+新增 5 个符号：`YoloClassify` / `YoloClassifyFromFile` / `YoloSegment` / `YoloSegmentFromFile` /
+`YoloGetModelInfo`。**核心契约**：任务不符返回 **-1**，无结果返回 **0** —— 两者混用会掩盖"模型选错了"。
+
+**Segment 要点**：双输出（检测头 + proto）按**维数**自动分派，不依赖输出顺序；掩码在 proto 网格上算
+`coeff·proto > 0` → 8 邻域轮廓跟踪 → 抽稀 → 映射回原图坐标；输出 `polygon`（原图坐标）与 `mask_area`。
+
+**本轮实测修的两个真实缺陷**：
+1. **anchor 轴判定**：单 anchor 时 `min/max` 会把属性维当 anchor 维（实测 `nc=-5`）。改为先按
+   "输入尺寸算出的 anchor 数"对轴，再按"属性维 >= 4+nm"兜底，都对不上才用 min/max。
+2. **`SetYoloEngine` 加载失败后仍在跑旧模型**：`init` 返回失败但旧 Session 还挂着，对脚本是
+   "换模型失败却继续用旧模型出结果"的静默危险行为。现在 init 失败即重建引擎（置回未加载态）。
+
+**不做**（明确记录）：`Pose`（关键点需额外骨架规格）/ `Obb`（旋转框）/ 多模型热切换（整套生命周期设计）/ TensorRT·NCNN 后端。
+
+测试：`tests/yolo_task_test.cpp` 6 条，2 处反向验证变红。测试资产由
+`scripts/gen_yolo_task_test_models.py` 生成（须用托管 venv 的 python）。
+**顺序坑**：YOLO 引擎是进程级单例，`ModelInfoReportsNoneBeforeLoad` 单跑绿/全跑红 ——
+用例自己先 `SetYoloEngine("不存在.onnx")` 制造未加载态（这条同时也暴露了上面第 2 个缺陷）。
+
+### 2026-11-22 第四十九批（feat：同实例并发可观测 —— OpConcurrencyInfo + 6 条多实例用例）
+
+五模块实施 A 批（提交 `2fd2206`）。方案见 `docs/2026-11/五模块实施规划_20261122.md` §2。
+
+`OpContext` 新增原子计数：`in_flight` / `peak_in_flight` / `reentrant_hits` / `calls_total`；
+C API 门面 `CallScope` 统一计入；首次撞并发打一条日志（每句柄仅一次）。
+新增 `OpConcurrencyInfo`（C++ / C API 裸名导出），返回
+`{"id":1,"in_flight":0,"peak":3,"reentrant":12,"calls_total":880,"image_count":4,"bound":0,"thread_safe":false}`。
+
+**关键决策：不改变"单实例非线程安全"的既有约定**（`libop.h` 顶部明文）。本批只把"静默污染"
+变成"可观测事件"。串行化会把用户的错误用法伪装成能跑，更难排查。
+
+测试：`tests/concurrency_batch_test.cpp` 6 条；2 处反向验证（去掉 reentrant 计数 / 去掉 peak 更新）均如愿变红。
+
+**踩坑（已修）**：`OpContext.h` 引入 `<atomic>` 后若放在项目头之后，会让 MSVC 的
+`<chrono>/<filesystem>/<__msvc_tzdb.hpp>` 解析崩（`error C2061 true_type`、`C3861 is_same_v`）。
+**修法：标准库必须成组前置**（`atomic/chrono/filesystem/map/mutex/string/thread/vector` 全部放最前）。
+同一坑在 `op_c_api.cpp` 也复现过一次（`OpContext.h` 必须放在 `include/libop.h` 之前）。
+
+### 2026-11-22 第五十三批（feat：时间轴层 —— 录制/回放/监听/主从同步，五模块实施 E 收官）
+
+承接第四十九~五十二批（五模块 A/C/B/D）。本批是五模块实施的**最后一批**：
+把"录下来、放回去、边放边看、一控多"四件事做成一层可组合的能力。
+方案与逐项设计：`docs/2026-11/五模块实施规划_20261122.md` §6；
+收官总结与全部踩坑：`docs/2026-11/五模块实施总结报告_20261122.md`。
+
+#### 1. 关键设计：录制钩子挂在**输入原语后端出口**，不是 op 层
+
+规划原文写的是"找出各输入方法的共同落点，统一走一个 input_event_bus"。读代码后
+**修正了这处落点**：`op::Op` 的方法只是转发（`LeftClick` 一行调 `_mouse->LeftClick()`），
+真正的共同落点是三个后端（`WinMouse` / `DxMouse` / `WinKeyboard` / `DxKeyboard`）的**原语**。
+
+理由（这条决定了录制质量）：
+
+| 若钩在 op 层 | 若钩在原语导出 |
+|---|---|
+| 一次 `LeftClick` 只看到 1 条事件 | 看到 `down` + `up` 两条 |
+| 回放时无法复原"按了几下/按住多久" | 可逐条重放，时序完整 |
+| 双击只录成 1 条 | 录成 4 条（恰好是真实按下序列） |
+
+所以 `LeftClick`/`DoubleClick`/`KeyPress` 这些**合成方法一律不钩**（内部会走到原语）。
+
+#### 2. 单例必须跨 DLL 唯一（本批最贵的坑，值得单独记）
+
+总线最初写成普通的函数内静态变量。单跑没问题，但**测试进程同时载入
+`op_com.dll` + `op_c_api_x64.dll`，而 `op_test.exe` 又直接编进了 `WinMouse.cpp` /
+`InputEventBus.cpp`** —— 进程里出现三份 `instance()`：录制钩子在 exe 那份上，
+`OpInputPlayback` 走 op_c_api.dll 那份，于是**STOP 永远看不见**（2s 的间隔照走完）。
+发布环境里是同一个错：COM 入口与 C API 入口各录各的。
+
+修法：单例的**状态**放进进程级命名共享内存（`CreateFileMapping` 名字带 PID +
+`MapViewOfFile` + `InterlockedCompareExchangePointer`），各模块的 `InputEventBus`
+对象只持有指向该块的指针。判据用例 `InputTimelineBusTest.BusIsSingleInstanceAcrossModules`
+直接比较两边 `identity()` 指针；退回静态变量该用例必红（已实测）。
+
+#### 3. 新增 8 个接口（C++ / C API 裸名导出 / COM DISPID 491~497）
+
+| 组 | 接口 | 说明 |
+|---|---|---|
+| 采集开关 | `InputSyncEnable(0/1)` | 关闭时会把正在进行的录制收尾（否则文件句柄泄漏、下次 START 被拒） |
+| 监听 | `SetInputMonitor(callback, user)` | 回调在**调用方线程**同步触发，与 OLA `InputMonitorCallback` 同构；`op_input_event_view` 布局在 `libop.h` 与 `op_c_api.h` 两处逐字段一致 |
+| 录制 | `InputRecord(0/1, path)` + `InputRecordGetPath` | 落盘 JSONL `{t,type,vk,x,y,wheel,flags}`；STOP 的 `ret` = **实际写入条数**（0 = 确实没输入）。重复 START 返回 0 且**不截断**前一段 |
+| 回放 | `InputPlayback(0/1/2/3, path, speed, loop)` | LOAD/START/STOP/FREE；时间轴按 `t/speed` 等比缩放，用"相对起点的绝对时刻"推进（长录音不累积漂移）；LOAD 返回 JSON 带 `bound:0/1` |
+| 主从 | `InputSyncLink(master, slave, 0/1)` + `InputSyncStatus` | 异步投递（后台线程），队列满 256 条**丢事件不阻塞**主实例；`master==slave` 被拒 |
+
+#### 4. 两条刻意的"不静默"
+
+- **主从不阻塞**：输入是边沿事件，迟到即错位（按 200ms 前的坐标去点，点的是别处）。
+  所以队列满时丢并计数（`async_dropped`），而不是把主实例拖慢。
+- **未绑定窗口时 LOAD 返回 `bound:0`**：坐标会按**屏幕**语义回放，与录制时的客户区语义不同。
+  这个差异不兜底、不假装，直接报给调用方并记日志。
+
+#### 5. 测试：14 条用例 + 6 条反向验证（全部实测变红）
+
+`tests/input_timeline_batch_test.cpp`（13 条）+ `tests/input_timeline_bus_test.cpp`（1 条）。
+全部走 **C API 导出层** + 自建测试窗口的 `windows` 绑定模式（不产生全局鼠标移动）。
+
+反向验证（改坏一处 → 对应断言必须变红，逐条实测）：
+
+| # | 改坏什么 | 变红的断言 |
+|---|---|---|
+| 1 | `send_windows_button` 不再映射 flags | `必须有 LEFT_UP(4)` |
+| 2 | 单例退回普通静态变量 | `两个模块拿到的总线必须是同一个实例` |
+| 3 | `playback_stop()` 改成置 false | `STOP 应打断 2s 的等待` |
+| 4 | 去掉监听回调的 `RecordBypass` 护栏 | `护栏生效时回调里的输入不应再触发回调` |
+| 5 | 回放忽略 `speed` | `speed=10 时 120ms 的录音应在 100ms 内放完` |
+| 6 | 允许 `master == slave` | `master == slave 必须被拒绝` |
+
+> **反向验证 4 一开始是假绿**：初版断言是"回调里调一次 MoveTo，期望重入 1 次"，
+> 去掉护栏后**仍然通过**（递归深度只有 1 层，护栏在不在都一样）。已重写成
+> "回调每次都重新装弹 + 统计嵌套深度"，去掉护栏会打到 200 次预算 → 必红。
+> 这是本仓库"宁可如实记录没证明，也不要凑绿"约定的又一次实践。
+
+#### 6. 一个测试方法学教训（不是实现 bug）
+
+`PlaybackStopInterruptsLongWait` 红了很久，最后查明**是用例自己把消息泵堵住了**：
+`IN_WINDOWS` 模式的 `MoveTo` 走 `SendMessageTimeout(SMTO_BLOCK, 2000ms)`，而被调窗口的
+WndProc 在**用例自己的线程**上跑。用例在主线程 `sleep`/`wait_for` 等回放线程时没有抽消息，
+SendMessage 就一直等到超时 —— 表现成"STOP 无效"。
+修法：等待一律走 `pump_wait()`（边等边 `PeekMessage`/`DispatchMessage`）。
+**教训：涉及 `SendMessage` 的用例，等待必须泵消息，否则你测的是自己的死锁。**
+
+#### 7. 验证与回归
+
+- 导出：`op_c_api_x64.dll` 共 **378** 个 `Op*` 裸名导出（本批 +8），`dumpbin` 中 **0 个修饰名**。
+- 构建：`op_c_api_x64` / `op_x64` / `op_test` 全绿。
+- 全量回归：**618 项 / 586 PASS / 10 FAILED**，失败项全部是交接文档列明的
+  DX/GL 环境项（`MouseKeyTest.BindWindowDxSuffix*`、`WindowStateTest.DxBindToSameIntegrity*`、
+  `HookCaptureTest.*`），**0 回归**。新增 14 条用例全绿。
+
+#### 8. 未做（如实记录，不假装完成）
+
+- **DX 绑定模式下的回放**：回放走 `WinMouse`/`WinKeyboard` 的 WIN 语义。DX 模式的移动
+  需要目标进程内载入器就位，跨绑定模式的回放一致性未验证。
+- **回放的目标窗口效果**：只验证事件计数/时序/停止/释放，**不验证**目标窗口真的收到了
+  像素级或消息级的正确输入（那是人工验收项）。
+- **主从的 slave 侧效果**：只验证链路建立/撤销/自我链接被拒/异步不阻塞，不验证 slave
+  窗口真的收到了消息。
+- **监听回调的跨线程投递**：回调就在产生事件的线程上同步触发（与 OLA 同构），
+  没有做"投递到指定线程"的选项。
+
 ### 2026-11-22 第四十八批（docs：文档审计与遗留项收口）
 
 对 2026-11-19 以来 34 个提交做文档覆盖审计：32 个已有文档，3 处缺口本次收口。

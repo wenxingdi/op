@@ -28,6 +28,13 @@ class KeyboardBackend {
     virtual long InputChar(wchar_t ch) = 0;
 
   protected:
+    // ---- 时间轴层录制钩子（批 E 2026-11-22）----
+    // 放在基类而不是各后端各写一份：WinKeyboard / DxKeyboard 的 flags 口径相同
+    // （KEYEVENTF_KEYUP / KEYEVENTF_UNICODE），重复实现只会漂移。
+    // KeyPress 刻意**不调**：它由 KeyDown + KeyUp 组成，再钩一次就录重了。
+    void trace_key(long vk, long flags) const;
+    void trace_char(wchar_t ch) const;
+
     HWND _hwnd;
     int _mode;
 };

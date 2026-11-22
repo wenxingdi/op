@@ -52,6 +52,20 @@ namespace internal {
 struct OpContext;
 }
 
+// 监听回调看到的事件（时间轴层，批 E 2026-11-22）。
+// 独立于内部实现结构：本头文件是**公开 API**，不能把 libop/input/InputEvent.h
+// 拖进来（那会把内部目录结构变成 ABI 的一部分，且 C API/COM 侧也要用同一份布局）。
+// 字段顺序固定，改动即为 ABI 变更。
+struct op_input_event_view {
+    double t; // 相对录制起点的毫秒数（未录制时为 0）
+    int type; // 0=mouse_move 1=mouse_button 2=mouse_wheel 3=key 4=key_char
+    long vk;
+    long x; // 客户区坐标；key_char 事件里复用为字符码
+    long y;
+    long wheel;
+    long flags; // MOUSEEVENTF_* / KEYEVENTF_*，见 InputRecord 上方说明
+};
+
 class OP_API Op {
 
   public:
@@ -486,6 +500,69 @@ class OP_API Op {
     void SetKeypadDelay(_In_ const wchar_t *type, _In_ long delay, _Out_ long *ret);
     // 根据指定的字符串序列，依次按顺序按下其中的字符
     void KeyPressStr(_In_ const wchar_t *key_str, _In_ long delay, _Out_ long *ret);
+
+    // ---- 时间轴层（批 E 2026-11-22）：录制 / 回放 / 监听 / 主从同步 ----
+    //
+    // 采集入口挂在**每个输入原语的后端出口**（MoveTo / LeftDown / KeyDown / …），
+    // 所以 Down/Up 级、Click 级、KeyPressStr、DragPath 等**全部覆盖**，且一次
+    // 「LeftClick」会录成 down+up 两条（回放才能复原"按了几下"）。
+    //
+    // 坐标系：录的是**客户区坐标**（与 Mouse 各 API 同口径）。录制与回放必须
+    // 落在同一个绑定窗口上，否则坐标含义不同（未绑定时 = 屏幕坐标）。
+    //
+    // 录制文件格式：JSONL，一行一个事件，字段固定为
+    //   {"t":12.340,"type":"mouse_button","vk":0,"x":300,"y":200,"wheel":0,"flags":4}
+    //   type: mouse_move / mouse_button / mouse_wheel / key / key_char
+    //   t:    相对录制起点的毫秒数（回放按它等比缩放）
+    //   flags: mouse_button 用 MOUSEEVENTF_*（0x0002/0x0004/…）；
+    //          mouse_wheel 用 MOUSEEVENTF_WHEEL(0x0800)/HWHEEL(0x1000)；
+    //          key 用 KEYEVENTF_KEYUP(0x0002)；key_char 用 KEYEVENTF_UNICODE(0x0004) 且 x 字段存字符码。
+    //
+    // 采集开关：0 关闭（同时结束正在进行的录制）／1 打开。默认关闭，开启后热路径只有
+    // 一次原子读，对正常脚本的输入耗时可忽略。
+    void InputSyncEnable(_In_ long enable, _Out_ long *ret);
+    // 输入监听回调。回调在**调用方线程**同步触发，参数是刚发生的事件（t 相对录制起点，
+    // 未录制时为 0）。user 原样回传。
+    // ⚠ 回调里**不要**再调输入 API：会被旁路护栏挡掉（不是崩溃，但那部分输入不录）。
+    // 回调是函数指针而不是 std::function，与 C API / COM / 易语言 的用法同构。
+    typedef void (*InputMonitorCallback)(const op_input_event_view *event, void *user);
+    // 传 callback=nullptr 取消监听。
+    void SetInputMonitor(_In_ InputMonitorCallback callback, _In_ void *user, _Out_ long *ret);
+    // 录制。
+    //   action 0 = START：开始录制；path 为空时自动生成
+    //            （工作目录下 input_record_YYYYmmdd_HHMMSS.jsonl）。
+    //            返回 1 成功、0 失败；**已在录制时返回 0 且不截断前一段**。
+    //   action 1 = STOP ：结束录制，ret = 实际写入的事件条数（0 = 确实没产生输入）；
+    //            retpath 为文件路径。
+    void InputRecord(_In_ long action, _In_ const wchar_t *path, _Out_ std::wstring &retpath, _Out_ long *ret);
+    // 取"最近一次录制（或正在录制）"的文件路径；没录过返回空串。
+    void InputRecordGetPath(_Out_ std::wstring &retpath);
+    // 回放。
+    //   action 0 = LOAD ：读入 JSONL。ret = 事件条数，retjson 形如
+    //            {"ok":1,"events":12,"bound":1,"path":"D:\\a.jsonl"}（读失败 ok=0 + error）。
+    //            ⚠ bound=0 表示**当前没绑定窗口**，坐标会按屏幕语义回放，与录制时不同。
+    //   action 1 = START：同步回放（本调用阻塞到放完或被 STOP）。speed 为倍速（<=0 视为 1.0），
+    //            loop 为循环次数（<=0 视为 1）。ret=1 放完 / 0 没东西可放。
+    //   action 2 = STOP ：请求停止（下一次事件边界生效，最长等待 5ms 的睡眠片）。
+    //   action 3 = FREE ：释放已装载的事件。
+    // 时间轴按 t 等比缩放：目标时刻 = t / speed，按"相对回放起点的绝对时刻"推进，
+    // 长录音不会累积漂移。
+    long InputPlayback(_In_ long action, _In_ const wchar_t *path, _In_ double speed, _In_ long loop,
+                       _Out_ std::wstring &retjson, _Out_ long *ret);
+    // 主从同步：把 master 实例产生的输入事件**异步**投递到 slave 实例。
+    //   enable 0 = 取消（master 必须确实是当前的 master，否则返回 0）；
+    //   enable 1 = 建立/改绑。
+    // 语义与限制（重要）：
+    //   * 投递是**异步 + 可丢弃**的：输入是边沿事件，迟到的点击会点错地方，所以队列
+    //     满（256 条）时丢事件而不是阻塞主实例。丢弃数可从 InputSyncStatus 读到。
+    //   * master == slave 会被拒绝（自己投自己会自我放大）。
+    //   * slave 的绑定模式决定投递效果：WIN 语义（normal/windows）可完整复现；
+    //     DX 模式的移动需要目标进程内载入器，可能只复现按键。
+    void InputSyncLink(_In_ long master, _In_ long slave, _In_ long enable, _Out_ long *ret);
+    // 主从链路诊断（本实例视角）：
+    //   {"ok":1,"enabled":0/1,"master":<本实例 id>,"as_master_of":N,"as_slave_of":N,
+    //    "async_dropped":0,"queue":0}
+    void InputSyncStatus(_Out_ std::wstring &retjson);
     //--------------------image and color-----------------------
     // 抓取指定区域(x1, y1, x2, y2)的图像, 保存为file
     void Capture(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *file_name, _Out_ long *ret);

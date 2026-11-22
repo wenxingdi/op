@@ -353,6 +353,24 @@ interface IOpAutomation : IDispatch
 	[id(488)] HRESULT DrawTextEx([in] LONG x, [in] LONG y, [in] BSTR text, [in] LONG font_size, [out, retval] LONG* ret);
 	[id(489)] HRESULT DrawClearBind([out, retval] LONG* ret);
 	[id(490)] HRESULT DrawGetCount([out] LONG* screen_count, [out] LONG* bind_count, [out, retval] LONG* ret);
+
+	// ---- 时间轴层（批 E 2026-11-22）：录制 / 回放 / 监听 / 主从同步 ----
+	// 采集挂在每个输入原语的出口，Down/Up 级与 Click 级都覆盖；一次 LeftClick 录成 down+up 两条。
+	// 坐标系为**客户区**（与 Mouse 各 API 同口径），录制与回放必须落在同一个绑定窗口上。
+	// 录制文件为 JSONL：{"t":12.340,"type":"mouse_button","vk":0,"x":300,"y":200,"wheel":0,"flags":4}
+	// 回调是**函数指针类型**（op_input_monitor_callback，定义见 include/op_c_api.h），
+	// 不是 COM 事件：易语言用「取函数地址」传入，VBScript/PowerShell 无法传函数指针。
+	// 回调在调用方线程同步触发，且回调里不要再调输入 API。
+	[id(491)] HRESULT InputSyncEnable([in] LONG enable, [out, retval] LONG* ret);
+	[id(492)] HRESULT SetInputMonitor([in] LONG_PTR callback, [in] LONG_PTR user, [out, retval] LONG* ret);
+	[id(493)] HRESULT InputRecord([in] LONG action, [in] BSTR path, [out] BSTR* retpath, [out, retval] LONG* ret);
+	[id(494)] HRESULT InputRecordGetPath([out, retval] BSTR* retpath);
+	// action 0=LOAD 1=START 2=STOP 3=FREE；LOAD 返回 JSON（含 bound=0|1），START 同步放完才返回。
+	[id(495)] HRESULT InputPlayback([in] LONG action, [in] BSTR path, [in] DOUBLE speed, [in] LONG loop, [out] BSTR* retjson, [out, retval] LONG* ret);
+	// master/slave 是**实例 id**（见 InputSyncStatus 的 "master" 字段），不是 hwnd。
+	// 投递异步且可丢弃：队列满丢事件而不阻塞主实例（迟到的点击会点错地方）。
+	[id(496)] HRESULT InputSyncLink([in] LONG master, [in] LONG slave, [in] LONG enable, [out, retval] LONG* ret);
+	[id(497)] HRESULT InputSyncStatus([out, retval] BSTR* retjson);
 	[id(417)] HRESULT GetModuleSize([in] LONGLONG hwnd, [in] BSTR module_name, [out, retval] LONG* ret);
 	[id(418)] HRESULT GetModuleInfoList([in] LONGLONG hwnd, [out, retval] BSTR* retstr);
 	[id(419)] HRESULT VirtualProtectEx([in] LONGLONG hwnd, [in] BSTR address, [in] LONG size, [in] LONG new_protect, [out] LONG* old_protect, [out, retval] LONG* ret);

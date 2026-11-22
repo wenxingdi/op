@@ -2,6 +2,7 @@
 #include "WinMouse.h"
 #include "CursorShape.h"
 #include "../InputMessageUtils.h"
+#include "../InputEventBus.h"
 #include "../../base/AutomationModes.h"
 #include "../../base/Utils.h"
 #include <algorithm>
@@ -233,6 +234,35 @@ void delay_if_needed(int delay) {
     if (delay > 0)
         ::Delay(delay);
 }
+
+// 窗口消息 -> SendInput 鼠标标志（时间轴层录制的 flags 统一口径）。
+// IN_WINDOWS / DX 后端发的是窗口消息，IN_NORMAL 发的是 INPUT 标志；录制文件
+// 必须两者同构，否则同一段操作换个绑定模式就录出两种 flags，回放端要做两套分支。
+//
+// 双击消息（WM_*DBLCLK）**映射到对应的 down**：回放时重发一次 DBLCLK 会让目标
+// 收到"系统判定之外的双击"，行为与录制时不一致；录制里的 down/up/down/up 序列
+// 天然就会重新触发双击。
+long win_message_button_flag(UINT message) {
+    switch (message) {
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONDBLCLK:
+        return MOUSEEVENTF_LEFTDOWN;
+    case WM_LBUTTONUP:
+        return MOUSEEVENTF_LEFTUP;
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONDBLCLK:
+        return MOUSEEVENTF_RIGHTDOWN;
+    case WM_RBUTTONUP:
+        return MOUSEEVENTF_RIGHTUP;
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONDBLCLK:
+        return MOUSEEVENTF_MIDDLEDOWN;
+    case WM_MBUTTONUP:
+        return MOUSEEVENTF_MIDDLEUP;
+    default:
+        return 0;
+    }
+}
 }
 
 namespace op::input {
@@ -301,7 +331,12 @@ long WinMouse::MoveR(int rx, int ry) {
         Input.mi.dwFlags = MOUSEEVENTF_MOVE;
         Input.mi.dx = static_cast<LONG>(rx);
         Input.mi.dy = static_cast<LONG>(ry);
-        return ::SendInput(1, &Input, sizeof(INPUT)) > 0 ? 1 : 0;
+        const long ok = ::SendInput(1, &Input, sizeof(INPUT)) > 0 ? 1 : 0;
+        // 录制记**移动后的绝对客户区坐标**：相对位移在回放端毫无意义
+        //（回放时的起点未必是录制时的起点，累加误差会越放越偏）。
+        if (ok)
+            trace_move(_x, _y);
+        return ok;
     }
     }
     return MoveTo(_x + rx, _y + ry);
@@ -339,6 +374,8 @@ long WinMouse::MoveTo(int x, int y) {
     }
     }
     _x = client_pt.x, _y = client_pt.y;
+    if (ret)
+        trace_move(_x, _y);
     return ret;
 }
 
@@ -363,6 +400,42 @@ WPARAM WinMouse::button_state_with(WPARAM button, bool down) const {
 
 void WinMouse::set_button_state(WPARAM button, bool down) {
     _button_state = button_state_with(button, down);
+}
+
+// ---- 时间轴层录制（批 E 2026-11-22）----
+// 事件只在**成功**之后记：录一条"按下失败"的 down 会让回放把弹不起来的键按下去。
+// x/y 一律取**目标客户区坐标**（不是屏幕坐标、不是移动后的实际落点）：
+// 回落放时要落在同一个绑定窗口的同一个位置，屏幕坐标跨窗口就错了。
+
+void WinMouse::trace_move(int x, int y) const {
+    op::input::InputEvent ev;
+    ev.type = op::input::InputEventType::MouseMove;
+    ev.x = x;
+    ev.y = y;
+    op::input::emit_input_event(-1, std::move(ev));
+}
+
+void WinMouse::trace_button(long flags, long aux) const {
+    op::input::InputEvent ev;
+    ev.type = op::input::InputEventType::MouseButton;
+    ev.flags = flags;
+    // XBUTTON1/2 借用 wheel 字段传递（JSONL 里 wheel 对按键事件无意义）
+    ev.wheel = aux;
+    const POINT pt = current_client_point();
+    ev.x = pt.x;
+    ev.y = pt.y;
+    op::input::emit_input_event(-1, std::move(ev));
+}
+
+void WinMouse::trace_wheel(long flags, int delta) const {
+    op::input::InputEvent ev;
+    ev.type = op::input::InputEventType::MouseWheel;
+    ev.flags = flags;
+    ev.wheel = delta;
+    const POINT pt = current_client_point();
+    ev.x = pt.x;
+    ev.y = pt.y;
+    op::input::emit_input_event(-1, std::move(ev));
 }
 
 long WinMouse::send_input_mouse(DWORD flags, DWORD mouse_data, bool sync_cursor) {
@@ -390,8 +463,10 @@ long WinMouse::send_windows_button(UINT message, WPARAM button, bool down) {
     const POINT pt = current_client_point();
     const WPARAM state = button_state_with(button, down);
     const long ret = message::SendTimeout(_hwnd, message, state, MAKELPARAM(pt.x, pt.y));
-    if (ret)
+    if (ret) {
         set_button_state(button, down);
+        trace_button(win_message_button_flag(message), 0);
+    }
     return ret;
 }
 
@@ -400,8 +475,10 @@ long WinMouse::send_windows_xbutton(UINT message, WORD xbutton, WPARAM button, b
     const WPARAM state = button_state_with(button, down);
     const long ret =
         message::SendTimeout(_hwnd, message, MAKEWPARAM(static_cast<WORD>(state), xbutton), MAKELPARAM(pt.x, pt.y));
-    if (ret)
+    if (ret) {
         set_button_state(button, down);
+        trace_button(down ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP, xbutton);
+    }
     return ret;
 }
 
@@ -436,8 +513,12 @@ long WinMouse::button_double_click(long (WinMouse::*click)(), UINT message, UINT
 
 long WinMouse::xbutton(WORD xbutton_id, WPARAM button, bool down) {
     switch (_mode) {
-    case INPUT_TYPE::IN_NORMAL:
-        return send_input_mouse(down ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP, xbutton_id);
+    case INPUT_TYPE::IN_NORMAL: {
+        const long ret = send_input_mouse(down ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP, xbutton_id);
+        if (ret)
+            trace_button(down ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP, xbutton_id);
+        return ret;
+    }
     case INPUT_TYPE::IN_WINDOWS:
         return send_windows_xbutton(down ? WM_XBUTTONDOWN : WM_XBUTTONUP, xbutton_id, button, down);
     }
@@ -455,15 +536,22 @@ long WinMouse::xbutton_double_click(long (WinMouse::*click)(), WORD xbutton_id, 
 
 long WinMouse::send_wheel(DWORD input_flag, UINT window_message, int delta) {
     switch (_mode) {
-    case INPUT_TYPE::IN_NORMAL:
-        return send_input_mouse(input_flag, static_cast<DWORD>(delta));
+    case INPUT_TYPE::IN_NORMAL: {
+        const long ret = send_input_mouse(input_flag, static_cast<DWORD>(delta));
+        if (ret)
+            trace_wheel(input_flag, delta);
+        return ret;
+    }
     case INPUT_TYPE::IN_WINDOWS: {
         POINT pt = current_client_point();
         if (_hwnd)
             ::ClientToScreen(_hwnd, &pt);
-        return message::SendTimeout(_hwnd, window_message,
-                                    MAKEWPARAM(static_cast<WORD>(button_state()), static_cast<WORD>(delta)),
-                                    MAKELPARAM(pt.x, pt.y));
+        const long ret = message::SendTimeout(_hwnd, window_message,
+                                              MAKEWPARAM(static_cast<WORD>(button_state()), static_cast<WORD>(delta)),
+                                              MAKELPARAM(pt.x, pt.y));
+        if (ret)
+            trace_wheel(input_flag, delta);
+        return ret;
     }
     }
     return 0;
@@ -628,6 +716,8 @@ long WinMouse::LeftDown() {
     switch (_mode) {
     case INPUT_TYPE::IN_NORMAL: {
         ret = send_input_mouse(MOUSEEVENTF_LEFTDOWN);
+        if (ret)
+            trace_button(MOUSEEVENTF_LEFTDOWN);
         break;
     }
 
@@ -644,6 +734,8 @@ long WinMouse::LeftUp() {
     switch (_mode) {
     case INPUT_TYPE::IN_NORMAL: {
         ret = send_input_mouse(MOUSEEVENTF_LEFTUP);
+        if (ret)
+            trace_button(MOUSEEVENTF_LEFTUP);
         break;
     }
 
@@ -682,6 +774,8 @@ long WinMouse::MiddleDown() {
     switch (_mode) {
     case INPUT_TYPE::IN_NORMAL: {
         ret = send_input_mouse(MOUSEEVENTF_MIDDLEDOWN);
+        if (ret)
+            trace_button(MOUSEEVENTF_MIDDLEDOWN);
         break;
     }
 
@@ -698,6 +792,8 @@ long WinMouse::MiddleUp() {
     switch (_mode) {
     case INPUT_TYPE::IN_NORMAL: {
         ret = send_input_mouse(MOUSEEVENTF_MIDDLEUP);
+        if (ret)
+            trace_button(MOUSEEVENTF_MIDDLEUP);
         break;
     }
 
@@ -739,6 +835,8 @@ long WinMouse::RightDown() {
     switch (_mode) {
     case INPUT_TYPE::IN_NORMAL: {
         ret = send_input_mouse(MOUSEEVENTF_RIGHTDOWN);
+        if (ret)
+            trace_button(MOUSEEVENTF_RIGHTDOWN);
         break;
     }
     case INPUT_TYPE::IN_WINDOWS: {
@@ -754,6 +852,8 @@ long WinMouse::RightUp() {
     switch (_mode) {
     case INPUT_TYPE::IN_NORMAL: {
         ret = send_input_mouse(MOUSEEVENTF_RIGHTUP);
+        if (ret)
+            trace_button(MOUSEEVENTF_RIGHTUP);
         break;
     }
 

@@ -679,6 +679,15 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(HttpGet)(BSTR url, BSTR headers_json, LONG timeout_ms, BSTR *retstr);
     STDMETHOD(HttpPost)(BSTR url, BSTR body, BSTR headers_json, LONG timeout_ms, BSTR *retstr);
     STDMETHOD(HttpDownloadFile)(BSTR url, BSTR file_name, LONG timeout_ms, LONG *ret);
+    // ---- 时间轴层（批 E 2026-11-22）：录制 / 回放 / 监听 / 主从同步 ----
+    // ⚠ 本文件是**手写**声明，不是 MIDL 产出；改 op.idl 必须同步这里，否则 C2509。
+    STDMETHOD(InputSyncEnable)(LONG enable, LONG *ret);
+    STDMETHOD(SetInputMonitor)(LONG_PTR callback, LONG_PTR user, LONG *ret);
+    STDMETHOD(InputRecord)(LONG action, BSTR path, BSTR *retpath, LONG *ret);
+    STDMETHOD(InputRecordGetPath)(BSTR *retpath);
+    STDMETHOD(InputPlayback)(LONG action, BSTR path, DOUBLE speed, LONG loop, BSTR *retjson, LONG *ret);
+    STDMETHOD(InputSyncLink)(LONG master, LONG slave, LONG enable, LONG *ret);
+    STDMETHOD(InputSyncStatus)(BSTR *retjson);
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(OpAutomation), OpAutomation)

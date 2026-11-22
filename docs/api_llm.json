@@ -2,9 +2,9 @@
   "meta": {
     "title": "OP 插件 API 目录（大模型 function-calling 版）",
     "source": "include/libop.h",
-    "generated": "2026-11-21 18:19",
+    "generated": "2026-11-22 21:20",
     "generator": "scripts/gen_api_reference.py",
-    "total_functions": 348,
+    "total_functions": 371,
     "usage": {
       "python_pyop": "import pyop  # swig 绑定（pip 包 op-plugins），方法名保持 PascalCase；bin/x64/pyop.py + _pyop.pyd 置于工作目录或 sys.path\nop = pyop.Op()\nx, y, ret = op.FindPic(x1, y1, x2, y2, files, delta_color, sim, dir)",
       "python_ctypes": "from op import Op  # ctypes 包装（pip install -e bindings/python），方法名 snake_case（见每函数 python_ctypes_name 字段）\nop = Op(dll_path=r'D:\\op\\bin\\x64\\op_c_api_x64.dll')\nx, y, ret = op.find_pic(x1, y1, x2, y2, files, delta_color, sim, dir)",
@@ -4321,6 +4321,42 @@
         {
           "group": "window",
           "group_name": "Window 窗口",
+          "name": "ConcurrencyInfo",
+          "signature": "ConcurrencyInfo() → (etjson)",
+          "python_example": "op.ConcurrencyInfo()  # → (etjson)",
+          "python_ctypes_name": "concurrency_info",
+          "in_ctypes_binding": false,
+          "description": "约定不变：**单个 Op 实例不是线程安全的**（见本文件顶部），多线程场景每线程一个实例。\n本接口不改变该约定，只把\"同实例被多线程使用\"从静默污染变成可观测事实。\n返回 JSON：\n{\"id\":1,\"in_flight\":0,\"peak\":3,\"reentrant\":12,\"calls_total\":880,\n\"image_count\":4,\"bound\":0,\"thread_safe\":false}\nin_flight 当前正在本实例上执行的调用数（同一时刻 >1 即并发使用）\npeak 历史峰值并发度（>1 说明脚本确实踩了这条线）\nreentrant 检测到同实例并发使用的累计次数（>0 时结果不再可复现）\nthread_safe 恒为 false，保留字段供脚本做显式判断\n只做原子计数，不串行化、不改行为。",
+          "params": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串",
+          "tool_schema": {
+            "name": "ConcurrencyInfo",
+            "description": "约定不变：**单个 Op 实例不是线程安全的**（见本文件顶部），多线程场景每线程一个实例。\n本接口不改变该约定，只把\"同实例被多线程使用\"从静默污染变成可观测事实。\n返回 JSON：\n{\"id\":1,\"in_flight\":0,\"peak\":3,\"reentrant\":12,\"calls_total\":880,\n\"image_count\":4,\"bound\":0,\"thread_safe\":false}\nin_flight 当前正在本实例上执行的调用数（同一时刻 >1 即并发使用）\npeak 历史峰值并发度（>1 说明脚本确实踩了这条线）\nreentrant 检测到同实例并发使用的累计次数（>0 时结果不再可复现）\nthread_safe 恒为 false，保留字段供脚本做显式判断\n只做原子计数，不串行化、不改行为。",
+            "parameters": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        },
+        {
+          "group": "window",
+          "group_name": "Window 窗口",
           "name": "DrawRect",
           "signature": "DrawRect(x1, y1, x2, y2, color, width) → (ret)",
           "python_example": "op.DrawRect(x1, y1, x2, y2, color, width)  # → (ret)",
@@ -4719,6 +4755,556 @@
               "required": [
                 "show"
               ]
+            }
+          }
+        },
+        {
+          "group": "window",
+          "group_name": "Window 窗口",
+          "name": "DrawCircle",
+          "signature": "DrawCircle(x, y, radius, color, width) → (ret)",
+          "python_example": "op.DrawCircle(x, y, radius, color, width)  # → (ret)",
+          "python_ctypes_name": "draw_circle",
+          "in_ctypes_binding": false,
+          "description": "圆形（屏幕坐标）：x,y 为圆心，radius 为半径，color=\"RRGGBB\"，width 为线宽。",
+          "params": [
+            {
+              "name": "x",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "radius",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "color",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+            },
+            {
+              "name": "width",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "宽度（像素）"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "DrawCircle",
+            "description": "圆形（屏幕坐标）：x,y 为圆心，radius 为半径，color=\"RRGGBB\"，width 为线宽。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "description": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "y": {
+                  "type": "number",
+                  "description": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "radius": {
+                  "type": "number",
+                  "description": "long"
+                },
+                "color": {
+                  "type": "string",
+                  "description": "RGB hex RRGGBB（如 FF0000=红），全库统一此格式（找色/多点/找图透明色/OCR 背景色/Draw 标注同一解析入口，GetColor 输出亦同）；- 后为偏色容差（如 9f2e3f-303030，非背景色）；@ 开头为背景色模式（命中像素置 0，反白字场景）；唯一例外：CvInRange 的 lower/upper 按 color_space 声明的通道序（BGR/HSV/gray）"
+                },
+                "width": {
+                  "type": "number",
+                  "description": "宽度（像素）"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "radius",
+                "color",
+                "width"
+              ]
+            }
+          }
+        },
+        {
+          "group": "window",
+          "group_name": "Window 窗口",
+          "name": "DrawImage",
+          "signature": "DrawImage(x, y, file_name, alpha) → (ret)",
+          "python_example": "op.DrawImage(x, y, file_name, alpha)  # → (ret)",
+          "python_ctypes_name": "draw_image",
+          "in_ctypes_binding": false,
+          "description": "在屏幕叠加层画一张图片（左上角 x,y）。alpha 0~255；255 视为 255（不透明）。",
+          "params": [
+            {
+              "name": "x",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "file_name",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "文件路径；相对路径基于 SetPath 设定的全局目录解析"
+            },
+            {
+              "name": "alpha",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "DrawImage",
+            "description": "在屏幕叠加层画一张图片（左上角 x,y）。alpha 0~255；255 视为 255（不透明）。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "description": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "y": {
+                  "type": "number",
+                  "description": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "file_name": {
+                  "type": "string",
+                  "description": "文件路径；相对路径基于 SetPath 设定的全局目录解析"
+                },
+                "alpha": {
+                  "type": "number",
+                  "description": "long"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "file_name",
+                "alpha"
+              ]
+            }
+          }
+        },
+        {
+          "group": "window",
+          "group_name": "Window 窗口",
+          "name": "DrawRectEx",
+          "signature": "DrawRectEx(x, y, width, height, mode, line_width) → (ret)",
+          "python_example": "op.DrawRectEx(x, y, width, height, mode, line_width)  # → (ret)",
+          "python_ctypes_name": "draw_rect_ex",
+          "in_ctypes_binding": false,
+          "description": "画在**独立透明窗口**上，不写目标 DX 后台缓冲 -> **不会出现在 DX 截图里**；\n窗口移动/缩放时跟随（250ms 轮询 + 每次绘制校正）。\n未绑定窗口时返回 0 并记日志（不静默画到屏幕，否则会被误判成坐标系问题）。\n⚠ 本批只支持**描边**：mode=0（填充）会按描边绘制并记日志，不假装支持填充。",
+          "params": [
+            {
+              "name": "x",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "width",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "宽度（像素）"
+            },
+            {
+              "name": "height",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "高度（像素）"
+            },
+            {
+              "name": "mode",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "line_width",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "DrawRectEx",
+            "description": "画在**独立透明窗口**上，不写目标 DX 后台缓冲 -> **不会出现在 DX 截图里**；\n窗口移动/缩放时跟随（250ms 轮询 + 每次绘制校正）。\n未绑定窗口时返回 0 并记日志（不静默画到屏幕，否则会被误判成坐标系问题）。\n⚠ 本批只支持**描边**：mode=0（填充）会按描边绘制并记日志，不假装支持填充。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "description": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "y": {
+                  "type": "number",
+                  "description": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "width": {
+                  "type": "number",
+                  "description": "宽度（像素）"
+                },
+                "height": {
+                  "type": "number",
+                  "description": "高度（像素）"
+                },
+                "mode": {
+                  "type": "number",
+                  "description": "long"
+                },
+                "line_width": {
+                  "type": "number",
+                  "description": "long"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "width",
+                "height",
+                "mode",
+                "line_width"
+              ]
+            }
+          }
+        },
+        {
+          "group": "window",
+          "group_name": "Window 窗口",
+          "name": "DrawCircleEx",
+          "signature": "DrawCircleEx(x, y, radius, line_width) → (ret)",
+          "python_example": "op.DrawCircleEx(x, y, radius, line_width)  # → (ret)",
+          "python_ctypes_name": "draw_circle_ex",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "x",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "radius",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "line_width",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "DrawCircleEx",
+            "description": "OP 插件接口 DrawCircleEx",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "description": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "y": {
+                  "type": "number",
+                  "description": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "radius": {
+                  "type": "number",
+                  "description": "long"
+                },
+                "line_width": {
+                  "type": "number",
+                  "description": "long"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "radius",
+                "line_width"
+              ]
+            }
+          }
+        },
+        {
+          "group": "window",
+          "group_name": "Window 窗口",
+          "name": "DrawTextEx",
+          "signature": "DrawTextEx(x, y, text, font_size) → (ret)",
+          "python_example": "op.DrawTextEx(x, y, text, font_size)  # → (ret)",
+          "python_ctypes_name": "draw_text_ex",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "x",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "y",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+            },
+            {
+              "name": "text",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "font_size",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "DrawTextEx",
+            "description": "OP 插件接口 DrawTextEx",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number",
+                  "description": "横坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "y": {
+                  "type": "number",
+                  "description": "纵坐标（物理像素；绑定窗口后为客户区坐标）"
+                },
+                "text": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "font_size": {
+                  "type": "number",
+                  "description": "long"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "text",
+                "font_size"
+              ]
+            }
+          }
+        },
+        {
+          "group": "window",
+          "group_name": "Window 窗口",
+          "name": "DrawClearBind",
+          "signature": "DrawClearBind() → (ret)",
+          "python_example": "op.DrawClearBind()  # → (ret)",
+          "python_ctypes_name": "draw_clear_bind",
+          "in_ctypes_binding": false,
+          "description": "只清绑定窗口那批图元；屏幕叠加层的图元由 DrawClear 负责。",
+          "params": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "DrawClearBind",
+            "description": "只清绑定窗口那批图元；屏幕叠加层的图元由 DrawClear 负责。",
+            "parameters": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        },
+        {
+          "group": "window",
+          "group_name": "Window 窗口",
+          "name": "DrawGetCount",
+          "signature": "DrawGetCount() → (screen_count, bind_count)",
+          "python_example": "op.DrawGetCount()  # → (screen_count, bind_count)",
+          "python_ctypes_name": "draw_get_count",
+          "in_ctypes_binding": false,
+          "description": "诊断：分别返回屏幕层/绑定层的图元数量（任一指针可为 nullptr）。",
+          "params": [
+            {
+              "name": "screen_count",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "bind_count",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": ""
+            }
+          ],
+          "returns": [
+            {
+              "name": "screen_count",
+              "type": "long*",
+              "doc": ""
+            },
+            {
+              "name": "bind_count",
+              "type": "long*",
+              "doc": ""
+            }
+          ],
+          "returns_summary": "screen_count；bind_count",
+          "tool_schema": {
+            "name": "DrawGetCount",
+            "description": "诊断：分别返回屏幕层/绑定层的图元数量（任一指针可为 nullptr）。",
+            "parameters": {
+              "type": "object",
+              "properties": {},
+              "required": []
             }
           }
         }
@@ -7544,6 +8130,436 @@
                 "key_str",
                 "delay"
               ]
+            }
+          }
+        },
+        {
+          "group": "input",
+          "group_name": "Input 键鼠输入",
+          "name": "InputSyncEnable",
+          "signature": "InputSyncEnable(enable) → (ret)",
+          "python_example": "op.InputSyncEnable(enable)  # → (ret)",
+          "python_ctypes_name": "input_sync_enable",
+          "in_ctypes_binding": false,
+          "description": "采集入口挂在**每个输入原语的后端出口**（MoveTo / LeftDown / KeyDown / …），\n所以 Down/Up 级、Click 级、KeyPressStr、DragPath 等**全部覆盖**，且一次\n「LeftClick」会录成 down+up 两条（回放才能复原\"按了几下\"）。\n坐标系：录的是**客户区坐标**（与 Mouse 各 API 同口径）。录制与回放必须\n落在同一个绑定窗口上，否则坐标含义不同（未绑定时 = 屏幕坐标）。\n录制文件格式：JSONL，一行一个事件，字段固定为\n{\"t\":12.340,\"type\":\"mouse_button\",\"vk\":0,\"x\":300,\"y\":200,\"wheel\":0,\"flags\":4}\ntype: mouse_move / mouse_button / mouse_wheel / key / key_char\nt: 相对录制起点的毫秒数（回放按它等比缩放）\nflags: mouse_button 用 MOUSEEVENTF_*（0x0002/0x0004/…）；\nmouse_wheel 用 MOUSEEVENTF_WHEEL(0x0800)/HWHEEL(0x1000)；\nkey 用 KEYEVENTF_KEYUP(0x0002)；key_char 用 KEYEVENTF_UNICODE(0x0004) 且 x 字段存字符码。\n采集开关：0 关闭（同时结束正在进行的录制）／1 打开。默认关闭，开启后热路径只有\n一次原子读，对正常脚本的输入耗时可忽略。",
+          "params": [
+            {
+              "name": "enable",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "1=打开采集（热路径只多一次原子读）／0=关闭（同时结束正在进行的录制）"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "InputSyncEnable",
+            "description": "采集入口挂在**每个输入原语的后端出口**（MoveTo / LeftDown / KeyDown / …），\n所以 Down/Up 级、Click 级、KeyPressStr、DragPath 等**全部覆盖**，且一次\n「LeftClick」会录成 down+up 两条（回放才能复原\"按了几下\"）。\n坐标系：录的是**客户区坐标**（与 Mouse 各 API 同口径）。录制与回放必须\n落在同一个绑定窗口上，否则坐标含义不同（未绑定时 = 屏幕坐标）。\n录制文件格式：JSONL，一行一个事件，字段固定为\n{\"t\":12.340,\"type\":\"mouse_button\",\"vk\":0,\"x\":300,\"y\":200,\"wheel\":0,\"flags\":4}\ntype: mouse_move / mouse_button / mouse_wheel / key / key_char\nt: 相对录制起点的毫秒数（回放按它等比缩放）\nflags: mouse_button 用 MOUSEEVENTF_*（0x0002/0x0004/…）；\nmouse_wheel 用 MOUSEEVENTF_WHEEL(0x0800)/HWHEEL(0x1000)；\nkey 用 KEYEVENTF_KEYUP(0x0002)；key_char 用 KEYEVENTF_UNICODE(0x0004) 且 x 字段存字符码。\n采集开关：0 关闭（同时结束正在进行的录制）／1 打开。默认关闭，开启后热路径只有\n一次原子读，对正常脚本的输入耗时可忽略。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "enable": {
+                  "type": "number",
+                  "description": "1=打开采集（热路径只多一次原子读）／0=关闭（同时结束正在进行的录制）"
+                }
+              },
+              "required": [
+                "enable"
+              ]
+            }
+          }
+        },
+        {
+          "group": "input",
+          "group_name": "Input 键鼠输入",
+          "name": "SetInputMonitor",
+          "signature": "SetInputMonitor(callback, user) → (ret)",
+          "python_example": "op.SetInputMonitor(callback, user)  # → (ret)",
+          "python_ctypes_name": "set_input_monitor",
+          "in_ctypes_binding": false,
+          "description": "传 callback=nullptr 取消监听。",
+          "params": [
+            {
+              "name": "callback",
+              "type": "InputMonitorCallback",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "函数指针 op_input_monitor_callback（易语言传「取函数地址」），传 0 取消监听；回调在调用方线程同步触发，回调里不要再调输入 API（会被旁路护栏挡掉，不崩溃但那部分输入不录）"
+            },
+            {
+              "name": "user",
+              "type": "void*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "原样回传给回调的用户指针（可传 0）"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "SetInputMonitor",
+            "description": "传 callback=nullptr 取消监听。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "callback": {
+                  "type": "string",
+                  "description": "函数指针 op_input_monitor_callback（易语言传「取函数地址」），传 0 取消监听；回调在调用方线程同步触发，回调里不要再调输入 API（会被旁路护栏挡掉，不崩溃但那部分输入不录）"
+                },
+                "user": {
+                  "type": "string",
+                  "description": "原样回传给回调的用户指针（可传 0）"
+                }
+              },
+              "required": [
+                "callback",
+                "user"
+              ]
+            }
+          }
+        },
+        {
+          "group": "input",
+          "group_name": "Input 键鼠输入",
+          "name": "InputRecord",
+          "signature": "InputRecord(action, path) → (etpath, ret)",
+          "python_example": "op.InputRecord(action, path)  # → (etpath, ret)",
+          "python_ctypes_name": "input_record",
+          "in_ctypes_binding": false,
+          "description": "录制。\naction 0 = START：开始录制；path 为空时自动生成\n（工作目录下 input_record_YYYYmmdd_HHMMSS.jsonl）。\n返回 1 成功、0 失败；**已在录制时返回 0 且不截断前一段**。\naction 1 = STOP ：结束录制，ret = 实际写入的事件条数（0 = 确实没产生输入）；\nretpath 为文件路径。",
+          "params": [
+            {
+              "name": "action",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "0=START（开始录制）／1=STOP（结束录制，*ret = 实际写入的事件条数，0=确实没产生输入）"
+            },
+            {
+              "name": "path",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "录制文件路径（JSONL）；START 时传空串=自动生成 input_record_YYYYmmdd_HHMMSS.jsonl（工作目录）。已在录制时再次 START 返回 0 且不截断前一段"
+            },
+            {
+              "name": "etpath",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etpath",
+              "type": "std::wstring &r",
+              "doc": ""
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "InputRecord",
+            "description": "录制。\naction 0 = START：开始录制；path 为空时自动生成\n（工作目录下 input_record_YYYYmmdd_HHMMSS.jsonl）。\n返回 1 成功、0 失败；**已在录制时返回 0 且不截断前一段**。\naction 1 = STOP ：结束录制，ret = 实际写入的事件条数（0 = 确实没产生输入）；\nretpath 为文件路径。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "number",
+                  "description": "0=START（开始录制）／1=STOP（结束录制，*ret = 实际写入的事件条数，0=确实没产生输入）"
+                },
+                "path": {
+                  "type": "string",
+                  "description": "录制文件路径（JSONL）；START 时传空串=自动生成 input_record_YYYYmmdd_HHMMSS.jsonl（工作目录）。已在录制时再次 START 返回 0 且不截断前一段"
+                }
+              },
+              "required": [
+                "action",
+                "path"
+              ]
+            }
+          }
+        },
+        {
+          "group": "input",
+          "group_name": "Input 键鼠输入",
+          "name": "InputRecordGetPath",
+          "signature": "InputRecordGetPath() → (etpath)",
+          "python_example": "op.InputRecordGetPath()  # → (etpath)",
+          "python_ctypes_name": "input_record_get_path",
+          "in_ctypes_binding": false,
+          "description": "取\"最近一次录制（或正在录制）\"的文件路径；没录过返回空串。",
+          "params": [
+            {
+              "name": "etpath",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": ""
+            }
+          ],
+          "returns": [
+            {
+              "name": "etpath",
+              "type": "std::wstring &r",
+              "doc": ""
+            }
+          ],
+          "returns_summary": "etpath",
+          "tool_schema": {
+            "name": "InputRecordGetPath",
+            "description": "取\"最近一次录制（或正在录制）\"的文件路径；没录过返回空串。",
+            "parameters": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        },
+        {
+          "group": "input",
+          "group_name": "Input 键鼠输入",
+          "name": "InputPlayback",
+          "signature": "InputPlayback(action, path, speed, loop) → (etjson, ret)",
+          "python_example": "op.InputPlayback(action, path, speed, loop)  # → (etjson, ret)",
+          "python_ctypes_name": "input_playback",
+          "in_ctypes_binding": false,
+          "description": "回放。\naction 0 = LOAD ：读入 JSONL。ret = 事件条数，retjson 形如\n{\"ok\":1,\"events\":12,\"bound\":1,\"path\":\"D:\\\\a.jsonl\"}（读失败 ok=0 + error）。\n⚠ bound=0 表示**当前没绑定窗口**，坐标会按屏幕语义回放，与录制时不同。\naction 1 = START：同步回放（本调用阻塞到放完或被 STOP）。speed 为倍速（<=0 视为 1.0），\nloop 为循环次数（<=0 视为 1）。ret=1 放完 / 0 没东西可放。\naction 2 = STOP ：请求停止（下一次事件边界生效，最长等待 5ms 的睡眠片）。\naction 3 = FREE ：释放已装载的事件。\n时间轴按 t 等比缩放：目标时刻 = t / speed，按\"相对回放起点的绝对时刻\"推进，\n长录音不会累积漂移。",
+          "params": [
+            {
+              "name": "action",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "0=LOAD（读入 JSONL，*ret=事件条数，返回 JSON 含 bound:0|1）／1=START（同步放完才返回）／2=STOP（请求停止，下一次事件边界生效）／3=FREE（释放已装载事件）"
+            },
+            {
+              "name": "path",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "LOAD 时的录制文件路径（JSONL）；其余 action 传空串"
+            },
+            {
+              "name": "speed",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "倍速，时间轴按 t/speed 等比缩放；<=0 视为 1.0"
+            },
+            {
+              "name": "loop",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "循环次数；<=0 视为 1"
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "InputPlayback",
+            "description": "回放。\naction 0 = LOAD ：读入 JSONL。ret = 事件条数，retjson 形如\n{\"ok\":1,\"events\":12,\"bound\":1,\"path\":\"D:\\\\a.jsonl\"}（读失败 ok=0 + error）。\n⚠ bound=0 表示**当前没绑定窗口**，坐标会按屏幕语义回放，与录制时不同。\naction 1 = START：同步回放（本调用阻塞到放完或被 STOP）。speed 为倍速（<=0 视为 1.0），\nloop 为循环次数（<=0 视为 1）。ret=1 放完 / 0 没东西可放。\naction 2 = STOP ：请求停止（下一次事件边界生效，最长等待 5ms 的睡眠片）。\naction 3 = FREE ：释放已装载的事件。\n时间轴按 t 等比缩放：目标时刻 = t / speed，按\"相对回放起点的绝对时刻\"推进，\n长录音不会累积漂移。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "number",
+                  "description": "0=LOAD（读入 JSONL，*ret=事件条数，返回 JSON 含 bound:0|1）／1=START（同步放完才返回）／2=STOP（请求停止，下一次事件边界生效）／3=FREE（释放已装载事件）"
+                },
+                "path": {
+                  "type": "string",
+                  "description": "LOAD 时的录制文件路径（JSONL）；其余 action 传空串"
+                },
+                "speed": {
+                  "type": "number",
+                  "description": "倍速，时间轴按 t/speed 等比缩放；<=0 视为 1.0"
+                },
+                "loop": {
+                  "type": "number",
+                  "description": "循环次数；<=0 视为 1"
+                }
+              },
+              "required": [
+                "action",
+                "path",
+                "speed",
+                "loop"
+              ]
+            }
+          }
+        },
+        {
+          "group": "input",
+          "group_name": "Input 键鼠输入",
+          "name": "InputSyncLink",
+          "signature": "InputSyncLink(master, slave, enable) → (ret)",
+          "python_example": "op.InputSyncLink(master, slave, enable)  # → (ret)",
+          "python_ctypes_name": "input_sync_link",
+          "in_ctypes_binding": false,
+          "description": "主从同步：把 master 实例产生的输入事件**异步**投递到 slave 实例。\nenable 0 = 取消（master 必须确实是当前的 master，否则返回 0）；\nenable 1 = 建立/改绑。\n语义与限制（重要）：\n* 投递是**异步 + 可丢弃**的：输入是边沿事件，迟到的点击会点错地方，所以队列\n满（256 条）时丢事件而不是阻塞主实例。丢弃数可从 InputSyncStatus 读到。\n* master == slave 会被拒绝（自己投自己会自我放大）。\n* slave 的绑定模式决定投递效果：WIN 语义（normal/windows）可完整复现；\nDX 模式的移动需要目标进程内载入器，可能只复现按键。",
+          "params": [
+            {
+              "name": "master",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "主实例 id（不是 hwnd！取法见 InputSyncStatus 的 master 字段）"
+            },
+            {
+              "name": "slave",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "从实例 id"
+            },
+            {
+              "name": "enable",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "1=建立/改绑／0=取消（master 必须确实是当前 master，否则返回 0）；master==slave 会被拒绝（自己投自己会自我放大）。投递异步且队列满（256）时丢事件而不阻塞主实例——迟到的点击会点错地方"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "InputSyncLink",
+            "description": "主从同步：把 master 实例产生的输入事件**异步**投递到 slave 实例。\nenable 0 = 取消（master 必须确实是当前的 master，否则返回 0）；\nenable 1 = 建立/改绑。\n语义与限制（重要）：\n* 投递是**异步 + 可丢弃**的：输入是边沿事件，迟到的点击会点错地方，所以队列\n满（256 条）时丢事件而不是阻塞主实例。丢弃数可从 InputSyncStatus 读到。\n* master == slave 会被拒绝（自己投自己会自我放大）。\n* slave 的绑定模式决定投递效果：WIN 语义（normal/windows）可完整复现；\nDX 模式的移动需要目标进程内载入器，可能只复现按键。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "master": {
+                  "type": "number",
+                  "description": "主实例 id（不是 hwnd！取法见 InputSyncStatus 的 master 字段）"
+                },
+                "slave": {
+                  "type": "number",
+                  "description": "从实例 id"
+                },
+                "enable": {
+                  "type": "number",
+                  "description": "1=建立/改绑／0=取消（master 必须确实是当前 master，否则返回 0）；master==slave 会被拒绝（自己投自己会自我放大）。投递异步且队列满（256）时丢事件而不阻塞主实例——迟到的点击会点错地方"
+                }
+              },
+              "required": [
+                "master",
+                "slave",
+                "enable"
+              ]
+            }
+          }
+        },
+        {
+          "group": "input",
+          "group_name": "Input 键鼠输入",
+          "name": "InputSyncStatus",
+          "signature": "InputSyncStatus() → (etjson)",
+          "python_example": "op.InputSyncStatus()  # → (etjson)",
+          "python_ctypes_name": "input_sync_status",
+          "in_ctypes_binding": false,
+          "description": "主从链路诊断（本实例视角）：\n{\"ok\":1,\"enabled\":0/1,\"master\":,\"as_master_of\":N,\"as_slave_of\":N,\n\"async_dropped\":0,\"queue\":0}",
+          "params": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串",
+          "tool_schema": {
+            "name": "InputSyncStatus",
+            "description": "主从链路诊断（本实例视角）：\n{\"ok\":1,\"enabled\":0/1,\"master\":,\"as_master_of\":N,\"as_slave_of\":N,\n\"async_dropped\":0,\"queue\":0}",
+            "parameters": {
+              "type": "object",
+              "properties": {},
+              "required": []
             }
           }
         }
@@ -13480,7 +14496,7 @@
           "signature": "YoloDetectEx2(x1, y1, x2, y2, conf, iou, json_options) → (etjson, ret)",
           "python_example": "op.YoloDetectEx2(x1, y1, x2, y2, conf, iou, json_options)  # → (etjson, ret)",
           "python_ctypes_name": "yolo_detect_ex2",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "【YOLO 增强 2026-11-21】带过滤/截断的检测。\njson_options 形如 {\"class_ids\":[0,2],\"labels\":[\"person\"],\"max_results\":20}，\n空串等价于不过滤（但仍输出更完整的 JSON）。语义：\n- class_ids 与 labels 同时给时取**并集**（满足任一即保留）\n- max_results 按 confidence 降序截断（要\"最可信的 N 个\"，不是\"原序前 N 个\"）\n- 非法 options（坏 JSON / 未知字段 / 类型错）返回 -1，与\"没检测到\"区分\n返回 JSON 比旧接口多 total/returned/index/cx/cy/w/h 字段。\n坐标口径与 OCR/找图一致（截图偏移 + 客户区偏移）。",
           "params": [
             {
@@ -13614,7 +14630,7 @@
           "signature": "YoloDetectFromFileEx2(file_name, conf, iou, json_options) → (etjson, ret)",
           "python_example": "op.YoloDetectFromFileEx2(file_name, conf, iou, json_options)  # → (etjson, ret)",
           "python_ctypes_name": "yolo_detect_from_file_ex2",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "文件版 Ex2：同样支持 class_ids/labels/max_results 过滤。\n存在的理由：屏幕版依赖绑定窗口，无窗口环境下无法验证过滤逻辑；\n文件版让过滤/截断/JSON 契约能用真实模型闭环验证。",
           "params": [
             {
@@ -13701,6 +14717,680 @@
                 "conf",
                 "iou",
                 "json_options"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "YoloClassify",
+          "signature": "YoloClassify(x1, y1, x2, y2, top_k) → (etjson, ret)",
+          "python_example": "op.YoloClassify(x1, y1, x2, y2, top_k)  # → (etjson, ret)",
+          "python_ctypes_name": "yolo_classify",
+          "in_ctypes_binding": false,
+          "description": "原来的 YOLO 只有\"检测\"。这里按 OLA 的 Detect/Classify/Segment 三分类补齐\n其中两个可复用的（Pose/Obb 未做：关键点/旋转框需要额外规格，见 docs）。\n任务由模型决定：SetYoloEngine 加载时先读 ONNX metadata 的 task，读不到再按输出\n形状推断。任务不符时返回 -1（\"模型不支持该任务\"），0 表示\"没有结果\"——两者\n语义不同，调用方必须分开处理。\n整图分类。top_k<=0 取 5。JSON：\n{\"ok\":1,\"code\":0,\"task\":\"classify\",\"returned\":K,\n\"results\":[{\"class_id\":2,\"label\":\"charlie\",\"score\":0.71}, ...]} // 按 score 降序",
+          "params": [
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "top_k",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "YoloClassify",
+            "description": "原来的 YOLO 只有\"检测\"。这里按 OLA 的 Detect/Classify/Segment 三分类补齐\n其中两个可复用的（Pose/Obb 未做：关键点/旋转框需要额外规格，见 docs）。\n任务由模型决定：SetYoloEngine 加载时先读 ONNX metadata 的 task，读不到再按输出\n形状推断。任务不符时返回 -1（\"模型不支持该任务\"），0 表示\"没有结果\"——两者\n语义不同，调用方必须分开处理。\n整图分类。top_k<=0 取 5。JSON：\n{\"ok\":1,\"code\":0,\"task\":\"classify\",\"returned\":K,\n\"results\":[{\"class_id\":2,\"label\":\"charlie\",\"score\":0.71}, ...]} // 按 score 降序",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "top_k": {
+                  "type": "number",
+                  "description": "long"
+                }
+              },
+              "required": [
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "top_k"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "YoloClassifyFromFile",
+          "signature": "YoloClassifyFromFile(file_name, top_k) → (etjson, ret)",
+          "python_example": "op.YoloClassifyFromFile(file_name, top_k)  # → (etjson, ret)",
+          "python_ctypes_name": "yolo_classify_from_file",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "file_name",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "文件路径；相对路径基于 SetPath 设定的全局目录解析"
+            },
+            {
+              "name": "top_k",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "YoloClassifyFromFile",
+            "description": "OP 插件接口 YoloClassifyFromFile",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "file_name": {
+                  "type": "string",
+                  "description": "文件路径；相对路径基于 SetPath 设定的全局目录解析"
+                },
+                "top_k": {
+                  "type": "number",
+                  "description": "long"
+                }
+              },
+              "required": [
+                "file_name",
+                "top_k"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "YoloSegment",
+          "signature": "YoloSegment(x1, y1, x2, y2, conf, iou) → (etjson, ret)",
+          "python_example": "op.YoloSegment(x1, y1, x2, y2, conf, iou)  # → (etjson, ret)",
+          "python_ctypes_name": "yolo_segment",
+          "in_ctypes_binding": false,
+          "description": "实例分割。每条的 polygon 是掩码外轮廓（原图像素坐标，可能为空 = 掩码过小），\nmask_area 是该掩码在原图尺度的像素面积。JSON：\n{\"ok\":1,\"code\":0,\"task\":\"segment\",\"total\":N,\"returned\":N,\n\"results\":[{\"class_id\":0,\"label\":\"blob\",\"bbox\":[x1,y1,x2,y2],\"confidence\":0.9,\n\"mask_area\":64.0,\"polygon\":[[x,y],...]}]}",
+          "params": [
+            {
+              "name": "x1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+            },
+            {
+              "name": "y1",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域左上角纵坐标（物理像素）"
+            },
+            {
+              "name": "x2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角横坐标（含）（物理像素）"
+            },
+            {
+              "name": "y2",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "区域右下角纵坐标（含）（物理像素）"
+            },
+            {
+              "name": "conf",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "置信度阈值 0~1，低于该值的检测结果被丢弃"
+            },
+            {
+              "name": "iou",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "IOU 重叠阈值 0~1，用于抑制重复检测框"
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "YoloSegment",
+            "description": "实例分割。每条的 polygon 是掩码外轮廓（原图像素坐标，可能为空 = 掩码过小），\nmask_area 是该掩码在原图尺度的像素面积。JSON：\n{\"ok\":1,\"code\":0,\"task\":\"segment\",\"total\":N,\"returned\":N,\n\"results\":[{\"class_id\":0,\"label\":\"blob\",\"bbox\":[x1,y1,x2,y2],\"confidence\":0.9,\n\"mask_area\":64.0,\"polygon\":[[x,y],...]}]}",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "x1": {
+                  "type": "number",
+                  "description": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）"
+                },
+                "y1": {
+                  "type": "number",
+                  "description": "区域左上角纵坐标（物理像素）"
+                },
+                "x2": {
+                  "type": "number",
+                  "description": "区域右下角横坐标（含）（物理像素）"
+                },
+                "y2": {
+                  "type": "number",
+                  "description": "区域右下角纵坐标（含）（物理像素）"
+                },
+                "conf": {
+                  "type": "number",
+                  "description": "置信度阈值 0~1，低于该值的检测结果被丢弃"
+                },
+                "iou": {
+                  "type": "number",
+                  "description": "IOU 重叠阈值 0~1，用于抑制重复检测框"
+                }
+              },
+              "required": [
+                "x1",
+                "y1",
+                "x2",
+                "y2",
+                "conf",
+                "iou"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "YoloSegmentFromFile",
+          "signature": "YoloSegmentFromFile(file_name, conf, iou) → (etjson, ret)",
+          "python_example": "op.YoloSegmentFromFile(file_name, conf, iou)  # → (etjson, ret)",
+          "python_ctypes_name": "yolo_segment_from_file",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "file_name",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "文件路径；相对路径基于 SetPath 设定的全局目录解析"
+            },
+            {
+              "name": "conf",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "置信度阈值 0~1，低于该值的检测结果被丢弃"
+            },
+            {
+              "name": "iou",
+              "type": "double",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "IOU 重叠阈值 0~1，用于抑制重复检测框"
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "YoloSegmentFromFile",
+            "description": "OP 插件接口 YoloSegmentFromFile",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "file_name": {
+                  "type": "string",
+                  "description": "文件路径；相对路径基于 SetPath 设定的全局目录解析"
+                },
+                "conf": {
+                  "type": "number",
+                  "description": "置信度阈值 0~1，低于该值的检测结果被丢弃"
+                },
+                "iou": {
+                  "type": "number",
+                  "description": "IOU 重叠阈值 0~1，用于抑制重复检测框"
+                }
+              },
+              "required": [
+                "file_name",
+                "conf",
+                "iou"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "YoloGetModelInfo",
+          "signature": "YoloGetModelInfo() → (etjson)",
+          "python_example": "op.YoloGetModelInfo()  # → (etjson)",
+          "python_ctypes_name": "yolo_get_model_info",
+          "in_ctypes_binding": false,
+          "description": "当前已加载模型的元信息（未加载时 task=\"none\"）。用途：脚本启动时自检\"模型选对了没\"，\n而不是等到识别出一堆空结果才怀疑。JSON：\n{\"ok\":1,\"task\":\"segment\",\"task_code\":2,\"input_width\":640,\"input_height\":640,\n\"labels\":[\"blob\"],\"labels_count\":1}",
+          "params": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串",
+          "tool_schema": {
+            "name": "YoloGetModelInfo",
+            "description": "当前已加载模型的元信息（未加载时 task=\"none\"）。用途：脚本启动时自检\"模型选对了没\"，\n而不是等到识别出一堆空结果才怀疑。JSON：\n{\"ok\":1,\"task\":\"segment\",\"task_code\":2,\"input_width\":640,\"input_height\":640,\n\"labels\":[\"blob\"],\"labels_count\":1}",
+            "parameters": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "AsmCall",
+          "signature": "AsmCall(hwnd, code_hex, timeout_ms) → (etjson, ret)",
+          "python_example": "op.AsmCall(hwnd, code_hex, timeout_ms)  # → (etjson, ret)",
+          "python_ctypes_name": "asm_call",
+          "in_ctypes_binding": false,
+          "description": "在目标进程执行一段**机器码**并取返回值（纯 BlackBone + Win32，无新依赖）。\nhwnd 目标窗口句柄；**0 = 当前进程**（便于先自测再上目标）\ncode_hex 空格分隔的十六进制字节，如 \"48 C7 C0 2A 00 00 00 C3\"（需自带 ret）；\n支持 \"??\" 占位（按 0xCC/int3 填充，执行到立刻断下而不是跑飞）\ntimeout_ms <=0 用默认 5000\n成功 JSON：{\"ok\":1,\"code\":0,\"ret_hex\":\"2A\",\"ret\":42}\n失败 JSON：{\"ok\":0,\"code\":-1,\"error\":\"...\"}\n⚠ 只执行调用方给的机器码，插件不生成/不修改代码；执行完立即释放可执行内存。",
+          "params": [
+            {
+              "name": "hwnd",
+              "type": "LONG_PTR",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "窗口句柄（HWND，十进制数值）"
+            },
+            {
+              "name": "code_hex",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "timeout_ms",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "AsmCall",
+            "description": "在目标进程执行一段**机器码**并取返回值（纯 BlackBone + Win32，无新依赖）。\nhwnd 目标窗口句柄；**0 = 当前进程**（便于先自测再上目标）\ncode_hex 空格分隔的十六进制字节，如 \"48 C7 C0 2A 00 00 00 C3\"（需自带 ret）；\n支持 \"??\" 占位（按 0xCC/int3 填充，执行到立刻断下而不是跑飞）\ntimeout_ms <=0 用默认 5000\n成功 JSON：{\"ok\":1,\"code\":0,\"ret_hex\":\"2A\",\"ret\":42}\n失败 JSON：{\"ok\":0,\"code\":-1,\"error\":\"...\"}\n⚠ 只执行调用方给的机器码，插件不生成/不修改代码；执行完立即释放可执行内存。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "hwnd": {
+                  "type": "number",
+                  "description": "窗口句柄（HWND，十进制数值）"
+                },
+                "code_hex": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "timeout_ms": {
+                  "type": "number",
+                  "description": "long"
+                }
+              },
+              "required": [
+                "hwnd",
+                "code_hex",
+                "timeout_ms"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "Assemble",
+          "signature": "Assemble(asm_text, arch) → (etjson, ret)",
+          "python_example": "op.Assemble(asm_text, arch)  # → (etjson, ret)",
+          "python_ctypes_name": "assemble",
+          "in_ctypes_binding": false,
+          "description": "Assemble / Disassemble **未实现**（需要 keystone/capstone，当前环境装不上）。\n调用会返回 0 并给出明确错误文本，不会假装成功。详见 libop/op/OpAsm.cpp 顶部说明。",
+          "params": [
+            {
+              "name": "asm_text",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "arch",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": ""
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "Assemble",
+            "description": "Assemble / Disassemble **未实现**（需要 keystone/capstone，当前环境装不上）。\n调用会返回 0 并给出明确错误文本，不会假装成功。详见 libop/op/OpAsm.cpp 顶部说明。",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "asm_text": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "arch": {
+                  "type": "number",
+                  "description": "long"
+                }
+              },
+              "required": [
+                "asm_text",
+                "arch"
+              ]
+            }
+          }
+        },
+        {
+          "group": "ocr",
+          "group_name": "OCR 文字识别",
+          "name": "Disassemble",
+          "signature": "Disassemble(bytes_hex, address, count) → (etjson, ret)",
+          "python_example": "op.Disassemble(bytes_hex, address, count)  # → (etjson, ret)",
+          "python_ctypes_name": "disassemble",
+          "in_ctypes_binding": false,
+          "description": "",
+          "params": [
+            {
+              "name": "bytes_hex",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": ""
+            },
+            {
+              "name": "address",
+              "type": "const wchar_t*",
+              "dir": "in",
+              "json_type": "string",
+              "doc": "内存地址表达式：16 进制地址或 \"模块名+偏移\"（如 \"game.exe+1234\"），支持 + - * / 运算"
+            },
+            {
+              "name": "count",
+              "type": "long",
+              "dir": "in",
+              "json_type": "number",
+              "doc": "数量（上限/期望值，见各函数说明）"
+            },
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "dir": "out",
+              "json_type": "string",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns": [
+            {
+              "name": "etjson",
+              "type": "std::wstring &r",
+              "doc": "出参：JSON 格式结果串"
+            },
+            {
+              "name": "ret",
+              "type": "long*",
+              "doc": "1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）"
+            }
+          ],
+          "returns_summary": "etjson: 出参：JSON 格式结果串；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
+          "tool_schema": {
+            "name": "Disassemble",
+            "description": "OP 插件接口 Disassemble",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "bytes_hex": {
+                  "type": "string",
+                  "description": "const wchar_t*"
+                },
+                "address": {
+                  "type": "string",
+                  "description": "内存地址表达式：16 进制地址或 \"模块名+偏移\"（如 \"game.exe+1234\"），支持 + - * / 运算"
+                },
+                "count": {
+                  "type": "number",
+                  "description": "数量（上限/期望值，见各函数说明）"
+                }
+              },
+              "required": [
+                "bytes_hex",
+                "address",
+                "count"
               ]
             }
           }
@@ -16659,7 +18349,7 @@
           "signature": "OcrEx2(x1, y1, x2, y2, color, sim) → (et_str)",
           "python_example": "op.OcrEx2(x1, y1, x2, y2, color, sim)  # → (et_str)",
           "python_ctypes_name": "ocr_ex2",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "【P0 2026-11-20】结构化 OCR（JSON）：逐字置信度 + 逐字坐标。\n返回 JSON 数组：\n[{\"text\",\"conf\",\"is_partial\",[\"conf_partial\",]\"box\":[x1,y1,x2,y2],\n\"partial_chars\",\"chars\":[{\"ch\",\"conf\",\"x1\",\"x2\"}]}]\n坐标系与旧接口一致（原图像素坐标，含入口放大自动除回）。\n⚠ conf（整行）与 chars[].conf（逐字）**口径不同、不可互推**：整行 conf 是全部\n时间步（含 blank）的概率均值（与旧 API 完全一致）；逐字 conf 仅统计该字符\n占用步。is_partial=true 时额外给 conf_partial=conf*0.8，由调用方决定是否采用。\n⚠ partial_chars=true 表示该行经过倾斜旋转校正，逐字 x 已退化为整行框范围\n（chars 仍逐字给出 ch/conf，但 x1/x2 等于 box 左右边界）。\ncolor/sim 语义与该接口原版一致（有字库时走字库匹配，此时 chars 为空数组）。",
           "params": [
             {
@@ -16769,7 +18459,7 @@
           "signature": "OcrAutoColorEx2(x1, y1, x2, y2, color, sim) → (et_str)",
           "python_example": "op.OcrAutoColorEx2(x1, y1, x2, y2, color, sim)  # → (et_str)",
           "python_ctypes_name": "ocr_auto_color_ex2",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "同 OcrEx2，但先按 color_format 二值化（与 OcrAutoColorEx 同源）。\n⚠ 颜色格式为 **RGB 顺序** `RRGGBB-DDDDDD`（不是 BGR）：红色写 `e01111` 而非 `1111e0`。\n多色用 `|` 分隔 = 并集（各色按容差二值化后取并集，只跑一次 det+rec）。\n智能选路（自动）：图里命中 color 的像素占比 < 0.1% 时，二值化会得到全背景图、\n结果恒空，此时自动回退到原图直识（与 OcrEx2 行为一致）。故白字/无目标色的\n图传色也不会失败。实测 8 张真实小图：v6 从 3/8 全对提升到 8/8 全对。",
           "params": [
             {
@@ -16884,7 +18574,7 @@
           "signature": "OcrFromMemEx2(image_handle, x1, y1, x2, y2, color, sim) → (etjson)",
           "python_example": "op.OcrFromMemEx2(image_handle, x1, y1, x2, y2, color, sim)  # → (etjson)",
           "python_ctypes_name": "ocr_from_mem_ex2",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "在屏幕范围(x1,y1,x2,y2)内,查找string(可以是任意个字符串的组合),并返回符合color_format的坐标位置\n===== 内存直操作二期：识别入口的内存版（2026-11-21）=====\n设计见 docs/2026-11/内存直操作二期_全家桶_方案_20261121.md\n与屏幕版的**唯一区别**是\"图从哪来\"：\n屏幕版 x1..y2 是客户区坐标；内存版 x1..y2 是**图像内坐标**（相对 img 句柄左上角）。\n其余参数逐字相同，出参坐标也是图像内坐标（不受窗口偏移影响）。\n区域传 (0,0,0,0) 表示**整张图**（脚本里\"全图查找\"的自然写法）。\n实现上直接复用屏幕版：只把\"截屏\"换成\"从句柄取图\"，偏移清零。\n因此行为与屏幕版严格一致，这是结构保证而非测试推断。\n句柄无效/已释放时不执行识别，返回与屏幕版\"截屏失败\"相同的默认值。\n结构化 OCR（逐字坐标 + conf），输出与 OcrEx2 完全相同",
           "params": [
             {
@@ -17006,7 +18696,7 @@
           "signature": "OcrAutoColorFromMemEx2(image_handle, x1, y1, x2, y2, color, sim) → (etjson)",
           "python_example": "op.OcrAutoColorFromMemEx2(image_handle, x1, y1, x2, y2, color, sim)  # → (etjson)",
           "python_ctypes_name": "ocr_auto_color_from_mem_ex2",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "颜色二值化 OCR（含智能选路），返回值 = 行数",
           "params": [
             {
@@ -17133,7 +18823,7 @@
           "signature": "FindPicFromMem(image_handle, x1, y1, x2, y2, files, delta_color, sim, dir) → (x, y, ret)",
           "python_example": "op.FindPicFromMem(image_handle, x1, y1, x2, y2, files, delta_color, sim, dir)  # → (x, y, ret)",
           "python_ctypes_name": "find_pic_from_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "找图：ret = 命中的图片序号（-1=未找到，大漠索引语义）",
           "params": [
             {
@@ -17303,7 +18993,7 @@
           "signature": "FindPicExFromMem(image_handle, x1, y1, x2, y2, files, delta_color, sim, dir) → (etstr)",
           "python_example": "op.FindPicExFromMem(image_handle, x1, y1, x2, y2, files, delta_color, sim, dir)  # → (etstr)",
           "python_ctypes_name": "find_pic_ex_from_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "",
           "params": [
             {
@@ -17449,7 +19139,7 @@
           "signature": "FindColorFromMem(image_handle, x1, y1, x2, y2, color, sim, dir) → (x, y, ret)",
           "python_example": "op.FindColorFromMem(image_handle, x1, y1, x2, y2, color, sim, dir)  # → (x, y, ret)",
           "python_ctypes_name": "find_color_from_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "找色 / 取色 / 比色 / 计数",
           "params": [
             {
@@ -17607,7 +19297,7 @@
           "signature": "FindColorExFromMem(image_handle, x1, y1, x2, y2, color, sim, dir) → (etstr)",
           "python_example": "op.FindColorExFromMem(image_handle, x1, y1, x2, y2, color, sim, dir)  # → (etstr)",
           "python_ctypes_name": "find_color_ex_from_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "",
           "params": [
             {
@@ -17741,7 +19431,7 @@
           "signature": "GetColorFromMem(image_handle, x, y) → (etstr)",
           "python_example": "op.GetColorFromMem(image_handle, x, y)  # → (etstr)",
           "python_ctypes_name": "get_color_from_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "",
           "params": [
             {
@@ -17815,7 +19505,7 @@
           "signature": "CmpColorFromMem(image_handle, x, y, color, sim) → (ret)",
           "python_example": "op.CmpColorFromMem(image_handle, x, y, color, sim)  # → (ret)",
           "python_ctypes_name": "cmp_color_from_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "",
           "params": [
             {
@@ -17913,7 +19603,7 @@
           "signature": "GetColorNumFromMem(image_handle, x1, y1, x2, y2, color, sim) → (ret)",
           "python_example": "op.GetColorNumFromMem(image_handle, x1, y1, x2, y2, color, sim)  # → (ret)",
           "python_ctypes_name": "get_color_num_from_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "",
           "params": [
             {
@@ -18035,7 +19725,7 @@
           "signature": "FindMultiColorFromMem(image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir) → (x, y, ret)",
           "python_example": "op.FindMultiColorFromMem(image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir)  # → (x, y, ret)",
           "python_ctypes_name": "find_multi_color_from_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "多色串 / 色块",
           "params": [
             {
@@ -18205,7 +19895,7 @@
           "signature": "FindMultiColorExFromMem(image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir) → (etstr)",
           "python_example": "op.FindMultiColorExFromMem(image_handle, x1, y1, x2, y2, first_color, offset_color, sim, dir)  # → (etstr)",
           "python_ctypes_name": "find_multi_color_ex_from_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "",
           "params": [
             {
@@ -18351,7 +20041,7 @@
           "signature": "FindColorBlockExFromMem(image_handle, x1, y1, x2, y2, color, sim, count, height, width) → (etstr)",
           "python_example": "op.FindColorBlockExFromMem(image_handle, x1, y1, x2, y2, color, sim, count, height, width)  # → (etstr)",
           "python_ctypes_name": "find_color_block_ex_from_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "",
           "params": [
             {
@@ -18509,7 +20199,7 @@
           "signature": "YoloDetectFromMem(image_handle, x1, y1, x2, y2, conf, iou) → (etjson, ret)",
           "python_example": "op.YoloDetectFromMem(image_handle, x1, y1, x2, y2, conf, iou)  # → (etjson, ret)",
           "python_ctypes_name": "yolo_detect_from_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "YOLO（内存版）。ret = 检测条数；JSON 结构同屏幕版",
           "params": [
             {
@@ -18643,7 +20333,7 @@
           "signature": "YoloDetectFromMemEx2(image_handle, x1, y1, x2, y2, conf, iou, json_options) → (etjson, ret)",
           "python_example": "op.YoloDetectFromMemEx2(image_handle, x1, y1, x2, y2, conf, iou, json_options)  # → (etjson, ret)",
           "python_ctypes_name": "yolo_detect_from_mem_ex2",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "带过滤/截断；json_options 同 YoloDetectEx2。非法 options 返回 -1",
           "params": [
             {
@@ -18789,7 +20479,7 @@
           "signature": "AudioQueryWindow(hwnd) → (etjson)",
           "python_example": "op.AudioQueryWindow(hwnd)  # → (etjson)",
           "python_ctypes_name": "audio_query_window",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "===== 音频音量（2026-11-21，WASAPI 会话级 + 系统级）=====\n设计见 docs/2026-11/音量模块_方案_20261121.md。\n语义区分（误用率最高，务必看清）：\nvolume（滑块值）**与出声大小无直接关系**：滑块 1.0 也可能当前无声。\n判断\"现在有没有声音\"要看 **peak**。\nfound=false = 该 PID 没有音频会话，**不等于没声音**\n（可能在放系统音，或进程刚启动还没建会话）。\n返回 JSON：\n{\"ok\":1,\"code\":0,\"found\":true,\"pid\":12345,\"muted\":false,\"playing\":true,\n\"volume\":0.75,\"peak\":0.3421,\"error\":\"\"}\nok=1 表示查询链路走通（不代表有声音）；ok=0 看 error。\ncode: 0 成功 / -1 无音频设备 / -2 COM 或激活失败 / -3 枚举失败\n/ -4 参数非法 / -5 设置失败\n无状态：峰值保持/衰减/阈值判定留给调用方\n（每次调用重新枚举，不缓存 COM 指针）。",
           "params": [
             {
@@ -18839,7 +20529,7 @@
           "signature": "AudioQueryPid(pid) → (etjson)",
           "python_example": "op.AudioQueryPid(pid)  # → (etjson)",
           "python_ctypes_name": "audio_query_pid",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "",
           "params": [
             {
@@ -18889,7 +20579,7 @@
           "signature": "AudioGetPidFromHwnd(hwnd) → (ret)",
           "python_example": "op.AudioGetPidFromHwnd(hwnd)  # → (ret)",
           "python_ctypes_name": "audio_get_pid_from_hwnd",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "纯取窗口所属 PID（不碰 COM）。ret: 失败返回 0。",
           "params": [
             {
@@ -18939,7 +20629,7 @@
           "signature": "AudioSetSessionVolume(pid, volume) → (ret)",
           "python_example": "op.AudioSetSessionVolume(pid, volume)  # → (ret)",
           "python_ctypes_name": "audio_set_session_volume",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "设置会话滑块音量（0.0~1.0，越界 clamp）。ret: 1 成功 / 0 失败（与全库\n「0=失败、非 0=成功」一致）。具体失败原因写 __op.log；要结构化错误码的\n用 AudioQueryPid 的 code 字段（-1 无设备 / -2 COM / -3 枚举 / -5 设置失败）。",
           "params": [
             {
@@ -19001,7 +20691,7 @@
           "signature": "AudioSetSessionMute(pid, muted) → (ret)",
           "python_example": "op.AudioSetSessionMute(pid, muted)  # → (ret)",
           "python_ctypes_name": "audio_set_session_mute",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "ret: 1 成功 / 0 失败，口径同 AudioSetSessionVolume。",
           "params": [
             {
@@ -19063,7 +20753,7 @@
           "signature": "AudioGetSystemVolume() → (etjson)",
           "python_example": "op.AudioGetSystemVolume()  # → (etjson)",
           "python_ctypes_name": "audio_get_system_volume",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "系统主音量（同一套 enumerator 上多取 IAudioEndpointVolume，成本很低）。",
           "params": [
             {
@@ -19099,7 +20789,7 @@
           "signature": "AudioSetSystemVolume(volume) → (ret)",
           "python_example": "op.AudioSetSystemVolume(volume)  # → (ret)",
           "python_ctypes_name": "audio_set_system_volume",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "ret: 1 成功 / 0 失败，口径同上。",
           "params": [
             {
@@ -19149,7 +20839,7 @@
           "signature": "AudioSetSystemMute(muted) → (ret)",
           "python_example": "op.AudioSetSystemMute(muted)  # → (ret)",
           "python_ctypes_name": "audio_set_system_mute",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "",
           "params": [
             {
@@ -19199,7 +20889,7 @@
           "signature": "LoadImageMem(data, width, height, stride, fmt) → (et_handle)",
           "python_example": "op.LoadImageMem(data, width, height, stride, fmt)  # → (et_handle)",
           "python_ctypes_name": "load_image_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "===== 图像句柄注册表（2026-11-21，内存直操作一期地基）=====\n目的：让调用方把**自己手上已有的像素**直接交给 op，省掉落盘再读盘的往返。\n句柄形态为字符串 img:，与既有 pic: 的显示输入风格一致，\n因此在 C API / COM 层都是普通 BSTR，客户端零学习成本。\n设计见 docs/2026-11/内存模块优化_图像句柄注册表_方案_20261121.md。\n注册后像素**不可变**：句柄可被多线程并发读，允许就地写会引入数据竞争。\n需要变体请新建句柄（CropImage 即如此）。\n注册表达上限（256）时**拒绝新增并返回空串**，不会淘汰既有句柄。\n从原始像素内存注册图像。fmt: bgra(默认) / bgr / gray（也接受 4/3/1）。\nstridewidth*bpp 视为带行填充，逐行复制。\n成功返回句柄字符串，失败返回空串（参数非法 / 未知格式 / 尺寸超 64MB / 注册表满）。",
           "params": [
             {
@@ -19297,7 +20987,7 @@
           "signature": "LoadImageBmp(data, size) → (et_handle)",
           "python_example": "op.LoadImageBmp(data, size)  # → (et_handle)",
           "python_ctypes_name": "load_image_bmp",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "从 BMP 字节流注册（自动解析 24/32bpp、top-down/bottom-up、行填充）。",
           "params": [
             {
@@ -19359,7 +21049,7 @@
           "signature": "FreeImage(handle) → (ret)",
           "python_example": "op.FreeImage(handle)  # → (ret)",
           "python_ctypes_name": "free_image",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "释放单个图像句柄。ret: 1=成功，0=句柄不存在。",
           "params": [
             {
@@ -19409,7 +21099,7 @@
           "signature": "FreeAllImages() → (ret)",
           "python_example": "op.FreeAllImages()  # → (ret)",
           "python_ctypes_name": "free_all_images",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "释放全部图像句柄。ret: 被释放的数量。",
           "params": [
             {
@@ -19445,7 +21135,7 @@
           "signature": "GetImageSize(handle) → (width, height, channels, ret)",
           "python_example": "op.GetImageSize(handle)  # → (width, height, channels, ret)",
           "python_ctypes_name": "get_image_size",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "查询图像尺寸。channels 恒为 4（内部统一 BGRA）。ret: 1=成功，0=句柄不存在。",
           "params": [
             {
@@ -19531,7 +21221,7 @@
           "signature": "GetImageData(handle, fmt, buffer, buffer_size) → (ret)",
           "python_example": "op.GetImageData(handle, fmt, buffer, buffer_size)  # → (ret)",
           "python_ctypes_name": "get_image_data",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "读回像素。fmt: raw(BGRA 紧凑) / bmp(带 BMP 头的完整字节流)。\nbuffer 为调用方提供的缓冲区，buffer_size 为其容量；ret: 实际写出的字节数（不足则 0）。",
           "params": [
             {
@@ -19617,7 +21307,7 @@
           "signature": "CropImage(handle, x, y, width, height) → (et_handle)",
           "python_example": "op.CropImage(handle, x, y, width, height)  # → (et_handle)",
           "python_ctypes_name": "crop_image",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "裁剪并注册为新句柄（深拷贝）。区域自动 clamp 到图像内；空区域返回空串。",
           "params": [
             {
@@ -19715,7 +21405,7 @@
           "signature": "FindStrMem(handle, json_targets, sim) → (et_json)",
           "python_example": "op.FindStrMem(handle, json_targets, sim)  # → (et_json)",
           "python_ctypes_name": "find_str_mem",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "在图像句柄上做多目标查找（复用 P1 FindStrBatch 的匹配内核）。\n返回值 = 目标数；句柄无效或 JSON 非法返回 -1。坐标从图像左上角算起。",
           "params": [
             {
@@ -19794,7 +21484,7 @@
           "signature": "GetImageCount() → (ret)",
           "python_example": "op.GetImageCount()  # → (ret)",
           "python_ctypes_name": "get_image_count",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "当前注册表条目数（诊断用）。",
           "params": [
             {
@@ -20098,7 +21788,7 @@
           "signature": "FindStrBatch(x1, y1, x2, y2, json_targets, color, sim) → (et_json)",
           "python_example": "op.FindStrBatch(x1, y1, x2, y2, json_targets, color, sim)  # → (et_json)",
           "python_ctypes_name": "find_str_batch",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "【P1 2026-11-21】多目标结构化查找：一次 det+rec，引擎内匹配全部目标。\njson_targets 为 JSON 数组，元素可为主字符串或配置对象：\n{\"id\",\"text\",\"match\":\"contains|exact|prefix|suffix|regex\",\n\"fuzzy\"(0..3),\"max_hits\",\"ci\",\"confirmed_only\"}\n返回每个目标的全部命中，含**字符级**精确范围 cx1/cx2（来自 P0 逐字坐标；\n旋转降级或已装载字库时退化为整行范围，char_precise=false）。\n返回值 = 目标数；json_targets 非法（解析失败/未知字段/未知 match）返回 -1。\n⚠ 匹配不跨行：命中片段必须完整落在同一行内。",
           "params": [
             {
@@ -20225,7 +21915,7 @@
           "signature": "FindStrEx2(x1, y1, x2, y2, pattern, color, sim, flags) → (et_json)",
           "python_example": "op.FindStrEx2(x1, y1, x2, y2, pattern, color, sim, flags)  # → (et_json)",
           "python_ctypes_name": "find_str_ex2",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "【P1】单目标增强查找（标量入参）。flags 位：\n1=regex 2=exact（默认 contains） 4=ci(ASCII) 64=fuzzy 返回 -1。\n返回值 = 命中数；返回 JSON 与 FindStrBatch 的单目标 results[0] 同构。",
           "params": [
             {
@@ -20364,7 +22054,7 @@
           "signature": "OcrLastProfile() → (et_json)",
           "python_example": "op.OcrLastProfile()  # → (et_json)",
           "python_ctypes_name": "ocr_last_profile",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "【P3 2026-11-21】上一次 OCR 的分项耗时（det/cls/rec 分别计时），JSON 输出。\n不触发新的 OCR。valid=false = 还没跑过 OCR 或引擎不支持。",
           "params": [
             {
@@ -23542,7 +25232,7 @@
           "python_example": "op.SetYoloEngine(path_of_engine, dll_name, argv)  # → ret",
           "python_ctypes_name": "set_yolo_engine",
           "in_ctypes_binding": true,
-          "description": "选择 YOLO 引擎并加载模型。统一入口：path_of_engine 直接传 .onnx 模型文件路径\n（dll_name 留空）即自动切进程内 ONNX 引擎，等价于 (\"onnx\", 模型路径, argv)。\n旧写法仍兼容：engine 以 \"onnx\" 开头=进程内 ONNX（dll_name=模型路径，空=内置资源段模型）；\n否则=远程 HTTP（http(s):// 完整/基础 URL 或别名 yolo/yolo_http 等）。\nONNX 类别名优先自动读取模型内嵌 metadata（ultralytics export 自带），无需 --labels；\n无 metadata 或非 ultralytics 导出时才需要 --labels=a,b,c 或 --labels=@classes.txt 兜底。\nargv 空格分隔，ONNX 另支持 --conf=0.25 --iou=0.45（detect 传 <=0 时的默认阈值）。",
+          "description": "选择 YOLO 引擎并加载模型。统一入口：path_of_engine 直接传 .onnx 模型文件路径\n（dll_name 留空）即自动切进程内 ONNX 引擎，等价于 (\"onnx\", 模型路径, argv)。\n旧写法仍兼容：engine 以 \"onnx\" 开头=进程内 ONNX（dll_name=模型路径，空=内置资源段模型）；\n否则=远程 HTTP（http(s):// 完整/基础 URL 或别名 yolo/yolo_http 等）。\nONNX 类别名优先自动读取模型内嵌 metadata（ultralytics export 自带），无需 --labels；\n无 metadata 或非 ultralytics 导出时才需要 --labels=a,b,c 或 --labels=@classes.txt 兜底。\nargv 空格分隔，ONNX 另支持 --conf=0.25 --iou=0.45（detect 传 <=0 时的默认阈值）\n与 --threads=N（推理线程数，默认 0=交给 ORT 用物理核；多实例并发时建议压到 1~2\n免得 N 个会话各开满线程互相抢核。2026-11-21 实测放开线程比写死单线程快 3.5~4.8 倍）。",
           "params": [
             {
               "name": "path_of_engine",
@@ -23576,7 +25266,7 @@
           "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
           "tool_schema": {
             "name": "SetYoloEngine",
-            "description": "选择 YOLO 引擎并加载模型。统一入口：path_of_engine 直接传 .onnx 模型文件路径\n（dll_name 留空）即自动切进程内 ONNX 引擎，等价于 (\"onnx\", 模型路径, argv)。\n旧写法仍兼容：engine 以 \"onnx\" 开头=进程内 ONNX（dll_name=模型路径，空=内置资源段模型）；\n否则=远程 HTTP（http(s):// 完整/基础 URL 或别名 yolo/yolo_http 等）。\nONNX 类别名优先自动读取模型内嵌 metadata（ultralytics export 自带），无需 --labels；\n无 metadata 或非 ultralytics 导出时才需要 --labels=a,b,c 或 --labels=@classes.txt 兜底。\nargv 空格分隔，ONNX 另支持 --conf=0.25 --iou=0.45（detect 传 <=0 时的默认阈值）。",
+            "description": "选择 YOLO 引擎并加载模型。统一入口：path_of_engine 直接传 .onnx 模型文件路径\n（dll_name 留空）即自动切进程内 ONNX 引擎，等价于 (\"onnx\", 模型路径, argv)。\n旧写法仍兼容：engine 以 \"onnx\" 开头=进程内 ONNX（dll_name=模型路径，空=内置资源段模型）；\n否则=远程 HTTP（http(s):// 完整/基础 URL 或别名 yolo/yolo_http 等）。\nONNX 类别名优先自动读取模型内嵌 metadata（ultralytics export 自带），无需 --labels；\n无 metadata 或非 ultralytics 导出时才需要 --labels=a,b,c 或 --labels=@classes.txt 兜底。\nargv 空格分隔，ONNX 另支持 --conf=0.25 --iou=0.45（detect 传 <=0 时的默认阈值）\n与 --threads=N（推理线程数，默认 0=交给 ORT 用物理核；多实例并发时建议压到 1~2\n免得 N 个会话各开满线程互相抢核。2026-11-21 实测放开线程比写死单线程快 3.5~4.8 倍）。",
             "parameters": {
               "type": "object",
               "properties": {
@@ -24204,7 +25894,7 @@
           "python_example": "op.SetAStarMapData(width, height, bgra_data, size, scale, offset_x, offset_y)  # → (ret)",
           "python_ctypes_name": "set_astar_map_data",
           "in_ctypes_binding": true,
-          "description": "内存版障碍地图（32bpp BGRA top-down）。C API 专用。",
+          "description": "内存版障碍地图（32bpp BGRA top-down）。C API(=OpSetAStarMapData) 与 COM\n(=SetAStarMapData, DISPID 478, SAFEARRAY(BYTE)) 均可用。",
           "params": [
             {
               "name": "width",
@@ -24273,7 +25963,7 @@
           "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
           "tool_schema": {
             "name": "SetAStarMapData",
-            "description": "内存版障碍地图（32bpp BGRA top-down）。C API 专用。",
+            "description": "内存版障碍地图（32bpp BGRA top-down）。C API(=OpSetAStarMapData) 与 COM\n(=SetAStarMapData, DISPID 478, SAFEARRAY(BYTE)) 均可用。",
             "parameters": {
               "type": "object",
               "properties": {

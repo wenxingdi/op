@@ -126,6 +126,10 @@ set(OP_INPUT_SOURCES
   "input/keyboard/KeyboardBackend.cpp"
   "input/keyboard/WinKeyboard.cpp"
   "input/keyboard/DxKeyboard.cpp"
+  # 时间轴层（批 E 2026-11-22）：进程级输入事件总线 + JSONL 编解码。
+  # 总线必须编进 libop：录制钩子挂在各输入后端里，后端就在这个库里。
+  "input/InputEvent.cpp"
+  "input/InputEventBus.cpp"
 )
 
 set(OP_HOOK_SOURCES
@@ -316,6 +320,8 @@ set(OP_CLASS_SOURCES
   "op/OpYolo.cpp"
   "op/OpYoloTask.cpp"
   "op/OpAsm.cpp"
+  # 时间轴层（批 E 2026-11-22）：录制/回放/监听/主从同步的 op 门面
+  "op/OpInputTimeline.cpp"
   # 音频音量（2026-11-21）
   "op/OpAudio.cpp"
   # 内存直操作二期（2026-11-21）

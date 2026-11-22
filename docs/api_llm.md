@@ -1,6 +1,6 @@
 # OP 插件 API 速查（LLM 上下文版）
 
-> 源：`include/libop.h` · 348 个接口 · 生成于 2026-11-21 18:19 · 由 scripts/gen_api_reference.py 生成（勿手改）
+> 源：`include/libop.h` · 371 个接口 · 生成于 2026-11-22 21:20 · 由 scripts/gen_api_reference.py 生成（勿手改）
 
 调用约定：出参不传入，聚成返回值元组（顺序 = signature 的 → 后列表）；坐标为物理像素，绑定窗口后为客户区坐标；字符串 UTF-16。
 
@@ -39,7 +39,7 @@
 - `GetMachineCode() → (et)` — 获取本机机器码（读注册表 MachineGuid，64 位视图；失败返回空串）。⚠️ 该值由 Windows 安装时生成，是本机唯一标识、属于设备指纹：仅在本机使用，不要直接作为授权令牌外传，也不要写进日志或 HTTP 请求体上传到远端；如确需对外标识设备，请先加盐哈希或改用业务侧账号 ID。
 - `IsElevated() → (ret)` — 检测当前进程是否以管理员权限运行. 1是 0否
 
-## Window 窗口（49）
+## Window 窗口（57）
 
 - `EnumWindow(parent, title, class_name, filter) → (et)` — 根据指定条件,枚举系统中符合条件的窗口
 - `EnumWindowByProcess(process_name, title, class_name, filter) → (et)` — 根据指定进程以及其它条件,枚举系统中符合条件的窗口
@@ -85,11 +85,19 @@
 - `Sha1(text) → (et)` — 计算文本的 SHA-1 摘要（hex 串）
 - `Base64Encode(text) → (et)` — Base64 编码/解码（输入按 UTF-8 字节流处理）。解码遇非法串返回空串。
 - `Base64Decode(base64) → (et)` — Base64 解码，返回原文本
+- `ConcurrencyInfo() → (etjson)` — 约定不变：**单个 Op 实例不是线程安全的**（见本文件顶部），多线程场景每线程一个实例。
 - `DrawRect(x1, y1, x2, y2, color, width) → (ret)` — 在屏幕透明叠加层追加一个矩形/直线/文本框。color="RRGGBB"（与找色同格式）。返回 1=成功。
 - `DrawLine(x1, y1, x2, y2, color, width) → (ret)` — 在屏幕标注层画直线（调试标注用；DrawClear 清除）
 - `DrawText(x, y, text, color, font_size) → (ret)` — 在屏幕标注层绘制文本（调试标注用）
 - `DrawClear() → (ret)` — 清空叠加层全部图元并重绘。
 - `DrawSetVisible(show) → (ret)` — 显示/隐藏叠加层窗口（图元保留）。1=成功。
+- `DrawCircle(x, y, radius, color, width) → (ret)` — 圆形（屏幕坐标）：x,y 为圆心，radius 为半径，color="RRGGBB"，width 为线宽。
+- `DrawImage(x, y, file_name, alpha) → (ret)` — 在屏幕叠加层画一张图片（左上角 x,y）。alpha 0~255；255 视为 255（不透明）。
+- `DrawRectEx(x, y, width, height, mode, line_width) → (ret)` — 画在**独立透明窗口**上，不写目标 DX 后台缓冲 -> **不会出现在 DX 截图里**；
+- `DrawCircleEx(x, y, radius, line_width) → (ret)` — 
+- `DrawTextEx(x, y, text, font_size) → (ret)` — 
+- `DrawClearBind() → (ret)` — 只清绑定窗口那批图元；屏幕叠加层的图元由 DrawClear 负责。
+- `DrawGetCount() → (screen_count, bind_count)` — 诊断：分别返回屏幕层/绑定层的图元数量（任一指针可为 nullptr）。
 
 ## Binding 后台绑定（10）
 
@@ -104,7 +112,7 @@
 - `IsBind() → (ret)` — 判定当前对象是否已绑定窗口.
 - `GetDisplayMethod() → (et)` — 获取当前实际生效的图色模式名（"normal"/"gdi2"/"dx2"/"dx.d3d11"/"normal.wgc"/"opengl.nox" …）。
 
-## Input 键鼠输入（46）
+## Input 键鼠输入（53）
 
 - `GetCursorPos() → (x, y, ret)` — 获取鼠标位置.
 - `GetCursorShape() → (et)` — 获取当前鼠标形状: visible,hash,width,height,hotX,hotY.
@@ -152,6 +160,13 @@
 - `KeyPressChar(vk_code) → (ret)` — 按下并弹起指定键（键名描述串，如 "enter"/"f1"/"ctrl+a"）
 - `SetKeypadDelay(type, delay) → (ret)` — 设置按键时,键盘按下和弹起的时间间隔
 - `KeyPressStr(key_str, delay) → (ret)` — 根据指定的字符串序列，依次按顺序按下其中的字符
+- `InputSyncEnable(enable) → (ret)` — 采集入口挂在**每个输入原语的后端出口**（MoveTo / LeftDown / KeyDown / …），
+- `SetInputMonitor(callback, user) → (ret)` — 传 callback=nullptr 取消监听。
+- `InputRecord(action, path) → (etpath, ret)` — 录制。
+- `InputRecordGetPath() → (etpath)` — 取"最近一次录制（或正在录制）"的文件路径；没录过返回空串。
+- `InputPlayback(action, path, speed, loop) → (etjson, ret)` — 回放。
+- `InputSyncLink(master, slave, enable) → (ret)` — 主从同步：把 master 实例产生的输入事件**异步**投递到 slave 实例。
+- `InputSyncStatus() → (etjson)` — 主从链路诊断（本实例视角）：
 
 ## Image 图色（25）
 
@@ -222,12 +237,20 @@
 - `CvEdgeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)` — 边缘匹配，返回命中 JSON 数组
 - `CvShapeMatchTemplate(x, y, width, height, template_name, threshold) → (etjson, ret)` — 形状匹配，返回命中 JSON 数组
 
-## OCR 文字识别（119）
+## OCR 文字识别（127）
 
 - `SetOcrEngine(path_of_engine, dll_name, argv) → ret` — 选择 OCR 引擎并透传启动参数。engine: "onnx"/空/任意未知名=内置 ONNX（默认）。
 - `OcrWarmup() → (ret)` — OCR 预热（P2 第二十六批 2026-10-16，对齐 OLA OcrWarmup）：触发引擎懒加载 + 一次小图推理，
 - `YoloDetectEx2(x1, y1, x2, y2, conf, iou, json_options) → (etjson, ret)` — 【YOLO 增强 2026-11-21】带过滤/截断的检测。
 - `YoloDetectFromFileEx2(file_name, conf, iou, json_options) → (etjson, ret)` — 文件版 Ex2：同样支持 class_ids/labels/max_results 过滤。
+- `YoloClassify(x1, y1, x2, y2, top_k) → (etjson, ret)` — 原来的 YOLO 只有"检测"。这里按 OLA 的 Detect/Classify/Segment 三分类补齐
+- `YoloClassifyFromFile(file_name, top_k) → (etjson, ret)` — 
+- `YoloSegment(x1, y1, x2, y2, conf, iou) → (etjson, ret)` — 实例分割。每条的 polygon 是掩码外轮廓（原图像素坐标，可能为空 = 掩码过小），
+- `YoloSegmentFromFile(file_name, conf, iou) → (etjson, ret)` — 
+- `YoloGetModelInfo() → (etjson)` — 当前已加载模型的元信息（未加载时 task="none"）。用途：脚本启动时自检"模型选对了没"，
+- `AsmCall(hwnd, code_hex, timeout_ms) → (etjson, ret)` — 在目标进程执行一段**机器码**并取返回值（纯 BlackBone + Win32，无新依赖）。
+- `Assemble(asm_text, arch) → (etjson, ret)` — Assemble / Disassemble **未实现**（需要 keystone/capstone，当前环境装不上）。
+- `Disassemble(bytes_hex, address, count) → (etjson, ret)` — 
 - `SetDict(idx, file_name) → (ret)` — 设置字库文件
 - `GetDict(idx, font_index) → (etstr)` — 获取指定字库中指定条目的字库信息
 - `SetMemDict(idx, data, size) → (ret)` — 设置内存字库文件
@@ -356,7 +379,7 @@
 - `FindNearestPos(all_pos, type, x, y) → (et)` — 从坐标列表中查找距离指定坐标最近的点。all_pos: type=1 时 "x,y|x,y"；否则 "name,x,y|..."（name 不含空格/逗号）。
 - `SortPosDistance(all_pos, type, x, y) → (et)` — 坐标点按与 (x,y) 的距离升序排序（欧氏距离平方比较）。格式与 FindNearestPos 相同，输出保持输入格式，等距保持输入顺序。
 - `SetAStarMap(bitmap_file, scale, offset_x, offset_y) → (ret)` — 设置寻路障碍地图（位图文件，黑=障碍：亮度 (r+g+b)/3<128）。scale 降采样倍率（块内任一障碍像素则整格障碍）。
-- `SetAStarMapData(width, height, bgra_data, size, scale, offset_x, offset_y) → (ret)` — 内存版障碍地图（32bpp BGRA top-down）。C API 专用。
+- `SetAStarMapData(width, height, bgra_data, size, scale, offset_x, offset_y) → (ret)` — 内存版障碍地图（32bpp BGRA top-down）。C API(=OpSetAStarMapData) 与 COM
 - `AStarFindPathBM(beginX, beginY, endX, endY) → (et)` — 障碍位图 A*：对已设置地图寻路，输出世界坐标路径 "x,y|x,y"（起点→终点，格中心），不可达/未设图返回空串。
 - `AStarFindPathWay(points) → (et)` — 多点途经寻路："x,y|x,y|..." 首点为起点，逐段寻路拼接（衔接点去重）；任一段不可达整体返回空串。
 - `FindNearestFeasiblePoint(x, y) → (et)` — 找距离 (x,y) 最近的格中心可通行坐标（世界坐标 "x,y"）：落障碍格时从该格 BFS 扩散找最近可走格。

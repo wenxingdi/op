@@ -100,6 +100,14 @@ class WinMouse {
     long send_wheel(DWORD input_flag, UINT window_message, int delta);
     int resolve_trajectory_duration(int duration) const;
 
+    // ---- 时间轴层录制钩子（批 E 2026-11-22）----
+    // 每个**原语**出口调一次。合成方法（Click/DoubleClick）故意**不调**：
+    // 它们内部会走到 LeftDown/LeftUp 这些原语，重复钩会让一次点击录成两条。
+    // 详见 input/InputEventBus.h 顶部"为什么挂在后端"。
+    void trace_move(int x, int y) const;
+    void trace_button(long flags, long aux = 0) const;
+    void trace_wheel(long flags, int delta) const;
+
     HWND _hwnd;
     int _mode;
     int _x, _y;

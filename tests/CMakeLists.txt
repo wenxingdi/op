@@ -184,6 +184,12 @@ set(OP_TEST_SOURCES
   "crypto_draw_test.cpp"
   "draw_batch_test.cpp"
   "asm_batch_test.cpp"
+  # 时间轴层（批 E 2026-11-22）：录制 / 回放 / 监听 / 主从同步。
+  # 全部走 C API 导出层 + 自建测试窗口（windows 绑定），不产生全局鼠标移动。
+  "input_timeline_batch_test.cpp"
+  # 总线**跨模块共享**判据（两个 DLL 必须是同一条总线）。与上者是两类不同的问题：
+  # 上者测功能，这条测"进程里到底有几份单例"。
+  "input_timeline_bus_test.cpp"
   # P2 第二十二批（2026-10-15）：内存三件套 + 模块列表，全部走本进程闭环。
   "memory_ext_test.cpp"
   # P2 第二十三批（2026-10-15）：图像变换 OpCvRotate/OpCvFlip，非对称小图四角像素级断言。
@@ -237,6 +243,14 @@ set(OP_TEST_SOURCES
   "../libop/input/mouse/WinMouse.cpp"
   "../libop/input/keyboard/KeyboardBackend.cpp"
   "../libop/input/keyboard/WinKeyboard.cpp"
+  # 时间轴层（批 E 2026-11-22）：WinMouse/KeyboardBackend 出口调 emit_input_event，
+  # 而这两个 .cpp 被直接编进本目标（op_com 只导出 op.def 里的符号），
+  # 所以总线实现也必须编进来，否则 LNK2019。
+  "../libop/input/InputEvent.cpp"
+  "../libop/input/InputEventBus.cpp"
+  # InputEvent.cpp 的 JSONL 解析走 json/JsonValue（录制文件可能被人工编辑，容忍空格/
+  # 字段顺序比手写解析更实际），所以 JsonValue.cpp 也要编进来。
+  "../libop/json/JsonValue.cpp"
   # 交换链格式白名单是纯函数（GetImageBufferFormat / CopyImageData），但 op_com 是 SHARED
   # 且只导出 op.def 里的符号，测试链接不到 -> 与 OpenCv 测试同一做法：直接编入本目标。
   "../libop/hook/DxCaptureCommon.cpp"

@@ -431,6 +431,36 @@ PARAM_DOCS = {
     # ---------- Memory ----------
     # ---------- Runtime 运行时（其余） ----------
     "SetPath": {"path": "设置全局根目录：找图/字库等相对路径均基于此目录解析"},
+
+    # ---- 时间轴层（批 E 2026-11-22）----
+    # 这些参数名（action/speed/loop/master/slave/enable/callback/user）只在时间轴层出现，
+    # 但 path 在别处是"路径点串"，语义完全不同，所以全部走**函数级**覆盖。
+    "InputSyncEnable": {"enable": "1=打开采集（热路径只多一次原子读）／0=关闭（同时结束正在进行的录制）"},
+    "SetInputMonitor": {
+        "callback": "函数指针 <code>op_input_monitor_callback</code>（易语言传「取函数地址」），传 0 取消监听；"
+                    "回调在<b>调用方线程同步</b>触发，回调里不要再调输入 API（会被旁路护栏挡掉，不崩溃但那部分输入不录）",
+        "user": "原样回传给回调的用户指针（可传 0）",
+    },
+    "InputRecord": {
+        "action": "0=START（开始录制）／1=STOP（结束录制，<b>*ret = 实际写入的事件条数</b>，0=确实没产生输入）",
+        "path": "录制文件路径（JSONL）；START 时传空串=自动生成 <code>input_record_YYYYmmdd_HHMMSS.jsonl</code>（工作目录）。"
+                "<b>已在录制时再次 START 返回 0 且不截断前一段</b>",
+    },
+    "InputRecordGetPath": {},
+    "InputPlayback": {
+        "action": "0=LOAD（读入 JSONL，*ret=事件条数，返回 JSON 含 <code>bound:0|1</code>）／1=START（同步放完才返回）"
+                  "／2=STOP（请求停止，下一次事件边界生效）／3=FREE（释放已装载事件）",
+        "path": "LOAD 时的录制文件路径（JSONL）；其余 action 传空串",
+        "speed": "倍速，时间轴按 <code>t/speed</code> 等比缩放；<code>&lt;=0</code> 视为 1.0",
+        "loop": "循环次数；<code>&lt;=0</code> 视为 1",
+    },
+    "InputSyncLink": {
+        "master": "主实例 <b>id</b>（不是 hwnd！取法见 InputSyncStatus 的 <code>master</code> 字段）",
+        "slave": "从实例 id",
+        "enable": "1=建立/改绑／0=取消（master 必须确实是当前 master，否则返回 0）；<b>master==slave 会被拒绝</b>"
+                  "（自己投自己会自我放大）。投递异步且队列满（256）时丢事件而不阻塞主实例——迟到的点击会点错地方",
+    },
+    "InputSyncStatus": {},
     "GetLastError": {"ret": "最近一次失败的内部错误码（0=无错误）；定位问题需配合 set_show_error_msg(2) 日志"},
     "SetShowErrorMsg": {
         "show_type": "0=静默（默认）1=弹框（阻塞调用线程）2=写日志文件（cwd/<code>__op.log</code>，排查推荐）3=输出到调试器"

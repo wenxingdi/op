@@ -124,6 +124,8 @@ long WinKeyboard::KeyDown(long vk_code) {
     }
     }
 
+    if (ret)
+        trace_key(vk_code, 0);
     return ret;
 }
 
@@ -184,6 +186,8 @@ long WinKeyboard::KeyUp(long vk_code) {
     }
     }
 
+    if (ret)
+        trace_key(vk_code, KEYEVENTF_KEYUP);
     return ret;
 }
 
@@ -243,10 +247,17 @@ long WinKeyboard::InputChar(wchar_t ch) {
         inputs[0].ki.dwFlags = KEYEVENTF_UNICODE;
         inputs[1] = inputs[0];
         inputs[1].ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
-        return ::SendInput(2, inputs, sizeof(INPUT)) == 2 ? 1 : 0;
+        const long ret = ::SendInput(2, inputs, sizeof(INPUT)) == 2 ? 1 : 0;
+        if (ret)
+            trace_char(ch);
+        return ret;
     }
-    case INPUT_TYPE::IN_WINDOWS:
-        return message::SendTimeout(_hwnd, WM_CHAR, static_cast<WPARAM>(ch), 1);
+    case INPUT_TYPE::IN_WINDOWS: {
+        const long ret = message::SendTimeout(_hwnd, WM_CHAR, static_cast<WPARAM>(ch), 1);
+        if (ret)
+            trace_char(ch);
+        return ret;
+    }
     }
     return 0;
 }
