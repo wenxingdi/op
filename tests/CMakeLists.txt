@@ -182,6 +182,7 @@ set(OP_TEST_SOURCES
   # P1 文件模块功能测试（2026-10-15 新增）：Op*File* 全家临时目录真实读写流程。
   "file_api_test.cpp"
   "crypto_draw_test.cpp"
+  "draw_batch_test.cpp"
   # P2 第二十二批（2026-10-15）：内存三件套 + 模块列表，全部走本进程闭环。
   "memory_ext_test.cpp"
   # P2 第二十三批（2026-10-15）：图像变换 OpCvRotate/OpCvFlip，非对称小图四角像素级断言。

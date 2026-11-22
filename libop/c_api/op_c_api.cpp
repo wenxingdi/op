@@ -784,6 +784,43 @@ int OP_CALL OpDrawSetVisible(op_handle handle, int show) {
     return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawSetVisible(show, ret); });
 }
 
+// ---- 批 B：绘制补齐 ----
+int OP_CALL OpDrawCircle(op_handle handle, int x, int y, int radius, const wchar_t *color, int width) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawCircle(x, y, radius, safe_text(color), width, ret); });
+}
+
+int OP_CALL OpDrawImage(op_handle handle, int x, int y, const wchar_t *file_name, int alpha) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawImage(x, y, safe_text(file_name), alpha, ret); });
+}
+
+int OP_CALL OpDrawRectEx(op_handle handle, int x, int y, int width, int height, int mode, int line_width) {
+    return call_ret(
+        handle, [&](op::Op &op, long *ret) { op.DrawRectEx(x, y, width, height, mode, line_width, ret); });
+}
+
+int OP_CALL OpDrawCircleEx(op_handle handle, int x, int y, int radius, int line_width) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawCircleEx(x, y, radius, line_width, ret); });
+}
+
+int OP_CALL OpDrawTextEx(op_handle handle, int x, int y, const wchar_t *text, int font_size) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawTextEx(x, y, safe_text(text), font_size, ret); });
+}
+
+int OP_CALL OpDrawClearBind(op_handle handle) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawClearBind(ret); });
+}
+
+int OP_CALL OpDrawGetCount(op_handle handle, int *screen_count, int *bind_count) {
+    long sc = 0, bc = 0;
+    const int rc = call_ret(handle, [&](op::Op &op, long *ret) {
+        op.DrawGetCount(&sc, &bc);
+        *ret = 1;
+    });
+    out_int(screen_count, sc);
+    out_int(bind_count, bc);
+    return rc;
+}
+
 // Background binding
 
 int OP_CALL OpBindWindow(op_handle handle, intptr_t hwnd, const wchar_t *display, const wchar_t *mouse,

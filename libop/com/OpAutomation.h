@@ -651,6 +651,16 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(DrawText)(LONG x, LONG y, BSTR text, BSTR color, LONG font_size, LONG *ret);
     STDMETHOD(DrawClear)(LONG *ret);
     STDMETHOD(DrawSetVisible)(LONG show, LONG *ret);
+    // ---- 绘制补齐（批 B 2026-11-22）----
+    // ⚠ 本文件是**手写**的接口声明，不是 MIDL 产出；改 op.idl 后必须同步这里，
+    // 否则 MIDL 生成的 op_i.h 有、这里没有 -> C2509 "成员函数没有在类中声明"。
+    STDMETHOD(DrawCircle)(LONG x, LONG y, LONG radius, BSTR color, LONG width, LONG *ret);
+    STDMETHOD(DrawImage)(LONG x, LONG y, BSTR file_name, LONG alpha, LONG *ret);
+    STDMETHOD(DrawRectEx)(LONG x, LONG y, LONG width, LONG height, LONG mode, LONG line_width, LONG *ret);
+    STDMETHOD(DrawCircleEx)(LONG x, LONG y, LONG radius, LONG line_width, LONG *ret);
+    STDMETHOD(DrawTextEx)(LONG x, LONG y, BSTR text, LONG font_size, LONG *ret);
+    STDMETHOD(DrawClearBind)(LONG *ret);
+    STDMETHOD(DrawGetCount)(LONG *screen_count, LONG *bind_count, LONG *ret);
     //-----------------------json（P3 第一批 2026-10-16）-------------------------
     // 路径 "a.b[0].c"（兼容 "a.b.0"），空路径=根。失败：取值类空串/0，写类返回空串。
     STDMETHOD(JsonIsValid)(BSTR json_text, LONG *ret);

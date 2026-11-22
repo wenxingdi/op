@@ -342,6 +342,17 @@ interface IOpAutomation : IDispatch
 	[id(414)] HRESULT DrawText([in] LONG x, [in] LONG y, [in] BSTR text, [in] BSTR color, [in] LONG font_size, [out, retval] LONG* ret);
 	[id(415)] HRESULT DrawClear([out, retval] LONG* ret);
 	[id(416)] HRESULT DrawSetVisible([in] LONG show, [out, retval] LONG* ret);
+
+	// ---- 绘制补齐（批 B 2026-11-22）----
+	// 屏幕层 DrawCircle/DrawImage；绑定层 *Ex 坐标为绑定窗口客户区、不进 DX 截图。
+	// 未绑定窗口时 *Ex 返回 0。
+	[id(484)] HRESULT DrawCircle([in] LONG x, [in] LONG y, [in] LONG radius, [in] BSTR color, [in] LONG width, [out, retval] LONG* ret);
+	[id(485)] HRESULT DrawImage([in] LONG x, [in] LONG y, [in] BSTR file_name, [in] LONG alpha, [out, retval] LONG* ret);
+	[id(486)] HRESULT DrawRectEx([in] LONG x, [in] LONG y, [in] LONG width, [in] LONG height, [in] LONG mode, [in] LONG line_width, [out, retval] LONG* ret);
+	[id(487)] HRESULT DrawCircleEx([in] LONG x, [in] LONG y, [in] LONG radius, [in] LONG line_width, [out, retval] LONG* ret);
+	[id(488)] HRESULT DrawTextEx([in] LONG x, [in] LONG y, [in] BSTR text, [in] LONG font_size, [out, retval] LONG* ret);
+	[id(489)] HRESULT DrawClearBind([out, retval] LONG* ret);
+	[id(490)] HRESULT DrawGetCount([out] LONG* screen_count, [out] LONG* bind_count, [out, retval] LONG* ret);
 	[id(417)] HRESULT GetModuleSize([in] LONGLONG hwnd, [in] BSTR module_name, [out, retval] LONG* ret);
 	[id(418)] HRESULT GetModuleInfoList([in] LONGLONG hwnd, [out, retval] BSTR* retstr);
 	[id(419)] HRESULT VirtualProtectEx([in] LONGLONG hwnd, [in] BSTR address, [in] LONG size, [in] LONG new_protect, [out] LONG* old_protect, [out, retval] LONG* ret);

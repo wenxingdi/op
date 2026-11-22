@@ -339,6 +339,27 @@ class OP_API Op {
     void DrawClear(_Out_ long *ret);
     // 显示/隐藏叠加层窗口（图元保留）。1=成功。
     void DrawSetVisible(_In_ long show, _Out_ long *ret);
+
+    // ---- 批 B 补齐（2026-11-22，对齐 OLA DrawGui 的常用子集）----
+    // 圆形（屏幕坐标）：x,y 为圆心，radius 为半径，color="RRGGBB"，width 为线宽。
+    void DrawCircle(_In_ long x, _In_ long y, _In_ long radius, _In_ const wchar_t *color, _In_ long width,
+                    _Out_ long *ret);
+    // 在屏幕叠加层画一张图片（左上角 x,y）。alpha 0~255；<=0 或 >255 视为 255（不透明）。
+    void DrawImage(_In_ long x, _In_ long y, _In_ const wchar_t *file_name, _In_ long alpha, _Out_ long *ret);
+
+    // ---- 绑定窗口内绘制（坐标 = 绑定窗口客户区，与找色/鼠标同口径）----
+    // 画在**独立透明窗口**上，不写目标 DX 后台缓冲 -> **不会出现在 DX 截图里**；
+    // 窗口移动/缩放时跟随（250ms 轮询 + 每次绘制校正）。
+    // 未绑定窗口时返回 0 并记日志（不静默画到屏幕，否则会被误判成坐标系问题）。
+    // ⚠ 本批只支持**描边**：mode=0（填充）会按描边绘制并记日志，不假装支持填充。
+    void DrawRectEx(_In_ long x, _In_ long y, _In_ long width, _In_ long height, _In_ long mode, _In_ long line_width,
+                    _Out_ long *ret);
+    void DrawCircleEx(_In_ long x, _In_ long y, _In_ long radius, _In_ long line_width, _Out_ long *ret);
+    void DrawTextEx(_In_ long x, _In_ long y, _In_ const wchar_t *text, _In_ long font_size, _Out_ long *ret);
+    // 只清绑定窗口那批图元；屏幕叠加层的图元由 DrawClear 负责。
+    void DrawClearBind(_Out_ long *ret);
+    // 诊断：分别返回屏幕层/绑定层的图元数量（任一指针可为 nullptr）。
+    void DrawGetCount(_Out_ long *screen_count, _Out_ long *bind_count);
     //--------------------Background -----------------------
     // 兼容旧接口的单句柄绑定。显示和输入都使用同一个 hwnd。
     void BindWindow(_In_ LONG_PTR hwnd, _In_ const wchar_t *display, _In_ const wchar_t *mouse, _In_ const wchar_t *keypad,

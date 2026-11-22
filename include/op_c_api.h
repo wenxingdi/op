@@ -162,6 +162,22 @@ OP_C_API int OP_CALL OpDrawText(op_handle handle, int x, int y, const wchar_t *t
 OP_C_API int OP_CALL OpDrawClear(op_handle handle);
 OP_C_API int OP_CALL OpDrawSetVisible(op_handle handle, int show);
 
+/* ---- 绘制补齐（批 B 2026-11-22，对齐 OLA DrawGui 常用子集）----
+ * 屏幕层：DrawCircle / DrawImage（进程级透明叠加层，屏幕坐标）。
+ * 绑定层（*Ex）：坐标是**绑定窗口客户区**，与找色/鼠标同口径；画在独立透明窗口上，
+ *   **不写目标 DX 后台缓冲 -> 不会出现在 DX 截图里**；窗口移动时跟随。
+ *   未绑定窗口时返回 0（不是静默画到屏幕）。
+ *   ⚠ 本批只支持描边：DrawRectEx 的 mode=0(填充) 会按描边绘制并在日志里说明。
+ * DrawClear 清屏幕层；DrawClearBind 只清绑定层；DrawGetCount 分别返回两层图元数。
+ */
+OP_C_API int OP_CALL OpDrawCircle(op_handle handle, int x, int y, int radius, const wchar_t *color, int width);
+OP_C_API int OP_CALL OpDrawImage(op_handle handle, int x, int y, const wchar_t *file_name, int alpha);
+OP_C_API int OP_CALL OpDrawRectEx(op_handle handle, int x, int y, int width, int height, int mode, int line_width);
+OP_C_API int OP_CALL OpDrawCircleEx(op_handle handle, int x, int y, int radius, int line_width);
+OP_C_API int OP_CALL OpDrawTextEx(op_handle handle, int x, int y, const wchar_t *text, int font_size);
+OP_C_API int OP_CALL OpDrawClearBind(op_handle handle);
+OP_C_API int OP_CALL OpDrawGetCount(op_handle handle, int *screen_count, int *bind_count);
+
 // Background binding
 OP_C_API int OP_CALL OpBindWindow(op_handle handle, intptr_t hwnd, const wchar_t *display, const wchar_t *mouse,
                                   const wchar_t *keypad, int mode);

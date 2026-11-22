@@ -2186,6 +2186,63 @@ STDMETHODIMP OpAutomation::DrawSetVisible(LONG show, LONG *ret) {
     return S_OK;
 }
 
+// ---- 绘制补齐（批 B 2026-11-22）----
+
+STDMETHODIMP OpAutomation::DrawCircle(LONG x, LONG y, LONG radius, BSTR color, LONG width, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawCircle(x, y, radius, color ? color : L"", width, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawImage(LONG x, LONG y, BSTR file_name, LONG alpha, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawImage(x, y, file_name ? file_name : L"", alpha, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawRectEx(LONG x, LONG y, LONG width, LONG height, LONG mode, LONG line_width, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawRectEx(x, y, width, height, mode, line_width, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawCircleEx(LONG x, LONG y, LONG radius, LONG line_width, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawCircleEx(x, y, radius, line_width, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawTextEx(LONG x, LONG y, BSTR text, LONG font_size, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawTextEx(x, y, text ? text : L"", font_size, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawClearBind(LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawClearBind(ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawGetCount(LONG *screen_count, LONG *bind_count, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    long sc = 0, bc = 0;
+    obj.DrawGetCount(&sc, &bc);
+    if (screen_count)
+        *screen_count = sc;
+    if (bind_count)
+        *bind_count = bc;
+    *ret = 1;
+    return S_OK;
+}
+
 //-----------------------json（P3 第一批 2026-10-16）-------------------------
 
 STDMETHODIMP OpAutomation::JsonIsValid(BSTR json_text, LONG *ret) {
