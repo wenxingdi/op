@@ -41,6 +41,11 @@
 #pragma warning(disable : 4251)
 #endif
 
+// C API 的 handle 类型（定义在 libop/c_api/op_c_api.cpp）。
+// 这里前置声明，供 class Op 的 friend 使用：OpConcurrencyInfo 与"同实例并发"告警
+// 需要读 OpContext 里的计数，而那只应由 C API 门面可见。
+struct op_c_context;
+
 namespace op {
 
 namespace internal {
@@ -95,6 +100,9 @@ class OP_API Op {
     }
 
   private:
+    // C API 门面需要读取 OpContext 里的并发计数（in_flight / peak_in_flight / ...）来
+    // 实现 OpConcurrencyInfo 与"同实例并发"告警。只授予这一个实现文件，不对外开接口。
+    friend struct ::op_c_context;
     std::unique_ptr<internal::OpContext> m_context;
     static std::atomic<int> s_id;
 
@@ -306,6 +314,18 @@ class OP_API Op {
     // Base64 编码/解码（输入按 UTF-8 字节流处理）。解码遇非法串返回空串。
     void Base64Encode(_In_ const wchar_t *text, _Out_ std::wstring &ret);
     void Base64Decode(_In_ const wchar_t *base64, _Out_ std::wstring &ret);
+    //--------------------并发诊断（批 A 2026-11-22）----------------------------------
+    // 约定不变：**单个 Op 实例不是线程安全的**（见本文件顶部），多线程场景每线程一个实例。
+    // 本接口不改变该约定，只把"同实例被多线程使用"从静默污染变成可观测事实。
+    // 返回 JSON：
+    //   {"id":1,"in_flight":0,"peak":3,"reentrant":12,"calls_total":880,
+    //    "image_count":4,"bound":0,"thread_safe":false}
+    //   in_flight   当前正在本实例上执行的调用数（同一时刻 >1 即并发使用）
+    //   peak        历史峰值并发度（>1 说明脚本确实踩了这条线）
+    //   reentrant   检测到同实例并发使用的累计次数（>0 时结果不再可复现）
+    //   thread_safe 恒为 false，保留字段供脚本做显式判断
+    // 只做原子计数，不串行化、不改行为。
+    void ConcurrencyInfo(_Out_ std::wstring &retjson);
     //--------------------Draw overlay（调试可视化，进程级单例）-----------------------
     // 在屏幕透明叠加层追加一个矩形/直线/文本框。color="RRGGBB"（与找色同格式）。返回 1=成功。
     // 叠加层不可点击穿透由窗口样式保证；首次调用自动创建（专用线程 + 全屏分层窗口）。

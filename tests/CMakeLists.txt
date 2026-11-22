@@ -170,6 +170,7 @@ set(OP_TEST_SOURCES
   "c_api_coverage_test.cpp"
   # 并发安全基线（2026-11-21）：多句柄、同句柄、同 OCR 引擎三条并发路径。
   "concurrency_test.cpp"
+  "concurrency_batch_test.cpp"
   "memory_search_test.cpp"
   "memory_readwrite_test.cpp"
   "window_state_test.cpp"

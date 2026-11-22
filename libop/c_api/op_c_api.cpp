@@ -1,5 +1,11 @@
 #include "op_c_api.h"
 
+// 并发诊断（OpConcurrencyInfo / 同实例并发告警）需要 OpContext 的完整定义。
+// 必须放在 include/libop.h **之前**：libop.h 只做 `struct OpContext;` 前向声明，
+// 而 OpContext.h 依赖 libop.h 顶部的 std 前置引入约定（见 OpContext.h 顶部注释）。
+// 顺序错了会在 BitFunctions.h 撞上 C2988/C2182（模板声明被解析坏）。
+#include "../op/OpContext.h"
+
 #include "../../include/libop.h"
 #include "../memory/ProcessMemory.h"
 #include "../base/Environment.h"
@@ -44,18 +50,71 @@ struct op_c_context {
 
     op::Op op;
     std::wstring string_result;
+    // 并发告警只打一次（每个句柄）：多开脚本每帧都会撞，刷屏等于没有日志
+    bool reentry_warned = false;
+
+    // 一次调用的进入/退出。只做原子计数；检测到"同实例已被别的线程占用"时告警一次。
+    void enter_call() {
+        if (!op.m_context)
+            return;
+        ::op::internal::OpContext &m = *op.m_context;
+        const int now = m.in_flight.fetch_add(1, std::memory_order_acq_rel) + 1;
+        m.calls_total.fetch_add(1, std::memory_order_relaxed);
+        int prev = m.peak_in_flight.load(std::memory_order_relaxed);
+        while (now > prev && !m.peak_in_flight.compare_exchange_weak(prev, now, std::memory_order_relaxed)) {
+        }
+        if (now > 1) {
+            m.reentrant_hits.fetch_add(1, std::memory_order_relaxed);
+            if (!reentry_warned) {
+                reentry_warned = true;
+                setlog("concurrency: same op_handle is used from multiple threads at once "
+                       "(id=%d, peak=%d) — a single Op instance is NOT thread-safe, "
+                       "use one instance per thread",
+                       m.id, m.peak_in_flight.load(std::memory_order_relaxed));
+            }
+        }
+    }
+    void leave_call() {
+        if (op.m_context)
+            op.m_context->in_flight.fetch_sub(1, std::memory_order_acq_rel);
+    }
 };
 
 namespace {
 
+// ---- 并发可观测（批 A 2026-11-22）----
+// 访问 op::Op 内部的 OpContext 计数。OpContext 的私有性由 libop.h 里的
+// `friend struct op_c_context;` 放开；这里仍走 op_c_context 成员函数（而不是裸访
+// private 成员），保证"只有这个门面能看到计数"。
+
+// 约定不变：单个 op_handle **不是**线程安全的（libop.h 顶部已有明文）。
+// 本批不把它改造成线程安全（348 个方法逐个加锁会显著掉性能、有死锁风险，
+// 也和大漠/OLA 的单实例语义不一致），而是把"同实例被多线程使用"从
+// **静默污染**变成**可观测事件**：计数 + 首次数告警，供 OpConcurrencyInfo 查询。
+struct CallScope {
+    // 计数逻辑放在 op_c_context 的成员函数里，而不是这里：
+    // op::Op::m_context 是 private，friend 只授给 op_c_context 本身，
+    // 它的嵌套类**不继承** friend 权限（MSVC 与 GCC 行为一致）。
+    op_c_context *ctx = nullptr;
+    explicit CallScope(op_c_context *c) : ctx(c) {
+        if (ctx)
+            ctx->enter_call();
+    }
+    ~CallScope() {
+        if (ctx)
+            ctx->leave_call();
+    }
+    CallScope(const CallScope &) = delete;
+    CallScope &operator=(const CallScope &) = delete;
+};
+
 template <typename Func>
 int call_int(op_handle handle, Func &&func) {
-    op::Op *op = handle ? &handle->op : nullptr;
-    if (!op)
+    if (!handle)
         return 0;
-
+    CallScope scope(handle);
     try {
-        return static_cast<int>(std::forward<Func>(func)(*op));
+        return static_cast<int>(std::forward<Func>(func)(handle->op));
     } catch (const std::exception &e) {
         setlog("op_c_api: exception escaped to C boundary in call_int: %s", e.what());
         return 0;
@@ -79,6 +138,7 @@ intptr_t call_intptr(op_handle handle, Func &&func) {
     if (!handle)
         return 0;
 
+    CallScope scope(handle);
     try {
         LONG_PTR ret = 0;
         std::forward<Func>(func)(handle->op, &ret);
@@ -97,6 +157,7 @@ const wchar_t *call_string(op_handle handle, Func &&func) {
     if (!handle)
         return L"";
 
+    CallScope scope(handle);
     try {
         handle->string_result.clear();
         std::forward<Func>(func)(handle->op, handle->string_result);
@@ -115,6 +176,7 @@ const wchar_t *call_json_string(op_handle handle, const wchar_t *fallback, Func 
     if (!handle)
         return fallback;
 
+    CallScope scope(handle);
     try {
         handle->string_result.clear();
         std::forward<Func>(func)(handle->op, handle->string_result);
@@ -693,6 +755,13 @@ const wchar_t *OP_CALL OpBase64Encode(op_handle handle, const wchar_t *text) {
 
 const wchar_t *OP_CALL OpBase64Decode(op_handle handle, const wchar_t *base64) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.Base64Decode(safe_text(base64), ret); });
+}
+
+// 并发诊断（批 A 2026-11-22）。
+// 注意：本接口自身也走 CallScope，所以它读到的 in_flight 至少是 1（它自己）。
+// 判断是否并发请看 reentrant / peak，不要用 in_flight == 1。
+const wchar_t *OP_CALL OpConcurrencyInfo(op_handle handle) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.ConcurrencyInfo(ret); });
 }
 
 int OP_CALL OpDrawRect(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, int width) {

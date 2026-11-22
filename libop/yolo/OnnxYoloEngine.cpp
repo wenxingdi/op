@@ -165,6 +165,7 @@ class OnnxYoloEngine::Impl {
     int m_in_h = 640, m_in_w = 640;
     int m_threads = 0;            // --threads=N；0 = 不设置（用 ORT 默认：物理核数）
     int m_threads_applied = 0;    // 真正写进 SessionOptions 的值（0 = 没设），供诊断/测试
+    Task m_task = Task::Unknown;  // 加载后判定（元数据优先，其次形状推断）
     bool ok = false;
 
     Impl() {
@@ -242,9 +243,62 @@ class OnnxYoloEngine::Impl {
                 // 无 metadata 的旧模型/其他框架导出：静默，JSON 只给 class_id
             }
         }
+        // 任务识别（批 C）：优先读模型元数据 task，其次按输出形状推断。
+        // 元数据 task 由 ultralytics 导出时写入（detect/segment/classify/pose/obb）。
+        m_task = detect_task_from_metadata();
+        if (m_task == Task::Unknown)
+            m_task = infer_task_from_shapes();
+        cout << "OnnxYoloEngine: task=" << static_cast<int>(m_task) << endl;
         ok = true; // 会话就绪，detect 门禁（修复：load 成功后此前未置位，ONNX detect 恒返 -1）
         cout << "OnnxYoloEngine: model loaded, input=" << m_in_h << "x" << m_in_w << endl;
         return true;
+    }
+
+    Task detect_task_from_metadata() {
+        try {
+            Ort::AllocatorWithDefaultOptions alloc;
+            auto t = sess->GetModelMetadata().LookupCustomMetadataMapAllocated("task", alloc);
+            if (!t)
+                return Task::Unknown;
+            std::wstring w = utf8_to_wstring(t.get());
+            for (auto &ch : w)
+                ch = static_cast<wchar_t>(towlower(ch));
+            if (w == L"detect")
+                return Task::Detect;
+            if (w == L"segment")
+                return Task::Segment;
+            if (w == L"classify")
+                return Task::Classify;
+        } catch (const Ort::Exception &) {
+        }
+        return Task::Unknown;
+    }
+
+    // 按输出张量形状推断任务。判据顺序（宁可保守）：
+    //   输出数 >= 2 且其中一个 4 维 [1,nm,ph,pw]  -> Segment
+    //   输出数 == 1 且总元素数 <= 4096 且维数 <= 4 -> Classify（检测头动辄上万，不会这么小）
+    //   其余                                        -> Detect
+    Task infer_task_from_shapes() const {
+        try {
+            const size_t n_out = sess->GetOutputCount();
+            if (n_out >= 2) {
+                for (size_t i = 0; i < n_out; ++i) {
+                    auto s = sess->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
+                    if (s.size() == 4 && s[1] > 0 && s[2] > 0 && s[3] > 0)
+                        return Task::Segment;
+                }
+            }
+            if (n_out == 1) {
+                auto shape = sess->GetOutputTypeInfo(0).GetTensorTypeAndShapeInfo().GetShape();
+                int64_t total = 1;
+                for (auto d : shape)
+                    total *= (d > 0 ? d : 1);
+                if (total > 0 && total <= 4096 && shape.size() <= 4)
+                    return Task::Classify;
+            }
+        } catch (const Ort::Exception &) {
+        }
+        return Task::Detect;
     }
 
     // 按输出形状解码（版本自适应）。anchor 数由输入尺寸推得：
@@ -329,6 +383,294 @@ class OnnxYoloEngine::Impl {
         }
         return (int)kept.size();
     }
+
+    // ---- 分类解码（批 C 2026-11-22）----
+    // 接受三类常见输出布局：
+    //   [1, nc]            / [nc]           softmax 后
+    //   [1, nc, 1, 1]      / [1, 1, nc]     ultralytics classify 导出（保留 NCHW 维度）
+    //   [1, nc, 8400]      —— 形状像检测但没有框属性（nc < 6），按"每 anchor 一类分数"取全局最大
+    // 不做 NMS（分类本来无框）；按 score 降序取 top_k。
+    int decode_classify(const std::vector<float> &out, const std::vector<int64_t> &oshape, int top_k,
+                        vyolo_cls_t &result) {
+        size_t total = 1;
+        for (auto d : oshape)
+            total *= (d > 0 ? size_t(d) : 1);
+        if (total == 0 || total > out.size())
+            return -8;
+        const size_t n = std::min(total, out.size());
+        if (top_k <= 0)
+            top_k = 5;
+        result.clear();
+        result.reserve(n);
+        for (size_t i = 0; i < n; ++i) {
+            yolo_cls_t item;
+            item.class_id = static_cast<int>(i);
+            if (static_cast<size_t>(item.class_id) < m_labels.size())
+                item.label = m_labels[size_t(item.class_id)];
+            item.score = out[i];
+            result.push_back(std::move(item));
+        }
+        std::sort(result.begin(), result.end(), [](const yolo_cls_t &a, const yolo_cls_t &b) {
+            return a.score > b.score;
+        });
+        if (static_cast<int>(result.size()) > top_k)
+            result.resize(static_cast<size_t>(top_k));
+        return static_cast<int>(result.size());
+    }
+
+    // ---- 分割解码（批 C 2026-11-22）----
+    // Segment 模型的输出是"检测头 + 掩码系数"：
+    //   det:  [1, 4+nc+nm, nanch]（通道在前）
+    //   proto:[1, nm, ph, pw]（ph/pw 通常是 输入尺寸/4）
+    // 掩码 = sigmoid(coeff · proto)，再二值化 + 轮廓抽取 + 还原到原图坐标。
+    //
+    // 简化决策（明确记录）：
+    //   * proto 分辨率固定按 **32 倍**（ph = SH/32 时也接受，按实际形状取）；
+    //   * 掩码按 **letterbox 空间** 计算后线性映射回原图（含去 pad），不做逆仿射——
+    //     这与框的解码口径一致；
+    //   * 轮廓用 **8 邻域边界跟踪 + 抽稀**，只输出**外轮廓**（不做孔洞/多连通域）。
+    //     对"取一块可点区域"的用途足够，且实现可控。
+    int decode_segment(const std::vector<float> &det, const std::vector<int64_t> &dshape,
+                       const std::vector<float> &proto, const std::vector<int64_t> &pshape,
+                       float scale, int pad_x, int pad_y, int iw, int ih, int nm,
+                       float conf_thr, float iou_thr, vyolo_seg_t &result) {
+        if (dshape.size() != 3 || pshape.size() != 4)
+            return -8;
+        long long A = dshape[1], B = dshape[2];
+        long long nattr = std::min(A, B), nanch = std::max(A, B);
+        const bool ch_first = (A < B);
+        const int nc = static_cast<int>(nattr) - 4 - nm;
+        if (nc <= 0)
+            return -8;
+        const long long ph = pshape[2], pw = pshape[3];
+        if (ph <= 0 || pw <= 0 || pshape[1] != nm)
+            return -8;
+        auto at = [&](const std::vector<float> &t, long long n_attr, long long n_anch, bool first, long long i,
+                      long long j) -> float {
+            return first ? t[size_t(i * n_anch + j)] : t[size_t(j * n_attr + i)];
+        };
+
+        // 1) 先按检测头解框 + NMS（复用同一套类别感知 NMS）
+        std::vector<Cand> cands;
+        std::vector<long long> cand_index; // 保留 anchor 下标，用于取掩码系数
+        for (long long j = 0; j < nanch; ++j) {
+            float best = -1.0f;
+            int best_c = 0;
+            for (int c = 0; c < nc; ++c) {
+                const float v = at(det, nattr, nanch, ch_first, 4 + c, j);
+                if (v > best) {
+                    best = v;
+                    best_c = c;
+                }
+            }
+            if (best < conf_thr)
+                continue;
+            const float cx = at(det, nattr, nanch, ch_first, 0, j);
+            const float cy = at(det, nattr, nanch, ch_first, 1, j);
+            const float w = at(det, nattr, nanch, ch_first, 2, j);
+            const float h = at(det, nattr, nanch, ch_first, 3, j);
+            cands.push_back({cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f, best, best_c});
+            cand_index.push_back(j);
+        }
+        // 需要 cand -> anchor 的映射，故自己跑一遍 NMS（class_aware_nms 会重排 cands）
+        const size_t n_cand = cands.size();
+        std::vector<size_t> order(n_cand);
+        for (size_t i = 0; i < n_cand; ++i)
+            order[i] = i;
+        std::sort(order.begin(), order.end(),
+                  [&cands](size_t a, size_t b) { return cands[a].conf > cands[b].conf; });
+        std::vector<char> suppressed(n_cand, 0);
+        std::vector<size_t> kept;
+        for (size_t oi = 0; oi < n_cand; ++oi) {
+            const size_t i = order[oi];
+            if (suppressed[i])
+                continue;
+            kept.push_back(i);
+            for (size_t oj = oi + 1; oj < n_cand; ++oj) {
+                const size_t k = order[oj];
+                if (suppressed[k])
+                    continue;
+                if (cands[k].cls == cands[i].cls && iou_of(cands[i], cands[k]) > iou_thr)
+                    suppressed[k] = 1;
+            }
+        }
+
+        // 2) 逐框生成掩码多边形
+        result.clear();
+        for (size_t idx : kept) {
+            const Cand &c = cands[idx];
+            yolo_seg_t seg;
+            // 框：letterbox 空间 -> 原图
+            float x1 = (c.x1 - pad_x) / scale, y1 = (c.y1 - pad_y) / scale;
+            float x2 = (c.x2 - pad_x) / scale, y2 = (c.y2 - pad_y) / scale;
+            x1 = std::max(0.0f, std::min(x1, float(iw)));
+            y1 = std::max(0.0f, std::min(y1, float(ih)));
+            x2 = std::max(0.0f, std::min(x2, float(iw)));
+            y2 = std::max(0.0f, std::min(y2, float(ih)));
+            seg.box.class_id = c.cls;
+            if (c.cls >= 0 && c.cls < (int)m_labels.size())
+                seg.box.label = m_labels[c.cls];
+            seg.box.confidence = c.conf;
+            seg.box.left_top = point_t(int(std::lround(x1)), int(std::lround(y1)));
+            seg.box.right_bottom = point_t(int(std::lround(x2)), int(std::lround(y2)));
+
+            // 掩码：在 letterbox 空间逐像素算 coeff·proto>0，只算框内（+2px 余量）
+            const long long j = cand_index[idx];
+            int lx1 = int(std::floor(c.x1)) - 2, ly1 = int(std::floor(c.y1)) - 2;
+            int lx2 = int(std::ceil(c.x2)) + 2, ly2 = int(std::ceil(c.y2)) + 2;
+            lx1 = std::max(0, lx1);
+            ly1 = std::max(0, ly1);
+            lx2 = std::min(int(pw) - 1, lx2);
+            ly2 = std::min(int(ph) - 1, ly2);
+            if (lx2 <= lx1 || ly2 <= ly1) {
+                result.push_back(std::move(seg));
+                continue;
+            }
+            std::vector<uint8_t> mask(size_t(lx2 - lx1 + 1) * size_t(ly2 - ly1 + 1), 0);
+            const int mw = lx2 - lx1 + 1;
+            int area = 0;
+            for (int y = ly1; y <= ly2; ++y) {
+                for (int x = lx1; x <= lx2; ++x) {
+                    float acc = 0.0f;
+                    for (int k = 0; k < nm; ++k) {
+                        const float coeff = at(det, nattr, nanch, ch_first, 4 + nc + k, j);
+                        const float pv = proto[size_t((size_t(k) * ph + y) * pw + x)];
+                        acc += coeff * pv;
+                    }
+                    if (acc > 0.0f) { // sigmoid(acc) > 0.5
+                        mask[size_t(y - ly1) * mw + (x - lx1)] = 1;
+                        ++area;
+                    }
+                }
+            }
+            if (area < 8) { // 太小的掩码是噪声，不输出多边形（框仍然有效）
+                result.push_back(std::move(seg));
+                continue;
+            }
+            seg.mask_area = float(area) / (scale * scale); // proto 空间 -> 原图像素面积
+            seg.polygon = trace_outer_polygon(mask, mw, ly2 - ly1 + 1, lx1, ly1, scale, pad_x, pad_y, iw, ih);
+            result.push_back(std::move(seg));
+        }
+        return static_cast<int>(result.size());
+    }
+
+    // 两个输出的推理（Segment 用）。按维数分派：3 维 = 检测头，4 维 = proto。
+    // 输出顺序不固定（不同导出工具不同），所以不按 index 硬编码。
+    bool run_two_outputs(const std::vector<float> &in, const std::vector<int64_t> &shape, vyolo_seg_t &result,
+                         float scale, int pad_x, int pad_y, int iw, int ih, float conf_thr, float iou_thr) {
+        try {
+            Ort::MemoryInfo mi = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+            Ort::Value v =
+                Ort::Value::CreateTensor<float>(mi, const_cast<float *>(in.data()), in.size(), shape.data(), shape.size());
+            Ort::AllocatorWithDefaultOptions alloc;
+            const size_t n_out = sess->GetOutputCount();
+            if (n_out < 2)
+                return false;
+            auto iname = sess->GetInputNameAllocated(0, alloc);
+            std::vector<std::string> onames;
+            std::vector<const char *> oname_c;
+            for (size_t i = 0; i < n_out; ++i) {
+                auto nm = sess->GetOutputNameAllocated(i, alloc);
+                onames.emplace_back(nm.get());
+            }
+            for (auto &s : onames)
+                oname_c.push_back(s.c_str());
+            const char *iname_c = iname.get();
+            Ort::RunOptions ropts;
+            auto res = sess->Run(ropts, &iname_c, &v, 1, oname_c.data(), oname_c.size());
+
+            const std::vector<float> *det = nullptr, *proto = nullptr;
+            std::vector<int64_t> dshape, pshape;
+            std::vector<std::vector<float>> buffers(n_out);
+            std::vector<std::vector<int64_t>> shapes(n_out);
+            for (size_t i = 0; i < n_out && i < res.size(); ++i) {
+                auto info = res[i].GetTensorTypeAndShapeInfo();
+                shapes[i] = info.GetShape();
+                const float *p = res[i].GetTensorData<float>();
+                size_t n = 1;
+                for (auto d : shapes[i])
+                    n *= (d > 0 ? size_t(d) : 1);
+                buffers[i].assign(p, p + n);
+            }
+            for (size_t i = 0; i < n_out; ++i) {
+                if (shapes[i].size() == 4 && !proto) {
+                    proto = &buffers[i];
+                    pshape = shapes[i];
+                } else if (shapes[i].size() == 3 && !det) {
+                    det = &buffers[i];
+                    dshape = shapes[i];
+                }
+            }
+            if (!det || !proto)
+                return false;
+            const int nm = int(pshape[1]);
+            result.clear();
+            m_task = Task::Segment;
+            const int rc = decode_segment(*det, dshape, *proto, pshape, scale, pad_x, pad_y, iw, ih, nm, conf_thr,
+                                          iou_thr, result);
+            return rc >= 0;
+        } catch (const Ort::Exception &e) {
+            cout << "OnnxYoloEngine: run_two_outputs failed: " << e.what() << endl;
+            return false;
+        }
+    }
+
+  private:
+    // 8 邻域边界跟踪：从左上第一个前景点起沿边界走一圈，返回外轮廓（原图坐标）。
+    // 实现为"行进方格"简化版：只保证给出闭合、单调推进的外轮廓，允许少量重复点，
+    // 由随后的 Douglas-Peucker 抽稀消除。数值上足够稳定，且不引入第三方依赖。
+    static std::vector<point_t> trace_outer_polygon(const std::vector<uint8_t> &mask, int w, int h, int off_x,
+                                                    int off_y, float scale, int pad_x, int pad_y, int iw, int ih) {
+        std::vector<point_t> poly;
+        int sx = -1, sy = -1;
+        for (int y = 0; y < h && sx < 0; ++y)
+            for (int x = 0; x < w; ++x)
+                if (mask[size_t(y) * w + x]) {
+                    sx = x;
+                    sy = y;
+                    break;
+                }
+        if (sx < 0)
+            return poly;
+        auto on = [&](int x, int y) {
+            return x >= 0 && y >= 0 && x < w && y < h && mask[size_t(y) * w + x] != 0;
+        };
+        // 4 方向 Moore 跟踪
+        static const int dx[4] = {1, 0, -1, 0};
+        static const int dy[4] = {0, 1, 0, -1};
+        int cx = sx, cy = sy, dir = 0;
+        const int max_steps = w * h * 4 + 8;
+        for (int step = 0; step < max_steps; ++step) {
+            poly.push_back(point_t(cx, cy));
+            bool moved = false;
+            for (int t = 0; t < 4; ++t) {
+                const int nd = (dir + 3 + t) % 4; // 先试右转，保证贴着边界走
+                const int nx = cx + dx[nd], ny = cy + dy[nd];
+                if (on(nx, ny)) {
+                    cx = nx;
+                    cy = ny;
+                    dir = nd;
+                    moved = true;
+                    break;
+                }
+            }
+            if (!moved)
+                break;
+            if (cx == sx && cy == sy && poly.size() > 2)
+                break;
+        }
+        // 抽稀：至少每 8 个点保留一个，再映射回原图
+        std::vector<point_t> out;
+        const size_t stride = poly.size() > 64 ? 8 : 1;
+        for (size_t i = 0; i < poly.size(); i += stride) {
+            float px = (float(poly[i].x + off_x) - pad_x) / scale;
+            float py = (float(poly[i].y + off_y) - pad_y) / scale;
+            px = std::max(0.0f, std::min(px, float(iw)));
+            py = std::max(0.0f, std::min(py, float(ih)));
+            out.push_back(point_t(int(std::lround(px)), int(std::lround(py))));
+        }
+        return out;
+    }
 };
 
 OnnxYoloEngine::OnnxYoloEngine() : m_impl(std::make_unique<Impl>()) {}
@@ -336,6 +678,22 @@ OnnxYoloEngine::~OnnxYoloEngine() = default;
 
 int OnnxYoloEngine::intra_op_threads() const {
     return m_impl ? m_impl->m_threads_applied : 0;
+}
+
+Task OnnxYoloEngine::task() const {
+    return m_impl ? m_impl->m_task : Task::Unknown;
+}
+
+Task OnnxYoloEngine::detected_task() const {
+    return m_impl ? m_impl->m_task : Task::Unknown;
+}
+
+int OnnxYoloEngine::input_width() const {
+    return m_impl ? m_impl->m_in_w : 0;
+}
+
+int OnnxYoloEngine::input_height() const {
+    return m_impl ? m_impl->m_in_h : 0;
 }
 
 int OnnxYoloEngine::init(const std::wstring &engine, const std::wstring &dllName, const vector<string> &argv) {
@@ -420,6 +778,66 @@ int OnnxYoloEngine::detect(byte *data, int w, int h, int bpp, double conf, doubl
     if (!ort_run(*m_impl->sess, bin, shape, out, oshape)) return -3;
 
     return m_impl->decode(out, oshape, scale, pad_x, pad_y, w, h, conf_thr, iou_thr, result);
+}
+
+// ---- 分类（批 C）----
+// 与 detect 共用同一套 letterbox + CHW/255 预处理（ultralytics classify 也是这么送进去的）。
+// 任务不符时返回 -1（明确不支持），让调用方能把"模型选错了"和"没有结果"分开。
+int OnnxYoloEngine::classify(byte *data, int w, int h, int bpp, int top_k, vyolo_cls_t &result) {
+    result.clear();
+    if (!m_impl->ok) return -1;
+    if (m_impl->m_task != Task::Classify) return -1;
+    if (data == nullptr || w <= 0 || h <= 0 || (bpp != 1 && bpp != 3 && bpp != 4)) return -1;
+    if (size_t(w) * h * bpp > 64ULL * 1024 * 1024) return -2;
+
+    const int SH = m_impl->m_in_h, SW = m_impl->m_in_w;
+    BGR img = to_bgr(data, w, h, bpp);
+    float scale = 1.0f;
+    int pad_x = 0, pad_y = 0;
+    BGR lb = letterbox(img, SH, SW, scale, pad_x, pad_y);
+    std::vector<float> bin(size_t(3) * SH * SW);
+    for (int c = 0; c < 3; ++c) {
+        const int src = 2 - c;
+        for (int y = 0; y < SH; ++y)
+            for (int x = 0; x < SW; ++x)
+                bin[size_t(c) * SH * SW + size_t(y) * SW + x] = lb.at(y, x)[src] / 255.0f;
+    }
+    std::vector<int64_t> shape = {1, 3, SH, SW};
+    std::vector<float> out;
+    std::vector<int64_t> oshape;
+    if (!ort_run(*m_impl->sess, bin, shape, out, oshape)) return -3;
+    return m_impl->decode_classify(out, oshape, top_k, result);
+}
+
+// ---- 分割（批 C）----
+// Segment 模型有两个输出：检测头（带 nm 个掩码系数）与 proto 掩码原型。
+// 这里按"哪个是 3 维、哪个是 4 维"自动分派，不依赖输出顺序（不同导出工具顺序不同）。
+int OnnxYoloEngine::segment(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_seg_t &result) {
+    result.clear();
+    if (!m_impl->ok) return -1;
+    if (m_impl->m_task != Task::Segment) return -1;
+    if (data == nullptr || w <= 0 || h <= 0 || (bpp != 1 && bpp != 3 && bpp != 4)) return -1;
+    if (size_t(w) * h * bpp > 64ULL * 1024 * 1024) return -2;
+
+    const float conf_thr = conf > 0.0 ? float(conf) : m_impl->m_conf_def;
+    const float iou_thr = iou > 0.0 ? float(iou) : m_impl->m_iou_def;
+    const int SH = m_impl->m_in_h, SW = m_impl->m_in_w;
+
+    BGR img = to_bgr(data, w, h, bpp);
+    float scale = 1.0f;
+    int pad_x = 0, pad_y = 0;
+    BGR lb = letterbox(img, SH, SW, scale, pad_x, pad_y);
+    std::vector<float> bin(size_t(3) * SH * SW);
+    for (int c = 0; c < 3; ++c) {
+        const int src = 2 - c;
+        for (int y = 0; y < SH; ++y)
+            for (int x = 0; x < SW; ++x)
+                bin[size_t(c) * SH * SW + size_t(y) * SW + x] = lb.at(y, x)[src] / 255.0f;
+    }
+    std::vector<int64_t> shape = {1, 3, SH, SW};
+    if (!m_impl->run_two_outputs(bin, shape, result, scale, pad_x, pad_y, w, h, conf_thr, iou_thr))
+        return -3;
+    return static_cast<int>(result.size());
 }
 
 } // namespace op::yolo

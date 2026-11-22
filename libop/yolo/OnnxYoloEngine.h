@@ -33,10 +33,21 @@ class OnnxYoloEngine : public YoloEngine {
     ~OnnxYoloEngine() override;
     int init(const std::wstring &engine, const std::wstring &dllName, const vector<string> &argv) override;
     int detect(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_rec_t &result) override;
+    // 批 C（2026-11-22）：任务维度。任务不符时返回 -1（明确"不支持"），不是 0。
+    int classify(byte *data, int w, int h, int bpp, int top_k, vyolo_cls_t &result) override;
+    int segment(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_seg_t &result) override;
+    Task task() const override;
 
     // 诊断/测试专用：**实际写进 SessionOptions** 的 intra-op 线程数（0 = 未设置，用 ORT 默认）。
     // 故意暴露"已生效值"而不是"请求值"——否则把实现改回写死单线程时，用例照样绿。
     int intra_op_threads() const;
+
+    // 诊断/测试专用：加载时判定的任务类型。
+    Task detected_task() const;
+
+    // 诊断/测试专用：模型输入边长。
+    int input_width() const;
+    int input_height() const;
 
   private:
     class Impl;

@@ -23,6 +23,13 @@ class YoloDetector {
     int init(const std::wstring &enginePath, const std::wstring &dllName, const vector<string> &argv);
     int release();
     int detect(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_rec_t &result);
+    // 批 C（2026-11-22）：任务维度。任务不符 / 未加载 返回 -1，无结果返回 0。
+    int classify(byte *data, int w, int h, int bpp, int top_k, vyolo_cls_t &result);
+    int segment(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_seg_t &result);
+    Task loaded_task();
+    // 诊断：模型输入边长（未加载返回 0）。
+    int model_input_width();
+    int model_input_height();
 
   private:
     std::mutex m_mutex;

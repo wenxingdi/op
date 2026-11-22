@@ -1,9 +1,13 @@
 // OpCrypto.cpp: 摘要/编码三件套（P2 新增 2026-10-15，参考 OLA 加密模块常用子集）。
 // MD5/SHA1 走 WinCrypt 哈希链（advapi32），Base64 走 CryptBinaryToStringW（crypt32）。
 // 输入宽字符串一律按 UTF-8 编码后参与运算，输出小写十六进制（摘要）或 ASCII（Base64）。
+#include "OpCaptureHelpers.h"
 #include "OpResult.h"
+#include "../json/JsonValue.h"
 
 #include <libop.h>
+
+#include "OpContext.h"
 
 #include <Windows.h>
 #include <wincrypt.h>
@@ -128,4 +132,37 @@ void op::Op::Base64Decode(const wchar_t *base64, std::wstring &ret) {
         return;
     utf8.resize(byte_len);
     ret = utf8_to_wstring(utf8);
+}
+
+// ---- 并发诊断（批 A 2026-11-22）----
+// 放在本文件而不是新开 .cpp：内容与"运行时自省"同族（GetLastErrorString / Md5 也在这层），
+// 且只需要 OpContext.h 一个额外依赖，不值得为 20 行新增编译单元。
+void op::Op::ConcurrencyInfo(std::wstring &retjson) {
+    retjson.clear();
+    internal::guard_exceptions("ConcurrencyInfo", [&]() {
+        using namespace op::json;
+        auto num = [](double d) {
+            Value n;
+            n.type = Type::Number;
+            n.number = d;
+            return n;
+        };
+        auto key = [](const wchar_t *k, Value v) { return std::make_pair(std::wstring(k), std::move(v)); };
+
+        Value root;
+        root.type = Type::Object;
+        root.obj.push_back(key(L"id", num(m_context->id)));
+        root.obj.push_back(key(L"in_flight", num(m_context->in_flight.load(std::memory_order_relaxed))));
+        root.obj.push_back(key(L"peak", num(m_context->peak_in_flight.load(std::memory_order_relaxed))));
+        root.obj.push_back(key(L"reentrant", num(m_context->reentrant_hits.load(std::memory_order_relaxed))));
+        root.obj.push_back(key(L"calls_total", num(m_context->calls_total.load(std::memory_order_relaxed))));
+        root.obj.push_back(key(L"image_count", num(m_context->image_proc.image_count())));
+        root.obj.push_back(key(L"bound", num(m_context->bkproc.IsBind() ? 1 : 0)));
+        // 恒定 false：这是**约定**不是**能力探测**。保留字段让脚本能显式判断而不是靠文档记忆。
+        Value ts;
+        ts.type = Type::Bool;
+        ts.boolean = false;
+        root.obj.push_back(key(L"thread_safe", std::move(ts)));
+        retjson = op::json::Stringify(root);
+    });
 }

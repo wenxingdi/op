@@ -147,6 +147,14 @@ OP_C_API const wchar_t *OP_CALL OpMd5(op_handle handle, const wchar_t *text);
 OP_C_API const wchar_t *OP_CALL OpSha1(op_handle handle, const wchar_t *text);
 OP_C_API const wchar_t *OP_CALL OpBase64Encode(op_handle handle, const wchar_t *text);
 OP_C_API const wchar_t *OP_CALL OpBase64Decode(op_handle handle, const wchar_t *base64);
+
+// ---- 并发诊断（批 A 2026-11-22）----
+// 约定不变：**单个 op_handle 不是线程安全的**，多线程每线程一个 handle。
+// 本接口把"同实例被多线程使用"变成可观测事实，返回 JSON：
+//   {"id":1,"in_flight":0,"peak":3,"reentrant":12,"calls_total":880,
+//    "image_count":4,"bound":0,"thread_safe":false}
+// peak > 1 或 reentrant > 0 即说明脚本踩了非线程安全线（结果不再可复现）。
+OP_C_API const wchar_t *OP_CALL OpConcurrencyInfo(op_handle handle);
 OP_C_API int OP_CALL OpDrawRect(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, int width);
 OP_C_API int OP_CALL OpDrawLine(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, int width);
 OP_C_API int OP_CALL OpDrawText(op_handle handle, int x, int y, const wchar_t *text, const wchar_t *color,

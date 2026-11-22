@@ -114,4 +114,44 @@ int YoloDetector::detect(byte *data, int w, int h, int bpp, double conf, double 
     return m_engine->detect(data, w, h, bpp, conf, iou, result);
 }
 
+// 批 C：classify / segment 走同一条串行化路径（共用 ONNX Session）。
+// 不做"多实例并行推理"——Session 是进程级共享的，放开会让显存/内存峰值不可控，
+// 而单次推理已经是重负载。需要真并发就多进程（与 OLA 的建议一致）。
+int YoloDetector::classify(byte *data, int w, int h, int bpp, int top_k, vyolo_cls_t &result) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_engine)
+        return -1;
+    return m_engine->classify(data, w, h, bpp, top_k, result);
+}
+
+int YoloDetector::segment(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_seg_t &result) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_engine)
+        return -1;
+    return m_engine->segment(data, w, h, bpp, conf, iou, result);
+}
+
+Task YoloDetector::loaded_task() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_engine ? m_engine->task() : Task::Unknown;
+}
+
+int YoloDetector::model_input_width() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+#if defined(OP_HAS_ONNX) && OP_HAS_ONNX
+    if (auto *p = dynamic_cast<OnnxYoloEngine *>(m_engine.get()))
+        return p->input_width();
+#endif
+    return 0;
+}
+
+int YoloDetector::model_input_height() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+#if defined(OP_HAS_ONNX) && OP_HAS_ONNX
+    if (auto *p = dynamic_cast<OnnxYoloEngine *>(m_engine.get()))
+        return p->input_height();
+#endif
+    return 0;
+}
+
 } // namespace op::yolo
