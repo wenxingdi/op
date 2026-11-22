@@ -737,6 +737,20 @@ OP_C_API const wchar_t *OP_CALL OpYoloSegmentFromFile(op_handle handle, const wc
                                                       double iou, int *find_count);
 OP_C_API const wchar_t *OP_CALL OpYoloGetModelInfo(op_handle handle);
 
+/* ---- 汇编模块（批 D 2026-11-22）----
+ * AsmCall：在 hwnd 所属进程执行 code_hex 机器码并取返回值；hwnd=0 表示当前进程。
+ *   code_hex 形如 "48 C7 C0 2A 00 00 00 C3"（需自带 ret），支持 "??" 占位（按 int3 填充）。
+ *   成功 {"ok":1,"code":0,"ret_hex":"2A","ret":42}；失败 {"ok":0,"code":-1,"error":"..."}。
+ *   纯 BlackBone + Win32，无新依赖；执行完立即释放可执行内存。
+ * Assemble / Disassemble **未实现**（需 keystone/capstone，当前环境装不上）：
+ *   返回 nullptr 且 JSON 里带明确 error 文本，不会假装成功。
+ */
+OP_C_API const wchar_t *OP_CALL OpAsmCall(op_handle handle, intptr_t hwnd, const wchar_t *code_hex, int timeout_ms,
+                                          int *ret);
+OP_C_API const wchar_t *OP_CALL OpAssemble(op_handle handle, const wchar_t *asm_text, int arch, int *ret);
+OP_C_API const wchar_t *OP_CALL OpDisassemble(op_handle handle, const wchar_t *bytes_hex, const wchar_t *address,
+                                              int count, int *ret);
+
 /* ===== 音频音量（2026-11-21，WASAPI 会话级 + 系统级）=====
  * 设计见 docs/2026-11/音量模块_方案_20261121.md。
  *

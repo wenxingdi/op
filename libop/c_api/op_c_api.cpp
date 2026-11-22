@@ -2683,4 +2683,43 @@ const wchar_t *OP_CALL OpYoloSegmentFromFile(op_handle handle, const wchar_t *fi
 const wchar_t *OP_CALL OpYoloGetModelInfo(op_handle handle) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.YoloGetModelInfo(ret); });
 }
+
+// ---- 汇编模块（批 D 2026-11-22）----
+const wchar_t *OP_CALL OpAsmCall(op_handle handle, intptr_t hwnd, const wchar_t *code_hex, int timeout_ms, int *ret) {
+    if (!handle) {
+        out_int(ret, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long ok = 0;
+        handle->op.AsmCall(static_cast<LONG_PTR>(hwnd), safe_text(code_hex), timeout_ms, handle->string_result, &ok);
+        out_int(ret, ok);
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpAsmCall: %s", e.what());
+        out_int(ret, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(ret, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpAssemble(op_handle handle, const wchar_t *asm_text, int arch, int *ret) {
+    return call_string(handle, [&](op::Op &op, std::wstring &out) {
+        long ok = 0;
+        const long rc = op.Assemble(safe_text(asm_text), arch, out, &ok);
+        out_int(ret, rc > 0 ? ok : 0);
+    });
+}
+
+const wchar_t *OP_CALL OpDisassemble(op_handle handle, const wchar_t *bytes_hex, const wchar_t *address, int count,
+                                     int *ret) {
+    return call_string(handle, [&](op::Op &op, std::wstring &out) {
+        long ok = 0;
+        const long rc = op.Disassemble(safe_text(bytes_hex), safe_text(address), count, out, &ok);
+        out_int(ret, rc > 0 ? ok : 0);
+    });
+}
 }

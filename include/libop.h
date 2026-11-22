@@ -703,6 +703,23 @@ class OP_API Op {
     //   {"ok":1,"task":"segment","task_code":2,"input_width":640,"input_height":640,
     //    "labels":["blob"],"labels_count":1}
     void YoloGetModelInfo(_Out_ std::wstring &retjson);
+
+    // ---- 汇编模块（批 D 2026-11-22）----
+    // 在目标进程执行一段**机器码**并取返回值（纯 BlackBone + Win32，无新依赖）。
+    //   hwnd     目标窗口句柄；**0 = 当前进程**（便于先自测再上目标）
+    //   code_hex 空格分隔的十六进制字节，如 "48 C7 C0 2A 00 00 00 C3"（需自带 ret）；
+    //            支持 "??" 占位（按 0xCC/int3 填充，执行到立刻断下而不是跑飞）
+    //   timeout_ms <=0 用默认 5000
+    // 成功 JSON：{"ok":1,"code":0,"ret_hex":"2A","ret":42}
+    // 失败 JSON：{"ok":0,"code":-1,"error":"..."}
+    // ⚠ 只执行调用方给的机器码，插件不生成/不修改代码；执行完立即释放可执行内存。
+    long AsmCall(_In_ LONG_PTR hwnd, _In_ const wchar_t *code_hex, _In_ long timeout_ms, _Out_ std::wstring &retjson,
+                 _Out_ long *ret);
+    // Assemble / Disassemble **未实现**（需要 keystone/capstone，当前环境装不上）。
+    // 调用会返回 0 并给出明确错误文本，不会假装成功。详见 libop/op/OpAsm.cpp 顶部说明。
+    long Assemble(_In_ const wchar_t *asm_text, _In_ long arch, _Out_ std::wstring &retjson, _Out_ long *ret);
+    long Disassemble(_In_ const wchar_t *bytes_hex, _In_ const wchar_t *address, _In_ long count,
+                     _Out_ std::wstring &retjson, _Out_ long *ret);
     // 设置字库文件
     void SetDict(_In_ long idx, _In_ const wchar_t *file_name, _Out_ long *ret);
     // 获取指定字库中指定条目的字库信息
