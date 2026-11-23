@@ -7,7 +7,9 @@
 
 #include <Windows.h>
 
+#include <atomic>
 #include <string>
+#include <thread>
 
 namespace {
 
@@ -129,6 +131,90 @@ TEST_F(FileApiTest, PathParsingHelpers) {
 TEST_F(FileApiTest, AbsolutePathOfEmptyReturnsEmpty) {
     EXPECT_EQ(std::wstring(OpToAbsolutePath(handle, L"")), L"");
     EXPECT_EQ(std::wstring(OpGetFileName(handle, L"", 0)), L"");
+}
+
+// ===== 原子写语义（2026-11-23）=====
+// 旧实现直接 CREATE_ALWAYS 截断目标文件：写到一半失败会毁掉原文件，且读方在写法窗口内
+// 拿不到完整内容。新实现走「同目录 tmp → FlushFileBuffers → MoveFileEx 替换」。
+namespace {
+
+// 绕开 C API 的共享返回缓冲，用原生 Win32 读，才能在多线程里做并发读判据。
+bool read_raw(const std::wstring &path, std::string &out) {
+    out.clear();
+    HANDLE f = ::CreateFileW(path.c_str(), GENERIC_READ,
+                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                             FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (f == INVALID_HANDLE_VALUE)
+        return false;
+    char buf[4096];
+    DWORD n = 0;
+    while (::ReadFile(f, buf, sizeof(buf), &n, nullptr) && n > 0)
+        out.append(buf, n);
+    ::CloseHandle(f);
+    return true;
+}
+
+} // namespace
+
+TEST_F(FileApiTest, WriteLeavesNoTempFile) {
+    const std::wstring file = path(L"plain.txt");
+    ASSERT_EQ(OpWriteStringToFile(handle, file.c_str(), L"abc"), 1);
+    ASSERT_EQ(OpWriteStringToFile(handle, file.c_str(), L"defg"), 1);
+    EXPECT_EQ(OpFileExists(handle, (file + L".optmp").c_str()), 0) << "临时件必须被清掉";
+    const std::wstring list = OpGetFileList(handle, root.c_str(), L"*");
+    EXPECT_EQ(list.find(L".optmp"), std::wstring::npos) << list;
+}
+
+TEST_F(FileApiTest, ReadOnlyTargetFailsWithoutCorruptingOriginal) {
+    const std::wstring file = path(L"ro.txt");
+    ASSERT_EQ(OpWriteStringToFile(handle, file.c_str(), L"keep"), 1);
+    ASSERT_TRUE(::SetFileAttributesW(file.c_str(), FILE_ATTRIBUTE_READONLY) != FALSE);
+    EXPECT_EQ(OpWriteStringToFile(handle, file.c_str(), L"lost"), 0) << "只读目标必须失败";
+    ASSERT_TRUE(::SetFileAttributesW(file.c_str(), FILE_ATTRIBUTE_NORMAL) != FALSE);
+    EXPECT_EQ(std::wstring(OpReadFileString(handle, file.c_str())), L"keep") << "失败不能毁掉原文件";
+    EXPECT_EQ(OpFileExists(handle, (file + L".optmp").c_str()), 0);
+}
+
+TEST_F(FileApiTest, ConcurrentReadNeverSeesTornOrMissingFile) {
+    const std::wstring file = path(L"atomic.txt");
+    const std::wstring a(200000, L'A');
+    const std::wstring b(200000, L'B');
+    ASSERT_EQ(OpWriteStringToFile(handle, file.c_str(), a.c_str()), 1);
+    const size_t expect = 3 + 200000; // BOM + 全 ASCII 单字节
+
+    std::atomic<bool> stop{false};
+    std::atomic<int> reads{0};
+    std::atomic<int> torn{0};
+    std::atomic<int> unreadable{0};
+    std::thread reader([&] {
+        std::string raw;
+        while (!stop.load(std::memory_order_relaxed)) {
+            if (!read_raw(file, raw)) {
+                ++unreadable;
+                continue;
+            }
+            ++reads;
+            if (raw.size() != expect)
+                ++torn;
+            // 读者留 1ms 间隔：零间隔紧循环是饱和攻击（实测替换失败率 32%），既不是真实
+            // 场景（编辑器/日志查看器都有间隔），也会让"替换失败"淹没"读到半截"这个真判据。
+            ::Sleep(1);
+        }
+    });
+    for (int i = 0; i < 40; ++i) {
+        const std::wstring &src = (i % 2 == 0) ? a : b;
+        ASSERT_EQ(OpWriteStringToFile(handle, file.c_str(), src.c_str()), 1);
+    }
+    stop.store(true);
+    reader.join();
+
+    EXPECT_GT(reads.load(), 0) << "读线程一次都没读到，用例无判别力";
+    EXPECT_EQ(torn.load(), 0) << "读到半截文件 " << torn.load() << " 次";
+    EXPECT_EQ(unreadable.load(), 0) << "写入期间目标文件不可读 " << unreadable.load() << " 次"
+                                    << "（旧实现独占写会导致此值 > 0）";
+    const std::wstring final_text = OpReadFileString(handle, file.c_str());
+    EXPECT_EQ(final_text.size(), b.size()) << "尾部长度不符";
+    EXPECT_TRUE(final_text == b) << "最后一次写的是 b（i=39 为奇数）";
 }
 
 } // namespace

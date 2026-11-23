@@ -3,6 +3,46 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-23 第六十二批（fix：WriteStringToFile 改原子写 —— 并发读者在场不再失败，失败也不毁原文件）
+
+`op::Op::WriteStringToFile`（C API `OpWriteStringToFile`）走 `write_utf8_file`，原实现是
+「`CreateFileW(CREATE_ALWAYS)` 直接截断目标 → 写 BOM → 写正文」。三个真实风险：
+
+1. **失败毁原文件**：截断发生在任何字节写成功之前，磁盘满 / 进程被杀 / 表满之类的中途失败，
+   会让原文件变成半截甚至 0 字节。配置文件、字库清单这类东西不可恢复。
+2. **假成功**：全程没有 `FlushFileBuffers`，返回 1 时数据可能还在系统缓存，断电/蓝屏即丢
+   （与 `SaveDict` 那批"报成功 + 文件 0 条"同一类问题）。
+3. **并发读者在场直接写失败**：`share=0` 独占打开，别的进程/线程正在读（编辑器、日志查看器、
+   脚本读循环）时 `CreateFileW` 直接失败返回 0 —— 用户看到的是"保存莫名其妙失败"。
+
+**改法**（同目录 tmp → 落盘 → 原子替换）：
+
+```
+CreateFileW(<path>.optmp, CREATE_ALWAYS, share=0) → WriteFile BOM+正文
+→ FlushFileBuffers → 关闭句柄 → MoveFileEx(.optmp, path, REPLACE_EXISTING|WRITE_THROUGH)
+```
+
+- 任一步失败：删掉 `.optmp`，**原文件原样保留**，返回 0。
+- **替换必须重试**：实测并发读下 `MoveFileEx` 间歇返 `ERROR_ACCESS_DENIED`（5）——
+  1KB 22%、200KB 32%（读者带 `FILE_SHARE_DELETE` 也一样，这是 Windows 替换语义的固有窗口）。
+  故对 `ACCESS_DENIED / SHARING_VIOLATION / LOCK_VIOLATION` 重试 8 次、间隔 4ms（约 32ms），
+  其它错误（只读目标、路径非法）立即失败。读者留 1ms 间隔时可降到 2~4%，重试后实测 0 失败。
+
+**用例**（`tests/file_api_test.cpp`，6 → 9 条）：
+
+| 用例 | 判据 |
+|---|---|
+| `WriteLeavesNoTempFile` | 两次覆盖写后目录里没有 `*.optmp` 残留 |
+| `ReadOnlyTargetFailsWithoutCorruptingOriginal` | 只读目标写入必须返 0，且**原内容不变**、无 tmp 残留 |
+| `ConcurrentReadNeverSeesTornOrMissingFile` | 读者线程（原生 Win32 读，绕开 C API 共享缓冲）循环读 200KB，主线程交替写 A/B 40 次：读到半截 0 次、目标不可读 0 次 |
+
+**反向验证**：把 `write_utf8_file` 退回旧实现（直接 `CREATE_ALWAYS` 写目标）→
+`ConcurrentReadNeverSeesTornOrMissingFile` 立刻在 `OpWriteStringToFile == 1` 处转红（读者在场时写失败），
+还原后 9/9 全绿、连跑 5 次稳定，`grep 反向验证用` 计数 0。
+
+⚠ 遗留：同模块 `SaveDict` 走的是 `Dictionary::write_dict`，首版仍是"直接写 + 无 flush"，
+用户明确"够用为主"故本批未动；若后续要做，按本条同一套 tmp+替换 模板改。
+
 ### 2026-11-23 第六十一批（fix：字库制作链路 —— 修 2 个会真丢数据的缺陷，补单条删除与批量原子入库）
 
 **先排除的疑问**：性能不是瓶颈。实测 `AddDict` 5000 条 42ms、`GetDict` 导出 3000 条 2.5ms，
