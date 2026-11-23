@@ -94,6 +94,9 @@ enum class MorphologyMode {
     Dilate = 1,
     Open = 2,
     Close = 3,
+    Gradient = 4,
+    Tophat = 5,
+    Blackhat = 6,
 };
 
 // 细化/骨架化算法模式。

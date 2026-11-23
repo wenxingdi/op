@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cwchar>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -485,5 +486,254 @@ void op::Op::KeyPressStr(const wchar_t *key_str, long delay, long *ret) {
         // 键间隔拟真抖动（±40%，下限 1ms）：固定间隔是机器打字的最强统计特征，
         // 与鼠标点击节奏（send_input_click/button_click 的 DelayJitter）对齐。
         DelayJitter(delay > 0 ? delay : 1);
+    }
+}
+
+// ---------------------------------------------------------------- 全局热键
+//
+// 状态必须进程级共享：op_com / op_c_api 各自静态链入一份 libop，
+// 同进程内有两份本 TU 的静态变量。若各建各的窗口/队列，
+// 「A 模块注册、B 模块轮询」永远拿不到事件（与时间轴总线同一类坑）。
+// 故 hwnd/握手/事件队列全部放进命名共享内存 + 命名事件，注册请求
+// 用 SendMessage 同步投给持有窗口的模块。
+
+namespace {
+
+constexpr LONG kHotkeyMaxId = 0xBFFF;
+constexpr UINT kHotkeyMsgRegister = WM_APP + 0x51;
+constexpr UINT kHotkeyMsgUnregister = WM_APP + 0x52;
+constexpr UINT kHotkeyMsgUnregisterAll = WM_APP + 0x53;
+
+struct hotkey_request {
+    LONG id = 0;
+    LONG modifiers = 0;
+    LONG vk = 0;
+    LONG ok = 0;
+};
+
+struct hotkey_shm {
+    volatile LONG state; // 0 未初始化 / 1 创建中 / 2 就绪 / 3 失败
+    DWORD tid;
+    HWND hwnd;
+    volatile LONG head;
+    volatile LONG tail;
+    volatile LONG dropped;
+    LONG ids[256];
+};
+
+HANDLE g_hk_map = nullptr;
+hotkey_shm *g_hk_shm = nullptr;
+HANDLE g_hk_event = nullptr;
+
+std::wstring hk_object_name(const wchar_t *prefix) {
+    wchar_t buf[96];
+    swprintf(buf, 96, L"Local\\%s_%lu", prefix, static_cast<unsigned long>(::GetCurrentProcessId()));
+    return buf;
+}
+
+bool hk_valid_args(long id, long modifiers, long vk) {
+    return id >= 1 && id <= kHotkeyMaxId &&
+           modifiers >= 0 && (modifiers & ~0xFL) == 0 &&
+           vk >= 1 && vk <= 0xFF;
+}
+
+struct hotkey_sink {
+    std::set<LONG> ids;
+
+    static hotkey_sink &instance() {
+        static hotkey_sink *sink = new hotkey_sink();
+        return *sink;
+    }
+
+    static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+        if (msg == WM_NCCREATE) {
+            auto *cs = reinterpret_cast<CREATESTRUCTW *>(lp);
+            ::SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(cs->lpCreateParams));
+            return TRUE;
+        }
+        auto *self = reinterpret_cast<hotkey_sink *>(
+            ::GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+        if (!self)
+            return ::DefWindowProcW(hwnd, msg, wp, lp);
+
+        switch (msg) {
+        case WM_HOTKEY: {
+            if (!g_hk_shm)
+                break;
+            const LONG head = g_hk_shm->head;
+            const LONG next = (head + 1) % 256;
+            if (next == g_hk_shm->tail) {
+                ::InterlockedIncrement(&g_hk_shm->dropped);
+            } else {
+                g_hk_shm->ids[head] = static_cast<LONG>(wp);
+                ::InterlockedExchange(&g_hk_shm->head, next);
+                if (g_hk_event)
+                    ::SetEvent(g_hk_event);
+            }
+            return 0;
+        }
+        case kHotkeyMsgRegister: {
+            auto *req = reinterpret_cast<hotkey_request *>(lp);
+            if (!req)
+                return 0;
+            const bool exists = self->ids.count(req->id) != 0;
+            req->ok = (!exists &&
+                       ::RegisterHotKey(hwnd, static_cast<int>(req->id),
+                                        static_cast<UINT>(req->modifiers) | MOD_NOREPEAT,
+                                        static_cast<UINT>(req->vk)))
+                          ? 1
+                          : 0;
+            if (req->ok)
+                self->ids.insert(req->id);
+            return req->ok;
+        }
+        case kHotkeyMsgUnregister: {
+            auto *req = reinterpret_cast<hotkey_request *>(lp);
+            if (!req)
+                return 0;
+            req->ok = (self->ids.erase(req->id) && ::UnregisterHotKey(hwnd, static_cast<int>(req->id)))
+                          ? 1
+                          : 0;
+            return req->ok;
+        }
+        case kHotkeyMsgUnregisterAll: {
+            LONG n = 0;
+            for (LONG id : self->ids) {
+                if (::UnregisterHotKey(hwnd, static_cast<int>(id)))
+                    ++n;
+            }
+            self->ids.clear();
+            return n;
+        }
+        default:
+            break;
+        }
+        return ::DefWindowProcW(hwnd, msg, wp, lp);
+    }
+
+    static DWORD WINAPI thread_proc(LPVOID) {
+        if (!g_hk_shm)
+            return 1;
+        const std::wstring cls = hk_object_name(L"OpHotkeySink");
+        WNDCLASSEXW wc{};
+        wc.cbSize = sizeof(wc);
+        wc.lpfnWndProc = &hotkey_sink::wnd_proc;
+        wc.hInstance = ::GetModuleHandleW(nullptr);
+        wc.lpszClassName = cls.c_str();
+        if (!::RegisterClassExW(&wc) && ::GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+            ::InterlockedExchange(&g_hk_shm->state, 3);
+            return 1;
+        }
+        HWND hwnd = ::CreateWindowExW(0, cls.c_str(), cls.c_str(), 0, 0, 0, 0, 0,
+                                      HWND_MESSAGE, nullptr, wc.hInstance, &instance());
+        if (!hwnd) {
+            ::InterlockedExchange(&g_hk_shm->state, 3);
+            return 1;
+        }
+        g_hk_shm->tid = ::GetCurrentThreadId();
+        g_hk_shm->hwnd = hwnd;
+        ::InterlockedExchange(&g_hk_shm->state, 2);
+
+        MSG msg;
+        while (::GetMessageW(&msg, nullptr, 0, 0) > 0) {
+            ::TranslateMessage(&msg);
+            ::DispatchMessageW(&msg);
+        }
+        return 0;
+    }
+};
+
+bool hk_ensure() {
+    if (g_hk_shm && g_hk_shm->state == 2)
+        return true;
+
+    const std::wstring map_name = hk_object_name(L"OpHotkeyShm");
+    const std::wstring evt_name = hk_object_name(L"OpHotkeyEvt");
+    g_hk_map = ::CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
+                                    sizeof(hotkey_shm), map_name.c_str());
+    if (!g_hk_map)
+        return false;
+    g_hk_shm = static_cast<hotkey_shm *>(
+        ::MapViewOfFile(g_hk_map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(hotkey_shm)));
+    if (!g_hk_shm)
+        return false;
+    g_hk_event = ::CreateEventW(nullptr, FALSE, FALSE, evt_name.c_str());
+    if (!g_hk_event)
+        return false;
+
+    const LONG owner = ::InterlockedCompareExchange(&g_hk_shm->state, 1, 0);
+    if (owner == 0) {
+        HANDLE thread = ::CreateThread(nullptr, 0, &hotkey_sink::thread_proc, nullptr, 0, nullptr);
+        if (!thread) {
+            ::InterlockedExchange(&g_hk_shm->state, 3);
+            return false;
+        }
+        ::CloseHandle(thread);
+    }
+
+    for (int i = 0; i < 1000; ++i) {
+        const LONG state = g_hk_shm->state;
+        if (state == 2)
+            return g_hk_shm->hwnd != nullptr;
+        if (state == 3)
+            return false;
+        ::Sleep(5);
+    }
+    return false;
+}
+
+} // namespace
+
+void op::Op::HotkeyRegister(long id, long modifiers, long vk, long *ret) {
+    internal::set_result(ret, 0L);
+    if (!hk_valid_args(id, modifiers, vk) || !hk_ensure())
+        return;
+    hotkey_request req;
+    req.id = id;
+    req.modifiers = modifiers;
+    req.vk = vk;
+    ::SendMessageW(g_hk_shm->hwnd, kHotkeyMsgRegister, 0, reinterpret_cast<LPARAM>(&req));
+    internal::set_result(ret, req.ok ? 1L : 0L);
+}
+
+void op::Op::HotkeyUnregister(long id, long *ret) {
+    internal::set_result(ret, 0L);
+    if (id < 1 || id > kHotkeyMaxId || !hk_ensure())
+        return;
+    hotkey_request req;
+    req.id = id;
+    ::SendMessageW(g_hk_shm->hwnd, kHotkeyMsgUnregister, 0, reinterpret_cast<LPARAM>(&req));
+    internal::set_result(ret, req.ok ? 1L : 0L);
+}
+
+void op::Op::HotkeyUnregisterAll(long *ret) {
+    internal::set_result(ret, 0L);
+    if (!hk_ensure())
+        return;
+    const LRESULT n = ::SendMessageW(g_hk_shm->hwnd, kHotkeyMsgUnregisterAll, 0, 0);
+    internal::set_result(ret, static_cast<long>(n));
+}
+
+void op::Op::HotkeyPoll(long timeout_ms, long *ret) {
+    internal::set_result(ret, 0L);
+    if (!hk_ensure())
+        return;
+    const DWORD timeout = timeout_ms < 0 ? 60000u : static_cast<DWORD>(timeout_ms);
+    for (;;) {
+        for (;;) {
+            const LONG tail = g_hk_shm->tail;
+            if (tail == g_hk_shm->head)
+                break;
+            const LONG id = g_hk_shm->ids[tail];
+            const LONG next = (tail + 1) % 256;
+            if (::InterlockedCompareExchange(&g_hk_shm->tail, next, tail) == tail) {
+                internal::set_result(ret, id);
+                return;
+            }
+        }
+        if (timeout_ms == 0)
+            return;
+        if (::WaitForSingleObject(g_hk_event, timeout) != WAIT_OBJECT_0)
+            return;
     }
 }

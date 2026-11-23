@@ -8,6 +8,8 @@
 #include "../algorithm/MiniImage.h"
 #include <onnxruntime_cxx_api.h>
 #include <windows.h>
+#include <array>
+#include <cctype>
 #include <fstream>
 #include <iostream>
 #include <algorithm>
@@ -113,6 +115,109 @@ float iou_of(const Cand &a, const Cand &b) {
     return uni > 0.0f ? inter / uni : 0.0f;
 }
 
+using DmlAppendFn = OrtStatus *(ORT_API_CALL *)(OrtSessionOptions *, int);
+
+// DML provider 内部若触发 SEH（如驱动/运行时异常），必须在这里截住，
+// 不能让它穿透到 C API 边界导致整个 SetYoloEngine 静默失败。
+OrtStatus *call_dml_append_seh(DmlAppendFn fn, OrtSessionOptions *options, int device, DWORD *seh_code) {
+    *seh_code = 0;
+    __try {
+        return fn(options, device);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+        *seh_code = GetExceptionCode();
+        return nullptr;
+    }
+}
+
+// ---- 张量布局判定（Pose/Obb/Segment 共用）----
+// 检测头形状只有 [1, nattr, nanch] 或其转置。真实模型 nanch 恒为 8400/25200 级，
+// 与输入尺寸推得的 anchor 数对上；测试模型可能只有 1~2 个 anchor，此时用
+// "属性维至少要有 cx,cy,w,h + 任务附加位" 作兜底判据。
+struct Layout {
+    long long nattr = 0;
+    long long nanch = 0;
+    bool ch_first = true; // true=[1,nattr,nanch]，false=[1,nanch,nattr]
+};
+
+bool resolve_layout(long long A, long long B, long long na_expected, long long min_attr, Layout &out) {
+    const long long na8 = na_expected;
+    if (A == na8 || A == 3 * na8) {
+        out = {B, A, false};
+    } else if (B == na8 || B == 3 * na8) {
+        out = {A, B, true};
+    } else if (A < min_attr && B >= min_attr) {
+        out = {B, A, false};
+    } else if (B < min_attr && A >= min_attr) {
+        out = {A, B, true};
+    } else if (A >= min_attr && B >= min_attr) {
+        out = {std::min(A, B), std::max(A, B), A < B};
+    } else {
+        return false;
+    }
+    return out.nattr >= min_attr && out.nanch > 0;
+}
+
+struct PtF {
+    float x, y;
+};
+
+std::array<PtF, 4> obb_corners(float cx, float cy, float w, float h, float angle) {
+    const float c = std::cos(angle), s = std::sin(angle);
+    const float hw = w * 0.5f, hh = h * 0.5f;
+    const PtF local[4] = {{-hw, -hh}, {hw, -hh}, {hw, hh}, {-hw, hh}};
+    std::array<PtF, 4> out;
+    for (int i = 0; i < 4; ++i) {
+        out[i] = {cx + local[i].x * c - local[i].y * s, cy + local[i].x * s + local[i].y * c};
+    }
+    return out;
+}
+
+float signed_area(const std::vector<PtF> &poly) {
+    float a = 0.0f;
+    for (size_t i = 0; i < poly.size(); ++i) {
+        const PtF &p = poly[i], &q = poly[(i + 1) % poly.size()];
+        a += p.x * q.y - q.x * p.y;
+    }
+    return a * 0.5f;
+}
+
+// Sutherland-Hodgman：用凸多边形 clip 裁剪 subject，返回交集多边形。
+std::vector<PtF> clip_convex(const std::vector<PtF> &subject, std::vector<PtF> clip) {
+    if (signed_area(clip) < 0.0f)
+        std::reverse(clip.begin(), clip.end());
+    std::vector<PtF> out = subject;
+    for (size_t e = 0; e < clip.size() && !out.empty(); ++e) {
+        const PtF a = clip[e], b = clip[(e + 1) % clip.size()];
+        auto side = [&](const PtF &p) { return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x); };
+        std::vector<PtF> in = std::move(out);
+        out.clear();
+        for (size_t i = 0; i < in.size(); ++i) {
+            const PtF &p = in[i], &q = in[(i + 1) % in.size()];
+            const float sp = side(p), sq = side(q);
+            if (sp >= 0.0f)
+                out.push_back(p);
+            if ((sp >= 0.0f) != (sq >= 0.0f)) {
+                const float t = sp / (sp - sq);
+                out.push_back({p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t});
+            }
+        }
+    }
+    return out;
+}
+
+float obb_iou(const std::array<PtF, 4> &a, const std::array<PtF, 4> &b) {
+    const std::vector<PtF> subject(a.begin(), a.end());
+    const std::vector<PtF> clip(b.begin(), b.end());
+    const std::vector<PtF> inter_poly = clip_convex(subject, clip);
+    if (inter_poly.size() < 3)
+        return 0.0f;
+    const float inter = std::fabs(signed_area(inter_poly));
+    const float area_a = std::fabs(signed_area(subject));
+    const float area_b = std::fabs(signed_area(clip));
+    const float uni = area_a + area_b - inter;
+    return uni > 0.0f ? inter / uni : 0.0f;
+}
+
 // 解析 ultralytics 嵌入 ONNX metadata 的类别名字典串，两种 repr 均兼容：
 //   {0: 'person', 1: 'car'}   （单引号、数字键）
 //   {"0": "person", ...}      （双引号、字符串键）
@@ -165,6 +270,11 @@ class OnnxYoloEngine::Impl {
     int m_in_h = 640, m_in_w = 640;
     int m_threads = 0;            // --threads=N；0 = 不设置（用 ORT 默认：物理核数）
     int m_threads_applied = 0;    // 真正写进 SessionOptions 的值（0 = 没设），供诊断/测试
+    int m_nc_hint = 0;            // --nc=N：Pose 属性维拆不出类别数时用
+    int m_kpt = 0;                // --kpt=N 或 metadata kpt_shape；0 = 未知
+    int m_device = -1;            // --device=N：DirectML 适配器序号；-1/cpu = CPU
+    int m_device_applied = -1;    // 真正生效的设备（-1 = CPU），供 GetModelInfo 诊断
+    Task m_force_task = Task::Unknown; // --task=...：元数据缺失时强制任务
     Task m_task = Task::Unknown;  // 加载后判定（元数据优先，其次形状推断）
     bool ok = false;
 
@@ -176,11 +286,155 @@ class OnnxYoloEngine::Impl {
         // 各档无差异，说明放开线程不会在"小图快跑"场景反而变慢。
         // 因此默认交给 ORT（物理核数），需要压线程时用 --threads=N（如多实例并发，
         // 避免 N 个会话各开满线程互相抢核）。
-        sopts.SetGraphOptimizationLevel(ORT_ENABLE_ALL);
+        reset_options();
     }
 
-    bool load(const std::wstring &model_path) {
-        if (model_path.empty()) {
+    // 每次建会话前重建 options：DML 追加/失败回退都要一份干净的对象，
+    // 否则失败的 provider 会残留在 sopts 里影响下一次尝试。
+    void reset_options() {
+        sopts = Ort::SessionOptions();
+        sopts.SetGraphOptimizationLevel(ORT_ENABLE_ALL);
+        if (m_threads > 0) {
+            sopts.SetIntraOpNumThreads(m_threads);
+            m_threads_applied = m_threads;
+        }
+    }
+
+    // 通过 OrtDmlApi（GetExecutionProviderApi）追加，不链 DML 导入库。
+    // 注意：provider 初始化会执行外部 DLL，本机实测 DML 版 ORT 上 append 仍可能 AV
+    // （0xc0000005），因此调用点外包 SEH；失败一律回退 CPU。调用方不能假设"加载了
+    // DML 运行库 = 一定能用 GPU"——适配器/驱动/会话环境都可能让它失败。
+    struct DmlApiV1 {
+        OrtStatus *(ORT_API_CALL *SessionOptionsAppendExecutionProvider_DML)(OrtSessionOptions *, int);
+    };
+
+    bool append_dml_provider() {
+        try {
+            const void *raw_api = nullptr;
+            OrtStatus *st =
+                Ort::GetApi().GetExecutionProviderApi("DML", ORT_API_VERSION, &raw_api);
+            if (st) {
+                const char *msg = Ort::GetApi().GetErrorMessage(st);
+                cout << "OnnxYoloEngine: DirectML EP API unavailable: " << (msg ? msg : "unknown") << endl;
+                Ort::GetApi().ReleaseStatus(st);
+                return false;
+            }
+            if (!raw_api) return false;
+            const auto *dml = static_cast<const DmlApiV1 *>(raw_api);
+            DWORD seh = 0;
+            st = call_dml_append_seh(dml->SessionOptionsAppendExecutionProvider_DML, sopts, m_device, &seh);
+            if (seh) {
+                cout << "OnnxYoloEngine: DirectML append raised SEH 0x" << std::hex << seh << std::dec << endl;
+                return false;
+            }
+            if (!st) return true;
+            const char *msg = Ort::GetApi().GetErrorMessage(st);
+            cout << "OnnxYoloEngine: DirectML provider rejected: " << (msg ? msg : "unknown") << endl;
+            Ort::GetApi().ReleaseStatus(st);
+            return false;
+        } catch (const std::exception &e) {
+            cout << "OnnxYoloEngine: DirectML provider unavailable: " << e.what() << endl;
+            return false;
+        } catch (...) {
+            cout << "OnnxYoloEngine: DirectML provider unavailable (unknown exception)" << endl;
+            return false;
+        }
+    }
+
+    // 解析加载参数。任务/类别/关键点提示只对本次加载有效；不重置会让上一次的
+    // --task 粘住新模型。init 与 init_from_memory 共用（两份拷贝必然漂移）。
+    void parse_argv(const vector<string> &argv) {
+        m_force_task = Task::Unknown;
+        m_nc_hint = 0;
+        m_kpt = 0;
+        m_device = -1;
+        m_device_applied = -1;
+        for (const std::string &a : argv) {
+            if (a.rfind("--conf=", 0) == 0) {
+                float v = float(atof(a.c_str() + 7));
+                if (v > 0.0f && v < 1.0f) m_conf_def = v;
+            } else if (a.rfind("--threads=", 0) == 0) {
+                // 0 = 显式回到 auto（YoloDetector 是进程级单例，前一次 SetYoloEngine 的
+                // --threads 会留在同一个 Impl 上，需要能表达"改回默认"）；
+                // 上限 64：超了多半是写错，且会静默吃掉宿主线程配额。
+                const int v = atoi(a.c_str() + 10);
+                if (v >= 0 && v <= 64) m_threads = v;
+            } else if (a.rfind("--iou=", 0) == 0) {
+                float v = float(atof(a.c_str() + 6));
+                if (v > 0.0f && v < 1.0f) m_iou_def = v;
+            } else if (a.rfind("--task=", 0) == 0) {
+                std::string t = a.substr(7);
+                for (auto &ch : t)
+                    ch = static_cast<char>(tolower(static_cast<unsigned char>(ch)));
+                if (t == "detect")
+                    m_force_task = Task::Detect;
+                else if (t == "segment")
+                    m_force_task = Task::Segment;
+                else if (t == "classify")
+                    m_force_task = Task::Classify;
+                else if (t == "pose")
+                    m_force_task = Task::Pose;
+                else if (t == "obb")
+                    m_force_task = Task::Obb;
+                else if (!t.empty() && t != "auto")
+                    cout << "OnnxYoloEngine: unknown --task=" << t << endl;
+            } else if (a.rfind("--nc=", 0) == 0) {
+                const int v = atoi(a.c_str() + 5);
+                if (v > 0 && v <= 4096) m_nc_hint = v;
+            } else if (a.rfind("--kpt=", 0) == 0) {
+                const int v = atoi(a.c_str() + 6);
+                if (v > 0 && v <= 256) m_kpt = v;
+            } else if (a.rfind("--device=", 0) == 0) {
+                // N>=0 请求 DirectML 适配器；cpu/-1 显式回 CPU（覆盖上一次的 sticky 配置）。
+                std::string d = a.substr(9);
+                for (auto &ch : d)
+                    ch = static_cast<char>(tolower(static_cast<unsigned char>(ch)));
+                if (d == "cpu" || d == "-1" || d.empty() || d == "auto") {
+                    m_device = -1;
+                } else {
+                    const int v = atoi(d.c_str());
+                    if (v >= 0 && v < 64)
+                        m_device = v;
+                    else
+                        cout << "OnnxYoloEngine: invalid --device=" << d << " (expect 0..63 or cpu)" << endl;
+                }
+            } else if (a.rfind("--labels=", 0) == 0) {
+                m_labels.clear();
+                std::string list = a.substr(9);
+                if (!list.empty() && list[0] == '@') {
+                    // @file：从 UTF-8 文本文件按行读取类别（ultralytics classes.txt 格式，每行一个）
+                    const std::string path = list.substr(1);
+                    std::ifstream f(path, std::ios::binary);
+                    if (!f) {
+                        cout << "OnnxYoloEngine: labels file not found: " << path << endl;
+                    } else {
+                        std::string line;
+                        while (std::getline(f, line)) {
+                            while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
+                                line.pop_back();
+                            if (!line.empty())
+                                m_labels.push_back(utf8_to_wstring(line));
+                        }
+                    }
+                } else {
+                    size_t pos = 0;
+                    while (pos <= list.size()) {
+                        size_t comma = list.find(',', pos);
+                        std::string one =
+                            (comma == std::string::npos) ? list.substr(pos) : list.substr(pos, comma - pos);
+                        if (!one.empty()) m_labels.push_back(utf8_to_wstring(one));
+                        if (comma == std::string::npos) break;
+                        pos = comma + 1;
+                    }
+                }
+            }
+        }
+    }
+
+    bool load(const std::wstring &model_path, const uint8_t *mem = nullptr, size_t mem_len = 0) {
+        if (mem && mem_len) {
+            m_buf.assign(mem, mem + mem_len);
+        } else if (model_path.empty()) {
             m_buf = LoadYoloRes(IDR_YOLO_MODEL);
             if (m_buf.empty()) {
                 cout << "OnnxYoloEngine: embedded yolo model missing "
@@ -205,18 +459,44 @@ class OnnxYoloEngine::Impl {
                 return false;
             }
         }
-        try {
-            // 线程数在建会话前才生效（init 里解析 argv 晚于构造函数）
-            if (m_threads > 0) {
-                sopts.SetIntraOpNumThreads(m_threads);
-                m_threads_applied = m_threads;
+        // 线程数在建会话前才生效（init 里解析 argv 晚于构造函数）。
+        m_device_applied = -1;
+        reset_options();
+        if (m_device >= 0) {
+            if (append_dml_provider()) {
+                m_device_applied = m_device;
+                cout << "OnnxYoloEngine: execution provider=DirectML device=" << m_device << endl;
+            } else {
+                cout << "OnnxYoloEngine: DirectML not available in current onnxruntime.dll "
+                        "(deploy the DirectML build to enable --device), falling back to CPU"
+                     << endl;
+                reset_options();
             }
+        }
+        try {
             sess = std::make_unique<Ort::Session>(env, m_buf.data(), m_buf.size(), sopts);
         } catch (const Ort::Exception &e) {
-            cout << "OnnxYoloEngine: session create failed: " << e.what() << endl;
-            sess.reset();
-            m_buf.clear();
-            return false;
+            if (m_device_applied >= 0) {
+                // provider 已追加但会话建不起来（常见：DirectML.dll 缺失/版本不符）。
+                // 明确告警后回退 CPU，避免整个引擎不可用。
+                cout << "OnnxYoloEngine: DirectML session create failed (" << e.what()
+                     << "), falling back to CPU" << endl;
+                m_device_applied = -1;
+                reset_options();
+                try {
+                    sess = std::make_unique<Ort::Session>(env, m_buf.data(), m_buf.size(), sopts);
+                } catch (const Ort::Exception &e2) {
+                    cout << "OnnxYoloEngine: session create failed: " << e2.what() << endl;
+                    sess.reset();
+                    m_buf.clear();
+                    return false;
+                }
+            } else {
+                cout << "OnnxYoloEngine: session create failed: " << e.what() << endl;
+                sess.reset();
+                m_buf.clear();
+                return false;
+            }
         }
         // 输入形状 [1,3,H,W]（动态维度 -1 时保持 640 默认）
         try {
@@ -243,11 +523,29 @@ class OnnxYoloEngine::Impl {
                 // 无 metadata 的旧模型/其他框架导出：静默，JSON 只给 class_id
             }
         }
+        // Pose 模型的关键点形状（ultralytics 写法 "[17, 3]"）；CLI --kpt= 优先。
+        if (m_kpt == 0) {
+            try {
+                Ort::AllocatorWithDefaultOptions alloc;
+                auto kv = sess->GetModelMetadata().LookupCustomMetadataMapAllocated("kpt_shape", alloc);
+                if (kv) {
+                    const char *p = kv.get();
+                    while (*p && (*p < '0' || *p > '9'))
+                        ++p;
+                    const int v = atoi(p);
+                    if (v > 0 && v <= 256)
+                        m_kpt = v;
+                }
+            } catch (const Ort::Exception &) {
+            }
+        }
         // 任务识别（批 C）：优先读模型元数据 task，其次按输出形状推断。
         // 元数据 task 由 ultralytics 导出时写入（detect/segment/classify/pose/obb）。
         m_task = detect_task_from_metadata();
         if (m_task == Task::Unknown)
             m_task = infer_task_from_shapes();
+        if (m_force_task != Task::Unknown)
+            m_task = m_force_task;
         cout << "OnnxYoloEngine: task=" << static_cast<int>(m_task) << endl;
         ok = true; // 会话就绪，detect 门禁（修复：load 成功后此前未置位，ONNX detect 恒返 -1）
         cout << "OnnxYoloEngine: model loaded, input=" << m_in_h << "x" << m_in_w << endl;
@@ -269,6 +567,10 @@ class OnnxYoloEngine::Impl {
                 return Task::Segment;
             if (w == L"classify")
                 return Task::Classify;
+            if (w == L"pose")
+                return Task::Pose;
+            if (w == L"obb")
+                return Task::Obb;
         } catch (const Ort::Exception &) {
         }
         return Task::Unknown;
@@ -277,6 +579,7 @@ class OnnxYoloEngine::Impl {
     // 按输出张量形状推断任务。判据顺序（宁可保守）：
     //   输出数 >= 2 且其中一个 4 维 [1,nm,ph,pw]  -> Segment
     //   输出数 == 1 且总元素数 <= 4096 且维数 <= 4 -> Classify（检测头动辄上万，不会这么小）
+    //   输出数 == 1 且 3 维，属性维与 labels/kpt 对上 -> Obb / Pose
     //   其余                                        -> Detect
     Task infer_task_from_shapes() const {
         try {
@@ -295,6 +598,20 @@ class OnnxYoloEngine::Impl {
                     total *= (d > 0 ? d : 1);
                 if (total > 0 && total <= 4096 && shape.size() <= 4)
                     return Task::Classify;
+                if (shape.size() == 3) {
+                    const long long na_expected = (long long)(m_in_h / 8) * (m_in_w / 8) +
+                                                  (long long)(m_in_h / 16) * (m_in_w / 16) +
+                                                  (long long)(m_in_h / 32) * (m_in_w / 32);
+                    Layout ly;
+                    if (resolve_layout(shape[1], shape[2], na_expected, 5, ly)) {
+                        const int nc = static_cast<int>(ly.nattr - 5);
+                        if (!m_labels.empty() && nc == static_cast<int>(m_labels.size()))
+                            return Task::Obb;
+                        if (m_kpt > 0 &&
+                            ly.nattr == 4 + static_cast<long long>(m_labels.size()) + 3LL * m_kpt)
+                            return Task::Pose;
+                    }
+                }
             }
         } catch (const Ort::Exception &) {
         }
@@ -626,6 +943,258 @@ class OnnxYoloEngine::Impl {
         return static_cast<int>(result.size());
     }
 
+    // ---- 姿态解码（Pose）----
+    // 输出：[1, 4+nc+3*kpt, nanch]（ultralytics pose，anchor-free）。
+    // 每个 anchor：cx,cy,w,h + nc 个类分数 + kpt 组 (x,y,conf)。
+    // 关键点坐标与框同在 letterbox 空间，必须一起做逆变换（scale/pad），
+    // 否则宽图上的点会整体偏移——这是 Pose 最容易写错的一段。
+    int decode_pose(const std::vector<float> &out, const std::vector<int64_t> &oshape,
+                    float scale, int pad_x, int pad_y, int iw, int ih,
+                    float conf_thr, float iou_thr, vyolo_pose_t &result) {
+        if (oshape.size() != 3)
+            return -8;
+        const long long na_expected = (long long)(m_in_h / 8) * (m_in_w / 8) +
+                                      (long long)(m_in_h / 16) * (m_in_w / 16) +
+                                      (long long)(m_in_h / 32) * (m_in_w / 32);
+        Layout ly;
+        if (!resolve_layout(oshape[1], oshape[2], na_expected, 4 + 3, ly)) {
+            cout << "OnnxYoloEngine: pose unsupported output shape [" << oshape[1] << "," << oshape[2] << "]"
+                 << endl;
+            return -8;
+        }
+        const long long nattr = ly.nattr, nanch = ly.nanch;
+        const bool ch_first = ly.ch_first;
+
+        int nc = m_nc_hint;
+        int kpt = m_kpt;
+        if (kpt > 0) {
+            const long long calc = nattr - 4 - 3LL * kpt;
+            if (calc <= 0) {
+                cout << "OnnxYoloEngine: pose nattr=" << nattr << " cannot fit kpt=" << kpt << endl;
+                return -8;
+            }
+            if (nc > 0 && nc != calc)
+                cout << "OnnxYoloEngine: pose --nc=" << nc << " ignored, shape says " << calc << endl;
+            nc = static_cast<int>(calc);
+        } else if (!m_labels.empty()) {
+            nc = static_cast<int>(m_labels.size());
+            const long long rem = nattr - 4 - nc;
+            if (rem <= 0 || rem % 3 != 0) {
+                cout << "OnnxYoloEngine: pose nattr=" << nattr << " inconsistent with labels=" << nc << endl;
+                return -8;
+            }
+            kpt = static_cast<int>(rem / 3);
+        } else if (nc > 0) {
+            const long long rem = nattr - 4 - nc;
+            if (rem <= 0 || rem % 3 != 0) {
+                cout << "OnnxYoloEngine: pose nattr=" << nattr << " inconsistent with --nc=" << nc << endl;
+                return -8;
+            }
+            kpt = static_cast<int>(rem / 3);
+        } else {
+            // 无 metadata、无 labels、无 --kpt/--nc：按 COCO 17 点兜底。
+            kpt = 17;
+            const long long rem = nattr - 4 - 3LL * kpt;
+            if (rem <= 0) {
+                cout << "OnnxYoloEngine: pose cannot infer nc/kpt (nattr=" << nattr
+                     << "); pass --nc=N --kpt=N" << endl;
+                return -8;
+            }
+            nc = static_cast<int>(rem);
+        }
+        if (nc <= 0 || kpt <= 0) {
+            cout << "OnnxYoloEngine: pose bad nc=" << nc << " kpt=" << kpt << endl;
+            return -8;
+        }
+
+        auto at = [&](long long i, long long j) -> float {
+            return ch_first ? out[size_t(i * nanch + j)] : out[size_t(j * nattr + i)];
+        };
+
+        std::vector<Cand> cands;
+        std::vector<long long> cand_index;
+        for (long long j = 0; j < nanch; ++j) {
+            float best = -1.0f;
+            int best_c = 0;
+            for (int c = 0; c < nc; ++c) {
+                const float v = at(4 + c, j);
+                if (v > best) {
+                    best = v;
+                    best_c = c;
+                }
+            }
+            if (best < conf_thr)
+                continue;
+            const float cx = at(0, j), cy = at(1, j), w = at(2, j), h = at(3, j);
+            if (w < 1.0f || h < 1.0f)
+                continue;
+            cands.push_back({cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f, best, best_c});
+            cand_index.push_back(j);
+        }
+
+        // 与 segment 同样的"保留 anchor 下标"的 NMS：关键点按 anchor 取，不能重排后丢映射。
+        const size_t n_cand = cands.size();
+        std::vector<size_t> order(n_cand);
+        for (size_t i = 0; i < n_cand; ++i)
+            order[i] = i;
+        std::sort(order.begin(), order.end(), [&cands](size_t a, size_t b) { return cands[a].conf > cands[b].conf; });
+        std::vector<char> suppressed(n_cand, 0);
+        std::vector<size_t> kept;
+        for (size_t oi = 0; oi < n_cand; ++oi) {
+            const size_t i = order[oi];
+            if (suppressed[i])
+                continue;
+            kept.push_back(i);
+            for (size_t oj = oi + 1; oj < n_cand; ++oj) {
+                const size_t k = order[oj];
+                if (suppressed[k])
+                    continue;
+                if (cands[k].cls == cands[i].cls && iou_of(cands[i], cands[k]) > iou_thr)
+                    suppressed[k] = 1;
+            }
+        }
+
+        result.clear();
+        for (size_t idx : kept) {
+            const Cand &c = cands[idx];
+            yolo_pose_t item;
+            item.box.class_id = c.cls;
+            if (c.cls >= 0 && c.cls < static_cast<int>(m_labels.size()))
+                item.box.label = m_labels[c.cls];
+            item.box.confidence = c.conf;
+            const float x1 = std::max(0.0f, std::min((c.x1 - pad_x) / scale, float(iw)));
+            const float y1 = std::max(0.0f, std::min((c.y1 - pad_y) / scale, float(ih)));
+            const float x2 = std::max(0.0f, std::min((c.x2 - pad_x) / scale, float(iw)));
+            const float y2 = std::max(0.0f, std::min((c.y2 - pad_y) / scale, float(ih)));
+            item.box.left_top = point_t(int(std::lround(x1)), int(std::lround(y1)));
+            item.box.right_bottom = point_t(int(std::lround(x2)), int(std::lround(y2)));
+
+            const long long j = cand_index[idx];
+            item.keypoints.reserve(static_cast<size_t>(kpt));
+            for (int k = 0; k < kpt; ++k) {
+                const long long off = 4 + nc + 3LL * k;
+                yolo_kpt_t kp;
+                kp.x = std::max(0.0f, std::min((at(off, j) - pad_x) / scale, float(iw)));
+                kp.y = std::max(0.0f, std::min((at(off + 1, j) - pad_y) / scale, float(ih)));
+                kp.confidence = at(off + 2, j);
+                item.keypoints.push_back(kp);
+            }
+            result.push_back(std::move(item));
+        }
+        return static_cast<int>(result.size());
+    }
+
+    // ---- 旋转框解码（OBB）----
+    // 输出：[1, 4+nc+1, nanch] = cx,cy,w,h + nc 类分数 + angle(弧度)。
+    // NMS 必须用**旋转 IoU**：轴对齐 NMS 会把"斜着相邻的两条船"误判成重叠。
+    int decode_obb(const std::vector<float> &out, const std::vector<int64_t> &oshape,
+                   float scale, int pad_x, int pad_y, int iw, int ih,
+                   float conf_thr, float iou_thr, vyolo_obb_t &result) {
+        if (oshape.size() != 3)
+            return -8;
+        const long long na_expected = (long long)(m_in_h / 8) * (m_in_w / 8) +
+                                      (long long)(m_in_h / 16) * (m_in_w / 16) +
+                                      (long long)(m_in_h / 32) * (m_in_w / 32);
+        Layout ly;
+        if (!resolve_layout(oshape[1], oshape[2], na_expected, 5, ly)) {
+            cout << "OnnxYoloEngine: obb unsupported output shape [" << oshape[1] << "," << oshape[2] << "]"
+                 << endl;
+            return -8;
+        }
+        const long long nattr = ly.nattr, nanch = ly.nanch;
+        const bool ch_first = ly.ch_first;
+        const int nc = static_cast<int>(nattr - 5);
+        if (nc <= 0) {
+            cout << "OnnxYoloEngine: obb bad class count nc=" << nc << " (nattr=" << nattr << ")" << endl;
+            return -8;
+        }
+
+        auto at = [&](long long i, long long j) -> float {
+            return ch_first ? out[size_t(i * nanch + j)] : out[size_t(j * nattr + i)];
+        };
+
+        struct ObbCand {
+            float cx, cy, w, h, angle, conf;
+            int cls;
+            std::array<PtF, 4> pts;
+        };
+        std::vector<ObbCand> cands;
+        for (long long j = 0; j < nanch; ++j) {
+            float best = -1.0f;
+            int best_c = 0;
+            for (int c = 0; c < nc; ++c) {
+                const float v = at(4 + c, j);
+                if (v > best) {
+                    best = v;
+                    best_c = c;
+                }
+            }
+            if (best < conf_thr)
+                continue;
+            const float cx = at(0, j), cy = at(1, j), w = at(2, j), h = at(3, j), angle = at(4 + nc, j);
+            if (w < 1.0f || h < 1.0f)
+                continue;
+            cands.push_back({cx, cy, w, h, angle, best, best_c, obb_corners(cx, cy, w, h, angle)});
+        }
+
+        std::vector<size_t> order(cands.size());
+        for (size_t i = 0; i < order.size(); ++i)
+            order[i] = i;
+        std::sort(order.begin(), order.end(), [&cands](size_t a, size_t b) {
+            return cands[a].conf > cands[b].conf;
+        });
+        std::vector<char> suppressed(cands.size(), 0);
+        std::vector<size_t> kept;
+        for (size_t oi = 0; oi < order.size(); ++oi) {
+            const size_t i = order[oi];
+            if (suppressed[i])
+                continue;
+            kept.push_back(i);
+            for (size_t oj = oi + 1; oj < order.size(); ++oj) {
+                const size_t k = order[oj];
+                if (suppressed[k])
+                    continue;
+                if (cands[k].cls == cands[i].cls && obb_iou(cands[i].pts, cands[k].pts) > iou_thr)
+                    suppressed[k] = 1;
+            }
+        }
+
+        result.clear();
+        for (size_t idx : kept) {
+            const ObbCand &c = cands[idx];
+            yolo_obb_t item;
+            item.class_id = c.cls;
+            if (c.cls >= 0 && c.cls < static_cast<int>(m_labels.size()))
+                item.label = m_labels[c.cls];
+            item.confidence = c.conf;
+            item.angle = c.angle;
+            item.cx = (c.cx - pad_x) / scale;
+            item.cy = (c.cy - pad_y) / scale;
+            item.w = c.w / scale;
+            item.h = c.h / scale;
+
+            float min_x = 1e9f, min_y = 1e9f, max_x = -1e9f, max_y = -1e9f;
+            item.corners.reserve(4);
+            for (const PtF &p : c.pts) {
+                float px = (p.x - pad_x) / scale;
+                float py = (p.y - pad_y) / scale;
+                px = std::max(0.0f, std::min(px, float(iw)));
+                py = std::max(0.0f, std::min(py, float(ih)));
+                item.corners.push_back(point_t(int(std::lround(px)), int(std::lround(py))));
+                min_x = std::min(min_x, px);
+                min_y = std::min(min_y, py);
+                max_x = std::max(max_x, px);
+                max_y = std::max(max_y, py);
+            }
+            item.left_top = point_t(int(std::lround(std::max(0.0f, min_x))),
+                                    int(std::lround(std::max(0.0f, min_y))));
+            item.right_bottom = point_t(int(std::lround(std::min(max_x, float(iw)))),
+                                        int(std::lround(std::min(max_y, float(ih)))));
+            result.push_back(std::move(item));
+        }
+        return static_cast<int>(result.size());
+    }
+
     // 两个输出的推理（Segment 用）。按维数分派：3 维 = 检测头，4 维 = proto。
     // 输出顺序不固定（不同导出工具不同），所以不按 index 硬编码。
     bool run_two_outputs(const std::vector<float> &in, const std::vector<int64_t> &shape, vyolo_seg_t &result,
@@ -772,59 +1341,44 @@ int OnnxYoloEngine::input_height() const {
     return m_impl ? m_impl->m_in_h : 0;
 }
 
+int OnnxYoloEngine::device_id() const {
+    return m_impl ? m_impl->m_device_applied : -1;
+}
+
+bool OnnxYoloEngine::dml_active() const {
+    return m_impl && m_impl->m_device_applied >= 0;
+}
+
+bool OnnxYoloEngine::dml_supported() const {
+    // 只探测 EP 是否注册，不建会话、不加载 provider（避免在 CPU 版 DLL 上触发加载失败路径）。
+    const void *api = nullptr;
+    OrtStatus *st = Ort::GetApi().GetExecutionProviderApi("DML", ORT_API_VERSION, &api);
+    if (st) {
+        Ort::GetApi().ReleaseStatus(st);
+        return false;
+    }
+    return api != nullptr;
+}
+
 int OnnxYoloEngine::init(const std::wstring &engine, const std::wstring &dllName, const vector<string> &argv) {
     (void)engine;
     (void)dllName;
-    // 解析 --conf= / --iou= / --labels= / --threads=
-    for (const std::string &a : argv) {
-        if (a.rfind("--conf=", 0) == 0) {
-            float v = float(atof(a.c_str() + 7));
-            if (v > 0.0f && v < 1.0f) m_impl->m_conf_def = v;
-        } else if (a.rfind("--threads=", 0) == 0) {
-            // 0 = 显式回到 auto（YoloDetector 是进程级单例，前一次 SetYoloEngine 的
-            // --threads 会留在同一个 Impl 上，需要能表达"改回默认"）；
-            // 上限 64：超了多半是写错，且会静默吃掉宿主线程配额。
-            const int v = atoi(a.c_str() + 10);
-            if (v >= 0 && v <= 64) m_impl->m_threads = v;
-        } else if (a.rfind("--iou=", 0) == 0) {
-            float v = float(atof(a.c_str() + 6));
-            if (v > 0.0f && v < 1.0f) m_impl->m_iou_def = v;
-        } else if (a.rfind("--labels=", 0) == 0) {
-            m_impl->m_labels.clear();
-            std::string list = a.substr(9);
-            if (!list.empty() && list[0] == '@') {
-                // @file：从 UTF-8 文本文件按行读取类别（ultralytics classes.txt 格式，每行一个）
-                const std::string path = list.substr(1);
-                std::ifstream f(path, std::ios::binary);
-                if (!f) {
-                    cout << "OnnxYoloEngine: labels file not found: " << path << endl;
-                } else {
-                    std::string line;
-                    while (std::getline(f, line)) {
-                        while (!line.empty() && (line.back() == '\r' || line.back() == '\n'))
-                            line.pop_back();
-                        if (!line.empty())
-                            m_impl->m_labels.push_back(utf8_to_wstring(line));
-                    }
-                }
-            } else {
-                size_t pos = 0;
-                while (pos <= list.size()) {
-                    size_t comma = list.find(',', pos);
-                    std::string one = (comma == std::string::npos) ? list.substr(pos) : list.substr(pos, comma - pos);
-                    if (!one.empty()) m_impl->m_labels.push_back(utf8_to_wstring(one));
-                    if (comma == std::string::npos) break;
-                    pos = comma + 1;
-                }
-            }
-        }
-    }
+    m_impl->parse_argv(argv);
     cout << "OnnxYoloEngine: conf=" << m_impl->m_conf_def << " iou=" << m_impl->m_iou_def
          << " labels=" << m_impl->m_labels.size()
-         << " threads=" << (m_impl->m_threads > 0 ? std::to_string(m_impl->m_threads) : "auto") << endl;
+         << " threads=" << (m_impl->m_threads > 0 ? std::to_string(m_impl->m_threads) : "auto")
+         << " device=" << (m_impl->m_device >= 0 ? std::to_string(m_impl->m_device) : "cpu") << endl;
     return m_impl->load(dllName) ? 0 : -1;
 }
 
+int OnnxYoloEngine::init_from_memory(const std::vector<uint8_t> &model, const vector<string> &argv) {
+    if (model.empty())
+        return -1;
+    m_impl->parse_argv(argv);
+    cout << "OnnxYoloEngine: memory model, bytes=" << model.size() << " conf=" << m_impl->m_conf_def
+         << " iou=" << m_impl->m_iou_def << " labels=" << m_impl->m_labels.size() << endl;
+    return m_impl->load(L"", model.data(), model.size()) ? 0 : -1;
+}
 int OnnxYoloEngine::detect(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_rec_t &result) {
     result.clear();
     if (!m_impl->ok) return -1;
@@ -914,6 +1468,66 @@ int OnnxYoloEngine::segment(byte *data, int w, int h, int bpp, double conf, doub
     if (!m_impl->run_two_outputs(bin, shape, result, scale, pad_x, pad_y, w, h, conf_thr, iou_thr))
         return -3;
     return static_cast<int>(result.size());
+}
+
+// ---- 姿态（Pose）----
+int OnnxYoloEngine::pose(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_pose_t &result) {
+    result.clear();
+    if (!m_impl->ok) return -1;
+    if (m_impl->m_task != Task::Pose) return -1;
+    if (data == nullptr || w <= 0 || h <= 0 || (bpp != 1 && bpp != 3 && bpp != 4)) return -1;
+    if (size_t(w) * h * bpp > 64ULL * 1024 * 1024) return -2;
+
+    const float conf_thr = conf > 0.0 ? float(conf) : m_impl->m_conf_def;
+    const float iou_thr = iou > 0.0 ? float(iou) : m_impl->m_iou_def;
+    const int SH = m_impl->m_in_h, SW = m_impl->m_in_w;
+
+    BGR img = to_bgr(data, w, h, bpp);
+    float scale = 1.0f;
+    int pad_x = 0, pad_y = 0;
+    BGR lb = letterbox(img, SH, SW, scale, pad_x, pad_y);
+    std::vector<float> bin(size_t(3) * SH * SW);
+    for (int c = 0; c < 3; ++c) {
+        const int src = 2 - c;
+        for (int y = 0; y < SH; ++y)
+            for (int x = 0; x < SW; ++x)
+                bin[size_t(c) * SH * SW + size_t(y) * SW + x] = lb.at(y, x)[src] / 255.0f;
+    }
+    std::vector<int64_t> shape = {1, 3, SH, SW};
+    std::vector<float> out;
+    std::vector<int64_t> oshape;
+    if (!ort_run(*m_impl->sess, bin, shape, out, oshape)) return -3;
+    return m_impl->decode_pose(out, oshape, scale, pad_x, pad_y, w, h, conf_thr, iou_thr, result);
+}
+
+// ---- 旋转框（OBB）----
+int OnnxYoloEngine::obb(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_obb_t &result) {
+    result.clear();
+    if (!m_impl->ok) return -1;
+    if (m_impl->m_task != Task::Obb) return -1;
+    if (data == nullptr || w <= 0 || h <= 0 || (bpp != 1 && bpp != 3 && bpp != 4)) return -1;
+    if (size_t(w) * h * bpp > 64ULL * 1024 * 1024) return -2;
+
+    const float conf_thr = conf > 0.0 ? float(conf) : m_impl->m_conf_def;
+    const float iou_thr = iou > 0.0 ? float(iou) : m_impl->m_iou_def;
+    const int SH = m_impl->m_in_h, SW = m_impl->m_in_w;
+
+    BGR img = to_bgr(data, w, h, bpp);
+    float scale = 1.0f;
+    int pad_x = 0, pad_y = 0;
+    BGR lb = letterbox(img, SH, SW, scale, pad_x, pad_y);
+    std::vector<float> bin(size_t(3) * SH * SW);
+    for (int c = 0; c < 3; ++c) {
+        const int src = 2 - c;
+        for (int y = 0; y < SH; ++y)
+            for (int x = 0; x < SW; ++x)
+                bin[size_t(c) * SH * SW + size_t(y) * SW + x] = lb.at(y, x)[src] / 255.0f;
+    }
+    std::vector<int64_t> shape = {1, 3, SH, SW};
+    std::vector<float> out;
+    std::vector<int64_t> oshape;
+    if (!ort_run(*m_impl->sess, bin, shape, out, oshape)) return -3;
+    return m_impl->decode_obb(out, oshape, scale, pad_x, pad_y, w, h, conf_thr, iou_thr, result);
 }
 
 } // namespace op::yolo

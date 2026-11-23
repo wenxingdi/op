@@ -9,7 +9,10 @@
 #include <tchar.h>
 
 #include <cstdio>
+#include <cwctype>
 #include <random>
+#include <string>
+#include <vector>
 
 namespace {
 // 线程级随机引擎: thread_local 首次调用播种，与 Utils::thread_rng 同口径。
@@ -221,4 +224,134 @@ void op::Op::GetLastErrorString(std::wstring &ret) {
     }
     if (buf)
         ::LocalFree(buf);
+}
+
+// ---- #4 注册表四件套（2026-11-23）----
+namespace {
+
+bool split_reg_path(const std::wstring &path, HKEY &root, std::wstring &sub) {
+    const size_t sep = path.find(L'\\');
+    std::wstring head = sep == std::wstring::npos ? path : path.substr(0, sep);
+    for (auto &c : head)
+        c = static_cast<wchar_t>(towupper(c));
+    if (head == L"HKCU" || head == L"HKEY_CURRENT_USER") {
+        root = HKEY_CURRENT_USER;
+    } else if (head == L"HKLM" || head == L"HKEY_LOCAL_MACHINE") {
+        root = HKEY_LOCAL_MACHINE;
+    } else if (head == L"HKCR" || head == L"HKEY_CLASSES_ROOT") {
+        root = HKEY_CLASSES_ROOT;
+    } else if (head == L"HKU" || head == L"HKEY_USERS") {
+        root = HKEY_USERS;
+    } else if (head == L"HKCC" || head == L"HKEY_CURRENT_CONFIG") {
+        root = HKEY_CURRENT_CONFIG;
+    } else {
+        return false;
+    }
+    sub = sep == std::wstring::npos ? L"" : path.substr(sep + 1);
+    return true;
+}
+
+} // namespace
+
+void op::Op::RegistryReadString(const wchar_t *path, const wchar_t *name, std::wstring &retstr, long *ret) {
+    retstr.clear();
+    internal::set_result(ret, 0L);
+    if (!path || !path[0])
+        return;
+    HKEY root = nullptr;
+    std::wstring sub;
+    if (!split_reg_path(path, root, sub))
+        return;
+    HKEY key = nullptr;
+    if (::RegOpenKeyExW(root, sub.empty() ? nullptr : sub.c_str(), 0, KEY_READ, &key) != ERROR_SUCCESS)
+        return;
+    const wchar_t *value_name = (name && name[0]) ? name : nullptr;
+    DWORD type = 0, size = 0;
+    if (::RegQueryValueExW(key, value_name, nullptr, &type, nullptr, &size) != ERROR_SUCCESS ||
+        (type != REG_SZ && type != REG_EXPAND_SZ) || size < sizeof(wchar_t)) {
+        ::RegCloseKey(key);
+        return;
+    }
+    std::vector<wchar_t> buf(size / sizeof(wchar_t) + 1, L'\0');
+    DWORD got = size;
+    if (::RegQueryValueExW(key, value_name, nullptr, &type, reinterpret_cast<LPBYTE>(buf.data()), &got) ==
+        ERROR_SUCCESS) {
+        size_t len = got / sizeof(wchar_t);
+        if (len > 0 && buf[len - 1] == L'\0')
+            --len;
+        std::wstring value(buf.data(), len);
+        if (type == REG_EXPAND_SZ && !value.empty()) {
+            DWORD need = ::ExpandEnvironmentStringsW(value.c_str(), nullptr, 0);
+            if (need > 1) {
+                std::vector<wchar_t> expanded(need, L'\0');
+                if (::ExpandEnvironmentStringsW(value.c_str(), expanded.data(), need) > 0)
+                    value.assign(expanded.data());
+            }
+        }
+        retstr = std::move(value);
+        internal::set_result(ret, 1L);
+    }
+    ::RegCloseKey(key);
+}
+
+void op::Op::RegistryWriteString(const wchar_t *path, const wchar_t *name, const wchar_t *value, long *ret) {
+    internal::set_result(ret, 0L);
+    if (!path || !path[0] || !value)
+        return;
+    HKEY root = nullptr;
+    std::wstring sub;
+    if (!split_reg_path(path, root, sub) || sub.empty())
+        return;
+    HKEY key = nullptr;
+    DWORD disp = 0;
+    if (::RegCreateKeyExW(root, sub.c_str(), 0, nullptr, 0, KEY_SET_VALUE, nullptr, &key, &disp) != ERROR_SUCCESS)
+        return;
+    const wchar_t *value_name = (name && name[0]) ? name : nullptr;
+    const DWORD bytes = static_cast<DWORD>((wcslen(value) + 1) * sizeof(wchar_t));
+    const LONG rc = ::RegSetValueExW(key, value_name, 0, REG_SZ, reinterpret_cast<const BYTE *>(value), bytes);
+    ::RegCloseKey(key);
+    internal::set_result(ret, rc == ERROR_SUCCESS ? 1L : 0L);
+}
+
+void op::Op::RegistryReadDword(const wchar_t *path, const wchar_t *name, long *value, long *ret) {
+    if (value)
+        *value = 0;
+    internal::set_result(ret, 0L);
+    if (!path || !path[0])
+        return;
+    HKEY root = nullptr;
+    std::wstring sub;
+    if (!split_reg_path(path, root, sub))
+        return;
+    HKEY key = nullptr;
+    if (::RegOpenKeyExW(root, sub.empty() ? nullptr : sub.c_str(), 0, KEY_READ, &key) != ERROR_SUCCESS)
+        return;
+    const wchar_t *value_name = (name && name[0]) ? name : nullptr;
+    DWORD type = 0, data = 0, size = sizeof(data);
+    if (::RegQueryValueExW(key, value_name, nullptr, &type, reinterpret_cast<LPBYTE>(&data), &size) == ERROR_SUCCESS &&
+        type == REG_DWORD && size == sizeof(DWORD)) {
+        if (value)
+            *value = static_cast<long>(data);
+        internal::set_result(ret, 1L);
+    }
+    ::RegCloseKey(key);
+}
+
+void op::Op::RegistryWriteDword(const wchar_t *path, const wchar_t *name, long value, long *ret) {
+    internal::set_result(ret, 0L);
+    if (!path || !path[0])
+        return;
+    HKEY root = nullptr;
+    std::wstring sub;
+    if (!split_reg_path(path, root, sub) || sub.empty())
+        return;
+    HKEY key = nullptr;
+    DWORD disp = 0;
+    if (::RegCreateKeyExW(root, sub.c_str(), 0, nullptr, 0, KEY_SET_VALUE, nullptr, &key, &disp) != ERROR_SUCCESS)
+        return;
+    const wchar_t *value_name = (name && name[0]) ? name : nullptr;
+    const DWORD data = static_cast<DWORD>(value);
+    const LONG rc = ::RegSetValueExW(key, value_name, 0, REG_DWORD, reinterpret_cast<const BYTE *>(&data), sizeof(data));
+    ::RegCloseKey(key);
+    internal::set_result(ret, rc == ERROR_SUCCESS ? 1L : 0L);
 }

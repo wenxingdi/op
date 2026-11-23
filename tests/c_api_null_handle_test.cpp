@@ -61,6 +61,8 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_empty(OpAStarFindPath(nullptr, 0, 0, L"", 0, 0, 0, 0), "OpAStarFindPath");
     expect_empty(OpFindNearestPos(nullptr, L"", 0, 0, 0), "OpFindNearestPos");
     expect_empty(OpSortPosDistance(nullptr, L"", 0, 0, 0), "OpSortPosDistance");
+    expect_empty(OpExcludePos(nullptr, L"", 0, L"", nullptr), "OpExcludePos");
+    expect_empty(OpGetDenseRect(nullptr, L"", 0, 0, 0, nullptr), "OpGetDenseRect");
     expect_empty(OpEnumWindow(nullptr, 0, L"", L"", 0), "OpEnumWindow");
     expect_empty(OpEnumWindowByProcess(nullptr, L"", L"", L"", 0), "OpEnumWindowByProcess");
     expect_empty(OpEnumProcess(nullptr, L""), "OpEnumProcess");
@@ -123,11 +125,54 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_empty(OpSha1(nullptr, L""), "OpSha1");
     expect_empty(OpBase64Encode(nullptr, L""), "OpBase64Encode");
     expect_empty(OpBase64Decode(nullptr, L""), "OpBase64Decode");
+    expect_empty(OpSha256(nullptr, L""), "OpSha256");
+    expect_empty(OpHmacSha256(nullptr, L"", L""), "OpHmacSha256");
+    expect_empty(OpGenerateRandomBytes(nullptr, 0), "OpGenerateRandomBytes");
+    expect_empty(OpGenerateGuid(nullptr), "OpGenerateGuid");
+    expect_empty(OpAesEncrypt(nullptr, L"", L""), "OpAesEncrypt");
+    expect_empty(OpAesDecrypt(nullptr, L"", L""), "OpAesDecrypt");
+    expect_empty(OpPbkdf2Sha256(nullptr, L"", L"", 0, 0), "OpPbkdf2Sha256");
+    expect_empty(OpMd5File(nullptr, L""), "OpMd5File");
+    expect_empty(OpSha1File(nullptr, L""), "OpSha1File");
+    expect_empty(OpSha256File(nullptr, L""), "OpSha256File");
+    expect_empty(OpRsaEncrypt(nullptr, L"", L""), "OpRsaEncrypt");
+    expect_empty(OpRsaDecrypt(nullptr, L"", L""), "OpRsaDecrypt");
+    expect_empty(OpRegistryReadString(nullptr, L"", L"", nullptr), "OpRegistryReadString");
+    EXPECT_EQ(OpRegistryWriteString(nullptr, L"", L"", L""), 0) << "OpRegistryWriteString";
+    EXPECT_EQ(OpRegistryReadDword(nullptr, L"", L"", nullptr), 0) << "OpRegistryReadDword";
+    EXPECT_EQ(OpRegistryWriteDword(nullptr, L"", L"", 0), 0) << "OpRegistryWriteDword";
+    EXPECT_EQ(OpHotkeyRegister(nullptr, 0, 0, 0), 0) << "OpHotkeyRegister";
+    EXPECT_EQ(OpHotkeyUnregister(nullptr, 0), 0) << "OpHotkeyUnregister";
+    EXPECT_EQ(OpHotkeyPoll(nullptr, 0), 0) << "OpHotkeyPoll";
+    EXPECT_EQ(OpHotkeyUnregisterAll(nullptr), 0) << "OpHotkeyUnregisterAll";
+    expect_empty(OpConcurrencyInfo(nullptr), "OpConcurrencyInfo");
     EXPECT_EQ(OpDrawRect(nullptr, 0, 0, 0, 0, L"", 0), 0) << "OpDrawRect";
     EXPECT_EQ(OpDrawLine(nullptr, 0, 0, 0, 0, L"", 0), 0) << "OpDrawLine";
     EXPECT_EQ(OpDrawText(nullptr, 0, 0, L"", L"", 0), 0) << "OpDrawText";
     EXPECT_EQ(OpDrawClear(nullptr), 0) << "OpDrawClear";
     EXPECT_EQ(OpDrawSetVisible(nullptr, 0), 0) << "OpDrawSetVisible";
+    EXPECT_EQ(OpDrawCircle(nullptr, 0, 0, 0, L"", 0), 0) << "OpDrawCircle";
+    EXPECT_EQ(OpDrawImage(nullptr, 0, 0, L"", 0), 0) << "OpDrawImage";
+    EXPECT_EQ(OpDrawRectEx(nullptr, 0, 0, 0, 0, 0, 0), 0) << "OpDrawRectEx";
+    EXPECT_EQ(OpDrawCircleEx(nullptr, 0, 0, 0, 0), 0) << "OpDrawCircleEx";
+    EXPECT_EQ(OpDrawTextEx(nullptr, 0, 0, L"", 0), 0) << "OpDrawTextEx";
+    EXPECT_EQ(OpDrawClearBind(nullptr), 0) << "OpDrawClearBind";
+    EXPECT_EQ(OpDrawGetCount(nullptr, nullptr, nullptr), 0) << "OpDrawGetCount";
+    EXPECT_EQ(OpDrawSetColor(nullptr, L""), 0) << "OpDrawSetColor";
+    EXPECT_EQ(OpDrawSetFill(nullptr, 0, L""), 0) << "OpDrawSetFill";
+    EXPECT_EQ(OpDrawImageEx(nullptr, 0, 0, L"", 0), 0) << "OpDrawImageEx";
+    EXPECT_EQ(OpDrawImageFromHandle(nullptr, 0, 0, L"", 0), 0) << "OpDrawImageFromHandle";
+    EXPECT_EQ(OpDrawRectTag(nullptr, L"", 0, 0, 0, 0, L"", 0), 0) << "OpDrawRectTag";
+    EXPECT_EQ(OpDrawRectExTag(nullptr, L"", 0, 0, 0, 0, 0, 0), 0) << "OpDrawRectExTag";
+    EXPECT_EQ(OpDrawRemoveTag(nullptr, L""), 0) << "OpDrawRemoveTag";
+    expect_json_failure(OpUiaDump(nullptr, 0, 0), "OpUiaDump");
+    expect_json_failure(OpUiaFind(nullptr, 0, L"", 0), "OpUiaFind");
+    expect_json_failure(OpUiaFromPoint(nullptr, 0, 0), "OpUiaFromPoint");
+    EXPECT_EQ(OpUiaInvoke(nullptr, 0), 0) << "OpUiaInvoke";
+    expect_empty(OpUiaGetValue(nullptr, 0), "OpUiaGetValue");
+    EXPECT_EQ(OpUiaSetValue(nullptr, 0, L""), 0) << "OpUiaSetValue";
+    EXPECT_EQ(OpUiaRelease(nullptr, 0), 0) << "OpUiaRelease";
+    EXPECT_EQ(OpUiaReleaseAll(nullptr), 0) << "OpUiaReleaseAll";
     EXPECT_EQ(OpBindWindow(nullptr, 0, L"", L"", L"", 0), 0) << "OpBindWindow";
     EXPECT_EQ(OpBindWindowEx(nullptr, 0, 0, L"", L"", L"", 0), 0) << "OpBindWindowEx";
     EXPECT_EQ(OpUnBindWindow(nullptr), 0) << "OpUnBindWindow";
@@ -196,6 +241,12 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     EXPECT_EQ(OpFindColorBlock(nullptr, 0, 0, 0, 0, L"", 0.0, 0, 0, 0, nullptr, nullptr), 0) << "OpFindColorBlock";
     expect_empty(OpFindColorBlockEx(nullptr, 0, 0, 0, 0, L"", 0.0, 0, 0, 0), "OpFindColorBlockEx");
     expect_empty(OpGetColor(nullptr, 0, 0), "OpGetColor");
+    EXPECT_EQ(OpHex2RGB(nullptr, L"", nullptr, nullptr, nullptr), 0) << "OpHex2RGB";
+    EXPECT_EQ(OpHex2ARGB(nullptr, L"", nullptr, nullptr, nullptr, nullptr), 0) << "OpHex2ARGB";
+    expect_empty(OpARGB2Hex(nullptr, 0, 0, 0, 0), "OpARGB2Hex");
+    EXPECT_EQ(OpRGB2HSV(nullptr, 0, 0, 0, nullptr, nullptr, nullptr), 0) << "OpRGB2HSV";
+    EXPECT_EQ(OpHex2HSV(nullptr, L"", nullptr, nullptr, nullptr), 0) << "OpHex2HSV";
+    expect_empty(OpGetColorHex(nullptr, 0, 0, 0), "OpGetColorHex");
     EXPECT_EQ(OpGetColorNum(nullptr, 0, 0, 0, 0, L"", 0.0), 0) << "OpGetColorNum";
     EXPECT_EQ(OpSetDisplayInput(nullptr, L""), 0) << "OpSetDisplayInput";
     EXPECT_EQ(OpLoadPic(nullptr, L""), 0) << "OpLoadPic";
@@ -250,6 +301,7 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     EXPECT_EQ(OpOcrWarmup(nullptr), 0) << "OpOcrWarmup";
     EXPECT_EQ(OpSetYoloEngine(nullptr, L"", L"", L""), 0) << "OpSetYoloEngine";
     expect_json_failure(OpYoloDetect(nullptr, 0, 0, 0, 0, 0.0, 0.0), "OpYoloDetect");
+    EXPECT_EQ(OpYoloDetectEx2(nullptr, 0, 0, 0, 0, 0.0, 0.0, L"", nullptr), nullptr) << "OpYoloDetectEx2";  // 契约：失败值=nullptr
     expect_json_failure(OpYoloDetectFromFile(nullptr, L"", 0.0, 0.0), "OpYoloDetectFromFile");
     EXPECT_EQ(OpSetDict(nullptr, 0, L""), 0) << "OpSetDict";
     expect_empty(OpGetDict(nullptr, 0, 0), "OpGetDict");
@@ -283,8 +335,22 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_empty(OpOcrAutoColor(nullptr, 0, 0, 0, 0, L"", 0.0), "OpOcrAutoColor");
     expect_empty(OpOcrAutoColorLine(nullptr, 0, 0, 0, 0, L"", 0.0), "OpOcrAutoColorLine");
     expect_empty(OpOcrAutoColorEx(nullptr, 0, 0, 0, 0, L"", 0.0, nullptr), "OpOcrAutoColorEx");
+    expect_empty(OpOcrEx2(nullptr, 0, 0, 0, 0, L"", 0.0), "OpOcrEx2");
+    expect_empty(OpOcrAutoColorEx2(nullptr, 0, 0, 0, 0, L"", 0.0, nullptr), "OpOcrAutoColorEx2");
+    expect_empty(OpLoadImageMem(nullptr, nullptr, 0, 0, 0, L""), "OpLoadImageMem");
+    expect_empty(OpLoadImageBmp(nullptr, nullptr, 0), "OpLoadImageBmp");
+    EXPECT_EQ(OpFreeImage(nullptr, L""), 0) << "OpFreeImage";
+    EXPECT_EQ(OpFreeAllImages(nullptr), 0) << "OpFreeAllImages";
+    EXPECT_EQ(OpGetImageSize(nullptr, L"", nullptr, nullptr, nullptr), 0) << "OpGetImageSize";
+    EXPECT_EQ(OpGetImageData(nullptr, L"", L"", nullptr, 0), 0) << "OpGetImageData";
+    expect_empty(OpCropImage(nullptr, L"", 0, 0, 0, 0), "OpCropImage");
+    EXPECT_EQ(OpFindStrMem(nullptr, L"", L"", 0.0), nullptr) << "OpFindStrMem";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpGetImageCount(nullptr), 0) << "OpGetImageCount";
     EXPECT_EQ(OpFindStr(nullptr, 0, 0, 0, 0, L"", L"", 0.0, nullptr, nullptr), 0) << "OpFindStr";
     expect_empty(OpFindStrEx(nullptr, 0, 0, 0, 0, L"", L"", 0.0), "OpFindStrEx");
+    EXPECT_EQ(OpFindStrBatch(nullptr, 0, 0, 0, 0, L"", L"", 0.0), nullptr) << "OpFindStrBatch";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpFindStrEx2(nullptr, 0, 0, 0, 0, L"", L"", 0.0, 0), nullptr) << "OpFindStrEx2";  // 契约：失败值=nullptr
+    expect_empty(OpOcrLastProfile(nullptr), "OpOcrLastProfile");
     expect_empty(OpOcrAuto(nullptr, 0, 0, 0, 0, 0.0), "OpOcrAuto");
     expect_empty(OpOcrFromFile(nullptr, L"", L"", 0.0), "OpOcrFromFile");
     expect_empty(OpOcrAutoColorFromFile(nullptr, L"", L"", 0.0), "OpOcrAutoColorFromFile");
@@ -347,6 +413,56 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_empty(OpHttpGet(nullptr, L"", L"", 0), "OpHttpGet");
     expect_empty(OpHttpPost(nullptr, L"", L"", L"", 0), "OpHttpPost");
     EXPECT_EQ(OpHttpDownloadFile(nullptr, L"", L"", 0), 0) << "OpHttpDownloadFile";
+    EXPECT_EQ(OpYoloDetectFromFileEx2(nullptr, L"", 0.0, 0.0, L"", nullptr), nullptr) << "OpYoloDetectFromFileEx2";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloClassify(nullptr, 0, 0, 0, 0, 0, nullptr), nullptr) << "OpYoloClassify";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloClassifyFromFile(nullptr, L"", 0, nullptr), nullptr) << "OpYoloClassifyFromFile";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloSegment(nullptr, 0, 0, 0, 0, 0.0, 0.0, nullptr), nullptr) << "OpYoloSegment";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloSegmentFromFile(nullptr, L"", 0.0, 0.0, nullptr), nullptr) << "OpYoloSegmentFromFile";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloPose(nullptr, 0, 0, 0, 0, 0.0, 0.0, nullptr), nullptr) << "OpYoloPose";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloPoseFromFile(nullptr, L"", 0.0, 0.0, nullptr), nullptr) << "OpYoloPoseFromFile";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloObb(nullptr, 0, 0, 0, 0, 0.0, 0.0, nullptr), nullptr) << "OpYoloObb";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloObbFromFile(nullptr, L"", 0.0, 0.0, nullptr), nullptr) << "OpYoloObbFromFile";  // 契约：失败值=nullptr
+    expect_empty(OpYoloGetModelInfo(nullptr), "OpYoloGetModelInfo");
+    expect_json_failure(OpYoloLoadModel(nullptr, L"", L"", L"", nullptr), "OpYoloLoadModel");
+    EXPECT_EQ(OpYoloUseModel(nullptr, L""), 0) << "OpYoloUseModel";
+    EXPECT_EQ(OpYoloReleaseModel(nullptr, L""), 0) << "OpYoloReleaseModel";
+    expect_empty(OpYoloListModels(nullptr), "OpYoloListModels");
+    expect_empty(OpYoloListDevices(nullptr), "OpYoloListDevices");
+    EXPECT_EQ(OpYoloEncryptModel(nullptr, L"", L"", L""), 0) << "OpYoloEncryptModel";
+    EXPECT_EQ(OpYoloDecryptModel(nullptr, L"", L"", L""), 0) << "OpYoloDecryptModel";
+    EXPECT_EQ(OpAsmCall(nullptr, 0, L"", 0, nullptr), nullptr) << "OpAsmCall";  // 契约：失败值=nullptr
+    expect_empty(OpAssemble(nullptr, L"", 0, nullptr), "OpAssemble");
+    expect_empty(OpDisassemble(nullptr, L"", L"", 0, 0, nullptr), "OpDisassemble");
+    expect_empty(OpAudioQueryWindow(nullptr, 0), "OpAudioQueryWindow");
+    expect_empty(OpAudioQueryPid(nullptr, 0), "OpAudioQueryPid");
+    EXPECT_EQ(OpAudioGetPidFromHwnd(nullptr, 0), 0) << "OpAudioGetPidFromHwnd";
+    EXPECT_EQ(OpAudioSetSessionVolume(nullptr, 0, 0.0), 0) << "OpAudioSetSessionVolume";
+    EXPECT_EQ(OpAudioSetSessionMute(nullptr, 0, 0), 0) << "OpAudioSetSessionMute";
+    expect_empty(OpAudioGetSystemVolume(nullptr), "OpAudioGetSystemVolume");
+    EXPECT_EQ(OpAudioSetSystemVolume(nullptr, 0.0), 0) << "OpAudioSetSystemVolume";
+    EXPECT_EQ(OpAudioSetSystemMute(nullptr, 0), 0) << "OpAudioSetSystemMute";
+    expect_empty(OpOcrFromMemEx2(nullptr, L"", 0, 0, 0, 0, L"", 0.0), "OpOcrFromMemEx2");
+    expect_empty(OpOcrAutoColorFromMemEx2(nullptr, L"", 0, 0, 0, 0, L"", 0.0, nullptr), "OpOcrAutoColorFromMemEx2");
+    EXPECT_EQ(OpFindPicFromMem(nullptr, L"", 0, 0, 0, 0, L"", L"", 0.0, 0, nullptr, nullptr), 0) << "OpFindPicFromMem";
+    expect_empty(OpFindPicExFromMem(nullptr, L"", 0, 0, 0, 0, L"", L"", 0.0, 0), "OpFindPicExFromMem");
+    EXPECT_EQ(OpFindColorFromMem(nullptr, L"", 0, 0, 0, 0, L"", 0.0, 0, nullptr, nullptr), 0) << "OpFindColorFromMem";
+    expect_empty(OpFindColorExFromMem(nullptr, L"", 0, 0, 0, 0, L"", 0.0, 0), "OpFindColorExFromMem");
+    expect_empty(OpGetColorFromMem(nullptr, L"", 0, 0), "OpGetColorFromMem");
+    EXPECT_EQ(OpCmpColorFromMem(nullptr, L"", 0, 0, L"", 0.0), 0) << "OpCmpColorFromMem";
+    EXPECT_EQ(OpGetColorNumFromMem(nullptr, L"", 0, 0, 0, 0, L"", 0.0), 0) << "OpGetColorNumFromMem";
+    EXPECT_EQ(OpFindMultiColorFromMem(nullptr, L"", 0, 0, 0, 0, L"", L"", 0.0, 0, nullptr, nullptr), 0) << "OpFindMultiColorFromMem";
+    expect_empty(OpFindMultiColorExFromMem(nullptr, L"", 0, 0, 0, 0, L"", L"", 0.0, 0), "OpFindMultiColorExFromMem");
+    expect_empty(OpFindColorBlockExFromMem(nullptr, L"", 0, 0, 0, 0, L"", 0.0, 0, 0, 0), "OpFindColorBlockExFromMem");
+    expect_empty(OpYoloDetectFromMem(nullptr, L"", 0, 0, 0, 0, 0.0, 0.0, nullptr), "OpYoloDetectFromMem");
+    EXPECT_EQ(OpYoloDetectFromMemEx2(nullptr, L"", 0, 0, 0, 0, 0.0, 0.0, L"", nullptr), nullptr) << "OpYoloDetectFromMemEx2";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpInputSyncEnable(nullptr, 0, nullptr), 0) << "OpInputSyncEnable";
+    EXPECT_EQ(OpSetInputMonitor(nullptr, 0, nullptr, nullptr), 0) << "OpSetInputMonitor";
+    expect_empty(OpInputRecord(nullptr, 0, L"", nullptr), "OpInputRecord");
+    expect_empty(OpInputRecordGetPath(nullptr), "OpInputRecordGetPath");
+    EXPECT_EQ(OpInputPlayback(nullptr, 0, L"", 0.0, 0, nullptr), nullptr) << "OpInputPlayback";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpInputSyncLink(nullptr, 0, 0, 0, nullptr), 0) << "OpInputSyncLink";
+    expect_empty(OpInputSyncStatus(nullptr), "OpInputSyncStatus");
+    (void)OpInputBusIdentity(nullptr);  // 未知返回类型：只保证不崩溃
 }
 
 TEST(CApiNullHandle, FreeFunctionsAreSafe) {

@@ -513,7 +513,82 @@ interface IOpAutomation : IDispatch
 	[id(452)] HRESULT FindStrMem([in] BSTR image_handle, [in] BSTR json_targets, [in] DOUBLE sim, [out, retval] BSTR* retstr);
 	[id(453)] HRESULT GetImageCount([out, retval] LONG* ret);
 
+	// ---- YOLO 任务族（2026-11-22，id 498-506）：分类 / 分割 / 姿态 / 旋转框 / 模型信息 ----
+	// ret 为命中数（GetModelInfo return 为 BSTR）。JSON 语义对齐 C API 同名函数。
+	// 模型任务不匹配时 ret 返回 -1，retstr 为空串（不伪装成功）。
+	[id(498)] HRESULT YoloClassify([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] LONG top_k, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(499)] HRESULT YoloClassifyFromFile([in] BSTR file_name, [in] LONG top_k, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(500)] HRESULT YoloSegment([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE conf, [in] DOUBLE iou, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(501)] HRESULT YoloSegmentFromFile([in] BSTR file_name, [in] DOUBLE conf, [in] DOUBLE iou, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(502)] HRESULT YoloPose([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE conf, [in] DOUBLE iou, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(503)] HRESULT YoloPoseFromFile([in] BSTR file_name, [in] DOUBLE conf, [in] DOUBLE iou, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(504)] HRESULT YoloObb([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE conf, [in] DOUBLE iou, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(505)] HRESULT YoloObbFromFile([in] BSTR file_name, [in] DOUBLE conf, [in] DOUBLE iou, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(506)] HRESULT YoloGetModelInfo([out, retval] BSTR* retstr);
 
+	// ---- 颜色转换 / 坐标过滤 / 哈希增强（2026-11-22，id 507-518）----
+	// 颜色串格式："RRGGBB"/"AARRGGBB"（可带 #/0x 前缀），6 位输入 alpha=255。
+	[id(507)] HRESULT ExcludePos([in] BSTR all_pos, [in] LONG type, [in] BSTR exclude_rects, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(508)] HRESULT GetDenseRect([in] BSTR all_pos, [in] LONG type, [in] LONG width, [in] LONG height, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(509)] HRESULT Hex2RGB([in] BSTR color, [in, out] LONG* r, [in, out] LONG* g, [in, out] LONG* b, [out, retval] LONG* ret);
+	[id(510)] HRESULT Hex2ARGB([in] BSTR color, [in, out] LONG* a, [in, out] LONG* r, [in, out] LONG* g, [in, out] LONG* b, [out, retval] LONG* ret);
+	[id(511)] HRESULT ARGB2Hex([in] LONG a, [in] LONG r, [in] LONG g, [in] LONG b, [out, retval] BSTR* retstr);
+	[id(512)] HRESULT RGB2HSV([in] LONG r, [in] LONG g, [in] LONG b, [in, out] DOUBLE* h, [in, out] DOUBLE* s, [in, out] DOUBLE* v, [out, retval] LONG* ret);
+	[id(513)] HRESULT Hex2HSV([in] BSTR color, [in, out] DOUBLE* h, [in, out] DOUBLE* s, [in, out] DOUBLE* v, [out, retval] LONG* ret);
+	[id(514)] HRESULT GetColorHex([in] LONG r, [in] LONG g, [in] LONG b, [out, retval] BSTR* retstr);
+	[id(515)] HRESULT Sha256([in] BSTR text, [out, retval] BSTR* retstr);
+	[id(516)] HRESULT HmacSha256([in] BSTR key, [in] BSTR text, [out, retval] BSTR* retstr);
+	[id(517)] HRESULT GenerateRandomBytes([in] LONG length, [out, retval] BSTR* retstr);
+	[id(518)] HRESULT GenerateGuid([out, retval] BSTR* retstr);
+
+	// ---- 加密补全 / 注册表 / 全局热键 / YOLO 模型平台（2026-11-23，id 519-541）----
+	// 语义与 C API 同名函数一致；YOLO 模型平台支持命名注册表、热切换与 OPYMOD01 加密包。
+	[id(519)] HRESULT AesEncrypt([in] BSTR text, [in] BSTR password, [out, retval] BSTR* retstr);
+	[id(520)] HRESULT AesDecrypt([in] BSTR base64, [in] BSTR password, [out, retval] BSTR* retstr);
+	[id(521)] HRESULT Pbkdf2Sha256([in] BSTR password, [in] BSTR salt, [in] LONG iterations, [in] LONG length, [out, retval] BSTR* retstr);
+	[id(522)] HRESULT Md5File([in] BSTR file_name, [out, retval] BSTR* retstr);
+	[id(523)] HRESULT Sha1File([in] BSTR file_name, [out, retval] BSTR* retstr);
+	[id(524)] HRESULT Sha256File([in] BSTR file_name, [out, retval] BSTR* retstr);
+	[id(525)] HRESULT RsaEncrypt([in] BSTR text, [in] BSTR public_key_pem, [out, retval] BSTR* retstr);
+	[id(526)] HRESULT RsaDecrypt([in] BSTR base64, [in] BSTR private_key_pem, [out, retval] BSTR* retstr);
+	[id(527)] HRESULT RegistryReadString([in] BSTR path, [in] BSTR name, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(528)] HRESULT RegistryWriteString([in] BSTR path, [in] BSTR name, [in] BSTR value, [out, retval] LONG* ret);
+	[id(529)] HRESULT RegistryReadDword([in] BSTR path, [in] BSTR name, [out] LONG* value, [out, retval] LONG* ret);
+	[id(530)] HRESULT RegistryWriteDword([in] BSTR path, [in] BSTR name, [in] LONG value, [out, retval] LONG* ret);
+	[id(531)] HRESULT HotkeyRegister([in] LONG id, [in] LONG modifiers, [in] LONG vk, [out, retval] LONG* ret);
+	[id(532)] HRESULT HotkeyUnregister([in] LONG id, [out, retval] LONG* ret);
+	[id(533)] HRESULT HotkeyPoll([in] LONG timeout_ms, [out, retval] LONG* ret);
+	[id(534)] HRESULT HotkeyUnregisterAll([out, retval] LONG* ret);
+	[id(535)] HRESULT YoloLoadModel([in] BSTR name, [in] BSTR path, [in] BSTR argv, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(536)] HRESULT YoloUseModel([in] BSTR name, [out, retval] LONG* ret);
+	[id(537)] HRESULT YoloReleaseModel([in] BSTR name, [out, retval] LONG* ret);
+	[id(538)] HRESULT YoloListModels([out, retval] BSTR* retstr);
+	[id(539)] HRESULT YoloListDevices([out, retval] BSTR* retstr);
+	[id(540)] HRESULT YoloEncryptModel([in] BSTR src_path, [in] BSTR dst_path, [in] BSTR password, [out, retval] LONG* ret);
+	[id(541)] HRESULT YoloDecryptModel([in] BSTR src_path, [in] BSTR dst_path, [in] BSTR password, [out, retval] LONG* ret);
+	[id(542)] HRESULT DrawSetColor([in] BSTR color, [out, retval] LONG* ret);
+	[id(543)] HRESULT DrawSetFill([in] LONG enable, [in] BSTR color, [out, retval] LONG* ret);
+	[id(544)] HRESULT DrawImageEx([in] LONG x, [in] LONG y, [in] BSTR file_name, [in] LONG alpha, [out, retval] LONG* ret);
+	[id(545)] HRESULT DrawImageFromHandle([in] LONG x, [in] LONG y, [in] BSTR image_handle, [in] LONG alpha, [out, retval] LONG* ret);
+	[id(546)] HRESULT DrawRectTag([in] BSTR tag, [in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] BSTR color, [in] LONG width, [out, retval] LONG* ret);
+	[id(547)] HRESULT DrawRectExTag([in] BSTR tag, [in] LONG x, [in] LONG y, [in] LONG width, [in] LONG height, [in] LONG mode, [in] LONG line_width, [out, retval] LONG* ret);
+	[id(548)] HRESULT DrawRemoveTag([in] BSTR tag, [out, retval] LONG* ret);
+	[id(549)] HRESULT UiaDump([in] LONG_PTR hwnd, [in] LONG max_depth, [out, retval] BSTR* retstr);
+	[id(550)] HRESULT UiaFind([in] LONG_PTR hwnd, [in] BSTR selector, [in] LONG timeout_ms, [out, retval] BSTR* retstr);
+	[id(551)] HRESULT UiaFromPoint([in] LONG x, [in] LONG y, [out, retval] BSTR* retstr);
+	[id(552)] HRESULT UiaInvoke([in] LONG element_id, [out, retval] LONG* ret);
+	[id(553)] HRESULT UiaGetValue([in] LONG element_id, [out, retval] BSTR* retstr);
+	[id(554)] HRESULT UiaSetValue([in] LONG element_id, [in] BSTR value, [out, retval] LONG* ret);
+	[id(555)] HRESULT UiaRelease([in] LONG element_id, [out, retval] LONG* ret);
+	[id(556)] HRESULT UiaReleaseAll([out, retval] LONG* ret);
+	// 批 D 补齐（2026-11-23）：汇编模块。原批 D 只落了 C++/C API，COM 侧漏项。
+	// 三个方法都返回 JSON 字符串；失败返回 {"ok":0,"code":-1,"error":"..."}。
+	[id(557)] HRESULT AsmCall([in] LONG_PTR hwnd, [in] BSTR code_hex, [in] LONG timeout_ms, [out, retval] BSTR* retstr);
+	[id(558)] HRESULT Assemble([in] BSTR asm_text, [in] LONG arch, [out, retval] BSTR* retstr);
+	[id(559)] HRESULT Disassemble([in] BSTR bytes_hex, [in] BSTR address, [in] LONG count, [in] LONG arch, [out, retval] BSTR* retstr);
+	// 第六十一批（2026-11-23）：字库条目删除。按点阵唯一匹配，dict_info 的名字部分可留空。
+	// 返回 1 = 已删除，0 = 该点阵不存在。
+	[id(560)] HRESULT RemoveDict([in] LONG idx, [in] BSTR dict_info, [out, retval] LONG* ret);
 
 
 };

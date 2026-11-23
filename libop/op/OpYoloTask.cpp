@@ -118,6 +118,99 @@ std::wstring SegmentJson(const op::yolo::vyolo_seg_t &items, long code) {
     return op::json::Stringify(root);
 }
 
+std::wstring PoseJson(const op::yolo::vyolo_pose_t &items, long code) {
+    Value root;
+    root.type = Type::Object;
+    root.obj.push_back(std::make_pair(std::wstring(L"ok"), JsonNum(code >= 0 ? 1 : 0)));
+    root.obj.push_back(std::make_pair(std::wstring(L"code"), JsonNum(static_cast<double>(code < 0 ? code : 0))));
+    root.obj.push_back(std::make_pair(std::wstring(L"task"), JsonStr(L"pose")));
+    root.obj.push_back(std::make_pair(std::wstring(L"total"), JsonNum(static_cast<double>(items.size()))));
+    root.obj.push_back(std::make_pair(std::wstring(L"returned"), JsonNum(static_cast<double>(items.size()))));
+    Value arr;
+    arr.type = Type::Array;
+    for (const auto &it : items) {
+        Value o;
+        o.type = Type::Object;
+        o.obj.push_back(std::make_pair(std::wstring(L"class_id"), JsonNum(it.box.class_id)));
+        o.obj.push_back(std::make_pair(std::wstring(L"label"), JsonStr(it.box.label)));
+        Value bbox;
+        bbox.type = Type::Array;
+        bbox.arr.push_back(JsonNum(it.box.left_top.x));
+        bbox.arr.push_back(JsonNum(it.box.left_top.y));
+        bbox.arr.push_back(JsonNum(it.box.right_bottom.x));
+        bbox.arr.push_back(JsonNum(it.box.right_bottom.y));
+        o.obj.push_back(std::make_pair(std::wstring(L"bbox"), std::move(bbox)));
+        o.obj.push_back(std::make_pair(std::wstring(L"confidence"), JsonNum(it.box.confidence)));
+        o.obj.push_back(std::make_pair(std::wstring(L"keypoint_count"),
+                                       JsonNum(static_cast<double>(it.keypoints.size()))));
+        Value kpts;
+        kpts.type = Type::Array;
+        for (const auto &kp : it.keypoints) {
+            Value ko;
+            ko.type = Type::Object;
+            ko.obj.push_back(std::make_pair(std::wstring(L"x"), JsonNum(kp.x)));
+            ko.obj.push_back(std::make_pair(std::wstring(L"y"), JsonNum(kp.y)));
+            ko.obj.push_back(std::make_pair(std::wstring(L"confidence"), JsonNum(kp.confidence)));
+            kpts.arr.push_back(std::move(ko));
+        }
+        o.obj.push_back(std::make_pair(std::wstring(L"keypoints"), std::move(kpts)));
+        arr.arr.push_back(std::move(o));
+    }
+    root.obj.push_back(std::make_pair(std::wstring(L"results"), std::move(arr)));
+    return op::json::Stringify(root);
+}
+
+std::wstring ObbJson(const op::yolo::vyolo_obb_t &items, long code) {
+    Value root;
+    root.type = Type::Object;
+    root.obj.push_back(std::make_pair(std::wstring(L"ok"), JsonNum(code >= 0 ? 1 : 0)));
+    root.obj.push_back(std::make_pair(std::wstring(L"code"), JsonNum(static_cast<double>(code < 0 ? code : 0))));
+    root.obj.push_back(std::make_pair(std::wstring(L"task"), JsonStr(L"obb")));
+    root.obj.push_back(std::make_pair(std::wstring(L"total"), JsonNum(static_cast<double>(items.size()))));
+    root.obj.push_back(std::make_pair(std::wstring(L"returned"), JsonNum(static_cast<double>(items.size()))));
+    Value arr;
+    arr.type = Type::Array;
+    for (const auto &it : items) {
+        Value o;
+        o.type = Type::Object;
+        o.obj.push_back(std::make_pair(std::wstring(L"class_id"), JsonNum(it.class_id)));
+        o.obj.push_back(std::make_pair(std::wstring(L"label"), JsonStr(it.label)));
+        o.obj.push_back(std::make_pair(std::wstring(L"confidence"), JsonNum(it.confidence)));
+        Value center;
+        center.type = Type::Array;
+        center.arr.push_back(JsonNum(it.cx));
+        center.arr.push_back(JsonNum(it.cy));
+        o.obj.push_back(std::make_pair(std::wstring(L"center"), std::move(center)));
+        Value size;
+        size.type = Type::Array;
+        size.arr.push_back(JsonNum(it.w));
+        size.arr.push_back(JsonNum(it.h));
+        o.obj.push_back(std::make_pair(std::wstring(L"size"), std::move(size)));
+        o.obj.push_back(std::make_pair(std::wstring(L"angle"), JsonNum(it.angle)));
+        o.obj.push_back(std::make_pair(std::wstring(L"angle_deg"), JsonNum(it.angle * 180.0 / 3.14159265358979323846)));
+        Value bbox;
+        bbox.type = Type::Array;
+        bbox.arr.push_back(JsonNum(it.left_top.x));
+        bbox.arr.push_back(JsonNum(it.left_top.y));
+        bbox.arr.push_back(JsonNum(it.right_bottom.x));
+        bbox.arr.push_back(JsonNum(it.right_bottom.y));
+        o.obj.push_back(std::make_pair(std::wstring(L"bbox"), std::move(bbox)));
+        Value corners;
+        corners.type = Type::Array;
+        for (const auto &p : it.corners) {
+            Value pt;
+            pt.type = Type::Array;
+            pt.arr.push_back(JsonNum(p.x));
+            pt.arr.push_back(JsonNum(p.y));
+            corners.arr.push_back(std::move(pt));
+        }
+        o.obj.push_back(std::make_pair(std::wstring(L"corners"), std::move(corners)));
+        arr.arr.push_back(std::move(o));
+    }
+    root.obj.push_back(std::make_pair(std::wstring(L"results"), std::move(arr)));
+    return op::json::Stringify(root);
+}
+
 } // namespace
 
 long op::Op::YoloClassify(long x1, long y1, long x2, long y2, long top_k, std::wstring &retjson, long *ret) {
@@ -216,6 +309,114 @@ long op::Op::YoloSegmentFromFile(const wchar_t *file_name, double conf, double i
     return n;
 }
 
+long op::Op::YoloPose(long x1, long y1, long x2, long y2, double conf, double iou, std::wstring &retjson, long *ret) {
+    internal::set_result(ret, 0L);
+    retjson = FailureJson(L"pose", -1);
+    long found = 0;
+    bool unsupported = false;
+    internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        op::yolo::vyolo_pose_t items;
+        const int n = op::yolo::YoloDetector::getInstance()->pose(
+            m_context->image_proc._src.pdata, m_context->image_proc._src.width, m_context->image_proc._src.height, 4,
+            conf, iou, items);
+        if (n < 0) {
+            unsupported = true;
+            return;
+        }
+        const int off_x = static_cast<int>(x1 + m_context->image_proc._dx);
+        const int off_y = static_cast<int>(y1 + m_context->image_proc._dy);
+        for (auto &it : items) {
+            it.box.left_top.x += off_x;
+            it.box.left_top.y += off_y;
+            it.box.right_bottom.x += off_x;
+            it.box.right_bottom.y += off_y;
+            for (auto &kp : it.keypoints) {
+                kp.x += off_x;
+                kp.y += off_y;
+            }
+        }
+        found = n;
+        retjson = PoseJson(items, 0);
+    });
+    if (unsupported)
+        return -1;
+    internal::set_result(ret, found);
+    return found;
+}
+
+long op::Op::YoloPoseFromFile(const wchar_t *file_name, double conf, double iou, std::wstring &retjson, long *ret) {
+    internal::set_result(ret, 0L);
+    retjson = FailureJson(L"pose", -1);
+    std::wstring fullpath;
+    if (!Path2GlobalPath(file_name ? file_name : L"", m_context->curr_path, fullpath))
+        return 0;
+    Image img;
+    if (!img.read(fullpath.data()))
+        return 0;
+    op::yolo::vyolo_pose_t items;
+    const int n = op::yolo::YoloDetector::getInstance()->pose(img.pdata, img.width, img.height, 4, conf, iou, items);
+    if (n < 0)
+        return -1;
+    retjson = PoseJson(items, 0);
+    internal::set_result(ret, n);
+    return n;
+}
+
+long op::Op::YoloObb(long x1, long y1, long x2, long y2, double conf, double iou, std::wstring &retjson, long *ret) {
+    internal::set_result(ret, 0L);
+    retjson = FailureJson(L"obb", -1);
+    long found = 0;
+    bool unsupported = false;
+    internal::with_captured_region(m_context.get(), x1, y1, x2, y2, [&]() {
+        op::yolo::vyolo_obb_t items;
+        const int n = op::yolo::YoloDetector::getInstance()->obb(
+            m_context->image_proc._src.pdata, m_context->image_proc._src.width, m_context->image_proc._src.height, 4,
+            conf, iou, items);
+        if (n < 0) {
+            unsupported = true;
+            return;
+        }
+        const int off_x = static_cast<int>(x1 + m_context->image_proc._dx);
+        const int off_y = static_cast<int>(y1 + m_context->image_proc._dy);
+        for (auto &it : items) {
+            it.cx += off_x;
+            it.cy += off_y;
+            it.left_top.x += off_x;
+            it.left_top.y += off_y;
+            it.right_bottom.x += off_x;
+            it.right_bottom.y += off_y;
+            for (auto &p : it.corners) {
+                p.x += off_x;
+                p.y += off_y;
+            }
+        }
+        found = n;
+        retjson = ObbJson(items, 0);
+    });
+    if (unsupported)
+        return -1;
+    internal::set_result(ret, found);
+    return found;
+}
+
+long op::Op::YoloObbFromFile(const wchar_t *file_name, double conf, double iou, std::wstring &retjson, long *ret) {
+    internal::set_result(ret, 0L);
+    retjson = FailureJson(L"obb", -1);
+    std::wstring fullpath;
+    if (!Path2GlobalPath(file_name ? file_name : L"", m_context->curr_path, fullpath))
+        return 0;
+    Image img;
+    if (!img.read(fullpath.data()))
+        return 0;
+    op::yolo::vyolo_obb_t items;
+    const int n = op::yolo::YoloDetector::getInstance()->obb(img.pdata, img.width, img.height, 4, conf, iou, items);
+    if (n < 0)
+        return -1;
+    retjson = ObbJson(items, 0);
+    internal::set_result(ret, n);
+    return n;
+}
+
 void op::Op::YoloGetModelInfo(std::wstring &retjson) {
     retjson.clear();
     internal::guard_exceptions("YoloGetModelInfo", [&]() {
@@ -229,6 +430,10 @@ void op::Op::YoloGetModelInfo(std::wstring &retjson) {
             std::wstring(L"input_width"), JsonNum(op::yolo::YoloDetector::getInstance()->model_input_width())));
         root.obj.push_back(std::make_pair(
             std::wstring(L"input_height"), JsonNum(op::yolo::YoloDetector::getInstance()->model_input_height())));
+        root.obj.push_back(std::make_pair(
+            std::wstring(L"device"), JsonNum(op::yolo::YoloDetector::getInstance()->device_id())));
+        root.obj.push_back(std::make_pair(
+            std::wstring(L"dml"), JsonNum(op::yolo::YoloDetector::getInstance()->dml_active() ? 1 : 0)));
         retjson = op::json::Stringify(root);
     });
 }

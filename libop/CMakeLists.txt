@@ -310,6 +310,8 @@ set(OP_CLASS_SOURCES
   "op/OpFile.cpp"
   "op/OpCrypto.cpp"
   "op/OpDraw.cpp"
+  # UIA 元素层最小集（批 H 2026-11-23）
+  "op/OpUia.cpp"
   "op/OpClipboard.cpp"
   "op/OpWindow.cpp"
   "op/OpInput.cpp"
@@ -575,6 +577,45 @@ endif()
 
 target_link_libraries(${op_com} PRIVATE "${BLACKBONE_LIBRARY}")
 target_link_libraries(${op_c_api} PRIVATE libop "${BLACKBONE_LIBRARY}")
+
+# ---- 汇编/反汇编第三方库（keystone / capstone，2026-11-23 本地构建）----
+# 为什么不是 vcpkg：两个 port 的 vcpkg 引导在本机装不上（解压 7z 时 CreateFileW
+# 重定向 stdin 被拒，`calling CreateFileW stdin failed with 5`）。
+# 改为 `scripts/build/_wb_build_asm_libs.py` 直接下源码用 Ninja/MSVC 本地构建，
+# 产物按架构落在 3rd_party/<lib>/lib/{x64,x86}/，都按 /MT 静态运行库编译。
+# 三个 target 都要链：op_com / op_c_api 各自静态链一份 libop，静态库不传递自身依赖，
+# 所以 keystone/capstone 必须在每个最终 DLL 的链接行上出现。
+set(OP_ASM_LIB_ARCH "x64")
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+  set(OP_ASM_LIB_ARCH "x86")
+endif()
+set(OP_KEYSTONE_ROOT "${PROJECT_SOURCE_DIR}/3rd_party/keystone")
+set(OP_CAPSTONE_ROOT "${PROJECT_SOURCE_DIR}/3rd_party/capstone")
+set(OP_KEYSTONE_LIB "${OP_KEYSTONE_ROOT}/lib/${OP_ASM_LIB_ARCH}/keystone.lib")
+set(OP_CAPSTONE_LIB "${OP_CAPSTONE_ROOT}/lib/${OP_ASM_LIB_ARCH}/capstone.lib")
+if(NOT EXISTS "${OP_KEYSTONE_LIB}" OR NOT EXISTS "${OP_CAPSTONE_LIB}")
+  # 明确报错而不是让 OpAsm.cpp 悄悄退化成"未实现"：缺库时汇编接口会变空壳，
+  # 那种成功编译、运行才失败的形态最难查。
+  message(FATAL_ERROR
+    "缺少汇编库（${OP_ASM_LIB_ARCH}）：\n"
+    "  ${OP_KEYSTONE_LIB}\n  ${OP_CAPSTONE_LIB}\n"
+    "请先运行：python scripts/build/_wb_build_asm_libs.py")
+endif()
+foreach(_t libop ${op_com} ${op_c_api})
+  target_include_directories(${_t} PRIVATE "${OP_KEYSTONE_ROOT}/include" "${OP_CAPSTONE_ROOT}/include")
+  target_link_libraries(${_t} PRIVATE "${OP_KEYSTONE_LIB}" "${OP_CAPSTONE_LIB}")
+endforeach()
+# keystone.h 里 KEYSTONE_EXPORT 默认是 dllexport，会通过 .drectve 把 ks_* 顶进
+# op.dll 的导出表；构建脚本已把它改成受 KEYSTONE_STATIC 控制，这里声明口径。
+target_compile_definitions(libop PRIVATE KEYSTONE_STATIC CAPSTONE_STATIC)
+target_compile_definitions(${op_com} PRIVATE KEYSTONE_STATIC CAPSTONE_STATIC)
+target_compile_definitions(${op_c_api} PRIVATE KEYSTONE_STATIC CAPSTONE_STATIC)
+
+# UIA 元素层（批 H 2026-11-23）：UIAutomationCore 是系统库（Win7+），不新增 DLL 依赖。
+# oleaut32 供 VARIANT/BSTR 与 GetCurrentPropertyValue 的 SAFEARRAY 路径使用。
+foreach(_t libop ${op_com} ${op_c_api})
+  target_link_libraries(${_t} PRIVATE uiautomationcore oleaut32)
+endforeach()
 
 if(enable_wgc)
   target_link_libraries(libop PRIVATE windowsapp runtimeobject.lib)

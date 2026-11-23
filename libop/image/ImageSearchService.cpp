@@ -480,11 +480,42 @@ long ImageSearchService::AddDict(long idx, const wstring &dict_info) {
     if (idx < 0 || idx >= _max_dict)
         return 0;
 
+    // 先整批解析，任一行失败就全部放弃：避免「前几百条已入库、后面一条格式错」的半成功状态。
+    std::vector<word1_t> parsed;
+    bool all_ok = true;
+    for_each_dict_line(dict_info, [&](long, const std::wstring &item) {
+        if (!all_ok)
+            return;
+        word1_t word;
+        if (!dict_entry_importer::parse_text_dict_entry(item, word)) {
+            all_ok = false;
+            return;
+        }
+        parsed.push_back(std::move(word));
+    });
+    if (!all_ok || parsed.empty())
+        return 0;
+
+    Dictionary &dict = MutablePrivateDict(static_cast<int>(idx));
+    for (const auto &word : parsed)
+        dict.add_word(word);
+    // 返回「成功处理的行数」而不是新增条数：点阵已存在的行同样是合法输入，
+    // 单行成功仍返回 1，与旧行为一致。
+    return static_cast<long>(parsed.size());
+}
+
+long ImageSearchService::RemoveDict(long idx, const wstring &dict_info) {
+    if (idx < 0 || idx >= _max_dict)
+        return 0;
+
     word1_t word;
     if (!dict_entry_importer::parse_text_dict_entry(dict_info, word))
         return 0;
-    MutablePrivateDict(static_cast<int>(idx)).add_word(word);
-    return 1;
+
+    Dictionary &dict = MutablePrivateDict(static_cast<int>(idx));
+    const int before = dict.size();
+    dict.erase(word);
+    return (dict.size() < before) ? 1 : 0;
 }
 
 long ImageSearchService::SaveDict(long idx, const wstring &file_name) {
@@ -494,6 +525,8 @@ long ImageSearchService::SaveDict(long idx, const wstring &file_name) {
     if (!dict)
         return 0;
     Dictionary snapshot = *dict;
+    // 空名字条会在写入时被剔除（这是格式约束）；若一条不剩，write_dict 返回失败，
+    // 不会留下「文件写出来了但是空的」。
     return snapshot.write_dict(file_name) ? 1 : 0;
 }
 
@@ -511,7 +544,7 @@ long ImageSearchService::GetDictCount(long idx) {
         return 0;
 
     auto dict = ActiveDict(static_cast<int>(idx));
-    return dict ? dict->info._word_count : 0;
+    return dict ? dict->size() : 0;
 }
 
 long ImageSearchService::GetNowDict() {

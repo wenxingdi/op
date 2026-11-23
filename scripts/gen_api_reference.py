@@ -37,6 +37,17 @@ REROUTE = {
     "GetRandomNumber": "runtime", "GetRandomDouble": "runtime", "GaiLu": "runtime",
     "GetMachineCode": "runtime", "IsElevated": "runtime",
     "SetYoloEngine": "yolo", "YoloDetect": "yolo", "YoloDetectFromFile": "yolo",
+    # YOLO 增强与任务维度接口声明在 OCR 横幅段内，须逐个显式归位（否则落进 OCR 分组）。
+    "YoloDetectEx2": "yolo", "YoloDetectFromFileEx2": "yolo",
+    "YoloClassify": "yolo", "YoloClassifyFromFile": "yolo",
+    "YoloSegment": "yolo", "YoloSegmentFromFile": "yolo",
+    "YoloPose": "yolo", "YoloPoseFromFile": "yolo",
+    "YoloObb": "yolo", "YoloObbFromFile": "yolo",
+    "YoloGetModelInfo": "yolo",
+    # 命名模型平台（多模型注册表 / 热切换 / 设备枚举 / 加密模型包）：同样声明在 OCR 横幅段内。
+    "YoloLoadModel": "yolo", "YoloUseModel": "yolo", "YoloReleaseModel": "yolo",
+    "YoloListModels": "yolo", "YoloListDevices": "yolo",
+    "YoloEncryptModel": "yolo", "YoloDecryptModel": "yolo",
 }
 MEMORY_FNS = {
     "WriteData", "ReadData", "ReadInt", "WriteInt", "ReadFloat", "WriteFloat",
@@ -52,8 +63,8 @@ GROUP_META = [
     ("image",     "Image 图色",       "截图/找色/多点找色/找图/色块/屏幕数据"),
     ("opencv",    "OpenCV 视觉",      "模板管理/图像预处理/模板匹配/特征与轮廓"),
     ("ocr",       "OCR 文字识别",     "引擎选择/字库管理/点阵提取/免字库识别/找字/找线"),
-    ("yolo",      "YOLO 目标检测",    "引擎选择/区域与文件目标检测"),
-    ("algorithm", "Algorithm 算法",   "A 星寻路/最近点查找"),
+    ("yolo",      "YOLO 目标检测",    "引擎选择/检测(含过滤)/分类/分割/姿态/旋转框/模型自检"),
+    ("algorithm", "Algorithm 算法",   "A 星寻路/最近点查找/坐标过滤与密集区统计"),
     ("memory",    "Memory 内存",      "进程内存读写/特征码搜索/模块基址"),
 ]
 GROUP_ORDER = [k for k, _, _ in GROUP_META]
@@ -206,11 +217,10 @@ DIR_OPENCV = "0=从左到右 1=从右到左 2=从上到下 3=从下到上（条�
 # ---------------------------------------------------------------------------
 GLOBAL_PARAM_DOCS = {
     "ret": "1=成功 0=失败（失败原因开 <code>set_show_error_msg(2)</code> 查 cwd/<code>__op.log</code>）",
-    "et": "出参：字符串结果（COM 为 BSTR 出参 / C-API 返回 const wchar_t*）",
-    "etstr": "出参：字符串结果",
-    "et_str": "出参：字符串结果",
-    "ettitle": "出参：窗口标题字符串",
-    "etjson": "出参：JSON 格式结果串",
+    "retstr": "出参：字符串结果",
+    "ret_str": "出参：字符串结果",
+    "rettitle": "出参：窗口标题字符串",
+    "retjson": "出参：JSON 格式结果串",
     "x1": "区域左上角横坐标（物理像素；绑定窗口后为客户区坐标系）",
     "y1": "区域左上角纵坐标（物理像素）",
     "x2": "区域右下角横坐标（含）（物理像素）",
@@ -376,14 +386,14 @@ PARAM_DOCS = {
     "MoveToEx": {
         "w": "随机落点范围宽：实际落点在 (x,y)~(x+w,y+h) 矩形内随机",
         "h": "随机落点范围高",
-        "et": "返回实际落点 <code>\"实际x,实际y\"</code>（未移动返回空串）",
+        "ret": "返回实际落点 <code>\"实际x,实际y\"</code>（未移动返回空串）",
     },
     "MoveToSmooth": {"duration": "平滑移动总时长毫秒（拟人化轨迹，配合 SetMouseTrajectory 参数）"},
     "MoveToExSmooth": {
         "w": "同 MoveToEx 的随机范围宽",
         "h": "同 MoveToEx 的随机范围高",
         "duration": "平滑移动总时长毫秒",
-        "et": "返回实际落点 <code>\"实际x,实际y\"</code>",
+        "ret": "返回实际落点 <code>\"实际x,实际y\"</code>",
     },
     "MovePath": {"path": "路径点串 <code>\"x,y|x,y|...\"</code>（只移动不按键）", "duration": "沿路径全程总时长毫秒"},
     "DragPath": {"path": "路径点串（按住左键拖动）", "duration": "全程总时长毫秒"},
@@ -514,7 +524,7 @@ PARAM_DOCS = {
         "cmdshow": "窗口显示命令：0=隐藏 1=正常 3=最大化 6=最小化",
     },
     "SetClipboard": {"str": "写入系统剪贴板的文本"},
-    "GetClipboard": {"et": "读出系统剪贴板文本"},
+    "GetClipboard": {"ret": "读出系统剪贴板文本"},
     # ---------- Algorithm ----------
     "AStarFindPath": {
         "mapWidth": "地图宽（格子数）；尺寸超上限返回空路径",
@@ -522,12 +532,12 @@ PARAM_DOCS = {
         "disable_points": "障碍点串 <code>\"x,y|x,y|...\"</code>；遇非法项，该项及其后全部忽略",
         "beginX": "起点格横坐标", "beginY": "起点格纵坐标",
         "endX": "终点格横坐标", "endY": "终点格纵坐标",
-        "et": "返回路径 <code>\"x,y|x,y|...\"</code>（起点→终点顺序）；无解返回空串",
+        "ret": "返回路径 <code>\"x,y|x,y|...\"</code>（起点→终点顺序）；无解返回空串",
     },
     "FindNearestPos": {
         "all_pos": "点位串：type=1 时 <code>\"x,y|x,y,...\"</code>；否则 <code>\"名称,x,y|名称,x,y,...\"</code>（逗号可用空格替代）",
         "type": "1=纯坐标点（返回 <code>\"x,y\"</code>）；其他=带名称点（返回 <code>\"名称,x,y\"</code>）",
-        "et": "距离参照点 (x,y) 最近的点",
+        "ret": "距离参照点 (x,y) 最近的点",
     },
     # ---------- Window 窗口（其余） ----------
     "EnumProcess": {"name": "进程名过滤（空=全部）；返回 PID 串 <code>\"pid|pid|...\"</code>"},
@@ -537,7 +547,7 @@ PARAM_DOCS = {
         "flag": "0=父窗口(GetParent) 1=第一个子窗(GW_CHILD) 2=同级最前(GW_HWNDFIRST) 3=同级最后(GW_HWNDLAST) "
                 "4=下一个同级(GW_HWNDNEXT) 5=上一个同级(GW_HWNDPREV) 6=属主窗口(GW_OWNER) 7=顶层窗口（沿 Owner 链上溯）"
     },
-    "GetProcessInfo": {"pid": "进程 PID", "et": "返回进程信息串"},
+    "GetProcessInfo": {"pid": "进程 PID", "ret": "返回进程信息串"},
     "GetPointWindow": {"x": "屏幕横坐标", "y": "屏幕纵坐标"},
     "GetClientSize": {"width": "出参：客户区宽", "height": "出参：客户区高"},
     "GetClientRect": {
@@ -557,8 +567,8 @@ PARAM_DOCS = {
     "SendStringIme": {"str": "走 IME 消息发送文本（中文/游戏内输入框推荐）"},
     "SendPaste": {"hwnd": "把当前剪贴板内容粘贴进目标窗口（先 SetClipboard 再调用）"},
     "GetWindowProcessId": {"ret": "窗口所属进程 PID"},
-    "GetWindowProcessPath": {"et": "窗口所属进程 exe 完整路径"},
-    "GetWindowClass": {"et": "窗口类名"},
+    "GetWindowProcessPath": {"ret": "窗口所属进程 exe 完整路径"},
+    "GetWindowClass": {"ret": "窗口类名"},
     "GetForegroundWindow": {"ret": "当前前台窗口句柄"},
     "GetForegroundFocus": {"ret": "当前拥有键盘焦点的窗口句柄"},
     "GetMousePointWindow": {"ret": "鼠标指针所在窗口句柄"},
@@ -575,24 +585,24 @@ PARAM_DOCS = {
         "x": "出参：系统光标屏幕横坐标（dx 模式不移动系统光标，读数不反映后台移动）",
         "y": "出参：系统光标屏幕纵坐标",
     },
-    "GetCursorShape": {"et": "当前光标形状特征串"},
+    "GetCursorShape": {"ret": "当前光标形状特征串"},
     # ---------- Image 图色（其余） ----------
-    "FindColorEx": {"etstr": "全部命中坐标串，每条 <code>\"x,y\"</code>，| 连接"},
+    "FindColorEx": {"retstr": "全部命中坐标串，每条 <code>\"x,y\"</code>，| 连接"},
     "FindMultiColorEx": {
         "first_color": "基准点颜色 RGB hex <code>RRGGBB</code>",
         "offset_color": "偏移点串：<code>\"dx|dy|RRGGBB,dx|dy|RRGGBB,...\"</code>；畸形段自动跳过",
-        "etstr": "全部命中坐标串，每条 <code>\"x,y\"</code>，| 连接",
+        "retstr": "全部命中坐标串，每条 <code>\"x,y\"</code>，| 连接",
     },
     "FindPicEx": {
-        "etstr": "全部命中串：每条 <code>\"图片序号,x,y\"</code>（序号为 files 列表从 0 起的下标），| 连接",
+        "retstr": "全部命中串：每条 <code>\"图片序号,x,y\"</code>（序号为 files 列表从 0 起的下标），| 连接",
     },
     "FindPicExS": {
-        "etstr": "全部命中串：每条 <code>\"图片文件名,x,y\"</code>（区别于 FindPicEx 的序号），| 连接",
+        "retstr": "全部命中串：每条 <code>\"图片文件名,x,y\"</code>（区别于 FindPicEx 的序号），| 连接",
     },
-    "FindColorBlockEx": {"etstr": "全部色块中心坐标串，每条 <code>\"x,y\"</code>，| 连接"},
+    "FindColorBlockEx": {"retstr": "全部色块中心坐标串，每条 <code>\"x,y\"</code>，| 连接"},
     "FindColorBlockExS": {
         "mode": "0=旧版行为 1=并查集聚类去重后返回（推荐，去重相邻同色块）",
-        "etstr": "全部色块中心坐标串，每条 <code>\"x,y\"</code>，| 连接",
+        "retstr": "全部色块中心坐标串，每条 <code>\"x,y\"</code>，| 连接",
     },
     "GetColorNum": {"ret": "区域内匹配颜色的像素数量"},
     "LoadPic": {"file_name": "显式加载图片进全局缓存（会按当前文件内容刷新同名缓存）"},
@@ -627,9 +637,9 @@ PARAM_DOCS = {
     "CvRemoveTemplate": {"name": "移除并释放指定模板"},
     "CvHasTemplate": {"name": "查询模板是否已加载", "ret": "1=已加载 0=未加载"},
     "CvGetTemplateCount": {"ret": "已加载模板数量"},
-    "CvGetAllTemplateNames": {"etstr": "全部已加载模板名，| 连接"},
+    "CvGetAllTemplateNames": {"retstr": "全部已加载模板名，| 连接"},
     "CvLoadTemplateList": {"template_list": "批量加载串 <code>\"name,path|name,path|...\"</code>；任一项缺逗号或空串则整体失败"},
-    "CvGetOpenCvVersion": {"etstr": "OpenCV 版本串"},
+    "CvGetOpenCvVersion": {"retstr": "OpenCV 版本串"},
     "CvToGray": {"dst_file": "灰度图输出路径"},
     "CvToBinary": {"dst_file": "二值图输出路径（Otsu 自动阈值）"},
     "CvToEdge": {"dst_file": "边缘图输出路径"},
@@ -669,11 +679,11 @@ PARAM_DOCS = {
     "CvResize": {"width": "目标宽", "height": "目标高"},
     "CvConnectedComponents": {
         "min_area": "最小连通域面积（小于该值的噪点被过滤）",
-        "etjson": "连通域 JSON 数组：每个元素含 x/y/w/h/area",
+        "retjson": "连通域 JSON 数组：每个元素含 x/y/w/h/area",
     },
     "CvFindContours": {
         "min_area": "最小轮廓面积（过滤噪点）",
-        "etjson": "轮廓 JSON 数组：每个元素含外接矩形与轮廓点",
+        "retjson": "轮廓 JSON 数组：每个元素含外接矩形与轮廓点",
     },
     "CvPreprocessPipeline": {
         "pipeline": "流水线串，<code>|</code> 分隔步骤，步骤可带参数 <code>\"步骤名:参数1,参数2\"</code>。步骤名：gray/binary/edge/outline/denoise/equalize/clahe/blur/sharpen/cropvalid/crop/resize/threshold/inrange/morph/thin"
@@ -686,30 +696,30 @@ PARAM_DOCS = {
         "strip_mode": "0=整区搜索 1=横向条带并行 2=纵向条带并行（命中即停偏延迟，不保证全局最优）",
         "method": "匹配算法：0=TM_SQDIFF 1=TM_SQDIFF_NORMED 2=TM_CCORR 3=TM_CCORR_NORMED 4=TM_CCOEFF 5=TM_CCOEFF_NORMED（默认）",
         "color_mode": "0=彩色匹配 1=灰度匹配",
-        "etjson": "命中结果 JSON 数组：[{x,y,width,height,score},...]",
+        "retjson": "命中结果 JSON 数组：[{x,y,width,height,score},...]",
     },
     "CvMatchTemplateScale": {
         "scales": "缩放比串（逗号分隔），如 <code>\"0.8,0.9,1.0,1.1\"</code>：模板按各缩放比逐次匹配",
         "threshold": "匹配阈值 0~1",
         "method": "同 CvMatchTemplate",
         "color_mode": "0=彩色 1=灰度",
-        "etjson": "命中结果 JSON 数组（含实际使用的 scale）",
+        "retjson": "命中结果 JSON 数组（含实际使用的 scale）",
     },
     "CvMatchAnyTemplate": {
         "template_names": "多模板名串（| 分隔），任一命中即返回首个",
         "dir": DIR_OPENCV, "strip_mode": "同 CvMatchTemplate",
         "method": "同 CvMatchTemplate", "color_mode": "0=彩色 1=灰度",
-        "etjson": "命中结果 JSON 数组",
+        "retjson": "命中结果 JSON 数组",
     },
     "CvMatchAllTemplates": {
         "template_names": "多模板名串（| 分隔），全部模板各搜一遍",
         "dir": DIR_OPENCV, "strip_mode": "同 CvMatchTemplate",
         "method": "同 CvMatchTemplate", "color_mode": "0=彩色 1=灰度",
-        "etjson": "命中结果 JSON 数组（含模板名）",
+        "retjson": "命中结果 JSON 数组（含模板名）",
     },
-    "CvFeatureMatchTemplate": {"threshold": "特征匹配阈值 0~1", "etjson": "命中结果 JSON 数组"},
-    "CvEdgeMatchTemplate": {"threshold": "边缘匹配阈值 0~1", "etjson": "命中结果 JSON 数组"},
-    "CvShapeMatchTemplate": {"threshold": "形状匹配阈值 0~1", "etjson": "命中结果 JSON 数组"},
+    "CvFeatureMatchTemplate": {"threshold": "特征匹配阈值 0~1", "retjson": "命中结果 JSON 数组"},
+    "CvEdgeMatchTemplate": {"threshold": "边缘匹配阈值 0~1", "retjson": "命中结果 JSON 数组"},
+    "CvShapeMatchTemplate": {"threshold": "形状匹配阈值 0~1", "retjson": "命中结果 JSON 数组"},
     # ---------- OCR ----------
     "SetOcrEngine": {
         "path_of_engine": "<b>引擎可免配置</b>——首次 <code>Ocr</code>/<code>AutoOcr</code> 调用自动懒加载内置引擎（PP-OCRv4 字典内嵌 DLL，含中英文数字符号）；本接口仅用于改参数。引擎标识：传 <code>onnx</code>/空/任意未知名=内置 ONNX 引擎；<b>http(s):// 与旧远程别名（tesseract/paddle 系）已移除</b>，传入返 0 并提示",
@@ -723,9 +733,18 @@ PARAM_DOCS = {
                  "<code>@zh0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;-+=/|!?%#*()[]~_</code><br>"
                  "⚠ 白名单缺哪个字符，该字符就被<b>静默吞掉</b>（漏字母时 <code>Lv99</code> 只识别出 <code>99</code>），请按需列全。"),
     },
-    "GetDict": {"idx": "字库槽位", "font_index": "字库内第几个字（从 0）", "etstr": "该字的字库条目串"},
+    "GetDict": {"idx": "字库槽位", "font_index": "字库内第几个字（从 0）", "retstr": "该字的字库条目串"},
     "SetMemDict": {"data": "字库文本字节数据", "size": "字节数"},
-    "AddDict": {"idx": "目标槽位", "dict_info": "字库条目串（字库文本格式）"},
+    "AddDict": {
+        "idx": "目标槽位",
+        "dict_info": "字库条目串，支持多行（每行一条 `名字$高,宽,点数$点阵HEX`）；<b>整批原子</b>，任一行非法则一条都不写入",
+        "ret": "成功处理的行数（单行成功=1，整批失败=0）",
+    },
+    "RemoveDict": {
+        "idx": "槽位",
+        "dict_info": "字库条目串，只按点阵匹配（名字可留空）",
+        "ret": "1=已删除，0=该点阵不存在",
+    },
     "SaveDict": {"idx": "槽位", "file_name": "保存路径"},
     "ClearDict": {"idx": "清空槽位", "ret": "1=成功"},
     "GetDictCount": {"idx": "槽位", "ret": "该槽位字数"},
@@ -744,67 +763,108 @@ PARAM_DOCS = {
     },
     "FetchWord": {
         "word": "单字模串（点阵字库格式）",
-        "etstr": "返回该字在区域中的坐标 <code>\"x,y\"</code>；未找到返回空串",
+        "retstr": "返回该字在区域中的坐标 <code>\"x,y\"</code>；未找到返回空串",
     },
     "FetchWords": {
         "words": "多字模串（每个字一个字模）",
         "min_word_h": "⚠️ 历史命名：本函数实际按字块<b>宽度</b>过滤（不过滤高度），需宽高双过滤用 FetchWordsEx",
-        "etstr": "逐字结果串（坐标+匹配到的字）；切出字数与 words 长度不符时返回空（日志有提示）",
+        "retstr": "逐字结果串（坐标+匹配到的字）；切出字数与 words 长度不符时返回空（日志有提示）",
     },
     "FetchWordsByRects": {"rects": "限定区域串：为 words 中每个字指定独立搜索范围"},
     "ExtractWordRects": {
         "min_word_h": "⚠️ 历史命名：实际按字块<b>宽度</b>过滤（不过滤高度），需宽高双过滤用 ExtractWordRectsEx",
-        "etstr": "识别到的文字块矩形串",
+        "retstr": "识别到的文字块矩形串",
     },
     "ExtractWordRectsEx": {"min_word_w": "最小字宽", "padding": "矩形外扩像素"},
     "GetBinaryPreview": {
-        "etstr": "返回二值化预览文本：首行 <code>\"宽,高\"</code>，其后每行以 <code>#</code>=前景点、<code>.</code>=背景绘制",
+        "retstr": "返回二值化预览文本：首行 <code>\"宽,高\"</code>，其后每行以 <code>#</code>=前景点、<code>.</code>=背景绘制",
     },
-    "GetWordPreview": {"dict_info": "字库条目串", "etstr": "字模的文本预览（# 点阵）"},
-    "CheckWordDict": {"dict_info": "字库文本", "etstr": "校验结果（规范化后的字库文本）"},
-    "NormalizeWordDict": {"dict_info": "字库文本", "etstr": "规范化后的字库文本"},
-    "RenameWordDict": {"dict_info": "字库文本", "words": "重命名字表", "etstr": "重命名后的字库文本"},
+    "GetWordPreview": {"dict_info": "字库条目串", "retstr": "字模的文本预览（# 点阵）"},
+    "CheckWordDict": {"dict_info": "字库文本", "retstr": "校验结果（规范化后的字库文本）"},
+    "NormalizeWordDict": {"dict_info": "字库文本", "retstr": "规范化后的字库文本"},
+    "RenameWordDict": {"dict_info": "字库文本", "words": "重命名字表", "retstr": "重命名后的字库文本"},
     "GetWordsNoDict": {
-        "etstr": "免字库识别结果：<code>\"x,y-文字/x,y-文字/...\"</code>（可配 GetWordResultCount/Pos/Str 拆解）",
+        "retstr": "免字库识别结果：<code>\"x,y-文字/x,y-文字/...\"</code>（可配 GetWordResultCount/Pos/Str 拆解）",
     },
     "GetWordResultCount": {"result": "GetWordsNoDict 等的结果串", "ret": "结果条目数（按 / 计数）"},
     "GetWordResultPos": {"result": "结果串", "index": "第几条（从 0）", "x": "出参：横坐标", "y": "出参：纵坐标"},
-    "GetWordResultStr": {"result": "结果串", "index": "第几条（从 0）", "et_str": "出参：该条的文字"},
-    "Ocr": {"et_str": "识别出的纯文本；字库路径按 color 二值化，免字库路径 color 不参与（整幅区域直识别，按颜色识别请用 AutoOcr 系）；字库匹配含邻域净空检查——字形紧贴边（&lt;1px 间隙）有附加笔画时拒识（防超集字反杀，如 犬≠大）"},
-    "OcrEx": {"et_str": "逐块结果串：<code>\"x,y,文字|x,y,文字|...\"</code>；免字库路径同 Ocr 语义（color 不参与）"},
-    "AutoOcr": {"et_str": "免字库纯文本：按 color 颜色二值化（支持 <code>@背景色</code> 反白格式）后送内置引擎识别，非自动阈值"},
-    "AutoOcrLine": {"et_str": "免字库纯文本（各行文本直接拼接，无分隔符无坐标）：水平投影按行切段后逐行识别；行切分阈值硬编码——行间隙>3px 切段、段高<5px 丢弃，ROI 行距过近或字高过小会被合并/丢弃"},
-    "AutoOcrEx": {"et_str": "结构化免字库结果串 <code>\"x1,y1,x2,y2,conf,text|...\"</code>，坐标为客户区坐标（相对绑定窗口客户区左上角），命中行数为返回值（非 OcrEx 格式）"},
+    "GetWordResultStr": {"result": "结果串", "index": "第几条（从 0）", "ret_str": "出参：该条的文字"},
+    "Ocr": {"ret_str": "识别出的纯文本；字库路径按 color 二值化，免字库路径 color 不参与（整幅区域直识别，按颜色识别请用 AutoOcr 系）；字库匹配含邻域净空检查——字形紧贴边（&lt;1px 间隙）有附加笔画时拒识（防超集字反杀，如 犬≠大）"},
+    "OcrEx": {"ret_str": "逐块结果串：<code>\"x,y,文字|x,y,文字|...\"</code>；免字库路径同 Ocr 语义（color 不参与）"},
+    "AutoOcr": {"ret_str": "免字库纯文本：按 color 颜色二值化（支持 <code>@背景色</code> 反白格式）后送内置引擎识别，非自动阈值"},
+    "AutoOcrLine": {"ret_str": "免字库纯文本（各行文本直接拼接，无分隔符无坐标）：水平投影按行切段后逐行识别；行切分阈值硬编码——行间隙>3px 切段、段高<5px 丢弃，ROI 行距过近或字高过小会被合并/丢弃"},
+    "AutoOcrEx": {"ret_str": "结构化免字库结果串 <code>\"x1,y1,x2,y2,conf,text|...\"</code>，坐标为客户区坐标（相对绑定窗口客户区左上角），命中行数为返回值（非 OcrEx 格式）"},
     "OcrAuto": {
         "color": "本接口<b>不传颜色</b>（自动取区域主色做二值化）",
-        "et_str": "免配色 OCR 纯文本",
+        "ret_str": "免配色 OCR 纯文本",
     },
     "OcrFromFile": {
         "file_name": "图片文件路径",
         "color_format": "颜色格式串（RGB hex）：<code>\"RRGGBB\"</code>、<code>\"RRGGBB-偏色\"</code>（如 <code>9f2e3f-303030</code>）或 <code>\"@RRGGBB\"</code> 背景色模式",
-        "etstr": "识别出的纯文本",
+        "retstr": "识别出的纯文本",
     },
-    "AutoOcrFromFile": {"file_name": "图片路径", "color_format": "颜色格式串（RGB hex <code>RRGGBB</code>）", "etstr": "自动阈值版识别文本"},
-    "OcrAutoFromFile": {"file_name": "图片路径", "etstr": "免配色识别文本"},
+    "AutoOcrFromFile": {"file_name": "图片路径", "color_format": "颜色格式串（RGB hex <code>RRGGBB</code>）", "retstr": "自动阈值版识别文本"},
+    "OcrAutoFromFile": {"file_name": "图片路径", "retstr": "免配色识别文本"},
     "FindStrEx": {
-        "etstr": "全部命中串：每条 <code>\"strs序号,x,y\"</code>（序号为 strs 以 | 拆分后的下标，从 0），| 连接",
+        "retstr": "全部命中串：每条 <code>\"strs序号,x,y\"</code>（序号为 strs 以 | 拆分后的下标，从 0），| 连接",
     },
     "FindLineExS": {
         "min_points": "一条线最少点数（低于该值的结果被丢弃，过滤噪线）",
-        "etstr": "返回 <code>\"角度,距离\"</code> 描述的直线串",
+        "retstr": "返回 <code>\"角度,距离\"</code> 描述的直线串",
         "ret": "拟合出的线上点数（0=未捕获/不可信）",
     },
-    "FindLineEx": {"etstr": "返回 <code>\"角度,距离\"</code>；ret=线上点数（0=不可信）"},
+    "FindLineEx": {"retstr": "返回 <code>\"角度,距离\"</code>；ret=线上点数（0=不可信）"},
     # ---------- YOLO ----------
     "SetYoloEngine": {
         "path_of_engine": "统一入口：<b>.onnx 模型文件路径</b>（dll_name 留空，自动切进程内 ONNX 引擎）；旧写法 = <code>onnx</code> 开头引擎名；<b>http(s):// 与旧远程别名（yolo/yolo11/yolo_http/yolo_server）已移除</b>，传入返 0 并提示",
         "dll_name": "模型路径（ONNX 引擎；空=内置资源段模型）",
-        "argv": "空格分隔参数；ONNX 类别名<b>自动读模型内嵌 metadata</b>（ultralytics 导出自带，免 --labels），无 metadata 时用 <code>--labels=a,b,c</code>（UTF-8）或 <code>--labels=@classes.txt</code> 兜底（显式优先）；另支持 <code>--conf=0.25</code> <code>--iou=0.45</code>",
+        "argv": "空格分隔参数；ONNX 类别名<b>自动读模型内嵌 metadata</b>（ultralytics 导出自带，免 --labels），无 metadata 时用 <code>--labels=a,b,c</code>（UTF-8）或 <code>--labels=@classes.txt</code> 兜底（显式优先）；另支持 <code>--conf=0.25</code> <code>--iou=0.45</code> <code>--threads=N</code>；GPU 用 <code>--device=N</code>（0=默认适配器，需 DML 版 onnxruntime.dll + DirectML.dll，缺失自动回退 CPU）/<code>--device=cpu</code>；任务提示 <code>--task=detect|segment|classify|pose|obb</code>、<code>--nc=N</code>、<code>--kpt=N</code>",
     },
     "YoloDetect": {
-        "etjson": "检测结果 JSON 数组：每个元素含类别/置信度/包围盒 {class,score,x,y,w,h}",
+        "retjson": "检测结果 JSON 数组：每个元素含类别/置信度/包围盒 {class,score,x,y,w,h}",
     },
-    "YoloDetectFromFile": {"file_name": "待检测图片路径", "etjson": "同 YoloDetect"},
+    "YoloDetectFromFile": {"file_name": "待检测图片路径", "retjson": "同 YoloDetect"},
+    "YoloDetectEx2": {
+        "json_options": "过滤/截断选项 JSON：<code>{\"class_ids\":[0,2],\"labels\":[\"person\"],\"max_results\":20}</code>；空串=不过滤；非法 JSON/未知字段/类型错返回 -1（与“没检测到”的 0 区分）",
+        "retjson": "结果 JSON：含 total/returned 与逐条 index/cx/cy/w/h；坐标口径同 OCR/找图",
+    },
+    "YoloDetectFromFileEx2": {
+        "json_options": "同 YoloDetectEx2",
+        "retjson": "同 YoloDetectEx2",
+    },
+    "YoloClassify": {
+        "top_k": "返回前 K 个类别（按 score 降序）；&lt;=0 取 5",
+        "retjson": "分类 JSON：<code>{\"ok\":1,\"code\":0,\"task\":\"classify\",\"returned\":K,\"results\":[{\"class_id\":2,\"label\":\"charlie\",\"score\":0.71},...]}</code>；任务不符返回 -1",
+    },
+    "YoloClassifyFromFile": {
+        "file_name": "待分类图片路径",
+        "top_k": "同 YoloClassify",
+        "retjson": "同 YoloClassify",
+    },
+    "YoloSegment": {
+        "retjson": "分割 JSON：每条含 bbox/confidence/mask_area/polygon（多边形为原图像素坐标，可能为空=掩码过小）；任务不符返回 -1",
+    },
+    "YoloSegmentFromFile": {
+        "file_name": "待分割图片路径",
+        "retjson": "同 YoloSegment",
+    },
+    "YoloPose": {
+        "retjson": "姿态 JSON：每条含 bbox/confidence/keypoints（按模型顺序，x/y/confidence 为原图尺度）；任务不符返回 -1",
+    },
+    "YoloPoseFromFile": {
+        "file_name": "待估计图片路径",
+        "retjson": "同 YoloPose",
+    },
+    "YoloObb": {
+        "retjson": "旋转框 JSON：每条含 center/size/angle（弧度）/angle_deg/bbox/corners（左上/右上/右下/左下）；任务不符返回 -1",
+    },
+    "YoloObbFromFile": {
+        "file_name": "待检测图片路径",
+        "retjson": "同 YoloObb",
+    },
+    "YoloGetModelInfo": {
+        "retjson": "模型元信息 JSON：task/task_code/input_width/input_height/device/dml；device=-1 为 CPU，>=0 为实际生效的 DirectML 适配器序号（请求 GPU 但回退时仍为 -1）",
+    },
     # ---------- JSON / HTTP（2026-10-16，大模型对接主通道）----------
     "JsonIsValid": {"json_text": "待校验 JSON 文本", "ret": "1=合法 JSON，0=非法"},
     "JsonGetString": {
@@ -870,7 +930,7 @@ PARAM_DOCS = {
     },
     # ---------- Memory ----------
     "WriteData": {"data": "要写入的字节数据", "size": "字节数"},
-    "ReadData": {"size": "读取字节数", "etstr": "读出的数据（16 进制串）"},
+    "ReadData": {"size": "读取字节数", "retstr": "读出的数据（16 进制串）"},
     "ReadInt": {"type": "整数类型：0=int32 1=int16 2=int8 3=int64 4=uint32 5=uint16 6=uint8"},
     "WriteInt": {"type": "同 ReadInt", "value": "要写入的整数值"},
     "ReadString": {"type": "字符宽度：0=ANSI(1 字节) 1=Unicode(2 字节)", "len": "字符数（超限自动截断）"},
@@ -885,9 +945,9 @@ PARAM_DOCS = {
         "step": "搜索步进字节数（1=逐字节最准最慢）",
         "count": "最大返回结果数",
     },
-    "GetModuleBaseAddr": {"module": "模块名（如 <code>game.exe</code>）", "etstr": "模块基址（16 进制串）"},
+    "GetModuleBaseAddr": {"module": "模块名（如 <code>game.exe</code>）", "retstr": "模块基址（16 进制串）"},
     "GetDPI": {"ret": "系统 DPI（进程级，主显示器值，如 144=150% 缩放）；窗口级实际缩放用 <code>GetWindowScale</code>"},
-    "GetWindowScale": {"hwnd": "目标窗口句柄", "etstr": "窗口所在显示器缩放比（两位小数，如 <code>1.50</code>）；多屏混合 DPI 时与 <code>GetDPI</code> 系统级值可不同"},
+    "GetWindowScale": {"hwnd": "目标窗口句柄", "retstr": "窗口所在显示器缩放比（两位小数，如 <code>1.50</code>）；多屏混合 DPI 时与 <code>GetDPI</code> 系统级值可不同"},
     # ---------- 尾部批次补注解（2026-10-16 明确性审计清零，语义经源码/idl 逐条核对）----------
     "SetPicCacheMax": {"max_count": "图片全局缓存的最大张数（上限保护，防长时运行内存膨胀）"},
     "Md5": {"text": "要计算 MD5 摘要的文本"},
@@ -929,6 +989,44 @@ PARAM_DOCS = {
         "all_pos": "待排序点串（格式同 FindNearestPos）",
         "type": "1=纯坐标点串；其他=带名称点串（输出保持输入格式，等距保持输入顺序）",
     },
+    "ExcludePos": {
+        "all_pos": "待过滤点串（格式同 FindNearestPos）",
+        "type": "1=纯坐标点串；其他=带名称点串（输出保持输入格式）",
+        "exclude_rects": "排除矩形串 <code>\"x1,y1,x2,y2|...\"</code>：含边界、坐标顺序不限；空串=不过滤",
+    },
+    "GetDenseRect": {
+        "all_pos": "点串（格式同 FindNearestPos）",
+        "type": "1=纯坐标点串；其他=带名称点串（name 不参与统计）",
+        "width": "统计窗口宽（像素，&gt;0）",
+        "height": "统计窗口高（像素，&gt;0）",
+    },
+    "Hex2RGB": {
+        "color": "颜色串：<code>RRGGBB</code> 或 <code>AARRGGBB</code>，可带 #/0x 前缀",
+        "r": "出参：红 0~255", "g": "出参：绿 0~255", "b": "出参：蓝 0~255",
+    },
+    "Hex2ARGB": {
+        "color": "同 Hex2RGB",
+        "a": "出参：alpha 0~255（6 位输入为 255）",
+        "r": "出参：红 0~255", "g": "出参：绿 0~255", "b": "出参：蓝 0~255",
+    },
+    "ARGB2Hex": {
+        "a": "alpha 0~255（越界截断到 0/255）",
+        "r": "红 0~255（越界截断）", "g": "绿 0~255（越界截断）", "b": "蓝 0~255（越界截断）",
+    },
+    "RGB2HSV": {
+        "r": "红 0~255（越界截断）", "g": "绿 0~255（越界截断）", "b": "蓝 0~255（越界截断）",
+        "h": "出参：色相 [0,360)", "s": "出参：饱和度 [0,100]", "v": "出参：明度 [0,100]",
+    },
+    "Hex2HSV": {
+        "color": "同 Hex2RGB",
+        "h": "出参：色相 [0,360)", "s": "出参：饱和度 [0,100]", "v": "出参：明度 [0,100]",
+    },
+    "GetColorHex": {
+        "r": "红 0~255（越界截断）", "g": "绿 0~255（越界截断）", "b": "蓝 0~255（越界截断）",
+    },
+    "Sha256": {"text": "要计算 SHA-256 摘要的文本"},
+    "HmacSha256": {"key": "HMAC 密钥（UTF-8 编码）", "text": "消息文本（UTF-8 编码，可为空）"},
+    "GenerateRandomBytes": {"length": "随机字节数（1~4096，输出 hex 长度为其两倍）"},
     "SetAStarMap": {
         "bitmap_file": "障碍位图路径：黑=障碍（亮度均值&lt;128）；<b>空串=清空地图</b>",
         "scale": "降采样倍率：每 scale×scale 像素块为一格，块内任一障碍像素则整格障碍",
@@ -952,6 +1050,162 @@ PARAM_DOCS = {
     "PointInPolygon": {
         "point": "待判点 <code>\"x,y\"</code>",
         "polygon": "多边形顶点串 <code>\"x,y|x,y|...\"</code>",
+    },
+    # ---------- 加密补全 / 注册表 / 热键 / 加密模型包（2026-11-23）----------
+    # 注意：path / value / name / id 等名字在别处已有语义（A* 路径点串、窗口标题…），
+    # 只能按函数覆盖，不能塞进 GLOBAL_PARAM_DOCS（会把别的接口一起带歪）。
+    "AesEncrypt": {
+        "text": "明文（UTF-16 进、按 UTF-8 处理，支持中文）",
+        "password": "口令；空串直接失败（不生成无密码密文）",
+    },
+    "AesDecrypt": {
+        "base64": "AesEncrypt 的输出（容器头 <code>OPAES01</code> + Base64）",
+        "password": "加密时的同一口令",
+    },
+    "Pbkdf2Sha256": {
+        "password": "口令（UTF-8）",
+        "salt": "盐（UTF-8）",
+        "iterations": "迭代次数 ∈ [1, 10000000]；越界返回空串",
+        "length": "输出密钥字节数 ∈ [1, 1024]；越界返回空串",
+    },
+    "Md5File": {"file_name": "待摘要的文件路径（流式读取，大文件不进内存）"},
+    "Sha1File": {"file_name": "待摘要的文件路径（流式读取）"},
+    "Sha256File": {"file_name": "待摘要的文件路径（流式读取）"},
+    "RsaEncrypt": {
+        "text": "明文；上限 <code>mode_len-11</code> 字节（2048 位 = 245 字节），超限返回空串",
+        "public_key_pem": "公钥 PEM：SPKI（<code>BEGIN PUBLIC KEY</code>）或 PKCS#1（<code>BEGIN RSA PUBLIC KEY</code>）",
+    },
+    "RsaDecrypt": {
+        "base64": "RsaEncrypt 的输出",
+        "private_key_pem": "私钥 PEM：PKCS#8（<code>BEGIN PRIVATE KEY</code>）或 PKCS#1；传公钥会失败",
+    },
+    "RegistryReadString": {
+        "path": "键路径 <code>根键\\\\子键</code>；根键支持 HKLM/HKCU/HKCR/HKU/HKCC 及 HKEY_* 全名",
+        "name": "值名称；<b>空串 = 读默认值</b>",
+    },
+    "RegistryWriteString": {
+        "path": "键路径 <code>根键\\\\子键</code>（不存在时自动创建）",
+        "name": "值名称；空串 = 写默认值",
+        "value": "要写入的字符串（REG_SZ）",
+    },
+    "RegistryReadDword": {
+        "path": "键路径 <code>根键\\\\子键</code>",
+        "name": "值名称；空串 = 读默认值",
+        "value": "出参：读到的 32 位值；失败时置 0",
+    },
+    "RegistryWriteDword": {
+        "path": "键路径 <code>根键\\\\子键</code>（不存在时自动创建）",
+        "name": "值名称；空串 = 写默认值",
+        "value": "要写入的 32 位值（按无符号解释，可传 0xFFFFFFFF）",
+    },
+    "HotkeyRegister": {
+        "id": "热键标识 ∈ [1, 0xBFFF]，后续 Poll / Unregister 用它",
+        "modifiers": "修饰键位掩码：1=ALT 2=CTRL 4=SHIFT 8=WIN，只允许低 4 位（传 0x10 被拒）",
+        "vk": "虚拟键码 ∈ [1, 255]（如 0x87 = F24）",
+    },
+    "HotkeyUnregister": {"id": "注册时用的热键标识"},
+    "HotkeyPoll": {
+        "timeout_ms": "等待毫秒：<code>0</code> 非阻塞；<code>&lt;0</code> 最多等 60 秒；返回 0 = 超时无事件",
+    },
+    "YoloLoadModel": {
+        "name": "注册表内唯一名字（如 <code>m_det</code>）；重名会覆盖",
+        "path": "模型文件路径；头为 <code>OPYMOD01</code> 时按加密包处理（走内存加载，不落明文临时文件）",
+        "argv": "引擎参数字符串（同 SetYoloEngine 第三参）。加密包必须在这里带 <code>--password=xxx</code>，该参数会被摘除后再交给引擎",
+    },
+    "YoloUseModel": {"name": "已注册的模型名；未注册 ret=0"},
+    "YoloReleaseModel": {"name": "要释放的模型名；<b>空串 = 全部释放</b>（释放 active 会让引擎回到未加载状态）"},
+    "YoloEncryptModel": {
+        "src_path": "源 ONNX 明文路径",
+        "dst_path": "输出密文包路径（头 <code>OPYMOD01</code>）",
+        "password": "口令；空串失败",
+    },
+    "YoloDecryptModel": {
+        "src_path": "OPYMOD01 密文包路径",
+        "dst_path": "解出的明文 ONNX 路径；失败时不产出文件",
+        "password": "打包时的同一口令",
+    },
+    # ---------- Draw 绘制（批 B 2026-11-22 / 批 G 2026-11-23 补注解）----------
+    "DrawCircle": {
+        "radius": "半径（像素）",
+    },
+    "DrawImage": {
+        "alpha": "不透明度 0~255；<code>&lt;=0</code> 或 <code>&gt;255</code> 一律视为 255（不透明）",
+    },
+    "DrawRectEx": {
+        "mode": "<code>0</code> 纯填充 / <code>1</code> 纯描边 / <code>2</code> 填充+描边；其它值按描边并记日志",
+        "line_width": "线宽（像素）；mode=0 时忽略（不描边）",
+    },
+    "DrawCircleEx": {
+        "radius": "半径（客户区像素）",
+        "line_width": "线宽（像素），<code>&lt;=0</code> 按 1",
+    },
+    "DrawTextEx": {
+        "text": "文本内容；空串直接返回 0",
+        "font_size": "字号（像素），<code>&lt;=0</code> 按 14",
+    },
+    "DrawGetCount": {
+        "screen_count": "出参：屏幕层图元数（可为 nullptr）",
+        "bind_count": "出参：绑定层图元数（可为 nullptr）",
+    },
+    "DrawSetFill": {
+        "enable": "<code>0</code> 关闭填充（mode 0/2 退化为描边）；非 0 开启",
+    },
+    "DrawImageEx": {
+        "alpha": "不透明度 0~255；<code>&lt;=0</code> 或 <code>&gt;255</code> 视为 255",
+    },
+    "DrawImageFromHandle": {
+        "image_handle": "图片句柄串（LoadImageBmp / LoadImageMem / CropImage 等产出）",
+        "alpha": "不透明度 0~255；<code>&lt;=0</code> 或 <code>&gt;255</code> 视为 255",
+    },
+    "DrawRectTag": {
+        "tag": "标签名（调用方自定义）。同层同标签只保留最新一条，重画即就地替换",
+    },
+    "DrawRectExTag": {
+        "tag": "标签名（调用方自定义）。同层同标签只保留最新一条",
+        "mode": "<code>0</code> 纯填充 / <code>1</code> 纯描边 / <code>2</code> 填充+描边；其它值按描边并记日志",
+        "line_width": "线宽（像素）；mode=0 时忽略",
+    },
+    "DrawRemoveTag": {
+        "tag": "要删除的标签；空串返 0。同时清屏幕层与绑定层，返回删除个数",
+    },
+    # ---------- UIA 元素层（批 H 2026-11-23）----------
+    "UiaDump": {
+        "max_depth": "递归深度上限（0 = 只看直接子节点；负数按 0 处理）",
+    },
+    "UiaFind": {
+        "selector": "选择器：<code>name=确定 &gt;&gt; class=Button</code>；<code>name*=确定</code> 为包含匹配；"
+                    "键支持 name / class / id / type / index(0 基)",
+        "timeout_ms": "等待毫秒数；<code>&gt;0</code> 时每 100ms 重试直到超时，<code>0</code> 只查一次",
+    },
+    "UiaInvoke": {
+        "element_id": "UiaFind / UiaDump 返回的 id（本进程内有效，跨 DLL 层不可用）",
+    },
+    "UiaGetValue": {
+        "element_id": "UiaFind / UiaDump 返回的 id",
+    },
+    "UiaSetValue": {
+        "element_id": "UiaFind / UiaDump 返回的 id",
+    },
+    "UiaRelease": {
+        "element_id": "要释放的元素 id",
+    },
+    # ---------- 汇编模块（批 D 补齐 2026-11-23）----------
+    "AsmCall": {
+        "code_hex": "机器码，空格分隔十六进制字节（如 <code>\"48 C7 C0 2A 00 00 00 C3\"</code>）；"
+                    "<b>需自带 ret</b>，<code>??</code> 占位按 int3 填充",
+        "timeout_ms": "超时毫秒数，<code>&lt;=0</code> 默认 5000",
+        "hwnd": "目标窗口句柄；<code>0</code> = 当前进程（先自测再上目标）",
+    },
+    "Assemble": {
+        "asm_text": "汇编文本，Intel 语法，多语句可用换行或 <code>;</code> 分隔；<b>不自动补 ret</b>",
+        "arch": "<code>32</code> / <code>64</code>；<code>0</code> = 按当前进程位数。<b>不做猜测</b>",
+    },
+    "Disassemble": {
+        "bytes_hex": "机器码，空格分隔十六进制字节（与 Assemble/AsmCall 同格式）",
+        "address": "起始虚拟地址，十六进制可带 <code>0x</code>；空串 = 0。影响输出 addr 与 jmp/call 目标解析",
+        "count": "最多解码指令数；<code>&lt;=0</code> = 解到字节用完",
+        "arch": "<code>32</code> / <code>64</code>；<code>0</code> = 按当前进程位数。"
+                "<b>给错会静默出错码</b>（如 0x50 在 64 位解成 push rax）",
     },
 }
 
@@ -1022,6 +1276,16 @@ FN_DESC = {
     "ReadString": "读内存字符串（type：0=ANSI 1=Unicode；len 字符数，超限截断）",
     "WriteString": "写内存字符串（type 同 ReadString）",
     "FindDataEx": "特征码搜索加强版：步进与最大返回数可控（step=1 逐字节最准最慢）",
+    # 2026-11-23 加密补全 / 注册表 / 热键 / 加密模型包（同组注释只覆盖首条，其余在此兜底）
+    "Sha1File": "流式计算文件 SHA-1（小写十六进制）；文件不存在或读失败返回空串",
+    "Sha256File": "流式计算文件 SHA-256（小写十六进制）；文件不存在或读失败返回空串",
+    "RsaDecrypt": "RSA PKCS#1 v1.5 私钥解密（支持 PKCS#8 内层解包）；填充校验失败返回空串",
+    "RegistryWriteString": "写注册表字符串值 REG_SZ（键路径不存在时自动创建）",
+    "RegistryReadDword": "读注册表 DWORD 值；类型不符或缺失 ret=0 且出参清零",
+    "RegistryWriteDword": "写注册表 DWORD 值 REG_DWORD",
+    "HotkeyUnregister": "注销指定热键；未注册的 id 返回 0",
+    "HotkeyUnregisterAll": "注销本进程注册的全部热键，返回注销个数",
+    "YoloDecryptModel": "把 OPYMOD01 加密模型包解回明文 .onnx；密码错或非密封包失败且不留半个文件",
 }
 
 
@@ -1105,12 +1369,15 @@ def parse_params(pstr):
             direction = "out"
         p = SAL_RE.sub("", p)
         p = re.sub(r"\s+", " ", p).strip()
-        m = re.match(r"^(.*?[\w\)])\s*(\*+)?\s*(\w+)$", p)
+        # ⚠ 末尾的引用/指针修饰符必须一起吃进 `stars`，否则非贪婪的 `.*?[\w\)]`
+        #   会把 `std::wstring &retstr` 拆成 typ="std::wstring &r" + name="retstr"
+        #   （2026-11-23 修：此前 105 条出参在文档里显示成 etstr/etjson）。
+        m = re.match(r"^(.*?[\w\)])\s*([&*]+)?\s*(\w+)$", p)
         if not m:
             out.append({"dir": direction, "type": p, "name": ""})
             continue
         typ, stars, name = m.groups()
-        typ = (typ + (stars or "")).replace(" *", "*").strip()
+        typ = (typ + (stars or "")).replace(" *", "*").replace(" &", "&").strip()
         out.append({"dir": direction, "type": typ, "name": name})
     return out
 

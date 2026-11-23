@@ -1248,6 +1248,14 @@ STDMETHODIMP OpAutomation::AddDict(LONG idx, BSTR dict_info, LONG *ret) {
     return S_OK;
 }
 
+// 从指定字库中删除字条（按点阵唯一匹配）
+STDMETHODIMP OpAutomation::RemoveDict(LONG idx, BSTR dict_info, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.RemoveDict(idx, dict_info, ret);
+    return S_OK;
+}
+
 STDMETHODIMP OpAutomation::SaveDict(LONG idx, BSTR file_name, LONG *ret) {
     obj.SaveDict(idx, file_name, ret);
     return S_OK;
@@ -2243,6 +2251,135 @@ STDMETHODIMP OpAutomation::DrawGetCount(LONG *screen_count, LONG *bind_count, LO
     return S_OK;
 }
 
+// ---- 批 G（2026-11-23）：绘制状态 + 绑定层画图 + 图片句柄上屏 ----
+STDMETHODIMP OpAutomation::DrawSetColor(BSTR color, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawSetColor(color, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawSetFill(LONG enable, BSTR color, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawSetFill(enable, color, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawImageEx(LONG x, LONG y, BSTR file_name, LONG alpha, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawImageEx(x, y, file_name, alpha, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawImageFromHandle(LONG x, LONG y, BSTR image_handle, LONG alpha, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawImageFromHandle(x, y, image_handle, alpha, ret);
+    return S_OK;
+}
+
+// ---- 批 G2（2026-11-23）：标签替换 ----
+STDMETHODIMP OpAutomation::DrawRectTag(BSTR tag, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, LONG width, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawRectTag(tag, x1, y1, x2, y2, color, width, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawRectExTag(BSTR tag, LONG x, LONG y, LONG width, LONG height, LONG mode, LONG line_width,
+                                         LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawRectExTag(tag, x, y, width, height, mode, line_width, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::DrawRemoveTag(BSTR tag, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.DrawRemoveTag(tag, ret);
+    return S_OK;
+}
+
+// ---- 批 H（2026-11-23）：UIA 元素层 ----
+STDMETHODIMP OpAutomation::UiaDump(LONG_PTR hwnd, LONG max_depth, BSTR *retstr) {
+    std::wstring s;
+    obj.UiaDump(hwnd, max_depth, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::UiaFind(LONG_PTR hwnd, BSTR selector, LONG timeout_ms, BSTR *retstr) {
+    std::wstring s;
+    obj.UiaFind(hwnd, selector ? selector : L"", timeout_ms, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::UiaFromPoint(LONG x, LONG y, BSTR *retstr) {
+    std::wstring s;
+    obj.UiaFromPoint(x, y, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::UiaInvoke(LONG element_id, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.UiaInvoke(element_id, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::UiaGetValue(LONG element_id, BSTR *retstr) {
+    std::wstring s;
+    obj.UiaGetValue(element_id, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::UiaSetValue(LONG element_id, BSTR value, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.UiaSetValue(element_id, value ? value : L"", ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::UiaRelease(LONG element_id, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.UiaRelease(element_id, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::UiaReleaseAll(LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.UiaReleaseAll(ret);
+    return S_OK;
+}
+
+// 批 D 补齐（2026-11-23）：汇编模块。三个方法都只回 JSON 字符串，成功/失败看 JSON 的 ok。
+
+STDMETHODIMP OpAutomation::AsmCall(LONG_PTR hwnd, BSTR code_hex, LONG timeout_ms, BSTR *retstr) {
+    std::wstring s;
+    long ok = 0;
+    obj.AsmCall(static_cast<LONG_PTR>(hwnd), code_hex ? code_hex : L"", timeout_ms, s, &ok);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::Assemble(BSTR asm_text, LONG arch, BSTR *retstr) {
+    std::wstring s;
+    long ok = 0;
+    obj.Assemble(asm_text ? asm_text : L"", arch, s, &ok);
+    return CopyOutBstr(retstr, s);
+}
+
+// ⚠ 参数顺序跟 C API 一致（bytes_hex, address, count, arch）：arch 在 count 之后。
+STDMETHODIMP OpAutomation::Disassemble(BSTR bytes_hex, BSTR address, LONG count, LONG arch, BSTR *retstr) {
+    std::wstring s;
+    long ok = 0;
+    obj.Disassemble(bytes_hex ? bytes_hex : L"", address ? address : L"", count, arch, s, &ok);
+    return CopyOutBstr(retstr, s);
+}
+
 //-----------------------json（P3 第一批 2026-10-16）-------------------------
 
 STDMETHODIMP OpAutomation::JsonIsValid(BSTR json_text, LONG *ret) {
@@ -2748,4 +2885,352 @@ STDMETHODIMP OpAutomation::InputSyncStatus(BSTR *retjson) {
     wstring json;
     obj.InputSyncStatus(json);
     return CopyOutBstr(retjson, json);
+}
+
+// ===== YOLO 任务族（2026-11-22，id 498-506）=====
+STDMETHODIMP OpAutomation::YoloClassify(LONG x1, LONG y1, LONG x2, LONG y2, LONG top_k, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloClassify(x1, y1, x2, y2, top_k, s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloClassifyFromFile(BSTR file_name, LONG top_k, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloClassifyFromFile(file_name, top_k, s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloSegment(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou, BSTR *retstr,
+                                       LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloSegment(x1, y1, x2, y2, static_cast<double>(conf), static_cast<double>(iou), s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloSegmentFromFile(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc =
+        obj.YoloSegmentFromFile(file_name, static_cast<double>(conf), static_cast<double>(iou), s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloPose(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou, BSTR *retstr,
+                                    LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloPose(x1, y1, x2, y2, static_cast<double>(conf), static_cast<double>(iou), s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloPoseFromFile(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloPoseFromFile(file_name, static_cast<double>(conf), static_cast<double>(iou), s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloObb(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou, BSTR *retstr,
+                                   LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloObb(x1, y1, x2, y2, static_cast<double>(conf), static_cast<double>(iou), s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloObbFromFile(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloObbFromFile(file_name, static_cast<double>(conf), static_cast<double>(iou), s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloGetModelInfo(BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.YoloGetModelInfo(s);
+    return CopyOutBstr(retstr, s);
+}
+
+// ===== 颜色转换 / 坐标过滤 / 哈希增强（2026-11-22，id 507-518）=====
+STDMETHODIMP OpAutomation::ExcludePos(BSTR all_pos, LONG type, BSTR exclude_rects, BSTR *retstr, LONG *ret) {
+    wstring s;
+    obj.ExcludePos(all_pos, type, exclude_rects, s, ret);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::GetDenseRect(BSTR all_pos, LONG type, LONG width, LONG height, BSTR *retstr, LONG *ret) {
+    wstring s;
+    obj.GetDenseRect(all_pos, type, width, height, s, ret);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::Hex2RGB(BSTR color, LONG *r, LONG *g, LONG *b, LONG *ret) {
+    obj.Hex2RGB(color, r, g, b, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::Hex2ARGB(BSTR color, LONG *a, LONG *r, LONG *g, LONG *b, LONG *ret) {
+    obj.Hex2ARGB(color, a, r, g, b, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::ARGB2Hex(LONG a, LONG r, LONG g, LONG b, BSTR *retstr) {
+    wstring s;
+    obj.ARGB2Hex(a, r, g, b, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::RGB2HSV(LONG r, LONG g, LONG b, DOUBLE *h, DOUBLE *s, DOUBLE *v, LONG *ret) {
+    obj.RGB2HSV(r, g, b, h, s, v, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::Hex2HSV(BSTR color, DOUBLE *h, DOUBLE *s, DOUBLE *v, LONG *ret) {
+    obj.Hex2HSV(color, h, s, v, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::GetColorHex(LONG r, LONG g, LONG b, BSTR *retstr) {
+    wstring s;
+    obj.GetColorHex(r, g, b, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::Sha256(BSTR text, BSTR *retstr) {
+    wstring s;
+    obj.Sha256(text, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::HmacSha256(BSTR key, BSTR text, BSTR *retstr) {
+    wstring s;
+    obj.HmacSha256(key, text, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::GenerateRandomBytes(LONG length, BSTR *retstr) {
+    wstring s;
+    obj.GenerateRandomBytes(length, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::GenerateGuid(BSTR *retstr) {
+    wstring s;
+    obj.GenerateGuid(s);
+    return CopyOutBstr(retstr, s);
+}
+
+// ===== 加密补全 / 注册表 / 全局热键 / YOLO 模型平台（2026-11-23，id 519-541）=====
+STDMETHODIMP OpAutomation::AesEncrypt(BSTR text, BSTR password, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.AesEncrypt(text, password, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::AesDecrypt(BSTR base64, BSTR password, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.AesDecrypt(base64, password, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::Pbkdf2Sha256(BSTR password, BSTR salt, LONG iterations, LONG length, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.Pbkdf2Sha256(password, salt, iterations, length, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::Md5File(BSTR file_name, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.Md5File(file_name, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::Sha1File(BSTR file_name, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.Sha1File(file_name, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::Sha256File(BSTR file_name, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.Sha256File(file_name, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::RsaEncrypt(BSTR text, BSTR public_key_pem, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.RsaEncrypt(text, public_key_pem, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::RsaDecrypt(BSTR base64, BSTR private_key_pem, BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.RsaDecrypt(base64, private_key_pem, s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::RegistryReadString(BSTR path, BSTR name, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    obj.RegistryReadString(path, name, s, ret);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::RegistryWriteString(BSTR path, BSTR name, BSTR value, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.RegistryWriteString(path, name, value, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::RegistryReadDword(BSTR path, BSTR name, LONG *value, LONG *ret) {
+    if (!value || !ret)
+        return E_POINTER;
+    *value = 0;
+    *ret = 0;
+    obj.RegistryReadDword(path, name, value, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::RegistryWriteDword(BSTR path, BSTR name, LONG value, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.RegistryWriteDword(path, name, value, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::HotkeyRegister(LONG id, LONG modifiers, LONG vk, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.HotkeyRegister(id, modifiers, vk, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::HotkeyUnregister(LONG id, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.HotkeyUnregister(id, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::HotkeyPoll(LONG timeout_ms, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.HotkeyPoll(timeout_ms, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::HotkeyUnregisterAll(LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.HotkeyUnregisterAll(ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::YoloLoadModel(BSTR name, BSTR path, BSTR argv, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    obj.YoloLoadModel(name, path, argv, s, ret);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloUseModel(BSTR name, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.YoloUseModel(name, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::YoloReleaseModel(BSTR name, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.YoloReleaseModel(name, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::YoloListModels(BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.YoloListModels(s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloListDevices(BSTR *retstr) {
+    if (!retstr)
+        return E_POINTER;
+    wstring s;
+    obj.YoloListDevices(s);
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloEncryptModel(BSTR src_path, BSTR dst_path, BSTR password, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.YoloEncryptModel(src_path, dst_path, password, ret);
+    return S_OK;
+}
+
+STDMETHODIMP OpAutomation::YoloDecryptModel(BSTR src_path, BSTR dst_path, BSTR password, LONG *ret) {
+    if (!ret)
+        return E_POINTER;
+    obj.YoloDecryptModel(src_path, dst_path, password, ret);
+    return S_OK;
 }

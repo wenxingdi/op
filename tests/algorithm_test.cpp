@@ -366,6 +366,52 @@ TEST(AlgorithmTest, SortPosDistanceStableAscending) {
     EXPECT_STREQ(OpSortPosDistance(api.handle, L"bad|alsbad", 1, 0, 0), L"");
 }
 
+TEST(AlgorithmTest, ExcludePosFiltersRectangles) {
+    CApiHandle api;
+    int kept = -1;
+    EXPECT_STREQ(OpExcludePos(api.handle, L"10,10|50,50|90,90", 1, L"0,0,20,20", &kept), L"50,50|90,90");
+    EXPECT_EQ(kept, 2);
+
+    // 多矩形 + 坐标顺序乱序（20,20,0,0 归一化为 0..20）+ 边界命中。
+    EXPECT_STREQ(OpExcludePos(api.handle, L"20,20|40,40|60,60", 1, L"20,20,0,0|45,45,70,70", &kept), L"40,40");
+    EXPECT_EQ(kept, 1);
+
+    // type=0 保留 name 段。
+    EXPECT_STREQ(OpExcludePos(api.handle, L"a,5,5|b,25,25", 0, L"0,0,10,10", &kept), L"b,25,25");
+    EXPECT_EQ(kept, 1);
+
+    // 空矩形列表 = 不过滤；非法矩形项跳过（同样不过滤）。
+    EXPECT_STREQ(OpExcludePos(api.handle, L"1,2|3,4", 1, L"", &kept), L"1,2|3,4");
+    EXPECT_EQ(kept, 2);
+    EXPECT_STREQ(OpExcludePos(api.handle, L"1,2", 1, L"bad", &kept), L"1,2");
+    EXPECT_EQ(kept, 1);
+}
+
+TEST(AlgorithmTest, GetDenseRectFindsMaxWindow) {
+    CApiHandle api;
+    int hits = -1;
+    // (0,0)(1,1) 落在 5x5 窗口内，(9,9) 孤立。
+    EXPECT_STREQ(OpGetDenseRect(api.handle, L"9,9|1,1|0,0", 1, 5, 5, &hits), L"0,0,2");
+    EXPECT_EQ(hits, 2);
+
+    // 1x1 窗口每个点各成窗口，并列取最靠上再靠左。
+    EXPECT_STREQ(OpGetDenseRect(api.handle, L"5,0|0,0", 1, 1, 1, &hits), L"0,0,1");
+    EXPECT_EQ(hits, 1);
+
+    // type=0：name 段不影响统计，输出 "x,y,count"。
+    EXPECT_STREQ(OpGetDenseRect(api.handle, L"a,100,100|b,101,101|c,0,0", 0, 10, 10, &hits), L"100,100,2");
+    EXPECT_EQ(hits, 2);
+
+    // 半开区间：宽 1 的窗口不覆盖 x+1 列。
+    EXPECT_STREQ(OpGetDenseRect(api.handle, L"0,0|1,0", 1, 1, 10, &hits), L"0,0,1");
+
+    // 非法宽高/空列表 → 空串 + 0。
+    EXPECT_STREQ(OpGetDenseRect(api.handle, L"0,0", 1, 0, 5, &hits), L"");
+    EXPECT_EQ(hits, 0);
+    EXPECT_STREQ(OpGetDenseRect(api.handle, L"", 1, 5, 5, &hits), L"");
+    EXPECT_EQ(hits, 0);
+}
+
 TEST(SystemMiscTest, EnableDebugPrivilegeIsCallable) {
     CApiHandle api;
     // 测试进程通常未持 SeDebugPrivilege（非管理员或权限未授）：启用可能失败，

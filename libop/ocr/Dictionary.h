@@ -325,13 +325,25 @@ struct Dictionary {
         text,
     };
 
-    // v0 v1
+    // 文件头（8 字节，三版共存）
+    //   v0：`word_t` 定长 32 列的旧格式，只读兼容
+    //   v1：`_word_count` 是真实条数，上限 32767
+    //   v2：`_word_count` 恒为 kExtendedMarker，真实条数在头后紧跟一个 int32
+    //       —— 为超过 32767 条的字库准备（GB18030 全集、CJK 扩展区、多库合并）。
+    //       只有真的超限才写 v2，否则仍写 v1，避免旧 DLL 读不了新文件。
+    static constexpr __int16 kVerOld = 0;
+    static constexpr __int16 kVerCompact = 1;
+    static constexpr __int16 kVerExtended = 2;
+    static constexpr __int16 kExtendedMarker = 0x7FFF;
+    // v1 能表达的条数上限（`_word_count` 是 int16）
+    static constexpr size_t kCompactMaxWords = static_cast<size_t>(kExtendedMarker);
+
     struct dict_info_t {
-        __int16 _this_ver; // 0 1
-        __int16 _word_count;
+        __int16 _this_ver;   // 0 1 2
+        __int16 _word_count; // v0/v1: 真实条数；v2: 恒为 kExtendedMarker
         // check code=_this_ver^_word_count
         __int32 _check_code;
-        dict_info_t() : _this_ver(1), _word_count(0) {
+        dict_info_t() : _this_ver(kVerCompact), _word_count(0) {
             _check_code = _word_count ^ _this_ver;
         }
     };
@@ -352,6 +364,16 @@ struct Dictionary {
         const size_t bit_count = static_cast<size_t>(head.w) * static_cast<size_t>(head.h);
         return head.bit_cnt > 0 && static_cast<size_t>(head.bit_cnt) <= bit_count;
     }
+    // v2 头后紧跟的 int32 真实条数
+    static bool read_extended_count(const unsigned char *buf, size_t size, size_t &offset, size_t &out) {
+        __int32 count = 0;
+        if (!read_bytes(buf, size, offset, &count, sizeof(count)))
+            return false;
+        if (count <= 0)
+            return false;
+        out = static_cast<size_t>(count);
+        return true;
+    }
     // OP 二进制字库没有 magic，这里用头部校验和完整长度校验来避免文本误判。
     static bool is_binary_dict_memory(const void *data, size_t size) {
         const auto *buf = static_cast<const unsigned char *>(data);
@@ -359,13 +381,22 @@ struct Dictionary {
         dict_info_t file_info;
         if (!read_bytes(buf, size, offset, &file_info, sizeof(file_info)))
             return false;
-        if (file_info._word_count <= 0)
-            return false;
         if (file_info._check_code != (file_info._this_ver ^ file_info._word_count))
             return false;
 
-        const size_t word_count = static_cast<size_t>(file_info._word_count);
-        if (file_info._this_ver == 0) {
+        size_t word_count = 0;
+        if (file_info._this_ver == kVerExtended) {
+            if (file_info._word_count != kExtendedMarker)
+                return false;
+            if (!read_extended_count(buf, size, offset, word_count))
+                return false;
+        } else {
+            if (file_info._word_count <= 0)
+                return false;
+            word_count = static_cast<size_t>(file_info._word_count);
+        }
+
+        if (file_info._this_ver == kVerOld) {
             if (word_count > (size - offset) / sizeof(word_t))
                 return false;
             for (size_t i = 0; i < word_count; ++i) {
@@ -380,7 +411,7 @@ struct Dictionary {
             return offset == size;
         }
 
-        if (file_info._this_ver != 1)
+        if (file_info._this_ver != kVerCompact && file_info._this_ver != kVerExtended)
             return false;
 
         for (size_t i = 0; i < word_count; ++i) {
@@ -434,16 +465,33 @@ struct Dictionary {
         }
 
         // 校验
-        if (file_info._word_count < 0 || file_info._check_code != (file_info._this_ver ^ file_info._word_count)) {
+        if (file_info._check_code != (file_info._this_ver ^ file_info._word_count)) {
+            file.close();
+            return false;
+        }
+
+        // v2 的真实条数在头后紧跟一个 int32；v0/v1 直接用头里的 int16
+        size_t word_count = 0;
+        if (file_info._this_ver == kVerExtended) {
+            __int32 count32 = 0;
+            if (file_info._word_count != kExtendedMarker || !file.read((char *)&count32, sizeof(count32)) ||
+                count32 <= 0) {
+                file.close();
+                return false;
+            }
+            word_count = static_cast<size_t>(count32);
+        } else if (file_info._word_count > 0) {
+            word_count = static_cast<size_t>(file_info._word_count);
+        } else {
             file.close();
             return false;
         }
 
         info = file_info;
-        if (file_info._this_ver == 0) {
+        if (file_info._this_ver == kVerOld) {
             // old dict format
-            words.resize(file_info._word_count);
-            info._this_ver = 1;
+            words.resize(word_count);
+            info._this_ver = kVerCompact;
             word_t tmp;
             for (size_t i = 0; i < words.size(); i++) {
                 if (!file.read((char *)&tmp, sizeof(tmp))) {
@@ -455,9 +503,9 @@ struct Dictionary {
             }
             info._check_code = info._this_ver ^ info._word_count;
             // file.read((char*)&words[0], sizeof(word_t)*info._word_count);
-        } else if (file_info._this_ver == 1) {
-            // new dict format
-            words.resize(file_info._word_count);
+        } else if (file_info._this_ver == kVerCompact || file_info._this_ver == kVerExtended) {
+            // new dict format（v1 与 v2 的条目布局完全一致，只差条数编码）
+            words.resize(word_count);
             word1_info head;
             for (size_t i = 0; i < words.size(); i++) {
                 if (!file.read((char *)&head, sizeof(head))) {
@@ -494,10 +542,20 @@ struct Dictionary {
         if (!read_bytes(buf, size, offset, &file_info, sizeof(file_info)))
             return false;
 
+        size_t word_count = 0;
+        if (file_info._this_ver == kVerExtended) {
+            if (!read_extended_count(buf, size, offset, word_count)) {
+                clear();
+                return false;
+            }
+        } else {
+            word_count = static_cast<size_t>(file_info._word_count);
+        }
+
         info = file_info;
-        words.resize(static_cast<size_t>(file_info._word_count));
-        if (file_info._this_ver == 0) {
-            info._this_ver = 1;
+        words.resize(word_count);
+        if (file_info._this_ver == kVerOld) {
+            info._this_ver = kVerCompact;
             word_t tmp;
             for (size_t i = 0; i < words.size(); ++i) {
                 if (!read_bytes(buf, size, offset, &tmp, sizeof(tmp))) {
@@ -507,7 +565,7 @@ struct Dictionary {
                 words[i].from_word(tmp);
             }
             info._check_code = info._this_ver ^ info._word_count;
-        } else if (file_info._this_ver == 1) {
+        } else if (file_info._this_ver == kVerCompact || file_info._this_ver == kVerExtended) {
             word1_info head;
             for (size_t i = 0; i < words.size(); ++i) {
                 if (!read_bytes(buf, size, offset, &head, sizeof(head))) {
@@ -589,12 +647,17 @@ struct Dictionary {
         }
     }
 
-    bool write_dict(const std::wstring &s) {
-        std::fstream file;
-        file.open(s, std::ios::out | std::ios::binary);
-        if (!file.is_open())
-            return false;
+    // 写 .dict 文件。
+    // 返回：成功 true / 失败 false。*dropped 回传被剔除的空名字条数。
+    // 空名字条无法用 v1/v2 布局表达，历来在写入时静默剔除 —— 这里把剔除数交给调用方，
+    // 并在「一条都不剩」时返回失败：否则会出现「SaveDict 报成功、SetDict 读回 0 条」。
+    // 条数超过 32767 才写 v2（头后多一个 int32），否则仍写 v1，保证旧 DLL 能读。
+    bool write_dict(const std::wstring &s, long *dropped = nullptr) {
+        if (dropped)
+            *dropped = 0;
+
         // 删除所有空的字符
+        const size_t before = words.size();
         auto it = words.begin();
         while (it != words.end()) {
             if (it->info.name[0] == L'\0')
@@ -602,20 +665,40 @@ struct Dictionary {
             else
                 ++it;
         }
-        info._word_count = static_cast<decltype(info._word_count)>(words.size());
+        if (dropped)
+            *dropped = static_cast<long>(before - words.size());
+
+        // 没有一条能写出去：返回失败，绝不留下空文件骗调用方
+        if (words.empty())
+            return false;
+
+        std::fstream file;
+        file.open(s, std::ios::out | std::ios::binary);
+        if (!file.is_open())
+            return false;
+
+        const bool extended = words.size() > kCompactMaxWords;
+        info._this_ver = extended ? kVerExtended : kVerCompact;
+        info._word_count = extended ? kExtendedMarker : static_cast<decltype(info._word_count)>(words.size());
         // 设置校验
 
         info._check_code = info._this_ver ^ info._word_count;
         // 写入信息
         file.write((char *)&info, sizeof(info));
+        if (extended) {
+            const __int32 count32 = static_cast<__int32>(words.size());
+            file.write((char *)&count32, sizeof(count32));
+        }
         // 写入数据
         for (size_t i = 0; i < words.size(); i++) {
             file.write((char *)&words[i].info, sizeof(word1_info));
             file.write((char *)words[i].data.data(), static_cast<std::streamsize>(words[i].data.size()));
         }
+        const bool written_ok = file.good();
         file.close();
-        return true;
+        return written_ok;
     }
+    // 从二值图切出的新字形先以空名入库，名字由「取字」阶段补上。
     void add_word(const ImageBin &binary, const rect_t &rc) {
         word1_t word;
         word.from_binary(binary, rc);
@@ -624,7 +707,6 @@ struct Dictionary {
             word.set_chars(L"");
 
             words.push_back(word);
-            info._word_count = static_cast<decltype(info._word_count)>(words.size());
         } else { // only change char
             // word.set_chars(c);
         }
@@ -639,14 +721,18 @@ struct Dictionary {
         });
     }
 
-    void add_word(const word1_t &word) {
+    // 返回 1 = 新增一条，0 = 点阵已存在（此时只在点阵原有名字为空时补名字）。
+    int add_word(const word1_t &word) {
         auto it = find(word);
         if (words.empty() || it == words.end()) {
             words.push_back(word);
-        } else {
-            it->set_chars(word.info.name);
+            return 1;
         }
-        info._word_count = static_cast<decltype(info._word_count)>(words.size());
+        // 只有新名字非空才覆盖。空名覆盖会把已有标注擦成空串，
+        // 随后 write_dict 又把它当空名剔除 → 「内存 1 条、文件 0 条」。
+        if (word.info.name[0] != L'\0')
+            it->set_chars(word.info.name);
+        return 0;
     }
     void clear() {
         info._word_count = 0;
@@ -663,11 +749,12 @@ struct Dictionary {
         auto it = find(word);
         if (!words.empty() && it != words.end())
             words.erase(it);
-        info._word_count = static_cast<decltype(info._word_count)>(words.size());
     }
 
+    // 内存里的条数直接取自容器：`info._word_count` 是 int16，超过 32767 会溢出成负数，
+    // 只能表示「文件里的 v1 条数」，不能当运行时真值。
     int size() const {
-        return info._word_count;
+        return static_cast<int>(words.size());
     }
 
     bool empty() const {

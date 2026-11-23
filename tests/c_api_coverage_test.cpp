@@ -203,10 +203,11 @@ TEST(CoverageQRCodeTest, InvalidInputsAreSafe) {
     const std::wstring path = test_support::GetTempBmpPath(L"__coverage_qr_empty.png");
     ::DeleteFileW(path.c_str());
     EXPECT_EQ(0, OpCreateQRCode(api.handle, L"", path.c_str(), 128));
-    // 未绑定窗口的屏幕版 -> 空串
-    const wchar_t *screen = OpDecodeQRCode(api.handle, 0, 0, 10, 10);
+    // 屏幕版空区域（x2<x1）-> 空串；非空区域走桌面兜底截屏，内容不可控，只判指针合法。
+    const wchar_t *screen = OpDecodeQRCode(api.handle, 10, 10, 5, 5);
     ASSERT_NE(nullptr, screen);
     EXPECT_STREQ(L"", screen);
+    EXPECT_NE(nullptr, OpDecodeQRCode(api.handle, 0, 0, 10, 10));
 }
 
 // 屏幕区域版：建窗口贴图 -> gdi 绑定 -> 按客户区解码。
@@ -333,20 +334,27 @@ TEST(CoverageOcrColorTest, FromFileWithColorBinaries) {
 
 TEST(CoverageOcrColorTest, AutoOcrLineIsAliasForBothBranches) {
     CApiHandle api;
-    // 未绑定窗口：两个分支都返回空串，但必须不崩（覆盖分发逻辑本身）
-    const wchar_t *no_color = OpAutoOcrLine(api.handle, 0, 0, 10, 10, L"", 0.9);
-    ASSERT_NE(nullptr, no_color);
-    EXPECT_STREQ(L"", no_color);
-    const wchar_t *with_color = OpAutoOcrLine(api.handle, 0, 0, 10, 10, L"FFFFFF-303030", 0.9);
-    ASSERT_NE(nullptr, with_color);
-    EXPECT_STREQ(L"", with_color);
+    // 口径（2026-11-23 改）：本用例只验「color 空 / 非空」两条分发路径都跑完并返回合法串。
+    // 靶子用**倒置区域**（x2<x1）：with_captured_region 因宽高<=0 不执行识别回调，恒返空串，
+    // 与桌面像素无关。旧版用未绑定的 10×10 会走 check_bind() 的"桌面兜底截屏"，
+    // 颜色分支实测返回 "1"（桌面左上角有像素被判成字），随前台画面变化 → 长期假红。
+    for (const wchar_t *color : {L"", L"FFFFFF-303030"}) {
+        const wchar_t *empty_area = OpAutoOcrLine(api.handle, 10, 10, 5, 5, color, 0.9);
+        ASSERT_NE(nullptr, empty_area) << "color=" << color;
+        EXPECT_STREQ(L"", empty_area) << "空区域必须返空串, color=" << color;
+    }
+    // 桌面兜底分支（未绑定 → 自动绑桌面）：只验不崩 + 返回非空指针，内容不可控故不断言。
+    EXPECT_NE(nullptr, OpAutoOcrLine(api.handle, 0, 0, 10, 10, L"", 0.9));
+    EXPECT_NE(nullptr, OpAutoOcrLine(api.handle, 0, 0, 10, 10, L"FFFFFF-303030", 0.9));
 }
 
-TEST(CoverageOcrColorTest, OcrAutoColorUnboundReturnsEmpty) {
+// 空区域（x2<x1）→ 恒不识别，与桌面像素无关；未绑定 + 非空区域的"桌面兜底"只验不崩。
+TEST(CoverageOcrColorTest, OcrAutoColorEmptyAreaReturnsEmpty) {
     CApiHandle api;
-    const wchar_t *text = OpOcrAutoColor(api.handle, 0, 0, 10, 10, L"FFFFFF-303030", 0.9);
+    const wchar_t *text = OpOcrAutoColor(api.handle, 10, 10, 5, 5, L"FFFFFF-303030", 0.9);
     ASSERT_NE(nullptr, text);
     EXPECT_STREQ(L"", text);
+    EXPECT_NE(nullptr, OpOcrAutoColor(api.handle, 0, 0, 10, 10, L"FFFFFF-303030", 0.9));
 }
 
 // ===================== 组合键 =====================

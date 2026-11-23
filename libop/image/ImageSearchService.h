@@ -64,7 +64,13 @@ class ImageSearchService : public ImageSearchAlgorithms {
 
     long UseDict(int idx);
 
+    // dict_info 支持多行（换行分隔，每行一条）。**全成功才入库**：任一行解析失败 → 整批不写入并返回 0，
+    // 避免「前 499 条进库、第 500 条格式错」这种半成功状态（旧实现逐条调用才会这样）。
+    // 返回成功处理的行数：单行成功 = 1（与旧行为一致）；点阵重复的行也是合法输入，照常计数。
     long AddDict(long idx, const wstring &dict_info);
+
+    // 按点阵删除字条（字条靠点阵唯一，名字只是标注）。返回删除条数（0 或 1）。
+    long RemoveDict(long idx, const wstring &dict_info);
 
     long SaveDict(long idx, const wstring &file_name);
 

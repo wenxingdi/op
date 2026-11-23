@@ -3039,3 +3039,84 @@ TEST(ImageColorTest, AutoOcrFacadeDispatchesByColor) {
     op.AutoOcr(0, 0, width, height, nullptr, 1.0, via_facade);
     EXPECT_EQ(via_facade, via_explicit) << "nullptr 颜色须等价空串";
 }
+
+TEST(ImageColorTest, HexColorConversionsParseAndFailGracefully) {
+    CApiHandle api;
+    int r = -1, g = -1, b = -1, a = -1;
+
+    EXPECT_EQ(OpHex2RGB(api.handle, L"FF8000", &r, &g, &b), 1);
+    EXPECT_EQ(r, 255);
+    EXPECT_EQ(g, 128);
+    EXPECT_EQ(b, 0);
+
+    // # / 0x 前缀、大小写、空白、-delta 后缀
+    EXPECT_EQ(OpHex2RGB(api.handle, L"  #00ff00  ", &r, &g, &b), 1);
+    EXPECT_EQ(r, 0);
+    EXPECT_EQ(g, 255);
+    EXPECT_EQ(b, 0);
+    EXPECT_EQ(OpHex2RGB(api.handle, L"0x0000FF", &r, &g, &b), 1);
+    EXPECT_EQ(b, 255);
+    EXPECT_EQ(OpHex2RGB(api.handle, L"FF8000-101010", &r, &g, &b), 1);
+    EXPECT_EQ(r, 255);
+    EXPECT_EQ(g, 128);
+    EXPECT_EQ(b, 0);
+
+    // 8 位按 AARRGGBB；6 位 alpha=255
+    EXPECT_EQ(OpHex2ARGB(api.handle, L"80FF0000", &a, &r, &g, &b), 1);
+    EXPECT_EQ(a, 128);
+    EXPECT_EQ(r, 255);
+    EXPECT_EQ(g, 0);
+    EXPECT_EQ(b, 0);
+    EXPECT_EQ(OpHex2ARGB(api.handle, L"FF8000", &a, &r, &g, &b), 1);
+    EXPECT_EQ(a, 255);
+
+    // 非法输入：返回 0 且出参清零（不能残留上一次结果）
+    EXPECT_EQ(OpHex2RGB(api.handle, L"", &r, &g, &b), 0);
+    EXPECT_EQ(r, 0);
+    EXPECT_EQ(g, 0);
+    EXPECT_EQ(b, 0);
+    EXPECT_EQ(OpHex2ARGB(api.handle, L"12345", &a, &r, &g, &b), 0);
+    EXPECT_EQ(a, 0);
+    EXPECT_EQ(OpHex2RGB(api.handle, L"GGGGGG", &r, &g, &b), 0);
+}
+
+TEST(ImageColorTest, ArgbHexAndColorHexClampComponents) {
+    CApiHandle api;
+    EXPECT_STREQ(OpARGB2Hex(api.handle, 255, 255, 128, 0), L"FFFF8000");
+    // 越界分量截断到 0/255，负数不能回绕成大数
+    EXPECT_STREQ(OpARGB2Hex(api.handle, 300, 300, -5, 300), L"FFFF00FF");
+    EXPECT_STREQ(OpGetColorHex(api.handle, 255, 128, 0), L"FF8000");
+    EXPECT_STREQ(OpGetColorHex(api.handle, 0, 0, 0), L"000000");
+    EXPECT_STREQ(OpGetColorHex(api.handle, -1, 256, 16), L"00FF10");
+}
+
+TEST(ImageColorTest, RgbToHsvPrimaryColors) {
+    CApiHandle api;
+    double h = -1.0, s = -1.0, v = -1.0;
+
+    EXPECT_EQ(OpRGB2HSV(api.handle, 255, 0, 0, &h, &s, &v), 1);
+    EXPECT_DOUBLE_EQ(h, 0.0);
+    EXPECT_DOUBLE_EQ(s, 100.0);
+    EXPECT_DOUBLE_EQ(v, 100.0);
+
+    EXPECT_EQ(OpRGB2HSV(api.handle, 0, 255, 0, &h, &s, &v), 1);
+    EXPECT_DOUBLE_EQ(h, 120.0);
+    EXPECT_EQ(OpRGB2HSV(api.handle, 0, 0, 255, &h, &s, &v), 1);
+    EXPECT_DOUBLE_EQ(h, 240.0);
+
+    // 灰度：H=0，S=0；白色 V=100，黑色 V=0
+    EXPECT_EQ(OpRGB2HSV(api.handle, 255, 255, 255, &h, &s, &v), 1);
+    EXPECT_DOUBLE_EQ(h, 0.0);
+    EXPECT_DOUBLE_EQ(s, 0.0);
+    EXPECT_DOUBLE_EQ(v, 100.0);
+    EXPECT_EQ(OpRGB2HSV(api.handle, 0, 0, 0, &h, &s, &v), 1);
+    EXPECT_DOUBLE_EQ(v, 0.0);
+
+    // 与 hex 路径同口径
+    EXPECT_EQ(OpHex2HSV(api.handle, L"00FF00", &h, &s, &v), 1);
+    EXPECT_DOUBLE_EQ(h, 120.0);
+    EXPECT_DOUBLE_EQ(s, 100.0);
+    EXPECT_DOUBLE_EQ(v, 100.0);
+    EXPECT_EQ(OpHex2HSV(api.handle, L"bad", &h, &s, &v), 0);
+    EXPECT_DOUBLE_EQ(h, 0.0);
+}

@@ -416,6 +416,26 @@ const wchar_t *OP_CALL OpSortPosDistance(op_handle handle, const wchar_t *all_po
     });
 }
 
+const wchar_t *OP_CALL OpExcludePos(op_handle handle, const wchar_t *all_pos, int type,
+                                   const wchar_t *exclude_rects, int *count) {
+    out_int(count, 0);
+    return call_string(handle, [&](op::Op &op, std::wstring &out) {
+        long kept = 0;
+        op.ExcludePos(safe_text(all_pos), type, safe_text(exclude_rects), out, &kept);
+        out_int(count, kept);
+    });
+}
+
+const wchar_t *OP_CALL OpGetDenseRect(op_handle handle, const wchar_t *all_pos, int type, int width, int height,
+                                      int *count) {
+    out_int(count, 0);
+    return call_string(handle, [&](op::Op &op, std::wstring &out) {
+        long hits = 0;
+        op.GetDenseRect(safe_text(all_pos), type, width, height, out, &hits);
+        out_int(count, hits);
+    });
+}
+
 // Window and process
 
 const wchar_t *OP_CALL OpEnumWindow(op_handle handle, intptr_t parent, const wchar_t *title,
@@ -759,6 +779,134 @@ const wchar_t *OP_CALL OpBase64Decode(op_handle handle, const wchar_t *base64) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.Base64Decode(safe_text(base64), ret); });
 }
 
+const wchar_t *OP_CALL OpSha256(op_handle handle, const wchar_t *text) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.Sha256(safe_text(text), ret); });
+}
+
+const wchar_t *OP_CALL OpHmacSha256(op_handle handle, const wchar_t *key, const wchar_t *text) {
+    return call_string(handle,
+                       [&](op::Op &op, std::wstring &ret) { op.HmacSha256(safe_text(key), safe_text(text), ret); });
+}
+
+const wchar_t *OP_CALL OpGenerateRandomBytes(op_handle handle, int length) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.GenerateRandomBytes(length, ret); });
+}
+
+const wchar_t *OP_CALL OpGenerateGuid(op_handle handle) {
+    return call_string(handle, [](op::Op &op, std::wstring &ret) { op.GenerateGuid(ret); });
+}
+
+// ---- 加密补全 + 注册表 + 全局热键（2026-11-23）----
+const wchar_t *OP_CALL OpAesEncrypt(op_handle handle, const wchar_t *text, const wchar_t *password) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.AesEncrypt(safe_text(text), safe_text(password), ret);
+    });
+}
+
+const wchar_t *OP_CALL OpAesDecrypt(op_handle handle, const wchar_t *base64, const wchar_t *password) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.AesDecrypt(safe_text(base64), safe_text(password), ret);
+    });
+}
+
+const wchar_t *OP_CALL OpPbkdf2Sha256(op_handle handle, const wchar_t *password, const wchar_t *salt, int iterations,
+                                      int length) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.Pbkdf2Sha256(safe_text(password), safe_text(salt), iterations, length, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpMd5File(op_handle handle, const wchar_t *file_name) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.Md5File(safe_text(file_name), ret); });
+}
+
+const wchar_t *OP_CALL OpSha1File(op_handle handle, const wchar_t *file_name) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.Sha1File(safe_text(file_name), ret); });
+}
+
+const wchar_t *OP_CALL OpSha256File(op_handle handle, const wchar_t *file_name) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.Sha256File(safe_text(file_name), ret); });
+}
+
+const wchar_t *OP_CALL OpRsaEncrypt(op_handle handle, const wchar_t *text, const wchar_t *public_key_pem) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.RsaEncrypt(safe_text(text), safe_text(public_key_pem), ret);
+    });
+}
+
+const wchar_t *OP_CALL OpRsaDecrypt(op_handle handle, const wchar_t *base64, const wchar_t *private_key_pem) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) {
+        op.RsaDecrypt(safe_text(base64), safe_text(private_key_pem), ret);
+    });
+}
+
+const wchar_t *OP_CALL OpRegistryReadString(op_handle handle, const wchar_t *path, const wchar_t *name, int *ret) {
+    if (!handle)
+        return L"";
+    CallScope scope(handle);
+    try {
+        handle->string_result.clear();
+        long ok = 0;
+        handle->op.RegistryReadString(safe_text(path), safe_text(name), handle->string_result, &ok);
+        if (ret)
+            *ret = static_cast<int>(ok);
+        return handle->string_result.c_str();
+    } catch (...) {
+        if (ret)
+            *ret = 0;
+        return L"";
+    }
+}
+
+int OP_CALL OpRegistryWriteString(op_handle handle, const wchar_t *path, const wchar_t *name, const wchar_t *value) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.RegistryWriteString(safe_text(path), safe_text(name), safe_text(value), ret);
+    });
+}
+
+int OP_CALL OpRegistryReadDword(op_handle handle, const wchar_t *path, const wchar_t *name, int *value) {
+    if (value)
+        *value = 0;
+    if (!handle)
+        return 0;
+    CallScope scope(handle);
+    try {
+        long v = 0;
+        long ok = 0;
+        handle->op.RegistryReadDword(safe_text(path), safe_text(name), &v, &ok);
+        if (value)
+            *value = static_cast<int>(v);
+        return static_cast<int>(ok);
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpRegistryReadDword: %s", e.what());
+        return 0;
+    } catch (...) {
+        return 0;
+    }
+}
+
+int OP_CALL OpRegistryWriteDword(op_handle handle, const wchar_t *path, const wchar_t *name, int value) {
+    return call_ret(handle,
+                    [&](op::Op &op, long *ret) { op.RegistryWriteDword(safe_text(path), safe_text(name), value, ret); });
+}
+
+int OP_CALL OpHotkeyRegister(op_handle handle, int id, int modifiers, int vk) {
+    return call_ret(handle,
+                    [&](op::Op &op, long *ret) { op.HotkeyRegister(id, modifiers, vk, ret); });
+}
+
+int OP_CALL OpHotkeyUnregister(op_handle handle, int id) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.HotkeyUnregister(id, ret); });
+}
+
+int OP_CALL OpHotkeyPoll(op_handle handle, int timeout_ms) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.HotkeyPoll(timeout_ms, ret); });
+}
+
+int OP_CALL OpHotkeyUnregisterAll(op_handle handle) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.HotkeyUnregisterAll(ret); });
+}
+
 // 并发诊断（批 A 2026-11-22）。
 // 注意：本接口自身也走 CallScope，所以它读到的 in_flight 至少是 1（它自己）。
 // 判断是否并发请看 reentrant / peak，不要用 in_flight == 1。
@@ -821,6 +969,80 @@ int OP_CALL OpDrawGetCount(op_handle handle, int *screen_count, int *bind_count)
     out_int(screen_count, sc);
     out_int(bind_count, bc);
     return rc;
+}
+
+// ---- 批 G（2026-11-23）：绘制状态 + 绑定层画图 + 图片句柄上屏 ----
+int OP_CALL OpDrawSetColor(op_handle handle, const wchar_t *color) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawSetColor(safe_text(color), ret); });
+}
+
+int OP_CALL OpDrawSetFill(op_handle handle, int enable, const wchar_t *color) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawSetFill(enable, safe_text(color), ret); });
+}
+
+int OP_CALL OpDrawImageEx(op_handle handle, int x, int y, const wchar_t *file_name, int alpha) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawImageEx(x, y, safe_text(file_name), alpha, ret); });
+}
+
+int OP_CALL OpDrawImageFromHandle(op_handle handle, int x, int y, const wchar_t *image_handle, int alpha) {
+    return call_ret(
+        handle, [&](op::Op &op, long *ret) { op.DrawImageFromHandle(x, y, safe_text(image_handle), alpha, ret); });
+}
+
+// ---- 批 G2（2026-11-23）：标签替换 ----
+int OP_CALL OpDrawRectTag(op_handle handle, const wchar_t *tag, int x1, int y1, int x2, int y2, const wchar_t *color,
+                          int width) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.DrawRectTag(safe_text(tag), x1, y1, x2, y2, safe_text(color), width, ret);
+    });
+}
+
+int OP_CALL OpDrawRectExTag(op_handle handle, const wchar_t *tag, int x, int y, int width, int height, int mode,
+                            int line_width) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.DrawRectExTag(safe_text(tag), x, y, width, height, mode, line_width, ret);
+    });
+}
+
+int OP_CALL OpDrawRemoveTag(op_handle handle, const wchar_t *tag) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.DrawRemoveTag(safe_text(tag), ret); });
+}
+
+// ---- 批 H（2026-11-23）：UIA 元素层 ----
+const wchar_t *OP_CALL OpUiaDump(op_handle handle, intptr_t hwnd, int max_depth) {
+    return call_json_string(handle, kJsonFailure,
+                            [&](op::Op &op, std::wstring &ret) { op.UiaDump(hwnd, max_depth, ret); });
+}
+
+const wchar_t *OP_CALL OpUiaFind(op_handle handle, intptr_t hwnd, const wchar_t *selector, int timeout_ms) {
+    return call_json_string(handle, kJsonFailure, [&](op::Op &op, std::wstring &ret) {
+        op.UiaFind(hwnd, safe_text(selector), timeout_ms, ret);
+    });
+}
+
+const wchar_t *OP_CALL OpUiaFromPoint(op_handle handle, int x, int y) {
+    return call_json_string(handle, kJsonFailure,
+                            [&](op::Op &op, std::wstring &ret) { op.UiaFromPoint(x, y, ret); });
+}
+
+int OP_CALL OpUiaInvoke(op_handle handle, int element_id) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.UiaInvoke(element_id, ret); });
+}
+
+const wchar_t *OP_CALL OpUiaGetValue(op_handle handle, int element_id) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.UiaGetValue(element_id, ret); });
+}
+
+int OP_CALL OpUiaSetValue(op_handle handle, int element_id, const wchar_t *value) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.UiaSetValue(element_id, safe_text(value), ret); });
+}
+
+int OP_CALL OpUiaRelease(op_handle handle, int element_id) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.UiaRelease(element_id, ret); });
+}
+
+int OP_CALL OpUiaReleaseAll(op_handle handle) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.UiaReleaseAll(ret); });
 }
 
 // Background binding
@@ -1124,6 +1346,68 @@ const wchar_t *OP_CALL OpFindColorBlockEx(op_handle handle, int x1, int y1, int 
 
 const wchar_t *OP_CALL OpGetColor(op_handle handle, int x, int y) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.GetColor(x, y, ret); });
+}
+
+int OP_CALL OpHex2RGB(op_handle handle, const wchar_t *color, int *r, int *g, int *b) {
+    out_int(r, 0);
+    out_int(g, 0);
+    out_int(b, 0);
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        long rr = 0, gg = 0, bb = 0;
+        op.Hex2RGB(safe_text(color), &rr, &gg, &bb, ret);
+        out_int(r, rr);
+        out_int(g, gg);
+        out_int(b, bb);
+    });
+}
+
+int OP_CALL OpHex2ARGB(op_handle handle, const wchar_t *color, int *a, int *r, int *g, int *b) {
+    out_int(a, 0);
+    out_int(r, 0);
+    out_int(g, 0);
+    out_int(b, 0);
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        long aa = 0, rr = 0, gg = 0, bb = 0;
+        op.Hex2ARGB(safe_text(color), &aa, &rr, &gg, &bb, ret);
+        out_int(a, aa);
+        out_int(r, rr);
+        out_int(g, gg);
+        out_int(b, bb);
+    });
+}
+
+const wchar_t *OP_CALL OpARGB2Hex(op_handle handle, int a, int r, int g, int b) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.ARGB2Hex(a, r, g, b, ret); });
+}
+
+int OP_CALL OpRGB2HSV(op_handle handle, int r, int g, int b, double *h, double *s, double *v) {
+    out_value(h, 0.0);
+    out_value(s, 0.0);
+    out_value(v, 0.0);
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        double hh = 0.0, ss = 0.0, vv = 0.0;
+        op.RGB2HSV(r, g, b, &hh, &ss, &vv, ret);
+        out_value(h, hh);
+        out_value(s, ss);
+        out_value(v, vv);
+    });
+}
+
+int OP_CALL OpHex2HSV(op_handle handle, const wchar_t *color, double *h, double *s, double *v) {
+    out_value(h, 0.0);
+    out_value(s, 0.0);
+    out_value(v, 0.0);
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        double hh = 0.0, ss = 0.0, vv = 0.0;
+        op.Hex2HSV(safe_text(color), &hh, &ss, &vv, ret);
+        out_value(h, hh);
+        out_value(s, ss);
+        out_value(v, vv);
+    });
+}
+
+const wchar_t *OP_CALL OpGetColorHex(op_handle handle, int r, int g, int b) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.GetColorHex(r, g, b, ret); });
 }
 
 int OP_CALL OpGetColorNum(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color, double sim) {
@@ -1551,6 +1835,10 @@ int OP_CALL OpUseDict(op_handle handle, int idx) {
 
 int OP_CALL OpAddDict(op_handle handle, int idx, const wchar_t *dict_info) {
     return call_ret(handle, [&](op::Op &op, long *ret) { op.AddDict(idx, safe_text(dict_info), ret); });
+}
+
+int OP_CALL OpRemoveDict(op_handle handle, int idx, const wchar_t *dict_info) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.RemoveDict(idx, safe_text(dict_info), ret); });
 }
 
 int OP_CALL OpSaveDict(op_handle handle, int idx, const wchar_t *file_name) {
@@ -2682,8 +2970,158 @@ const wchar_t *OP_CALL OpYoloSegmentFromFile(op_handle handle, const wchar_t *fi
     }
 }
 
+const wchar_t *OP_CALL OpYoloPose(op_handle handle, int x1, int y1, int x2, int y2, double conf, double iou,
+                                  int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloPose(x1, y1, x2, y2, conf, iou, handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloPose: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloPoseFromFile(op_handle handle, const wchar_t *file_name, double conf, double iou,
+                                          int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloPoseFromFile(safe_text(file_name), conf, iou, handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloPoseFromFile: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloObb(op_handle handle, int x1, int y1, int x2, int y2, double conf, double iou,
+                                 int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloObb(x1, y1, x2, y2, conf, iou, handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloObb: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloObbFromFile(op_handle handle, const wchar_t *file_name, double conf, double iou,
+                                         int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloObbFromFile(safe_text(file_name), conf, iou, handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloObbFromFile: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
 const wchar_t *OP_CALL OpYoloGetModelInfo(op_handle handle) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.YoloGetModelInfo(ret); });
+}
+
+// ---- YOLO 模型平台（2026-11-23）----
+const wchar_t *OP_CALL OpYoloLoadModel(op_handle handle, const wchar_t *name, const wchar_t *path, const wchar_t *argv,
+                                       int *ret) {
+    if (!handle) {
+        out_int(ret, 0);
+        return L"{\"ok\":0,\"error\":\"invalid_handle\"}";
+    }
+    CallScope scope(handle);
+    try {
+        handle->string_result.clear();
+        long ok = 0;
+        handle->op.YoloLoadModel(safe_text(name), safe_text(path), safe_text(argv), handle->string_result, &ok);
+        out_int(ret, ok);
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloLoadModel: %s", e.what());
+        out_int(ret, 0);
+        return L"{\"ok\":0,\"error\":\"exception\"}";
+    } catch (...) {
+        out_int(ret, 0);
+        return L"{\"ok\":0,\"error\":\"exception\"}";
+    }
+}
+
+int OP_CALL OpYoloUseModel(op_handle handle, const wchar_t *name) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.YoloUseModel(safe_text(name), ret); });
+}
+
+int OP_CALL OpYoloReleaseModel(op_handle handle, const wchar_t *name) {
+    return call_ret(handle, [&](op::Op &op, long *ret) { op.YoloReleaseModel(safe_text(name), ret); });
+}
+
+const wchar_t *OP_CALL OpYoloListModels(op_handle handle) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.YoloListModels(ret); });
+}
+
+const wchar_t *OP_CALL OpYoloListDevices(op_handle handle) {
+    return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.YoloListDevices(ret); });
+}
+
+int OP_CALL OpYoloEncryptModel(op_handle handle, const wchar_t *src_path, const wchar_t *dst_path,
+                               const wchar_t *password) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.YoloEncryptModel(safe_text(src_path), safe_text(dst_path), safe_text(password), ret);
+    });
+}
+
+int OP_CALL OpYoloDecryptModel(op_handle handle, const wchar_t *src_path, const wchar_t *dst_path,
+                               const wchar_t *password) {
+    return call_ret(handle, [&](op::Op &op, long *ret) {
+        op.YoloDecryptModel(safe_text(src_path), safe_text(dst_path), safe_text(password), ret);
+    });
 }
 
 // ---- 汇编模块（批 D 2026-11-22）----
@@ -2717,10 +3155,10 @@ const wchar_t *OP_CALL OpAssemble(op_handle handle, const wchar_t *asm_text, int
 }
 
 const wchar_t *OP_CALL OpDisassemble(op_handle handle, const wchar_t *bytes_hex, const wchar_t *address, int count,
-                                     int *ret) {
+                                     int arch, int *ret) {
     return call_string(handle, [&](op::Op &op, std::wstring &out) {
         long ok = 0;
-        const long rc = op.Disassemble(safe_text(bytes_hex), safe_text(address), count, out, &ok);
+        const long rc = op.Disassemble(safe_text(bytes_hex), safe_text(address), count, arch, out, &ok);
         out_int(ret, rc > 0 ? ok : 0);
     });
 }
@@ -2732,12 +3170,18 @@ const wchar_t *OP_CALL OpDisassemble(op_handle handle, const wchar_t *bytes_hex,
 // 直接 reinterpret_cast 即可，不需要再做一层胶水（多一层就多一处可能写错签名的地方）。
 extern "C" {
 int OP_CALL OpInputSyncEnable(op_handle handle, int enable, int *ret) {
-    return call_ret(handle, [&](op::Op &op, long *r) { op.InputSyncEnable(enable, r); });
+    out_int(ret, 0);
+    return call_ret(handle, [&](op::Op &op, long *r) {
+        op.InputSyncEnable(enable, r);
+        out_int(ret, *r);
+    });
 }
 
 int OP_CALL OpSetInputMonitor(op_handle handle, op_input_monitor_callback callback, void *user, int *ret) {
+    out_int(ret, 0);
     return call_ret(handle, [&](op::Op &op, long *r) {
         op.SetInputMonitor(reinterpret_cast<op::Op::InputMonitorCallback>(callback), user, r);
+        out_int(ret, *r);
     });
 }
 
@@ -2795,7 +3239,11 @@ const wchar_t *OP_CALL OpInputPlayback(op_handle handle, int action, const wchar
 }
 
 int OP_CALL OpInputSyncLink(op_handle handle, int master, int slave, int enable, int *ret) {
-    return call_ret(handle, [&](op::Op &op, long *r) { op.InputSyncLink(master, slave, enable, r); });
+    out_int(ret, 0);
+    return call_ret(handle, [&](op::Op &op, long *r) {
+        op.InputSyncLink(master, slave, enable, r);
+        out_int(ret, *r);
+    });
 }
 
 const wchar_t *OP_CALL OpInputSyncStatus(op_handle handle) {

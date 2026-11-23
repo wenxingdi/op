@@ -12,7 +12,12 @@
 
 #include <gtest/gtest.h>
 
+#include <Windows.h>
+
+#include <fstream>
+#include <iterator>
 #include <string>
+#include <vector>
 
 #include <op_c_api.h>
 
@@ -109,4 +114,231 @@ TEST(DrawBatchTest, ScreenAndBindLayersAreIndependent) {
     ASSERT_EQ(1, OpDrawGetCount(h.handle, &screen_count, &bind_count));
     EXPECT_EQ(1, screen_count) << "DrawClearBind 不能清屏幕层";
     OpDrawClear(h.handle);
+}
+
+// ===================== 批 G（2026-11-23）：状态 / 填充 / 图片 =====================
+
+namespace {
+
+// 绑定层用例需要真实窗口（桌面窗口不可绑）。内容无关，只要客户区存在、能 ClientToScreen。
+struct SimpleWindow {
+    HWND hwnd = nullptr;
+
+    static LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
+        return ::DefWindowProcW(h, m, w, l);
+    }
+
+    bool Create(const wchar_t *cls_name, int client_w, int client_h) {
+        WNDCLASSEXW wc{};
+        wc.cbSize = sizeof(wc);
+        wc.lpfnWndProc = WndProc;
+        wc.hInstance = ::GetModuleHandleW(nullptr);
+        wc.lpszClassName = cls_name;
+        wc.hbrBackground = static_cast<HBRUSH>(::GetStockObject(WHITE_BRUSH));
+        ::RegisterClassExW(&wc);
+        RECT rc{0, 0, client_w, client_h};
+        ::AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME, FALSE);
+        hwnd = ::CreateWindowExW(0, cls_name, L"draw_probe", WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME, 120, 120,
+                                 rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr,
+                                 ::GetModuleHandleW(nullptr), nullptr);
+        if (!hwnd)
+            return false;
+        ::ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+        ::UpdateWindow(hwnd);
+        return true;
+    }
+
+    ~SimpleWindow() {
+        if (hwnd)
+            ::DestroyWindow(hwnd);
+    }
+};
+
+std::vector<char> ReadFileBytes(const std::wstring &path) {
+    std::ifstream f(path, std::ios::binary);
+    return std::vector<char>((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+}
+
+} // namespace
+
+// 状态接口的入参校验：非法色必须显式失败且不改状态。
+TEST(DrawBatchTest, SetColorAndFillStateValidation) {
+    CApiHandle h;
+    ASSERT_NE(nullptr, h.handle);
+
+    EXPECT_EQ(0, OpDrawSetColor(h.handle, L"zzzzzz")) << "非法色应返回 0";
+    EXPECT_EQ(0, OpDrawSetColor(h.handle, L"")) << "空色应返回 0";
+    EXPECT_EQ(0, OpDrawSetColor(h.handle, L"FFFFFFF")) << "超 6 位应返回 0";
+    EXPECT_EQ(1, OpDrawSetColor(h.handle, L"00FF00"));
+
+    EXPECT_EQ(0, OpDrawSetFill(h.handle, 1, L"zzz")) << "非法填充色应返回 0";
+    EXPECT_EQ(1, OpDrawSetFill(h.handle, 1, L"00FF00")) << "6 位 = 自动加 0x66 半透明";
+    EXPECT_EQ(1, OpDrawSetFill(h.handle, 1, L"80FF0000")) << "8 位 = 显式 alpha";
+    EXPECT_EQ(1, OpDrawSetFill(h.handle, 0, L"")) << "关填充不需要颜色";
+    EXPECT_EQ(1, OpDrawSetFill(h.handle, 1, L"")) << "省略颜色 = 沿用当前色";
+
+    // 状态是进程级的，恢复默认免得污染后面的用例
+    OpDrawSetColor(h.handle, L"FFFFFF");
+    OpDrawSetFill(h.handle, 1, L"66FF0000");
+}
+
+// 绑定层：mode 0/1/2/非法值 都要能入队；DrawImageEx 缺文件显式失败且不留图元。
+TEST(DrawBatchTest, BindLayerShapesAndImageWithRealWindow) {
+    CApiHandle h;
+    ASSERT_NE(nullptr, h.handle);
+    SimpleWindow win;
+    ASSERT_TRUE(win.Create(L"OpDrawProbeWindow", 200, 150)) << "创建窗口失败（GDI 环境问题）";
+    if (OpBindWindow(h.handle, reinterpret_cast<intptr_t>(win.hwnd), L"gdi", L"windows", L"windows", 0) != 1)
+        GTEST_SKIP() << "gdi 绑定失败（无桌面会话/前台被占），绑定层绘制跳过";
+
+    int sc = -1, bc = -1;
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    const int base = bc;
+
+    EXPECT_EQ(1, OpDrawRectEx(h.handle, 10, 10, 50, 30, 0, 1)) << "mode=0 纯填充";
+    EXPECT_EQ(1, OpDrawRectEx(h.handle, 10, 10, 50, 30, 2, 2)) << "mode=2 填充+描边";
+    EXPECT_EQ(1, OpDrawRectEx(h.handle, 10, 10, 50, 30, 3, 1)) << "非法 mode 按描边，仍成功";
+    EXPECT_EQ(1, OpDrawCircleEx(h.handle, 20, 20, 10, 2));
+    EXPECT_EQ(1, OpDrawTextEx(h.handle, 5, 5, L"probe", 14));
+
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(base + 5, bc) << "5 个 Ex 图元应全部进绑定层";
+
+    // 缺文件：显式失败 + 不留图元（屏幕层是静默跳过，Ex 系列必须给明确反馈）
+    EXPECT_EQ(0, OpDrawImageEx(h.handle, 0, 0, L"__no_such__.png", 255));
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(base + 5, bc) << "缺文件的 DrawImageEx 不应留下图元";
+
+    const std::wstring bmp = test_support::GetTempBmpPath(L"__draw_probe.bmp");
+    ASSERT_TRUE(test_support::CreateConsoleLikeBmp(bmp, L"ok"));
+    EXPECT_EQ(1, OpDrawImageEx(h.handle, 0, 0, bmp.c_str(), 255));
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(base + 6, bc);
+
+    OpDrawClearBind(h.handle);
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(0, bc) << "DrawClearBind 之后绑定层应为空";
+
+    ::DeleteFileW(bmp.c_str());
+    OpUnBindWindow(h.handle);
+}
+
+// 图片句柄上屏：像素被折进图元，句柄释放后已提交的图元仍然有效。
+TEST(DrawBatchTest, DrawImageFromHandleCopiesPixels) {
+    CApiHandle h;
+    ASSERT_NE(nullptr, h.handle);
+    OpDrawClear(h.handle);
+
+    EXPECT_EQ(0, OpDrawImageFromHandle(h.handle, 0, 0, L"__no_such_handle__", 255)) << "无效句柄应返回 0";
+    EXPECT_EQ(0, OpDrawImageFromHandle(h.handle, 0, 0, L"", 255)) << "空句柄应返回 0";
+
+    const std::wstring bmp = test_support::GetTempBmpPath(L"__draw_handle.bmp");
+    ASSERT_TRUE(test_support::CreateConsoleLikeBmp(bmp, L"909"));
+    const auto bytes = ReadFileBytes(bmp);
+    ASSERT_FALSE(bytes.empty()) << "读 bmp 失败";
+
+    const wchar_t *raw = OpLoadImageBmp(h.handle, bytes.data(), static_cast<int>(bytes.size()));
+    ASSERT_NE(nullptr, raw);
+    // C API 字符串返回值是共享缓冲，必须立刻拷走
+    const std::wstring image_handle(raw);
+    ASSERT_FALSE(image_handle.empty()) << "加载 bmp 失败";
+
+    int sc = -1, bc = -1;
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    const int base = sc;
+    EXPECT_EQ(1, OpDrawImageFromHandle(h.handle, 0, 0, image_handle.c_str(), 200));
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(base + 1, sc) << "图元应进屏幕层";
+
+    // 释放句柄后图元仍在（像素已拷贝，渲染不碰注册表）
+    OpFreeImage(h.handle, image_handle.c_str());
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(base + 1, sc) << "释放图片句柄不应影响已提交的图元";
+
+    OpDrawClear(h.handle);
+    ::DeleteFileW(bmp.c_str());
+}
+
+// G5：图元上限。脚本死循环绘制时内存不能无限涨。
+TEST(DrawBatchTest, ElementCapDropsOldestInsteadOfGrowingForever) {
+    CApiHandle h;
+    ASSERT_NE(nullptr, h.handle);
+    OpDrawClear(h.handle);
+
+    if (OpDrawLine(h.handle, 0, 0, 10, 10, L"FFFFFF", 1) != 1)
+        GTEST_SKIP() << "叠加层不可用（无桌面会话），上限用例跳过";
+
+    for (int i = 0; i < 4200; ++i)
+        OpDrawLine(h.handle, 0, 0, i % 200, 100, L"FFFFFF", 1);
+
+    int sc = -1, bc = -1;
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_LE(sc, 4096) << "上限 4096：超出部分必须裁掉";
+    EXPECT_GE(sc, 4000) << "只裁超出部分，不该一刀切清空";
+    OpDrawClear(h.handle);
+}
+
+// ===================== 批 G2（2026-11-23）：标签替换 =====================
+
+// 同标签重画 = 就地替换（不累积）；不同标签互相独立；DrawRemoveTag 返回删除个数。
+TEST(DrawBatchTest, TagReplacesInsteadOfAccumulating) {
+    CApiHandle h;
+    ASSERT_NE(nullptr, h.handle);
+    OpDrawClear(h.handle);
+
+    if (OpDrawRectTag(h.handle, L"probe_a", 0, 0, 10, 10, L"FF0000", 1) != 1)
+        GTEST_SKIP() << "叠加层不可用（无桌面会话），标签用例跳过";
+
+    int sc = -1, bc = -1;
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(1, sc);
+
+    // 同一 tag 重画 3 次：仍然只有 1 条
+    for (int i = 0; i < 3; ++i)
+        EXPECT_EQ(1, OpDrawRectTag(h.handle, L"probe_a", i, i, i + 10, i + 10, L"00FF00", 1));
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(1, sc) << "同标签必须替换而不是累积";
+
+    EXPECT_EQ(1, OpDrawRectTag(h.handle, L"probe_b", 20, 20, 30, 30, L"0000FF", 1));
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(2, sc) << "不同标签各自保留";
+
+    EXPECT_EQ(0, OpDrawRectTag(h.handle, L"", 0, 0, 1, 1, L"FFFFFF", 1)) << "空标签应返回 0";
+    EXPECT_EQ(0, OpDrawRectTag(h.handle, L"probe_b", 0, 0, 1, 1, L"zzz", 1)) << "非法色应返回 0";
+
+    EXPECT_EQ(1, OpDrawRemoveTag(h.handle, L"probe_a"));
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(1, sc) << "只该删掉 probe_a";
+    EXPECT_EQ(1, OpDrawRemoveTag(h.handle, L"probe_b"));
+    EXPECT_EQ(0, OpDrawRemoveTag(h.handle, L"probe_b")) << "已删过的标签返回 0";
+    EXPECT_EQ(0, OpDrawRemoveTag(h.handle, L"")) << "空标签返回 0";
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(0, sc);
+}
+
+// 绑定层标签：未绑定显式失败；绑定后同 tag 替换、只留一条。
+TEST(DrawBatchTest, BindTagReplaceWithRealWindow) {
+    CApiHandle h;
+    ASSERT_NE(nullptr, h.handle);
+    EXPECT_EQ(0, OpDrawRectExTag(h.handle, L"t", 0, 0, 10, 10, 1, 1)) << "未绑定应显式失败";
+
+    SimpleWindow win;
+    ASSERT_TRUE(win.Create(L"OpDrawProbeWindow2", 200, 150)) << "创建窗口失败（GDI 环境问题）";
+    if (OpBindWindow(h.handle, reinterpret_cast<intptr_t>(win.hwnd), L"gdi", L"windows", L"windows", 0) != 1)
+        GTEST_SKIP() << "gdi 绑定失败，绑定层标签用例跳过";
+
+    int sc = -1, bc = -1;
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    const int base = bc;
+
+    EXPECT_EQ(1, OpDrawRectExTag(h.handle, L"t", 0, 0, 20, 20, 2, 1));
+    EXPECT_EQ(1, OpDrawRectExTag(h.handle, L"t", 5, 5, 20, 20, 0, 1));
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(base + 1, bc) << "同标签重画只该留一条";
+
+    EXPECT_EQ(1, OpDrawRemoveTag(h.handle, L"t"));
+    ASSERT_EQ(1, OpDrawGetCount(h.handle, &sc, &bc));
+    EXPECT_EQ(base, bc);
+
+    OpUnBindWindow(h.handle);
 }

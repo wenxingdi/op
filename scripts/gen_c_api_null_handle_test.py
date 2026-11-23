@@ -45,11 +45,11 @@ NON_EMPTY = {"OpVer"}
 JSON_FAILURE = 'L"{\\"ok\\":0}"'
 
 
-def json_funcs() -> set:
-    """从 op_c_api.cpp 自动识别走 call_json_string 的 API：它们的失败值是 JSON 串而非空串。"""
+def func_bodies() -> dict:
+    """取 op_c_api.cpp 里每个 `OpXxx` 的函数体文本（按大括号配对切，不用定长窗口）。"""
     src = os.path.join(REPO, "libop", "c_api", "op_c_api.cpp")
     text = open(src, "r", encoding="utf-8", errors="replace").read()
-    out = set()
+    out = {}
     for m in re.finditer(r"OP_CALL\s+(Op\w+)\s*\(", text):
         # 只扫描本函数体：从函数头的第一个 '{' 到配对的 '}'。
         # 不能用定长窗口——相邻短函数会把别家的 call_json_string 误算进来
@@ -75,8 +75,40 @@ def json_funcs() -> set:
                     end = i
                     break
             i += 1
-        if "call_json_string" in text[brace:end]:
-            out.add(m.group(1))
+        out[m.group(1)] = text[brace:end]
+    return out
+
+
+def json_funcs(bodies: dict) -> set:
+    """失败值是 JSON 串（而不是空串）的 API。
+
+    两条识别规则：
+      1) 走 call_json_string 包装的（标准路径）；
+      2) 自己手写 null-handle 分支并直接返回 JSON 字面量（形如 L"{\\"ok\\":0,...}"）
+         —— 例如 OpYoloLoadModel：需要同时给出 out 出参与错误码，没法走包装。
+    """
+    out = set()
+    for name, body in bodies.items():
+        if "call_json_string" in body or 'ok\\":0' in body:
+            out.add(name)
+    return out
+
+
+def nullptr_funcs(bodies: dict) -> set:
+    """handle=nullptr 时**明确返回 nullptr** 的 API（`nullptr` 就是它们的"参数非法"失败值）。
+
+    2026-11-23 补：YOLO Ex2/任务维度与 FindStr 系列把 "参数非法" 与 "没结果" 分开表达
+    （契约写着头文件："返回 nullptr = 参数非法"），失败值天然不是空串。此前生成器一律
+    按空串断言，这 13 个函数在 handle=nullptr 用例里长期假红。
+    """
+    out = set()
+    for name, body in bodies.items():
+        probe = body.replace(" ", "").replace("\n", "")
+        idx = probe.find("if(!handle)")
+        if idx < 0:
+            continue
+        if probe[idx:idx + 80].find("returnnullptr") >= 0:
+            out.add(name)
     return out
 
 
@@ -170,7 +202,9 @@ def parse_header() -> list:
 def gen(funcs: list) -> str:
     handle_fns = [f for f in funcs if any(p["type"] == "op_handle" for p in f["params"])]
     free_fns = [f for f in funcs if f not in handle_fns]
-    json_api = json_funcs()
+    bodies = func_bodies()
+    json_api = json_funcs(bodies)
+    nullptr_api = nullptr_funcs(bodies)
 
     L = []
     L.append("// 本文件由 scripts/gen_c_api_null_handle_test.py 从 include/op_c_api.h 生成，**勿手改**。")
@@ -227,7 +261,10 @@ def gen(funcs: list) -> str:
         elif "intptr_t" in ret or "LONG_PTR" in ret or "long long" in ret:
             out.append(f"{indent}EXPECT_EQ({call}, 0) << \"{name}\";")
         elif "wchar_t" in ret and "*" in ret:
-            if name in json_api:
+            if name in nullptr_api:
+                # 契约：这些 API 的失败值就是 nullptr（"参数非法"与"没结果"分开表达）
+                out.append(f"{indent}EXPECT_EQ({call}, nullptr) << \"{name}\";  // 契约：失败值=nullptr")
+            elif name in json_api:
                 # JSON 结果型：失败值是 kJsonFailure（op_c_api.cpp），不是空串
                 out.append(f"{indent}expect_json_failure({call}, \"{name}\");")
             elif name in NON_EMPTY:

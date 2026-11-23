@@ -3310,3 +3310,58 @@ TEST(OpenCvTest, PyramidMatchKeepsAccurateCoordinatesOnLargeImage) {
     EXPECT_GT(match.x, source_width / 2) << "x must be in the right half, not near origin";
     EXPECT_GT(match.y, source_height / 2) << "y must be in the bottom half, not near origin";
 }
+
+// 形态学三模式判别力：1px 竖线会被 open 抹掉（tophat 留下线）、会被 close 加粗（blackhat 留下光晕）；
+// 方块内 1px 黑孔会被 close 填平（blackhat 留下孔）。三个模式若都映射到同一种 cv 操作会立刻失败。
+TEST(OpenCvTest, MorphologyGradientTophatBlackhatDistinguishShapes) {
+    const int width = 24;
+    const int height = 24;
+    std::vector<uchar> bgra(static_cast<size_t>(width) * height * 4, 0);
+    for (size_t i = 3; i < bgra.size(); i += 4)
+        bgra[i] = 255; // alpha 不参与灰度阈值，但保持一致
+    auto put = [&](int x, int y, uchar value) {
+        const size_t idx = (static_cast<size_t>(y) * width + x) * 4;
+        bgra[idx] = bgra[idx + 1] = bgra[idx + 2] = value;
+    };
+    for (int y = 4; y <= 19; ++y)
+        put(3, y, 255); // 1px 白色竖线
+    for (int y = 10; y <= 15; ++y)
+        for (int x = 10; x <= 15; ++x)
+            put(x, y, 255); // 6x6 实心方块（验证 tophat 对实心块不响应）
+    for (int y = 17; y <= 22; ++y)
+        for (int x = 17; x <= 22; ++x)
+            put(x, y, 255); // 第二个方块
+    put(19, 19, 0);     // 孔只开在第二块中心，避免干扰第一块的 opening 结果
+
+    const std::wstring src_path = test_support::GetTempBmpPath(L"opencv_morph_modes_src.bmp");
+    ASSERT_TRUE(WriteBytesToFile(src_path, test_support::BuildBmp32TopDown(width, height, bgra)));
+
+    op::Op op;
+    long ret = 0;
+    auto run = [&](const wchar_t *mode, const wchar_t *file_name) {
+        const std::wstring dst_path = test_support::GetTempBmpPath(file_name);
+        op.CvMorphology(src_path.c_str(), dst_path.c_str(), mode, 3, 1, &ret);
+        EXPECT_EQ(ret, 1) << "morphology mode failed";
+        return cv::imread(std::filesystem::path(dst_path).string(), cv::IMREAD_GRAYSCALE);
+    };
+
+    const cv::Mat gradient = run(L"gradient", L"opencv_morph_gradient.bmp");
+    const cv::Mat tophat = run(L"top_hat", L"opencv_morph_tophat.bmp");
+    const cv::Mat blackhat = run(L"blackhat", L"opencv_morph_blackhat.bmp");
+    ASSERT_FALSE(gradient.empty());
+    ASSERT_FALSE(tophat.empty());
+    ASSERT_FALSE(blackhat.empty());
+
+    // Gradient：1px 线两侧与线中心（dilate=255、erode=0）都亮，远离物体处为 0。
+    EXPECT_GT(gradient.at<uchar>(10, 2), 200);
+    EXPECT_GT(gradient.at<uchar>(10, 3), 200);
+    EXPECT_EQ(gradient.at<uchar>(0, 0), 0);
+
+    // Tophat：细线是"被 open 移除的小物体"，应保留；实心方块内部差值为 0。
+    EXPECT_GT(tophat.at<uchar>(10, 3), 200);
+    EXPECT_EQ(tophat.at<uchar>(11, 11), 0);
+
+    // Blackhat：close 把 1px 黑孔填平 → 孔处亮；线中心 close 与原图一致 → 0。
+    EXPECT_GT(blackhat.at<uchar>(19, 19), 200);
+    EXPECT_EQ(blackhat.at<uchar>(10, 3), 0);
+}

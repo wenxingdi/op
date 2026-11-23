@@ -61,7 +61,21 @@ YoloDetector *YoloDetector::getInstance() {
 
 int YoloDetector::init(const std::wstring &engine, const std::wstring &dllName, const vector<string> &argvs) {
     std::lock_guard<std::mutex> lock(m_mutex);
+    // 旧入口（SetYoloEngine）不注册命名模型：清掉 active 名字，
+    // 否则 YoloListModels 会继续把已不在用的模型标成 active。
+    m_active.clear();
+    return init_locked(engine, dllName, argvs, nullptr);
+}
+
+int YoloDetector::init_locked(const std::wstring &engine, const std::wstring &dllName, const vector<string> &argvs,
+                              const std::vector<uint8_t> *mem) {
 #ifdef OP_ENABLE_HTTP_YOLO_BACKEND
+    // 内存模型只有 ONNX 引擎支持；HTTP 后端没有"上传模型字节"的语义。
+    if (mem) {
+        if (dynamic_cast<OnnxYoloEngine *>(m_engine.get()) == nullptr)
+            m_engine = std::make_unique<OnnxYoloEngine>();
+        return m_engine->init_from_memory(*mem, argvs);
+    }
     // 注意：一旦 init 成功切到 onnx 引擎，后续再调 init("yolo",...) 会切回 HTTP。
     // 这是显式选择，不做粘性记忆。
     if (is_onnx_engine_name(engine)) {
@@ -87,7 +101,7 @@ int YoloDetector::init(const std::wstring &engine, const std::wstring &dllName, 
 #if defined(OP_HAS_ONNX) && OP_HAS_ONNX
     if (dynamic_cast<OnnxYoloEngine *>(m_engine.get()) == nullptr)
         m_engine = std::make_unique<OnnxYoloEngine>();
-    const int rc = m_engine->init(engine, dllName, argvs);
+    const int rc = mem ? m_engine->init_from_memory(*mem, argvs) : m_engine->init(engine, dllName, argvs);
     if (rc != 0) {
         // 加载失败时**必须把引擎置回未加载态**。
         // 原实现直接 return 失败码，但 OnnxYoloEngine::Impl 里上一次成功加载的
@@ -107,13 +121,142 @@ int YoloDetector::init(const std::wstring &engine, const std::wstring &dllName, 
 
 int YoloDetector::release() {
     std::lock_guard<std::mutex> lock(m_mutex);
+    m_active.clear();
+    release_locked();
+    return 0;
+}
+
+void YoloDetector::release_locked() {
     // 释放引擎持有的模型资源（ONNX 会话/内置模型 buffer），回到默认 ONNX 引擎（未加载态）
 #if defined(OP_HAS_ONNX) && OP_HAS_ONNX
     m_engine = std::make_unique<OnnxYoloEngine>();
 #else
     m_engine.reset();
 #endif
+}
+
+void YoloDetector::snapshot_locked(NamedModelInfo &info) const {
+    info.task = m_engine ? m_engine->task() : Task::Unknown;
+    info.input_width = 0;
+    info.input_height = 0;
+    info.device = -1;
+#if defined(OP_HAS_ONNX) && OP_HAS_ONNX
+    if (auto *p = dynamic_cast<const OnnxYoloEngine *>(m_engine.get())) {
+        info.input_width = p->input_width();
+        info.input_height = p->input_height();
+        info.device = p->device_id();
+    }
+#endif
+}
+
+int YoloDetector::load_named(const std::wstring &name, const std::wstring &path, const vector<string> &argvs,
+                             bool encrypted) {
+    if (name.empty() || path.empty())
+        return -1;
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const int rc = init_locked(L"onnx", path, argvs, nullptr);
+    if (rc != 0)
+        return rc; // 失败不注册；若同名旧注册存在则保留（旧配置仍可用 YoloUseModel 复活）
+    NamedModel model;
+    model.name = name;
+    model.path = path;
+    model.argv = argvs;
+    model.encrypted = encrypted;
+    NamedModelInfo info;
+    snapshot_locked(info);
+    model.task = info.task;
+    model.input_width = info.input_width;
+    model.input_height = info.input_height;
+    model.device = info.device;
+    m_models[name] = std::move(model);
+    m_active = name;
     return 0;
+}
+
+int YoloDetector::load_named_memory(const std::wstring &name, const std::vector<uint8_t> &model_data,
+                                    const vector<string> &argvs, bool encrypted) {
+    if (name.empty() || model_data.empty())
+        return -1;
+    std::lock_guard<std::mutex> lock(m_mutex);
+    const int rc = init_locked(L"onnx", L"", argvs, &model_data);
+    if (rc != 0)
+        return rc;
+    NamedModel model;
+    model.name = name;
+    model.data = model_data;
+    model.argv = argvs;
+    model.encrypted = encrypted;
+    NamedModelInfo info;
+    snapshot_locked(info);
+    model.task = info.task;
+    model.input_width = info.input_width;
+    model.input_height = info.input_height;
+    model.device = info.device;
+    m_models[name] = std::move(model);
+    m_active = name;
+    return 0;
+}
+
+int YoloDetector::use_named(const std::wstring &name) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto it = m_models.find(name);
+    if (it == m_models.end())
+        return -1;
+    NamedModel &model = it->second;
+    const int rc = init_locked(L"onnx", model.path, model.argv, model.data.empty() ? nullptr : &model.data);
+    if (rc != 0) {
+        if (m_active == name)
+            m_active.clear();
+        return rc;
+    }
+    NamedModelInfo info;
+    snapshot_locked(info);
+    model.task = info.task;
+    model.input_width = info.input_width;
+    model.input_height = info.input_height;
+    model.device = info.device;
+    m_active = name;
+    return 0;
+}
+
+int YoloDetector::release_named(const std::wstring &name) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    auto it = m_models.find(name);
+    if (it == m_models.end())
+        return 0;
+    const bool was_active = (m_active == name);
+    m_models.erase(it);
+    if (was_active) {
+        release_locked();
+        m_active.clear();
+    }
+    return 1;
+}
+
+std::vector<NamedModelInfo> YoloDetector::list_models() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    std::vector<NamedModelInfo> out;
+    out.reserve(m_models.size());
+    for (const auto &kv : m_models) {
+        const NamedModel &m = kv.second;
+        NamedModelInfo info;
+        info.name = m.name;
+        info.path = m.path;
+        info.task = m.task;
+        info.input_width = m.input_width;
+        info.input_height = m.input_height;
+        info.device = m.device;
+        info.encrypted = m.encrypted;
+        info.active = (m_active == m.name);
+        info.bytes = m.data.size();
+        out.push_back(std::move(info));
+    }
+    return out;
+}
+
+std::wstring YoloDetector::active_model() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_active;
 }
 
 int YoloDetector::detect(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_rec_t &result) {
@@ -142,6 +285,20 @@ int YoloDetector::segment(byte *data, int w, int h, int bpp, double conf, double
     return m_engine->segment(data, w, h, bpp, conf, iou, result);
 }
 
+int YoloDetector::pose(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_pose_t &result) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_engine)
+        return -1;
+    return m_engine->pose(data, w, h, bpp, conf, iou, result);
+}
+
+int YoloDetector::obb(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_obb_t &result) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_engine)
+        return -1;
+    return m_engine->obb(data, w, h, bpp, conf, iou, result);
+}
+
 Task YoloDetector::loaded_task() {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_engine ? m_engine->task() : Task::Unknown;
@@ -163,6 +320,33 @@ int YoloDetector::model_input_height() {
         return p->input_height();
 #endif
     return 0;
+}
+
+int YoloDetector::device_id() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+#if defined(OP_HAS_ONNX) && OP_HAS_ONNX
+    if (auto *p = dynamic_cast<OnnxYoloEngine *>(m_engine.get()))
+        return p->device_id();
+#endif
+    return -1;
+}
+
+bool YoloDetector::dml_active() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+#if defined(OP_HAS_ONNX) && OP_HAS_ONNX
+    if (auto *p = dynamic_cast<OnnxYoloEngine *>(m_engine.get()))
+        return p->dml_active();
+#endif
+    return false;
+}
+
+bool YoloDetector::dml_supported() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+#if defined(OP_HAS_ONNX) && OP_HAS_ONNX
+    if (auto *p = dynamic_cast<OnnxYoloEngine *>(m_engine.get()))
+        return p->dml_supported();
+#endif
+    return false;
 }
 
 } // namespace op::yolo

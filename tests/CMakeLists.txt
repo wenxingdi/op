@@ -183,7 +183,11 @@ set(OP_TEST_SOURCES
   "file_api_test.cpp"
   "crypto_draw_test.cpp"
   "draw_batch_test.cpp"
+  # UIA 元素层（批 H 2026-11-23）
+  "uia_test.cpp"
   "asm_batch_test.cpp"
+  # 字库模块修复（第六十一批 2026-11-23）：int16 溢出、空名覆盖、批量原子性、单条删除。
+  "dict_batch_test.cpp"
   # 时间轴层（批 E 2026-11-22）：录制 / 回放 / 监听 / 主从同步。
   # 全部走 C API 导出层 + 自建测试窗口（windows 绑定），不产生全局鼠标移动。
   "input_timeline_batch_test.cpp"

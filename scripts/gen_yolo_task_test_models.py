@@ -103,7 +103,83 @@ def build_segment():
     print("written:", out, os.path.getsize(out), "bytes")
 
 
+# ---------------- 姿态模型 ----------------
+POSE_NC = 1
+POSE_KPT = 3
+POSE_CX, POSE_CY, POSE_W, POSE_H = 320.0, 320.0, 160.0, 160.0
+POSE_CONF = 0.9
+# 关键点在 640x640 模型输入空间的位置与可见度
+POSE_KEYPOINTS = [(320.0, 320.0, 0.9), (300.0, 320.0, 0.8), (340.0, 320.0, 0.7)]
+
+
+def build_pose():
+    rows = 4 + POSE_NC + 3 * POSE_KPT
+    det = np.zeros((1, rows, 1), dtype=np.float32)
+    det[0, 0, 0] = POSE_CX
+    det[0, 1, 0] = POSE_CY
+    det[0, 2, 0] = POSE_W
+    det[0, 3, 0] = POSE_H
+    det[0, 4, 0] = POSE_CONF
+    for i, (x, y, c) in enumerate(POSE_KEYPOINTS):
+        base = 4 + POSE_NC + 3 * i
+        det[0, base + 0, 0] = x
+        det[0, base + 1, 0] = y
+        det[0, base + 2, 0] = c
+
+    const = helper.make_node("Constant", inputs=[], outputs=["pose"],
+                             value=numpy_helper.from_array(det))
+    graph = helper.make_graph(
+        [const], "pose_test",
+        [helper.make_tensor_value_info("images", TensorProto.FLOAT, [1, 3, 640, 640])],
+        [helper.make_tensor_value_info("pose", TensorProto.FLOAT, [1, rows, 1])],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 8
+    model.metadata_props.add(key="names", value="{0: 'person'}")
+    model.metadata_props.add(key="task", value="pose")
+    model.metadata_props.add(key="kpt_shape", value=f"[{POSE_KPT}, 3]")
+    onnx.checker.check_model(model)
+    out = os.path.join(OUT_DIR, "yolo_pose_test.onnx")
+    onnx.save(model, out)
+    print("written:", out, os.path.getsize(out), "bytes")
+
+
+# ---------------- 旋转框模型 ----------------
+OBB_NC = 1
+OBB_NANCH = 2
+OBB_CONF = 0.9
+
+
+def build_obb():
+    rows = 4 + OBB_NC + 1
+    det = np.zeros((1, rows, OBB_NANCH), dtype=np.float32)
+    # anchor 0：中心 320,320，160x80，角度 0
+    det[0, 0, 0], det[0, 1, 0], det[0, 2, 0], det[0, 3, 0] = 320.0, 320.0, 160.0, 80.0
+    det[0, 4, 0], det[0, 5, 0] = OBB_CONF, 0.0
+    # anchor 1：几乎重合、置信度略低 -> 必须被旋转 NMS 抑制
+    det[0, 0, 1], det[0, 1, 1], det[0, 2, 1], det[0, 3, 1] = 322.0, 321.0, 160.0, 80.0
+    det[0, 4, 1], det[0, 5, 1] = 0.8, 0.0
+
+    const = helper.make_node("Constant", inputs=[], outputs=["obb"],
+                             value=numpy_helper.from_array(det))
+    graph = helper.make_graph(
+        [const], "obb_test",
+        [helper.make_tensor_value_info("images", TensorProto.FLOAT, [1, 3, 640, 640])],
+        [helper.make_tensor_value_info("obb", TensorProto.FLOAT, [1, rows, OBB_NANCH])],
+    )
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
+    model.ir_version = 8
+    model.metadata_props.add(key="names", value="{0: 'ship'}")
+    model.metadata_props.add(key="task", value="obb")
+    onnx.checker.check_model(model)
+    out = os.path.join(OUT_DIR, "yolo_obb_test.onnx")
+    onnx.save(model, out)
+    print("written:", out, os.path.getsize(out), "bytes")
+
+
 if __name__ == "__main__":
     os.makedirs(OUT_DIR, exist_ok=True)
     build_classify()
     build_segment()
+    build_pose()
+    build_obb()

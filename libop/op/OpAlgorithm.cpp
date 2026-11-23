@@ -125,6 +125,82 @@ void op::Op::SortPosDistance(const wchar_t *all_pos, long type, long x, long y, 
     }
 }
 
+void op::Op::ExcludePos(const wchar_t *all_pos, long type, const wchar_t *exclude_rects, std::wstring &retstr,
+                        long *ret) {
+    internal::set_result(ret, 0L);
+    retstr.clear();
+    const auto items = parse_pos_items(all_pos, type, 0, 0);
+
+    struct Rect {
+        long x1, y1, x2, y2;
+    };
+    std::vector<Rect> rects;
+    if (exclude_rects && exclude_rects[0]) {
+        std::vector<std::wstring> parts;
+        split(exclude_rects, parts, L"|");
+        for (const auto &part : parts) {
+            long x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+            if (swscanf(part.c_str(), L"%ld,%ld,%ld,%ld", &x1, &y1, &x2, &y2) != 4)
+                continue;
+            rects.push_back({x1 < x2 ? x1 : x2, y1 < y2 ? y1 : y2, x1 < x2 ? x2 : x1, y1 < y2 ? y2 : y1});
+        }
+    }
+
+    long kept = 0;
+    for (const auto &it : items) {
+        bool excluded = false;
+        for (const auto &rect : rects) {
+            if (it.x >= rect.x1 && it.x <= rect.x2 && it.y >= rect.y1 && it.y <= rect.y2) {
+                excluded = true;
+                break;
+            }
+        }
+        if (excluded)
+            continue;
+        if (kept++)
+            retstr.push_back(L'|');
+        retstr += pos_item_to_string(it, type);
+    }
+    internal::set_result(ret, kept);
+}
+
+void op::Op::GetDenseRect(const wchar_t *all_pos, long type, long width, long height, std::wstring &retstr,
+                          long *ret) {
+    internal::set_result(ret, 0L);
+    retstr.clear();
+    if (width <= 0 || height <= 0)
+        return;
+    const auto items = parse_pos_items(all_pos, type, 0, 0);
+    if (items.empty())
+        return;
+
+    // 窗口锚点只需取输入点：把窗口整体平移直到左边/上边贴住某个点不会丢点。
+    // 右/下边界为开区间 [x, x+width) × [y, y+height)，避免 width=1 却覆盖 2 列。
+    long best_x = 0, best_y = 0, best_count = 0;
+    bool has_best = false;
+    for (const auto &anchor : items) {
+        const long long right = static_cast<long long>(anchor.x) + width;
+        const long long bottom = static_cast<long long>(anchor.y) + height;
+        long count = 0;
+        for (const auto &p : items) {
+            if (p.x >= anchor.x && p.x < right && p.y >= anchor.y && p.y < bottom)
+                ++count;
+        }
+        const bool better =
+            !has_best || count > best_count ||
+            (count == best_count && (anchor.y < best_y || (anchor.y == best_y && anchor.x < best_x)));
+        if (better) {
+            best_x = anchor.x;
+            best_y = anchor.y;
+            best_count = count;
+            has_best = true;
+        }
+    }
+
+    retstr = std::to_wstring(best_x) + L"," + std::to_wstring(best_y) + L"," + std::to_wstring(best_count);
+    internal::set_result(ret, best_count);
+}
+
 namespace {
 
 using op::pathtools::AStarMapState;

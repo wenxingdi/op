@@ -209,6 +209,15 @@ class Op:
         """按与 (x,y) 的距离排序坐标串："x,y|x,y|..."，type 0=近→远 1=远→近。"""
         return self._call_string("OpSortPosDistance", all_pos, int(pos_type), int(x), int(y))
 
+    def exclude_pos(self, all_pos: str, pos_type: constants.NearestPosType | int, exclude_rects: str) -> tuple[str, int]:
+        """剔除落在矩形内的坐标点。exclude_rects="x1,y1,x2,y2|..."（含边界，顺序不限）。
+        返回 (过滤后坐标串, 保留点数)；exclude_rects 为空时原样返回。"""
+        return self._call_string_with_int("OpExcludePos", all_pos, int(pos_type), exclude_rects)
+
+    def get_dense_rect(self, all_pos: str, pos_type: constants.NearestPosType | int, width: int, height: int) -> tuple[str, int]:
+        """找包含坐标点最多的 width×height 窗口（右/下边界开区间）。返回 ("x,y,count", count)。"""
+        return self._call_string_with_int("OpGetDenseRect", all_pos, int(pos_type), int(width), int(height))
+
     def find_nearest_feasible_point(self, x: int, y: int) -> str:
         """障碍地图上找最近可走点（已设图为前提），返回 "x,y"，找不到返回空串。"""
         return self._call_string("OpFindNearestFeasiblePoint", int(x), int(y))
@@ -528,6 +537,101 @@ class Op:
         """Base64 文本解码；输入非法返回空串。"""
         return self._call_string("OpBase64Decode", base64)
 
+    def sha256(self, text: str) -> str:
+        """计算文本的 SHA-256 摘要（64 位小写十六进制）。"""
+        return self._call_string("OpSha256", text)
+
+    def hmac_sha256(self, key: str, text: str) -> str:
+        """计算 HMAC-SHA256（64 位小写十六进制）；key 为空返回空串。"""
+        return self._call_string("OpHmacSha256", key, text)
+
+    def generate_random_bytes(self, length: int) -> str:
+        """生成 length 字节密码学随机数，输出 2*length 位小写十六进制；length∈(0,4096]。"""
+        return self._call_string("OpGenerateRandomBytes", int(length))
+
+    def generate_guid(self) -> str:
+        """生成大写 GUID 文本（8-4-4-4-12，无花括号）。"""
+        return self._call_string("OpGenerateGuid")
+
+    # Crypto 补全（2026-11-23）：流式文件哈希 / AES-256-GCM / PBKDF2 / RSA
+    def md5_file(self, file_name: str | Path) -> str:
+        """流式计算文件 MD5（32 位小写十六进制）；文件不存在或读失败返回空串。"""
+        return self._call_string("OpMd5File", str(file_name))
+
+    def sha1_file(self, file_name: str | Path) -> str:
+        """流式计算文件 SHA-1（40 位小写十六进制）；文件不存在返回空串。"""
+        return self._call_string("OpSha1File", str(file_name))
+
+    def sha256_file(self, file_name: str | Path) -> str:
+        """流式计算文件 SHA-256（64 位小写十六进制）；文件不存在返回空串。"""
+        return self._call_string("OpSha256File", str(file_name))
+
+    def aes_encrypt(self, text: str, password: str) -> str:
+        """AES-256-GCM 加密并输出 Base64（容器头 OPAES01，PBKDF2-SHA256 10 万轮衍生密钥）。
+
+        每次调用随机 salt/nonce，同一明文两次密文不同；明文或密码为空返回空串。
+        """
+        return self._call_string("OpAesEncrypt", text, password)
+
+    def aes_decrypt(self, base64: str, password: str) -> str:
+        """AES-256-GCM 解密；密码错 / 密文被改 / 非本库密文一律返回空串（不会吐乱码）。"""
+        return self._call_string("OpAesDecrypt", base64, password)
+
+    def pbkdf2_sha256(self, password: str, salt: str, iterations: int, length: int) -> str:
+        """PBKDF2-HMAC-SHA256 衍生密钥，输出 2*length 位小写十六进制。
+
+        iterations ∈ [1, 1e7]，length ∈ [1, 1024]，越界返回空串。
+        """
+        return self._call_string("OpPbkdf2Sha256", password, salt, int(iterations), int(length))
+
+    def rsa_encrypt(self, text: str, public_key_pem: str) -> str:
+        """RSA PKCS#1 v1.5 公钥加密，输出 Base64；支持 PKCS#1/PKCS#8 公钥 PEM。
+
+        明文上限 mode_len-11 字节（2048 位即 245 字节），超限或私钥当公钥用返回空串。
+        """
+        return self._call_string("OpRsaEncrypt", text, public_key_pem)
+
+    def rsa_decrypt(self, base64: str, private_key_pem: str) -> str:
+        """RSA PKCS#1 v1.5 私钥解密；支持 PKCS#8 私钥 PEM。填充校验失败返回空串。"""
+        return self._call_string("OpRsaDecrypt", base64, private_key_pem)
+
+    # 注册表四件套（path 形如 "HKCU\\Software\\X"，name 传空串 = 默认值）
+    def registry_read_string(self, path: str, name: str = "") -> tuple[str, int]:
+        """读注册表字符串值，返回 (值, 1/0)；类型不符或缺失时返回 ("", 0)。"""
+        return self._call_string_with_int("OpRegistryReadString", path, name)
+
+    def registry_write_string(self, path: str, name: str, value: str) -> bool:
+        """写注册表字符串值 REG_SZ（目录不存在会自动创建）。"""
+        return self._call_ok("OpRegistryWriteString", path, name, value)
+
+    def registry_read_dword(self, path: str, name: str = "") -> tuple[int, int]:
+        """读注册表 DWORD 值，返回 (值, 1/0)；类型不符或缺失时返回 (0, 0)。"""
+        self._check_open()
+        value = ctypes.c_int(0)
+        ret = int(self._dll.OpRegistryReadDword(self._handle, path, name, ctypes.byref(value)))
+        return int(value.value), ret
+
+    def registry_write_dword(self, path: str, name: str, value: int) -> bool:
+        """写注册表 DWORD 值 REG_DWORD（按 32 位无符号解释，可传 0xFFFFFFFF）。"""
+        return self._call_ok("OpRegistryWriteDword", path, name, int(value))
+
+    # 全局热键（跨进程单实例：状态在命名共享内存 + 事件，owner 进程统一收消息）
+    def hotkey_register(self, hotkey_id: int, modifiers: int, vk: int) -> bool:
+        """注册全局热键：id ∈ [1, 0xBFFF]，modifiers 取低 4 位（1=Alt 2=Ctrl 4=Shift 8=Win），vk ∈ [1,255]。"""
+        return self._call_ok("OpHotkeyRegister", int(hotkey_id), int(modifiers), int(vk))
+
+    def hotkey_unregister(self, hotkey_id: int) -> bool:
+        """注销指定热键；未注册的 id 返回 False。"""
+        return self._call_ok("OpHotkeyUnregister", int(hotkey_id))
+
+    def hotkey_poll(self, timeout_ms: int = 0) -> int:
+        """等待并取出一个热键 id：超时/无事件返回 0；timeout_ms=0 非阻塞，<0 最多等 60 秒。"""
+        return self._call_int("OpHotkeyPoll", int(timeout_ms))
+
+    def hotkey_unregister_all(self) -> int:
+        """注销本进程注册的全部热键，返回注销个数。"""
+        return self._call_int("OpHotkeyUnregisterAll")
+
     # Screen draw
     def draw_rect(self, x1: int, y1: int, x2: int, y2: int, color: str, width: int = 1) -> bool:
         """屏幕矩形标注（坐标物理像素），color 同找色 RRGGBB 格式。"""
@@ -548,6 +652,129 @@ class Op:
     def draw_set_visible(self, show: bool) -> bool:
         """显示/隐藏屏幕标注层。"""
         return self._call_ok("OpDrawSetVisible", 1 if show else 0)
+
+    def draw_circle(self, x: int, y: int, radius: int, color: str, width: int = 1) -> bool:
+        """屏幕圆形标注：x,y 为圆心。"""
+        return self._call_ok("OpDrawCircle", int(x), int(y), int(radius), color, int(width))
+
+    def draw_image(self, x: int, y: int, file_name: str, alpha: int = 255) -> bool:
+        """屏幕叠加层画图片文件（左上角）。alpha 0~255，<=0 视为 255。"""
+        return self._call_ok("OpDrawImage", int(x), int(y), file_name, int(alpha))
+
+    def draw_rect_ex(self, x: int, y: int, width: int, height: int, mode: int = 1,
+                     line_width: int = 1) -> bool:
+        """绑定窗口内矩形（客户区坐标）。mode：0 纯填充 / 1 纯描边 / 2 填充+描边。"""
+        return self._call_ok("OpDrawRectEx", int(x), int(y), int(width), int(height), int(mode), int(line_width))
+
+    def draw_circle_ex(self, x: int, y: int, radius: int, line_width: int = 1) -> bool:
+        """绑定窗口内圆形（客户区坐标）。"""
+        return self._call_ok("OpDrawCircleEx", int(x), int(y), int(radius), int(line_width))
+
+    def draw_text_ex(self, x: int, y: int, text: str, font_size: int = 14) -> bool:
+        """绑定窗口内文本（客户区坐标）。"""
+        return self._call_ok("OpDrawTextEx", int(x), int(y), text, int(font_size))
+
+    def draw_clear_bind(self) -> bool:
+        """只清除绑定窗口那批图元。"""
+        return self._call_ok("OpDrawClearBind")
+
+    def draw_get_count(self):
+        """返回 (屏幕层图元数, 绑定层图元数)。"""
+        screen = ctypes.c_int(0)
+        bind = ctypes.c_int(0)
+        if not self._call_ok("OpDrawGetCount", ctypes.byref(screen), ctypes.byref(bind)):
+            return (0, 0)
+        return (screen.value, bind.value)
+
+    def draw_set_color(self, color: str) -> bool:
+        """设置 Ex 系列描边色（RRGGBB），影响之后绘制的图元。"""
+        return self._call_ok("OpDrawSetColor", color)
+
+    def draw_set_fill(self, enable: bool, color: str = "") -> bool:
+        """填充开关 + 填充色。color 支持 RRGGBB（自动 0x66 半透明）或 AARRGGBB。"""
+        return self._call_ok("OpDrawSetFill", 1 if enable else 0, color)
+
+    def draw_image_ex(self, x: int, y: int, file_name: str, alpha: int = 255) -> bool:
+        """绑定窗口内画图片文件（客户区坐标）；文件不存在返回 False。"""
+        return self._call_ok("OpDrawImageEx", int(x), int(y), file_name, int(alpha))
+
+    def draw_image_from_handle(self, x: int, y: int, image_handle: str, alpha: int = 255) -> bool:
+        """把图片句柄内容画到屏幕叠加层。"""
+        return self._call_ok("OpDrawImageFromHandle", int(x), int(y), image_handle, int(alpha))
+
+    def draw_rect_tag(self, tag: str, x1: int, y1: int, x2: int, y2: int, color: str,
+                      width: int = 1) -> bool:
+        """屏幕层带标签矩形：同标签只保留最新一条（实时跟踪框用，不必全清重画）。"""
+        return self._call_ok("OpDrawRectTag", tag, int(x1), int(y1), int(x2), int(y2), color, int(width))
+
+    def draw_rect_ex_tag(self, tag: str, x: int, y: int, width: int, height: int, mode: int = 1,
+                         line_width: int = 1) -> bool:
+        """绑定层带标签矩形（客户区坐标）。mode：0 填充 / 1 描边 / 2 填充+描边。"""
+        return self._call_ok("OpDrawRectExTag", tag, int(x), int(y), int(width), int(height), int(mode),
+                             int(line_width))
+
+    def draw_remove_tag(self, tag: str) -> int:
+        """删除同标签图元（两层一起清），返回删除个数；0 = 没有匹配项。"""
+        return self._call_int("OpDrawRemoveTag", tag)
+
+    # UIA 元素层（批 H，2026-11-23）
+    # ⚠ 只对暴露 UIA 的程序有效（Win32/WinForms/WPF/Qt/Chromium 系）；DX 自绘游戏读不到节点。
+    # ⚠ element_id 是本进程内的注册表序号，跨 DLL 层不可通用；坐标是屏幕物理像素。
+    def uia_dump(self, hwnd: int = 0, max_depth: int = 3) -> str:
+        """按深度列出窗口下所有元素（hwnd=0 取前台窗口）。返回 JSON。"""
+        return self._call_string("OpUiaDump", int(hwnd), int(max_depth))
+
+    def uia_find(self, selector: str, hwnd: int = 0, timeout_ms: int = 0) -> str:
+        """按选择器查找元素。语法：name=确定 >> class=Button；name*=包含；键 name/class/id/type/index。"""
+        return self._call_string("OpUiaFind", int(hwnd), selector, int(timeout_ms))
+
+    def uia_from_point(self, x: int, y: int) -> str:
+        """屏幕坐标命中的元素（鼠标所指是什么控件）。返回 JSON。"""
+        return self._call_string("OpUiaFromPoint", int(x), int(y))
+
+    def uia_invoke(self, element_id: int) -> bool:
+        """触发元素（Invoke 模式，复选框走 Toggle）。"""
+        return self._call_ok("OpUiaInvoke", int(element_id))
+
+    def uia_get_value(self, element_id: int) -> str:
+        """读元素的值（ValuePattern）；无该模式返回空串。"""
+        return self._call_string("OpUiaGetValue", int(element_id))
+
+    def uia_set_value(self, element_id: int, value: str) -> bool:
+        """写元素的值（ValuePattern）；只读控件返回 False。"""
+        return self._call_ok("OpUiaSetValue", int(element_id), value)
+
+    def uia_release(self, element_id: int) -> bool:
+        """释放单个元素。长期运行的脚本必须及时释放。"""
+        return self._call_ok("OpUiaRelease", int(element_id))
+
+    def uia_release_all(self) -> int:
+        """释放全部元素，返回释放个数。"""
+        return self._call_int("OpUiaReleaseAll")
+
+    # 汇编模块（批 D 补齐 2026-11-23）
+    def asm_call(self, code_hex: str, hwnd: int = 0, timeout_ms: int = 5000) -> tuple[str, int]:
+        """在 hwnd 所属进程执行机器码；hwnd=0 表示当前进程。返回 (JSON, 成功标志)。
+
+        code_hex 形如 "48 C7 C0 2A 00 00 00 C3"（需自带 ret），支持 "??" 占位。
+        成功 JSON 带 ret / ret_hex；失败 JSON 带 error。
+        """
+        return self._call_string_with_int("OpAsmCall", int(hwnd), code_hex, int(timeout_ms))
+
+    def assemble(self, asm_text: str, arch: int = 0) -> tuple[str, int]:
+        """汇编文本 -> 机器码。arch: 32 / 64；0 = 按当前进程位数。
+
+        返回 (JSON, 成功标志)；成功时 JSON 的 hex 字段可直接传给 asm_call。
+        数字字面量：裸数字是**十进制**（``mov eax, 100`` = 100），十六进制写 ``0x64``。
+        """
+        return self._call_string_with_int("OpAssemble", asm_text, int(arch))
+
+    def disassemble(self, bytes_hex: str, address: str = "0", count: int = 0, arch: int = 0) -> tuple[str, int]:
+        """机器码 -> 汇编文本。count<=0 表示解到字节用完；arch 同上（0 = 当前进程位数）。
+
+        注意 arch 必须给对：用 64 位模式解 32 位代码会静默产出错码。
+        """
+        return self._call_string_with_int("OpDisassemble", bytes_hex, address, int(count), int(arch))
 
     # Background binding
     def bind_window(
@@ -995,6 +1222,46 @@ class Op:
     def get_color_num(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> int:
         return self._call_int("OpGetColorNum", int(x1), int(y1), int(x2), int(y2), color, float(sim))
 
+    def hex2rgb(self, color: str) -> tuple[int, int, int]:
+        """颜色串（"RRGGBB"/"AARRGGBB"，可带 #/0x 前缀）转 RGB 分量。解析失败抛 OpCallError。"""
+        self._check_open()
+        r, g, b = ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
+        ok = self._dll.OpHex2RGB(self._handle, color, ctypes.byref(r), ctypes.byref(g), ctypes.byref(b))
+        self._ok(ok, "OpHex2RGB")
+        return int(r.value), int(g.value), int(b.value)
+
+    def hex2argb(self, color: str) -> tuple[int, int, int, int]:
+        """同 hex2rgb，额外返回 alpha（6 位输入 alpha=255）。"""
+        self._check_open()
+        a, r, g, b = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
+        ok = self._dll.OpHex2ARGB(self._handle, color, ctypes.byref(a), ctypes.byref(r), ctypes.byref(g), ctypes.byref(b))
+        self._ok(ok, "OpHex2ARGB")
+        return int(a.value), int(r.value), int(g.value), int(b.value)
+
+    def argb2hex(self, a: int, r: int, g: int, b: int) -> str:
+        """ARGB 分量转 "AARRGGBB"（大写），分量越界按 0/255 截断。"""
+        return self._call_string("OpARGB2Hex", int(a), int(r), int(g), int(b))
+
+    def rgb2hsv(self, r: int, g: int, b: int) -> tuple[float, float, float]:
+        """RGB 转 HSV：H∈[0,360)，S/V∈[0,100]。"""
+        self._check_open()
+        h, s, v = ctypes.c_double(), ctypes.c_double(), ctypes.c_double()
+        ok = self._dll.OpRGB2HSV(self._handle, int(r), int(g), int(b), ctypes.byref(h), ctypes.byref(s), ctypes.byref(v))
+        self._ok(ok, "OpRGB2HSV")
+        return float(h.value), float(s.value), float(v.value)
+
+    def hex2hsv(self, color: str) -> tuple[float, float, float]:
+        """颜色串转 HSV（口径同 rgb2hsv）。解析失败抛 OpCallError。"""
+        self._check_open()
+        h, s, v = ctypes.c_double(), ctypes.c_double(), ctypes.c_double()
+        ok = self._dll.OpHex2HSV(self._handle, color, ctypes.byref(h), ctypes.byref(s), ctypes.byref(v))
+        self._ok(ok, "OpHex2HSV")
+        return float(h.value), float(s.value), float(v.value)
+
+    def get_color_hex(self, r: int, g: int, b: int) -> str:
+        """RGB 分量转 "RRGGBB"（大写），分量越界按 0/255 截断。"""
+        return self._call_string("OpGetColorHex", int(r), int(g), int(b))
+
     def set_display_input(self, mode: constants.DisplayInputMode | str) -> bool:
         return self._call_ok("OpSetDisplayInput", self._enum_text(mode))
 
@@ -1376,6 +1643,90 @@ class Op:
     def yolo_detect_from_file(self, file_name: str | Path, conf: float, iou: float) -> str:
         return self._call_string("OpYoloDetectFromFile", str(file_name), float(conf), float(iou))
 
+    def yolo_classify(self, x1: int, y1: int, x2: int, y2: int, top_k: int = 5) -> tuple[str, int]:
+        """分类：返回 (json, 命中数)。top_k 截断前 N 个类别。"""
+        return self._call_string_with_int(
+            "OpYoloClassify", int(x1), int(y1), int(x2), int(y2), int(top_k)
+        )
+
+    def yolo_classify_from_file(self, file_name: str | Path, top_k: int = 5) -> tuple[str, int]:
+        return self._call_string_with_int("OpYoloClassifyFromFile", str(file_name), int(top_k))
+
+    def yolo_segment(self, x1: int, y1: int, x2: int, y2: int, conf: float, iou: float) -> tuple[str, int]:
+        """实例分割：返回 (json, 命中数)，每条带 polygon（原图坐标）与 mask_area。"""
+        return self._call_string_with_int(
+            "OpYoloSegment", int(x1), int(y1), int(x2), int(y2), float(conf), float(iou)
+        )
+
+    def yolo_segment_from_file(self, file_name: str | Path, conf: float, iou: float) -> tuple[str, int]:
+        return self._call_string_with_int("OpYoloSegmentFromFile", str(file_name), float(conf), float(iou))
+
+    def yolo_pose(self, x1: int, y1: int, x2: int, y2: int, conf: float, iou: float) -> tuple[str, int]:
+        """姿态估计：返回 (json, 命中数)，每个目标带 keypoints 数组 ({x,y,confidence})。"""
+        return self._call_string_with_int(
+            "OpYoloPose", int(x1), int(y1), int(x2), int(y2), float(conf), float(iou)
+        )
+
+    def yolo_pose_from_file(self, file_name: str | Path, conf: float, iou: float) -> tuple[str, int]:
+        return self._call_string_with_int("OpYoloPoseFromFile", str(file_name), float(conf), float(iou))
+
+    def yolo_obb(self, x1: int, y1: int, x2: int, y2: int, conf: float, iou: float) -> tuple[str, int]:
+        """旋转框检测：返回 (json, 命中数)，带 center/size/angle/bbox/corners。"""
+        return self._call_string_with_int(
+            "OpYoloObb", int(x1), int(y1), int(x2), int(y2), float(conf), float(iou)
+        )
+
+    def yolo_obb_from_file(self, file_name: str | Path, conf: float, iou: float) -> tuple[str, int]:
+        return self._call_string_with_int("OpYoloObbFromFile", str(file_name), float(conf), float(iou))
+
+    def yolo_get_model_info(self) -> str:
+        """当前模型信息（JSON：ok/task/task_code/input_width/input_height/device/dml）。"""
+        return self._call_string("OpYoloGetModelInfo")
+
+    # YOLO 命名模型平台（2026-11-23）：多模型注册表 / 热切换 / 设备枚举 / OPYMOD01 加密包
+    def yolo_load_model(
+        self, name: str, path: str | Path, argv: str = ""
+    ) -> tuple[str, int]:
+        """按名字加载模型进注册表，返回 (JSON, 1/0)；加载成功的新模型自动激活。
+
+        密文包（头 OPYMOD01）必须用 argv 传 "--password=xxx"：
+        走内存解密加载，不落明文临时文件。失败时 JSON 里 code 为
+        file_not_found / password_required / decrypt_failed / load_failed。
+        """
+        return self._call_string_with_int("OpYoloLoadModel", name, str(path), argv)
+
+    def yolo_use_model(self, name: str) -> bool:
+        """热切换已注册模型为当前激活模型；未注册名字返回 False。"""
+        return self._call_ok("OpYoloUseModel", name)
+
+    def yolo_release_model(self, name: str) -> bool:
+        """释放指定模型；name 传空串释放全部。释放当前激活模型会让引擎回到未加载。"""
+        return self._call_ok("OpYoloReleaseModel", name)
+
+    def yolo_list_models(self) -> str:
+        """注册表快照 JSON：{"ok":1,"count":n,"active":"名字","models":[...]}。"""
+        return self._call_string("OpYoloListModels")
+
+    def yolo_list_devices(self) -> str:
+        """可用设备 JSON：CPU 恒在（index=-1），有 DirectML 时附 GPU 列表 + dml_available。"""
+        return self._call_string("OpYoloListDevices")
+
+    def yolo_encrypt_model(
+        self, src_path: str | Path, dst_path: str | Path, password: str
+    ) -> bool:
+        """把 .onnx 封装成 OPYMOD01 加密模型包（AES-256-GCM）；密码为空或读失败返回 False。"""
+        return self._call_ok(
+            "OpYoloEncryptModel", str(src_path), str(dst_path), password
+        )
+
+    def yolo_decrypt_model(
+        self, src_path: str | Path, dst_path: str | Path, password: str
+    ) -> bool:
+        """把 OPYMOD01 包解回明文 .onnx；密码错或非密封包返回 False 且不留下半个文件。"""
+        return self._call_ok(
+            "OpYoloDecryptModel", str(src_path), str(dst_path), password
+        )
+
     def set_dict(self, idx: int, file_name: str | Path) -> bool:
         return self._call_ok("OpSetDict", int(idx), str(file_name))
 
@@ -1400,8 +1751,26 @@ class Op:
     def use_dict(self, idx: int) -> bool:
         return self._call_ok("OpUseDict", int(idx))
 
-    def add_dict(self, idx: int, dict_info: str) -> bool:
-        return self._call_ok("OpAddDict", int(idx), dict_info)
+    def add_dict(self, idx: int, dict_info: str) -> int:
+        """向指定字库添加字条，返回成功处理的行数（0 = 整批失败）。
+
+        ``dict_info`` 支持多行（换行分隔，每行一条 ``名字$高,宽,点数$点阵HEX``）。
+        **整批原子**：任一行解析失败则一条都不写入并返回 0。
+        返回值 >0 在布尔上下文里同样成立，旧代码无需改动。
+        """
+        return self._call_int("OpAddDict", int(idx), dict_info)
+
+    def remove_dict(self, idx: int, dict_info: str) -> bool:
+        """按点阵从字库删除一条字条，返回是否删除成功。
+
+        字条靠点阵唯一，``dict_info`` 只取点阵部分（名字可留空）。
+        做字库时发现个别字标错，用它删单条即可，不必 clear_dict 整槽重来。
+
+        注意：构造时 ``raise_on_error=True``（默认）下，点阵不存在会抛
+        :class:`OpCallError` 而不是返回 False —— 与本类其它 dict_* 方法的
+        0=失败口径一致。需要"删不到也算成功"的幂等语义时传 ``raise_on_error=False``。
+        """
+        return self._call_ok("OpRemoveDict", int(idx), dict_info)
 
     def save_dict(self, idx: int, file_name: str | Path) -> bool:
         return self._call_ok("OpSaveDict", int(idx), str(file_name))

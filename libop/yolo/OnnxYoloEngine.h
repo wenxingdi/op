@@ -24,18 +24,28 @@ namespace op::yolo {
 //   --conf=0.25   默认置信度阈值（detect 传 conf<=0 时生效）
 //   --iou=0.45    默认 NMS IoU 阈值（detect 传 iou<=0 时生效）
 //   --labels=a,b,c 可选类别名（UTF-8 逗号分隔；缺省 label 为空、只用 class_id）
+//   --task=pose|obb|detect|segment|classify  显式指定任务（模型元数据缺失时用）
+//   --nc=N         类别数；Pose 模型的属性维无法与关键点数分离时用它
+//   --kpt=N        关键点数（默认读模型 metadata 的 kpt_shape，再缺省为 17）
 //   --threads=N    intra-op 线程数；0/缺省 = 交给 ORT 用物理核（不要再写死 1，
 //                  2026-11-21 实测单线程比默认慢 3.5~4.8 倍）。引擎是进程级单例，
 //                  上一次的 --threads 会保留，传 --threads=0 可显式改回默认。
+//   --device=N     DirectML 适配器序号（0 = 默认 GPU）；cpu/-1/auto = CPU（默认）。
+//                  需部署同版本 DML 版 onnxruntime.dll + DirectML.dll；缺失时
+//                  打日志并回退 CPU，不会让引擎启动失败。
 class OnnxYoloEngine : public YoloEngine {
   public:
     OnnxYoloEngine();
     ~OnnxYoloEngine() override;
     int init(const std::wstring &engine, const std::wstring &dllName, const vector<string> &argv) override;
+    // 加密模型包解密后的内存字节直接建会话（不写临时文件）。
+    int init_from_memory(const std::vector<uint8_t> &model, const vector<string> &argv) override;
     int detect(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_rec_t &result) override;
     // 批 C（2026-11-22）：任务维度。任务不符时返回 -1（明确"不支持"），不是 0。
     int classify(byte *data, int w, int h, int bpp, int top_k, vyolo_cls_t &result) override;
     int segment(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_seg_t &result) override;
+    int pose(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_pose_t &result) override;
+    int obb(byte *data, int w, int h, int bpp, double conf, double iou, vyolo_obb_t &result) override;
     Task task() const override;
 
     // 诊断/测试专用：**实际写进 SessionOptions** 的 intra-op 线程数（0 = 未设置，用 ORT 默认）。
@@ -48,6 +58,11 @@ class OnnxYoloEngine : public YoloEngine {
     // 诊断/测试专用：模型输入边长。
     int input_width() const;
     int input_height() const;
+
+    // 诊断/测试专用：实际生效的推理设备（-1 = CPU，>=0 = DirectML 适配器序号）。
+    int device_id() const;
+    bool dml_active() const;
+    bool dml_supported() const override;
 
   private:
     class Impl;

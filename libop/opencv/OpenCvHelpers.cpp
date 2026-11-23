@@ -677,6 +677,15 @@ bool morphologyImage(
     case MorphologyMode::Close:
         cv::morphologyEx(mask_mat, morphed, cv::MORPH_CLOSE, kernel, cv::Point(-1, -1), safe_iterations);
         break;
+    case MorphologyMode::Gradient:
+        cv::morphologyEx(mask_mat, morphed, cv::MORPH_GRADIENT, kernel, cv::Point(-1, -1), safe_iterations);
+        break;
+    case MorphologyMode::Tophat:
+        cv::morphologyEx(mask_mat, morphed, cv::MORPH_TOPHAT, kernel, cv::Point(-1, -1), safe_iterations);
+        break;
+    case MorphologyMode::Blackhat:
+        cv::morphologyEx(mask_mat, morphed, cv::MORPH_BLACKHAT, kernel, cv::Point(-1, -1), safe_iterations);
+        break;
     default:
         output = {};
         return false;

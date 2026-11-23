@@ -397,6 +397,7 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(UseDict)(LONG idx, LONG *ret);
     // 给指定的字库中添加一条字库信息
     STDMETHOD(AddDict)(LONG idx, BSTR dict_info, LONG *ret);
+    STDMETHOD(RemoveDict)(LONG idx, BSTR dict_info, LONG *ret);
     STDMETHOD(SaveDict)(LONG idx, BSTR file_name, LONG *ret);
     // 清空指定的字库
     STDMETHOD(ClearDict)(LONG idx, LONG *ret);
@@ -661,6 +662,29 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(DrawTextEx)(LONG x, LONG y, BSTR text, LONG font_size, LONG *ret);
     STDMETHOD(DrawClearBind)(LONG *ret);
     STDMETHOD(DrawGetCount)(LONG *screen_count, LONG *bind_count, LONG *ret);
+    // 批 G（2026-11-23）：绘制状态 + 绑定层画图 + 图片句柄上屏（id 542~545）
+    STDMETHOD(DrawSetColor)(BSTR color, LONG *ret);
+    STDMETHOD(DrawSetFill)(LONG enable, BSTR color, LONG *ret);
+    STDMETHOD(DrawImageEx)(LONG x, LONG y, BSTR file_name, LONG alpha, LONG *ret);
+    STDMETHOD(DrawImageFromHandle)(LONG x, LONG y, BSTR image_handle, LONG alpha, LONG *ret);
+    // 批 G2（2026-11-23）：标签替换（id 546~548）
+    STDMETHOD(DrawRectTag)(BSTR tag, LONG x1, LONG y1, LONG x2, LONG y2, BSTR color, LONG width, LONG *ret);
+    STDMETHOD(DrawRectExTag)(BSTR tag, LONG x, LONG y, LONG width, LONG height, LONG mode, LONG line_width, LONG *ret);
+    STDMETHOD(DrawRemoveTag)(BSTR tag, LONG *ret);
+    // 批 H（2026-11-23）：UIA 元素层（id 549~556）
+    STDMETHOD(UiaDump)(LONG_PTR hwnd, LONG max_depth, BSTR *retstr);
+    STDMETHOD(UiaFind)(LONG_PTR hwnd, BSTR selector, LONG timeout_ms, BSTR *retstr);
+    STDMETHOD(UiaFromPoint)(LONG x, LONG y, BSTR *retstr);
+    STDMETHOD(UiaInvoke)(LONG element_id, LONG *ret);
+    STDMETHOD(UiaGetValue)(LONG element_id, BSTR *retstr);
+    STDMETHOD(UiaSetValue)(LONG element_id, BSTR value, LONG *ret);
+    STDMETHOD(UiaRelease)(LONG element_id, LONG *ret);
+    STDMETHOD(UiaReleaseAll)(LONG *ret);
+    // 批 D 补齐（2026-11-23）：汇编模块（id 557~559）。批 D 当时只落了 C++/C API，
+    // COM 侧确实漏了，这里一并补齐 —— 三个方法都返回 JSON 字符串。
+    STDMETHOD(AsmCall)(LONG_PTR hwnd, BSTR code_hex, LONG timeout_ms, BSTR *retstr);
+    STDMETHOD(Assemble)(BSTR asm_text, LONG arch, BSTR *retstr);
+    STDMETHOD(Disassemble)(BSTR bytes_hex, BSTR address, LONG count, LONG arch, BSTR *retstr);
     //-----------------------json（P3 第一批 2026-10-16）-------------------------
     // 路径 "a.b[0].c"（兼容 "a.b.0"），空路径=根。失败：取值类空串/0，写类返回空串。
     STDMETHOD(JsonIsValid)(BSTR json_text, LONG *ret);
@@ -688,6 +712,55 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(InputPlayback)(LONG action, BSTR path, DOUBLE speed, LONG loop, BSTR *retjson, LONG *ret);
     STDMETHOD(InputSyncLink)(LONG master, LONG slave, LONG enable, LONG *ret);
     STDMETHOD(InputSyncStatus)(BSTR *retjson);
+    // ---- YOLO 任务族（2026-11-22，id 498-506）：分类 / 分割 / 姿态 / 旋转框 ----
+    // 任务不匹配时 *ret=-1 且 retstr 为空，不伪装成功。
+    STDMETHOD(YoloClassify)(LONG x1, LONG y1, LONG x2, LONG y2, LONG top_k, BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloClassifyFromFile)(BSTR file_name, LONG top_k, BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloSegment)(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou, BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloSegmentFromFile)(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloPose)(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou, BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloPoseFromFile)(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloObb)(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou, BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloObbFromFile)(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloGetModelInfo)(BSTR *retstr);
+    // ---- 颜色转换 / 坐标过滤 / 哈希增强（2026-11-22，id 507-518）----
+    STDMETHOD(ExcludePos)(BSTR all_pos, LONG type, BSTR exclude_rects, BSTR *retstr, LONG *ret);
+    STDMETHOD(GetDenseRect)(BSTR all_pos, LONG type, LONG width, LONG height, BSTR *retstr, LONG *ret);
+    STDMETHOD(Hex2RGB)(BSTR color, LONG *r, LONG *g, LONG *b, LONG *ret);
+    STDMETHOD(Hex2ARGB)(BSTR color, LONG *a, LONG *r, LONG *g, LONG *b, LONG *ret);
+    STDMETHOD(ARGB2Hex)(LONG a, LONG r, LONG g, LONG b, BSTR *retstr);
+    STDMETHOD(RGB2HSV)(LONG r, LONG g, LONG b, DOUBLE *h, DOUBLE *s, DOUBLE *v, LONG *ret);
+    STDMETHOD(Hex2HSV)(BSTR color, DOUBLE *h, DOUBLE *s, DOUBLE *v, LONG *ret);
+    STDMETHOD(GetColorHex)(LONG r, LONG g, LONG b, BSTR *retstr);
+    STDMETHOD(Sha256)(BSTR text, BSTR *retstr);
+    STDMETHOD(HmacSha256)(BSTR key, BSTR text, BSTR *retstr);
+    STDMETHOD(GenerateRandomBytes)(LONG length, BSTR *retstr);
+    STDMETHOD(GenerateGuid)(BSTR *retstr);
+
+    // ---- 加密补全 / 注册表 / 全局热键 / YOLO 模型平台（2026-11-23，id 519-541）----
+    STDMETHOD(AesEncrypt)(BSTR text, BSTR password, BSTR *retstr);
+    STDMETHOD(AesDecrypt)(BSTR base64, BSTR password, BSTR *retstr);
+    STDMETHOD(Pbkdf2Sha256)(BSTR password, BSTR salt, LONG iterations, LONG length, BSTR *retstr);
+    STDMETHOD(Md5File)(BSTR file_name, BSTR *retstr);
+    STDMETHOD(Sha1File)(BSTR file_name, BSTR *retstr);
+    STDMETHOD(Sha256File)(BSTR file_name, BSTR *retstr);
+    STDMETHOD(RsaEncrypt)(BSTR text, BSTR public_key_pem, BSTR *retstr);
+    STDMETHOD(RsaDecrypt)(BSTR base64, BSTR private_key_pem, BSTR *retstr);
+    STDMETHOD(RegistryReadString)(BSTR path, BSTR name, BSTR *retstr, LONG *ret);
+    STDMETHOD(RegistryWriteString)(BSTR path, BSTR name, BSTR value, LONG *ret);
+    STDMETHOD(RegistryReadDword)(BSTR path, BSTR name, LONG *value, LONG *ret);
+    STDMETHOD(RegistryWriteDword)(BSTR path, BSTR name, LONG value, LONG *ret);
+    STDMETHOD(HotkeyRegister)(LONG id, LONG modifiers, LONG vk, LONG *ret);
+    STDMETHOD(HotkeyUnregister)(LONG id, LONG *ret);
+    STDMETHOD(HotkeyPoll)(LONG timeout_ms, LONG *ret);
+    STDMETHOD(HotkeyUnregisterAll)(LONG *ret);
+    STDMETHOD(YoloLoadModel)(BSTR name, BSTR path, BSTR argv, BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloUseModel)(BSTR name, LONG *ret);
+    STDMETHOD(YoloReleaseModel)(BSTR name, LONG *ret);
+    STDMETHOD(YoloListModels)(BSTR *retstr);
+    STDMETHOD(YoloListDevices)(BSTR *retstr);
+    STDMETHOD(YoloEncryptModel)(BSTR src_path, BSTR dst_path, BSTR password, LONG *ret);
+    STDMETHOD(YoloDecryptModel)(BSTR src_path, BSTR dst_path, BSTR password, LONG *ret);
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(OpAutomation), OpAutomation)

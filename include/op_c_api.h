@@ -68,6 +68,13 @@ OP_C_API const wchar_t *OP_CALL OpAStarFindPath(op_handle handle, int map_width,
                                                 int end_y);
 OP_C_API const wchar_t *OP_CALL OpFindNearestPos(op_handle handle, const wchar_t *all_pos, int type, int x, int y);
 OP_C_API const wchar_t *OP_CALL OpSortPosDistance(op_handle handle, const wchar_t *all_pos, int type, int x, int y);
+/* 排除落在矩形内的坐标点。exclude_rects="x1,y1,x2,y2|..."（含边界，坐标顺序不限）。
+ * 返回过滤后的坐标串（格式同输入）；count（可空）为保留点数。 */
+OP_C_API const wchar_t *OP_CALL OpExcludePos(op_handle handle, const wchar_t *all_pos, int type,
+                                             const wchar_t *exclude_rects, int *count);
+/* 找包含点最多的 width×height 窗口（右下开区间），返回 "x,y,count"；count（可空）为命中点数。 */
+OP_C_API const wchar_t *OP_CALL OpGetDenseRect(op_handle handle, const wchar_t *all_pos, int type, int width,
+                                               int height, int *count);
 
 // Window and process
 OP_C_API const wchar_t *OP_CALL OpEnumWindow(op_handle handle, intptr_t parent, const wchar_t *title,
@@ -147,6 +154,46 @@ OP_C_API const wchar_t *OP_CALL OpMd5(op_handle handle, const wchar_t *text);
 OP_C_API const wchar_t *OP_CALL OpSha1(op_handle handle, const wchar_t *text);
 OP_C_API const wchar_t *OP_CALL OpBase64Encode(op_handle handle, const wchar_t *text);
 OP_C_API const wchar_t *OP_CALL OpBase64Decode(op_handle handle, const wchar_t *base64);
+/* SHA256 / HMAC-SHA256（UTF-8 编码后计算，小写十六进制）。 */
+OP_C_API const wchar_t *OP_CALL OpSha256(op_handle handle, const wchar_t *text);
+OP_C_API const wchar_t *OP_CALL OpHmacSha256(op_handle handle, const wchar_t *key, const wchar_t *text);
+/* 密码学随机字节，输出小写十六进制；length∈(0,4096]。 */
+OP_C_API const wchar_t *OP_CALL OpGenerateRandomBytes(op_handle handle, int length);
+/* 生成大写 GUID 文本（8-4-4-4-12，无花括号）。 */
+OP_C_API const wchar_t *OP_CALL OpGenerateGuid(op_handle handle);
+
+/* ---- 加密补全 + 注册表 + 全局热键（2026-11-23）----
+ * AES 走 AES-256-GCM + PBKDF2-SHA256(100000)；密文带 magic/盐/nonce/tag，Base64 输出。
+ * 密码错误或密文被篡改 -> 空串（GCM 认证失败，不返回半截明文）。
+ * 文件摘要流式读取，不把整个文件载入内存。
+ * RSA 为 PKCS#1 v1.5；公钥 PEM 支持 SPKI（BEGIN PUBLIC KEY），私钥支持 PKCS#1/PKCS#8。
+ */
+OP_C_API const wchar_t *OP_CALL OpAesEncrypt(op_handle handle, const wchar_t *text, const wchar_t *password);
+OP_C_API const wchar_t *OP_CALL OpAesDecrypt(op_handle handle, const wchar_t *base64, const wchar_t *password);
+OP_C_API const wchar_t *OP_CALL OpPbkdf2Sha256(op_handle handle, const wchar_t *password, const wchar_t *salt,
+                                              int iterations, int length);
+OP_C_API const wchar_t *OP_CALL OpMd5File(op_handle handle, const wchar_t *file_name);
+OP_C_API const wchar_t *OP_CALL OpSha1File(op_handle handle, const wchar_t *file_name);
+OP_C_API const wchar_t *OP_CALL OpSha256File(op_handle handle, const wchar_t *file_name);
+OP_C_API const wchar_t *OP_CALL OpRsaEncrypt(op_handle handle, const wchar_t *text, const wchar_t *public_key_pem);
+OP_C_API const wchar_t *OP_CALL OpRsaDecrypt(op_handle handle, const wchar_t *base64, const wchar_t *private_key_pem);
+
+/* 注册表四件套。path 形如 "HKCU\\Software\\Vendor\\App"，name 空串 = 默认值。
+ * Read 成功 *ret=1；键不存在/类型不符 *ret=0 且输出清空（ReadString 返回空串）。 */
+OP_C_API const wchar_t *OP_CALL OpRegistryReadString(op_handle handle, const wchar_t *path, const wchar_t *name,
+                                                     int *ret);
+OP_C_API int OP_CALL OpRegistryWriteString(op_handle handle, const wchar_t *path, const wchar_t *name,
+                                           const wchar_t *value);
+OP_C_API int OP_CALL OpRegistryReadDword(op_handle handle, const wchar_t *path, const wchar_t *name, int *value);
+OP_C_API int OP_CALL OpRegistryWriteDword(op_handle handle, const wchar_t *path, const wchar_t *name, int value);
+
+/* 全局热键。modifiers: 1=ALT 2=CTRL 4=SHIFT 8=WIN；vk 为 Win32 虚拟键码；id∈[1,0xBFFF]。
+ * 注册冲突/非法参数返回 0。Poll 返回热键 id，0 = 超时（timeout_ms=0 非阻塞，<0 最长等 60s）。
+ * 热键消息在独立消息线程上入队，Poll 由脚本按自己的节奏取，不阻塞热键线程。 */
+OP_C_API int OP_CALL OpHotkeyRegister(op_handle handle, int id, int modifiers, int vk);
+OP_C_API int OP_CALL OpHotkeyUnregister(op_handle handle, int id);
+OP_C_API int OP_CALL OpHotkeyPoll(op_handle handle, int timeout_ms);
+OP_C_API int OP_CALL OpHotkeyUnregisterAll(op_handle handle);
 
 // ---- 并发诊断（批 A 2026-11-22）----
 // 约定不变：**单个 op_handle 不是线程安全的**，多线程每线程一个 handle。
@@ -167,7 +214,7 @@ OP_C_API int OP_CALL OpDrawSetVisible(op_handle handle, int show);
  * 绑定层（*Ex）：坐标是**绑定窗口客户区**，与找色/鼠标同口径；画在独立透明窗口上，
  *   **不写目标 DX 后台缓冲 -> 不会出现在 DX 截图里**；窗口移动时跟随。
  *   未绑定窗口时返回 0（不是静默画到屏幕）。
- *   ⚠ 本批只支持描边：DrawRectEx 的 mode=0(填充) 会按描边绘制并在日志里说明。
+ *   DrawRectEx 的 mode：0 纯填充 / 1 纯描边 / 2 填充+描边（其它值按描边）。
  * DrawClear 清屏幕层；DrawClearBind 只清绑定层；DrawGetCount 分别返回两层图元数。
  */
 OP_C_API int OP_CALL OpDrawCircle(op_handle handle, int x, int y, int radius, const wchar_t *color, int width);
@@ -177,6 +224,51 @@ OP_C_API int OP_CALL OpDrawCircleEx(op_handle handle, int x, int y, int radius, 
 OP_C_API int OP_CALL OpDrawTextEx(op_handle handle, int x, int y, const wchar_t *text, int font_size);
 OP_C_API int OP_CALL OpDrawClearBind(op_handle handle);
 OP_C_API int OP_CALL OpDrawGetCount(op_handle handle, int *screen_count, int *bind_count);
+
+/* ---- 绘制状态与图片上屏（批 G 2026-11-23）----
+ * DrawSetColor：Ex 系列描边色（"RRGGBB"），影响之后绘制的图元，默认白色。
+ * DrawSetFill：填充开关 + 填充色；enable=0 时 mode 0/2 退化为描边。
+ *   color 支持 "RRGGBB"（自动 0x66 半透明）与 "AARRGGBB"（显式 alpha）；color 空 = 沿用当前色。
+ * DrawImageEx：绑定窗口内画图片文件（客户区坐标），文件不存在显式返回 0。
+ * DrawImageFromHandle：把图片句柄内容画到屏幕叠加层（像素折进图元，句柄随后释放无影响）。
+ */
+OP_C_API int OP_CALL OpDrawSetColor(op_handle handle, const wchar_t *color);
+OP_C_API int OP_CALL OpDrawSetFill(op_handle handle, int enable, const wchar_t *color);
+OP_C_API int OP_CALL OpDrawImageEx(op_handle handle, int x, int y, const wchar_t *file_name, int alpha);
+OP_C_API int OP_CALL OpDrawImageFromHandle(op_handle handle, int x, int y, const wchar_t *image_handle, int alpha);
+
+/* ---- 标签替换（批 G2 2026-11-23）----
+ * 带 tag 的图元遵循"同层同标签只保留最新一条"：重画同一个 tag 等于就地替换，
+ * 不必 DrawClear（全清会闪，图元还会累积）。tag 为空返回 0。
+ * DrawRemoveTag 同时清两层，**返回删除个数**（0 = 没有匹配项或标签为空）。
+ */
+OP_C_API int OP_CALL OpDrawRectTag(op_handle handle, const wchar_t *tag, int x1, int y1, int x2, int y2,
+                                   const wchar_t *color, int width);
+OP_C_API int OP_CALL OpDrawRectExTag(op_handle handle, const wchar_t *tag, int x, int y, int width, int height, int mode,
+                                     int line_width);
+OP_C_API int OP_CALL OpDrawRemoveTag(op_handle handle, const wchar_t *tag);
+
+/* ---- UIA 元素层最小集（批 H 2026-11-23）----
+ * 图色之外的第二条路：直接读 UI 元素树，不依赖分辨率 / 主题 / DPI。
+ *   ⚠ 只对**暴露 UIA 的程序**有效（Win32 / WinForms / WPF / Qt / Chromium 系）；
+ *     DX 自绘的游戏界面节点树是空的，读不到东西。
+ *   ⚠ element_id 是**本进程内**的注册表序号，op_com 与 op_c_api 各有一份注册表，跨层拿 id 必找不到。
+ *   ⚠ 坐标是**屏幕物理像素**，与绑定态客户区坐标不是一套。
+ * 选择器语法：`name=确定 >> class=Button`；`name*=确定` 表示包含匹配；
+ *   键支持 name / class / id(automationId) / type(控件类型名或数字) / index(0 基)。
+ * 返回 JSON：{ok,count,elements:[{id,name,class,aid,type,type_name,rect:[l,t,r,b],enabled,offscreen,value}]}
+ */
+OP_C_API const wchar_t *OP_CALL OpUiaDump(op_handle handle, intptr_t hwnd, int max_depth);
+OP_C_API const wchar_t *OP_CALL OpUiaFind(op_handle handle, intptr_t hwnd, const wchar_t *selector, int timeout_ms);
+OP_C_API const wchar_t *OP_CALL OpUiaFromPoint(op_handle handle, int x, int y);
+OP_C_API int OP_CALL OpUiaInvoke(op_handle handle, int element_id);
+OP_C_API const wchar_t *OP_CALL OpUiaGetValue(op_handle handle, int element_id);
+OP_C_API int OP_CALL OpUiaSetValue(op_handle handle, int element_id, const wchar_t *value);
+OP_C_API int OP_CALL OpUiaRelease(op_handle handle, int element_id);
+OP_C_API int OP_CALL OpUiaReleaseAll(op_handle handle);
+
+
+
 
 // Background binding
 OP_C_API int OP_CALL OpBindWindow(op_handle handle, intptr_t hwnd, const wchar_t *display, const wchar_t *mouse,
@@ -273,6 +365,17 @@ OP_C_API const wchar_t *OP_CALL OpFindColorBlockEx(op_handle handle, int x1, int
                                                    const wchar_t *color, double sim, int count, int height,
                                                    int width);
 OP_C_API const wchar_t *OP_CALL OpGetColor(op_handle handle, int x, int y);
+/* 颜色串（"RRGGBB"/"AARRGGBB"，可带 # 或 0x 前缀，大小写不敏感）转 RGB 分量。
+ * 6 位输入 alpha 视为 255；解析失败返回 0 且各出参置 0。 */
+OP_C_API int OP_CALL OpHex2RGB(op_handle handle, const wchar_t *color, int *r, int *g, int *b);
+OP_C_API int OP_CALL OpHex2ARGB(op_handle handle, const wchar_t *color, int *a, int *r, int *g, int *b);
+/* RGB(A) 转大写十六进制串："AARRGGBB"。分量越界按 0/255 截断。 */
+OP_C_API const wchar_t *OP_CALL OpARGB2Hex(op_handle handle, int a, int r, int g, int b);
+/* RGB 转 HSV：H∈[0,360)，S/V∈[0,100]。 */
+OP_C_API int OP_CALL OpRGB2HSV(op_handle handle, int r, int g, int b, double *h, double *s, double *v);
+OP_C_API int OP_CALL OpHex2HSV(op_handle handle, const wchar_t *color, double *h, double *s, double *v);
+/* RGB 转 "RRGGBB"（大写）。 */
+OP_C_API const wchar_t *OP_CALL OpGetColorHex(op_handle handle, int r, int g, int b);
 OP_C_API int OP_CALL OpGetColorNum(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,
                                    double sim);
 OP_C_API int OP_CALL OpSetDisplayInput(op_handle handle, const wchar_t *mode);
@@ -396,7 +499,12 @@ OP_C_API int OP_CALL OpSetDict(op_handle handle, int idx, const wchar_t *file_na
 OP_C_API const wchar_t *OP_CALL OpGetDict(op_handle handle, int idx, int font_index);
 OP_C_API int OP_CALL OpSetMemDict(op_handle handle, int idx, const void *data, int size);
 OP_C_API int OP_CALL OpUseDict(op_handle handle, int idx);
+/* 添加字库条目。dict_info 支持多行（换行分隔，每行一条），**整批原子**：
+ * 任一行解析失败则一条都不写入并返回 0；返回成功处理的行数（单行成功 = 1）。 */
 OP_C_API int OP_CALL OpAddDict(op_handle handle, int idx, const wchar_t *dict_info);
+/* 删除字库条目（按点阵唯一匹配，dict_info 的名字部分可留空）。
+ * 返回 1 = 已删除，0 = 该点阵不存在（或参数非法）。 */
+OP_C_API int OP_CALL OpRemoveDict(op_handle handle, int idx, const wchar_t *dict_info);
 OP_C_API int OP_CALL OpSaveDict(op_handle handle, int idx, const wchar_t *file_name);
 OP_C_API int OP_CALL OpClearDict(op_handle handle, int idx);
 OP_C_API int OP_CALL OpGetDictCount(op_handle handle, int idx);
@@ -703,14 +811,15 @@ OP_C_API int OP_CALL OpHttpDownloadFile(op_handle handle, const wchar_t *url, co
 OP_C_API const wchar_t *OP_CALL OpYoloDetectFromFileEx2(op_handle handle, const wchar_t *file_name, double conf,
                                                         double iou, const wchar_t *json_options, int *find_count);
 
-/* ---- YOLO 任务维度（批 C 2026-11-22）----
- * 原来只有"检测"。这里补 分类 / 实例分割 两类任务（Pose/Obb 未做，见 docs/2026-11/）。
+/* ---- YOLO 任务维度（批 C 2026-11-22，批 E 2026-11-22 补 Pose/Obb）----
+ * 原来只有"检测"。这里补 分类 / 实例分割 / 姿态 / 旋转框 四类任务。
  *
  * 任务由**模型**决定：SetYoloEngine 加载时先读 ONNX metadata 的 task 字段，
- * 读不到再按输出形状推断。因此：
+ * 读不到再按输出形状推断（也可用 argv "--task=pose|obb|..." 强制）。
+ * 因此：
  *   * 返回值 -1 = **模型不支持该任务**（比如拿检测模型调 Segment）—— 不是"没结果"；
  *   * 返回值  0 = 任务支持但**没有结果**；
- *   * 返回值 >0 = 结果条数（分类为候选数，分割为目标数）。
+ *   * 返回值 >0 = 结果条数（分类为候选数，其余为目标数）。
  * 调用方必须把 -1 和 0 分开处理，混用会掩盖"模型选错了"这类问题。
  *
  * YoloClassify：整图分类，top_k<=0 取 5。JSON 按 score 降序：
@@ -723,9 +832,21 @@ OP_C_API const wchar_t *OP_CALL OpYoloDetectFromFileEx2(op_handle handle, const 
  *    "results":[{"class_id":0,"label":"blob","bbox":[x1,y1,x2,y2],"confidence":0.9,
  *                "mask_area":64.0,"polygon":[[x,y],...]}]}
  *
+ * YoloPose：姿态估计。keypoints 按模型顺序，坐标为原图像素（含小数）：
+ *   {"ok":1,"code":0,"task":"pose","total":N,"returned":N,
+ *    "results":[{"class_id":0,"label":"person","bbox":[x1,y1,x2,y2],"confidence":0.9,
+ *                "keypoint_count":17,
+ *                "keypoints":[{"x":100.5,"y":80.0,"confidence":0.95}, ...]}]}
+ *
+ * YoloObb：旋转框。angle 为弧度，corners 顺序左上/右上/右下/左下：
+ *   {"ok":1,"code":0,"task":"obb","total":N,"returned":N,
+ *    "results":[{"class_id":0,"label":"ship","confidence":0.9,
+ *                "center":[cx,cy],"size":[w,h],"angle":0.32,"angle_deg":18.3,
+ *                "bbox":[x1,y1,x2,y2],"corners":[[x,y],...]}]}
+ *
  * YoloGetModelInfo：当前已加载模型的元信息（未加载时 task="none"），
  * 用来在脚本启动时自检"模型选对了没"：
- *   {"ok":1,"task":"segment","task_code":2,"input_width":640,"input_height":640}
+ *   {"ok":1,"task":"pose","task_code":4,"input_width":640,"input_height":640}
  */
 OP_C_API const wchar_t *OP_CALL OpYoloClassify(op_handle handle, int x1, int y1, int x2, int y2, int top_k,
                                               int *find_count);
@@ -735,21 +856,54 @@ OP_C_API const wchar_t *OP_CALL OpYoloSegment(op_handle handle, int x1, int y1, 
                                               int *find_count);
 OP_C_API const wchar_t *OP_CALL OpYoloSegmentFromFile(op_handle handle, const wchar_t *file_name, double conf,
                                                       double iou, int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloPose(op_handle handle, int x1, int y1, int x2, int y2, double conf, double iou,
+                                           int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloPoseFromFile(op_handle handle, const wchar_t *file_name, double conf, double iou,
+                                                   int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloObb(op_handle handle, int x1, int y1, int x2, int y2, double conf, double iou,
+                                          int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloObbFromFile(op_handle handle, const wchar_t *file_name, double conf, double iou,
+                                                  int *find_count);
 OP_C_API const wchar_t *OP_CALL OpYoloGetModelInfo(op_handle handle);
 
-/* ---- 汇编模块（批 D 2026-11-22）----
+/* ---- YOLO 模型平台（2026-11-23）----
+ * 命名模型注册表：可同时加载多个模型，推理始终走当前 active 模型。
+ * LoadModel 支持 .onnx 明文与 OPYMOD01 加密包（从 argv 读 --password=xxx，密码不含空格）；
+ * 加密包在内存中解密后直接建会话，明文不落临时文件。同名重复加载 = 替换。
+ * *ret：1 成功；0 失败（retjson 里 "error" 说明原因：file_not_found / password_required /
+ * decrypt_failed / load_failed）。
+ * ReleaseModel 的 name 为空串 = 释放全部。
+ */
+OP_C_API const wchar_t *OP_CALL OpYoloLoadModel(op_handle handle, const wchar_t *name, const wchar_t *path,
+                                               const wchar_t *argv, int *ret);
+OP_C_API int OP_CALL OpYoloUseModel(op_handle handle, const wchar_t *name);
+OP_C_API int OP_CALL OpYoloReleaseModel(op_handle handle, const wchar_t *name);
+OP_C_API const wchar_t *OP_CALL OpYoloListModels(op_handle handle);
+OP_C_API const wchar_t *OP_CALL OpYoloListDevices(op_handle handle);
+OP_C_API int OP_CALL OpYoloEncryptModel(op_handle handle, const wchar_t *src_path, const wchar_t *dst_path,
+                                        const wchar_t *password);
+OP_C_API int OP_CALL OpYoloDecryptModel(op_handle handle, const wchar_t *src_path, const wchar_t *dst_path,
+                                        const wchar_t *password);
+
+/* ---- 汇编模块（批 D 2026-11-22；59 批 2026-11-23 补齐 Assemble/Disassemble）----
  * AsmCall：在 hwnd 所属进程执行 code_hex 机器码并取返回值；hwnd=0 表示当前进程。
  *   code_hex 形如 "48 C7 C0 2A 00 00 00 C3"（需自带 ret），支持 "??" 占位（按 int3 填充）。
  *   成功 {"ok":1,"code":0,"ret_hex":"2A","ret":42}；失败 {"ok":0,"code":-1,"error":"..."}。
  *   纯 BlackBone + Win32，无新依赖；执行完立即释放可执行内存。
- * Assemble / Disassemble **未实现**（需 keystone/capstone，当前环境装不上）：
- *   返回 nullptr 且 JSON 里带明确 error 文本，不会假装成功。
+ * Assemble：汇编文本 -> 机器码（keystone 静态链入）。arch 32/64，0 = 当前进程位数。
+ *   数字字面量：裸数字为**十进制**，十六进制用 0x 前缀（keystone 原 radix=16 的坑已修）。
+ *   成功 {"ok":1,"code":0,"size":7,"count":1,"hex":"B8 2A 00 00 00 C3"}；hex 可直接喂 AsmCall。
+ * Disassemble：机器码 -> 汇编文本（capstone 静态链入）。
+ *   address 十六进制可带 0x（空串=0），count<=0 = 全部解完，arch 同上。
+ *   成功 {"ok":1,"code":0,"mode":64,"count":2,"insns":[{"addr":"...","bytes":"...","mnemonic":"...","op_str":"..."}]}。
+ *   ⚠ arch 必须给对：用 64 位模式解 32 位代码会静默出错码，不做自动猜测。
+ * 两个接口失败一律返回 nullptr + JSON 带 error，不返回半成品。
  */
 OP_C_API const wchar_t *OP_CALL OpAsmCall(op_handle handle, intptr_t hwnd, const wchar_t *code_hex, int timeout_ms,
                                           int *ret);
 OP_C_API const wchar_t *OP_CALL OpAssemble(op_handle handle, const wchar_t *asm_text, int arch, int *ret);
 OP_C_API const wchar_t *OP_CALL OpDisassemble(op_handle handle, const wchar_t *bytes_hex, const wchar_t *address,
-                                              int count, int *ret);
+                                              int count, int arch, int *ret);
 
 /* ===== 音频音量（2026-11-21，WASAPI 会话级 + 系统级）=====
  * 设计见 docs/2026-11/音量模块_方案_20261121.md。

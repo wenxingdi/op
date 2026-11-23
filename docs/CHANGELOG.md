@@ -3,6 +3,476 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-23 第六十一批（fix：字库制作链路 —— 修 2 个会真丢数据的缺陷，补单条删除与批量原子入库）
+
+**先排除的疑问**：性能不是瓶颈。实测 `AddDict` 5000 条 42ms、`GetDict` 导出 3000 条 2.5ms，
+匹配侧（积分图预筛 + 按 `(h,w)` 分组 + 组内 `bit_cnt` 二分）已经优化过。所以本批只动正确性。
+
+**P0-1 条数超过 32767 后彻底读不回来**
+
+`Dictionary::dict_info_t::_word_count` 是 `__int16`。实测 33000 条：
+
+```
+AddDict 33000 条 → GetDictCount 返回 -32536      ← int16 溢出成负数
+SaveDict  → ret=1（报成功），写出 1023008 字节
+SetDict   → ret=0，读回 0 条                     ← _word_count<0 直接判失败
+```
+
+保存报成功、文件写出来了、打开是空的。常用字库 3500~7000 字撞不上，但 GB18030 全集、
+CJK 扩展区、或多套字库合并就会撞。
+
+修法（**新增 v2 格式，但只在超限时才写**）：
+
+| 版本 | 头（8 字节） | 条目区 |
+|---|---|---|
+| v0 | `_word_count` = 真实条数 | 定长 `word_t`（32 列旧格式），只读兼容 |
+| v1 | `_word_count` = 真实条数（≤32767） | `word1_info` + 点阵 |
+| v2 | `_word_count` = `0x7FFF` 扩展标记 | 头后紧跟 **int32 真实条数** + 同 v1 的条目区 |
+
+关键取舍：**≤32767 条时仍写 v1**，只有真超限才写 v2 —— 旧 DLL 依然能读新文件，回滚无风险。
+同时 `Dictionary::size()` 改为直接取 `words.size()`，`info._word_count` 降级为「文件里的 v1 条数」，
+不再是运行时真值来源（它本来就是溢出源）。
+
+**P0-2 空名条目会抹掉已有名字，然后保存成空文件**
+
+`add_word(const word1_t&)` 的 else 分支无条件 `set_chars(word.info.name)`。实测：
+
+```
+AddDict("A$11,8,30$<hex>") → 1
+AddDict("$11,8,30$<hex>")  → 1      ← 同点阵、空名
+GetDictCount → 1                     ← 内存说 1 条
+SaveDict  → ret=1
+SetDict   → 读回 0 条                ← write_dict 把空名条目删了
+```
+
+三处口径全不一致且无一句日志。修法：空名不再覆盖已有非空名；`write_dict` 增加 `dropped`
+出参回传剔除数；**一条都不剩时返回失败**（绝不写出空文件还报成功）。
+
+**P1 功能缺口**
+
+| 缺口 | 修法 |
+|---|---|
+| 无单条删除，改错一条只能 `ClearDict` 整槽重来 | 新增 `RemoveDict`（`Op` / C API / COM id 560 / Python 四层贯通）。`Dictionary::erase()` 早就实现了，只是没对外暴露 |
+| `AddDict` 只收单条，多行传入整批失败 | 改用 `for_each_dict_line` 遍历，**先全量解析再入库** → 任一行非法则一条都不写（旧式逐条调用会留下「前 499 条进库、第 500 条格式错」的半成功）。返回值 = 成功处理的行数，单行成功仍为 1 |
+| 无字库合并 | 暂不做（`GetDict`+`AddDict` 脚本可达；等真实需求） |
+
+**P2 工具侧**：`OPTool/WordDictTool/Scripts/WordDict.cs` 用 `string.GetHashCode()`（32 位）当
+`Dictionary` 的 key，碰撞时 `ContainsKey` 命中就 `return` —— 两条不同字会被当成重复**静默丢弃**。
+改为直接用字库串作 key（`StringComparer.Ordinal`）。字库工具最不能容忍的就是"静默少一条"。
+
+**验证**：`tests/dict_batch_test.cpp` 8 条全 PASS。判据全部走公开接口，唯一的内部读取是
+`.dict` 文件头前两字节（版本选择本身就是格式契约）。
+
+反向验证（改错实现必须转红，还原后必须全绿）：
+
+| 故意改错 | 转红用例 |
+|---|---|
+| `extended = false`（强制写 v1） | `LargeDictionarySurvivesInt16Overflow` |
+| 空名无条件覆盖 | `EmptyNameDoesNotEraseExistingName` |
+| `AddDict` 退回单条解析 | 4 条（含 `AddDictAcceptsMultipleLines`、`RemoveDictDeletesOnlyMatchedEntry`） |
+
+其他口径：C ABI 手册 432 → **433 条**（`gen_c_api_manual.py` 零未归类），
+C++ 手册参数注解 1643 → **1646/1695（97.1%）**。
+
+### 2026-11-23 第六十批（docs：C ABI 手册 316 → 432 条，改为生成器产出；修文档生成器出参解析）
+
+**问题**：`docs/2026-10/OP_API手册_20261015.md` 是 316 条时代的**手写**清单，此后陆续新增的
+**116 个 C API 导出**（加密与摘要 12、注册表 4、全局热键 4、并发诊断 1、图像句柄注册表 7、
+内存版识别入口 14、绘制状态与上屏 6、绘制标签替换 3、UIA 8、音频 8、YOLO 20、汇编 3、
+时间轴 8、颜色转换 6，另 Image/OCR/Draw 旧分区内新增 7）全都没收录。
+手册说 316、头文件实际 432 —— 这种偏差没有任何机制会报警，靠人工比对才发现。
+
+**做法**：新增 `scripts/gen_c_api_manual.py`，从 `include/op_c_api.h` 生成 `docs/2026-11/OP_API手册_20261123.md`。
+
+| 机制 | 说明 |
+|---|---|
+| 旧条目零漂移 | 先解析旧手册得到 `函数名 → 分区` 基线映射，**已在旧手册里的函数一律沿用原分区**，位置不被打乱 |
+| 新条目显式归类 | 新增函数按 `NEW_SECTIONS` 的正则表归类；规则顺序有意义（`^OpYolo` 必须排第一，否则 YOLO 的 `*FromMem` 会被「内存版识别入口」的 `FromMem$` 先吃掉） |
+| 未归类即报警 | 出现无规则命中的函数时**非零退出并打印名单**，不静默塞进某个分区 —— 这是本批真正要解决的「静默偏差」 |
+| 口径分离 | 头部同时写明 `op_c_api.h` 432 个 C ABI 导出 与 `op.idl` 426 个 COM 方法，**明确标注二者不是同一口径**（历史上曾把 COM 的 318 当成 C ABI 数） |
+
+**结果**：432 条 / 34 分区，与头文件**逐条对得上**（0 缺 0 多 0 重）。旧文件保留原样并在头部加
+「已被取代」指针，符合 v1→v2 不静默修改的纪律。
+
+**顺带修**：`scripts/gen_api_reference.py` 的参数解析正则把 `std::wstring &retstr` 拆成
+类型 `std::wstring &r` + 名字 `etstr`，导致 HTML 手册里 **105 条出参显示成 `etstr`/`etjson`**，
+而 PARAM_DOCS 注解表里那些键当初也是照着这个 bug 起的伪名 —— 等于「错的名字互相验证通过」。
+修正解析后把注解键改回真实名（`retstr`/`retjson`/`ret_str`/`rettitle`），并删掉通用表里的重复键。
+
+| 产物 | 数字 |
+|---|---|
+| `docs/api_reference.html` / `api_llm.md` | 425 个接口；参数注解 1643/1692（**97.1%**），重跑零漂移（仅时间戳） |
+| `docs/2026-11/OP_API手册_20261123.md` | 432 条 / 34 分区（新增） |
+| `docs/INDEX.md` | 常驻文档表新增 C ABI 手册行；`api_reference.html` 行 310→425、1177→1643；旧 C API 手册行标注「已被取代」 |
+
+验证：`gen_c_api_manual.py --check` → 432 已归类 / 0 未归类；手册条目数与 `op_c_api.h` 集合
+双向差集均为空。无代码改动，未重编（DLL 与上一批一致，发布件 sha1 复核 MATCH）。
+
+### 2026-11-23 第五十九批（feat：Assemble/Disassemble 落地 —— 本地源码构建 keystone/capstone，解开批 D 阻塞）
+
+批 D（五十二批）当时把 `Assemble` / `Disassemble` 标为**阻塞**并如实上报：vcpkg 引导自身
+工具链时用 `CreateFileW` 重定向 stdin 解压 7z，沙箱里返回 `Access is denied`，两个 port 都装不上。
+本批换成**本地源码构建**，阻塞解除。
+
+| 接口 | 契约 |
+|---|---|
+| `Assemble(asm_text, arch)` | keystone（内嵌 LLVM MC）。Intel 语法，多语句用换行/`;` 分隔，**不自动补 ret**；JSON `{ok,size,count,hex}`，`hex` 空格分隔、可直接喂 `AsmCall` |
+| `Disassemble(bytes_hex, address, count, arch)` | capstone。JSON `{ok,mode,count,insns:[{addr,bytes,mnemonic,op_str}]}` |
+
+**`Disassemble` 比原预留签名多了 `arch`**：原签名没有位数信息，x64 宿主按 64 位模式解
+32 位游戏代码会**静默产出错码**（`0x50` 变成 `push rax` 而非 `push eax`）。接口此前从未能返回
+数据，加参数不构成破坏性变更；`arch` 支持 32/64，`0` = 按当前进程位数，**不做猜测**。
+
+层覆盖：C++ / C API / COM（id 557~559）/ Python。**批 D 当时只落了 C++ 与 C API，COM 是漏项**，
+本批一并补齐（`AsmCall` / `Assemble` / `Disassemble` 三个都在 COM 上，均回 JSON 字符串）。
+
+构建链路：新增 `scripts/build/_wb_build_asm_libs.py` —— 下源码（sha256 校验）→ Ninja + MSVC
+`/MT` 编静态库 → 落 `3rd_party/{keystone,capstone}/lib/{x64,x86}/`。缺库时 `libop/CMakeLists.txt`
+**FATAL_ERROR**，不退化成"编得过、跑起来才发现是空壳"。来源/许可证/改意见
+`3rd_party/keystone/README.md`、`3rd_party/capstone/README.md`。
+
+**三个必须记下来的坑**：
+
+1. **CMake 4.3 直接拒绝 keystone**。`cmake_minimum_required(VERSION 2.8.7)` 会被拒，
+   `cmake_policy(SET CMP0051 OLD)` 更是硬错（4.x 已移除该策略的 OLD 行为）。
+   解法：用 **VS 自带的 cmake 3.31.6**（`Common7/IDE/CommonExtensions/Microsoft/CMake/`），
+   配合 `-DCMAKE_POLICY_VERSION_MINIMUM=3.5`。用 pip 装的 cmake 永远配不过去。
+2. **`keystone.h` 无条件 `dllexport`**。该宏会把 `/EXPORT:ks_open` 写进静态库 .obj 的 `.drectve`，
+   链接器无条件照办 → `ks_*` 十来个符号自动进 op.dll 导出表，**改使用侧头文件拦不住**，
+   必须在源头打 `KEYSTONE_STATIC` 分支并重编。验证：`dumpbin /directives keystone.lib` 里
+   `/EXPORT:ks_` 计数 = 0；改前改后 op_c_api_x64.dll 导出集 444 条**零差异**。
+3. **keystone 的 radix bug**：`ks_option()` 第一行无条件 `setRadix(16)`，而 `KS_OPT_SYNTAX_INTEL`
+   等不带 RADIX16 位的分支从不改回 → 裸数字全按十六进制（`mov eax, 100` 编成 `0x100`=256），
+   并且**写不出十进制**（`42d` / `0d42` / `42h` 全 `KS_ERR_ASM_INVALIDOPERAND`），
+   官方选项 `KS_OPT_SYNTAX_RADIX16` 也形同虚设。改为入口 `setRadix(10)`：裸数字=十进制、
+   `0x`=十六进制，是**严格更宽**的字面量语法。
+
+另：`LLVM_TARGETS_TO_BUILD=X86` 把 keystone 编译量压到 84 个 TU / 单架构 ~35 秒；第三方源码按 `/std:c++14` 单独编（LLVM 3.9 是 C++11 时代代码，C++17 下会撞已移除的
+`std::binary_function` 一类东西）。capstone 只编 x86 后端（3MB 级，全架构约 3 倍）。
+
+**x86 构建暴露的两个既有隐患**（x64 单架构验证发现不了，这是"双架构都过才算过"的价值）：
+
+4. **`_wb_ninja_record.py` 的引号丢失**。launcher 是"ninja → python 包装脚本 → cl"两跳，
+   `sys.argv` 里的 `/DOP_VERSION="5.2.0"` 在**第一跳**就被 CRT 当语法引号吃掉，
+   再用 `list2cmdline` 拼回去时已无引号可转义 → cl 收到 `/DOP_VERSION=5.2.0`
+   → `_T(OP_VERSION)` 展开成 `L5.2.0` → `error C2065: "L5": 未声明的标识符`。
+   曾在 2026-11-21 归因到 `os.execv`，实际根因是"两跳必然丢引号"，换 subprocess 也不够。
+   现在 launcher 用 `GetCommandLineW()` 取**原始命令行**、砍掉自身前缀后整条原样作为
+   `lpCommandLine` 转发，完全不经过解析/重拼。
+5. **IDL `hyper` 与 C++ `LONG_PTR` 在 x86 不等价**。批 H 的 `UiaDump`/`UiaFind` 声明成
+   `[in] hyper hwnd`，MIDL 生成 `__int64`；而 `OpAutomation.h` 写的是 `LONG_PTR`。
+   x64 上 `LONG_PTR == __int64` 恰好相等所以一直编得过，x86 上 `LONG_PTR == long`
+   → 参数签名不匹配纯虚函数 → 类仍抽象 → `C2259: 无法实例化抽象类`（连带把本批
+   新增的 `AsmCall` 一起拖红）。已按本仓库既有约定改成 IDL `[in] LONG_PTR hwnd`
+   （与 `AudioQueryWindow` / `GetWindowScale` 一致），C++ 侧不动。
+
+**顺手修掉文档生成器的一个老 bug**：`gen_api_reference.py` 的参数解析正则
+`^(.*?[\w\)])\s*(\*+)?\s*(\w+)$` 不认 `&`，于是 `std::wstring &retstr` 被拆成
+类型 `std::wstring &r` + 名字 `etstr`。结果是 **105 条出参在 API 手册里显示成
+`etstr` / `etjson`**，而注解表里那些 `"etstr"` / `"etjson"` / `"et_str"` 键其实是照着
+这个 bug 起的伪名（等于"用错的名字互相验证通过"）。正则改为吃 `[&*]+`，伪键全部改回
+`retstr` / `retjson` / `ret_str`，参数注解覆盖 1643/1692（97.1%，与修前同数但名字是真的）。
+
+测试：`tests/asm_batch_test.cpp` 6 → **13 条全 PASS**。判据都是**区分性**的而不是"能跑通"：
+位数（`mov rax, 42` 在 32 位必失败 / `0x50` 在两种模式下 `op_str` 分别是 `eax`/`rax`）、
+radix（十进制 100 → `64 00 00 00`，`0x100` → `00 01 00 00`）、端到端
+（assemble 出的 hex 直接喂 `AsmCall` 执行，返回值必须对）、200 次重复调用结果一字不差。
+**反向验证**：把 `KS_MODE_32/64` 故意写反 → 5 条转红；还原后 13/13 全绿。
+
+### 2026-11-23 第五十八批（feat：UIA 元素层最小集，8 个新接口）
+
+图色之外的第二条路：直接读 UI 元素树，**不依赖分辨率 / 主题 / DPI**。
+核心价值是给图色做"语义锚点"——先用 `UiaFind` 拿到面板矩形，再在那个矩形里 `FindPic`，
+搜索面积从全屏降到几百像素；控件状态（可用/勾选/文本）直接读，绕开 OCR 的误识风险。
+
+| 接口 | 契约 |
+|---|---|
+| `UiaDump` | 按深度列出窗口下全部元素（`hwnd=0` 取前台窗口）；JSON `{ok,nodes:[...],count}` |
+| `UiaFind` | 选择器查找，`timeout_ms>0` 轮询到超时；JSON `{ok,count,elements:[{id,...,value}]}` |
+| `UiaFromPoint` | 屏幕坐标命中的元素（"鼠标所指是什么控件"） |
+| `UiaInvoke` | Invoke 模式触发；复选框等无 Invoke 的走 Toggle 兜底 |
+| `UiaGetValue` / `UiaSetValue` | ValuePattern 读写；只读控件 SetValue 返 0 |
+| `UiaRelease` / `UiaReleaseAll` | 元素注册表释放，返回释放个数（长跑脚本必须及时释放） |
+
+选择器语法：`name=确定 >> class=Button`；`name*=确定` 为包含匹配；
+键支持 `name` / `class` / `id`(automationId) / `type`(类型名或数字) / `index`(0 基)。
+逐级过滤的语义是"在上一级结果的**后代**里找"，与 UIA 的 Descendants 一致。
+
+**三条必须写进文档的边界**（否则用户会拿它去跑游戏然后说没用）：
+1. 只对暴露 UIA 的程序有效：Win32 / WinForms / WPF / Qt（开 accessibility）/ Chromium 系。
+   **DX 自绘的游戏界面节点树是空的**。
+2. `element_id` 是**本进程内**的注册表序号，`op_com` 与 `op_c_api` 各链一份 libop、各有一份注册表
+   → 跨层拿 id 必找不到（和热键用命名共享内存跨两份 DLL 的做法不同，这里没有跨层需求）。
+3. 坐标是**屏幕物理像素**，与绑定态客户区坐标不是一套。
+
+实现要点：
+- 新增编译单元 `libop/op/OpUia.cpp`（`libop/CMakeLists.txt` 的 `OP_CLASS_SOURCES` 已列），
+  链接系统库 `uiautomationcore`（Win7+，**不新增 DLL 依赖**）。
+- 宿主可能已经是 STA（.NET 宿主）：`CoInitializeEx` 的 `RPC_E_CHANGED_MODE` 视为"已初始化"继续用，
+  当成失败会导致在 WinForms 宿主里永远调不通。
+- 节点遍历上限 4000，超大窗口不会把调用卡死（可能截断）。
+- **用例必须把窗口放到独立线程**：本进程既是 UIA client 又是 provider，同线程查询会互相等死。
+
+层覆盖：C++ / C API（8 个）/ COM（DISPID 549~556）/ Python（`uia_dump` 等 8 个）。
+测试：`tests/uia_test.cpp` 6 条（Dump 内容、Invoke 真的触发 BN_CLICKED、选择器三种变体、
+ValuePattern 读写、非法入参显式失败、ReleaseAll 计数与幂等），**实测 6/6 PASS**；
+`c_api_null_handle_test.cpp` 重生成后 8 个新函数全部覆盖，两条全绿。
+文档：`gen_api_reference.py` 补 UIA 段 10 个参数注解，覆盖 96.4% → **96.8%（1637/1691）**，UIA 段 100%。
+Python ctypes 冒烟：`uia_from_point(5,5)` 在 Chromium 界面上直接读到 `TabStripRegionView`，
+非法选择器返回带中文说明的 `ok:0`，`uia_release_all` 计数与幂等均符合契约。
+
+全量回归（`-WgcTest.*`）：**643 ran / 638 PASS / 4 SKIP / 1 FAILED**（637 → 643 为本批 +6 条）。
+唯一红项是已知负载敏感项 `WindowServiceTest.GetCmdStrReturnsPartialOutputOnTimeout`
+（单跑通过，与本次改动无关）；4 个 SKIP = 无 FurMark / 注册表写受限 / 两个 OCR 并发用例按环境跳过。
+
+**编译坑（记一笔）**：UIA 的控件类型是 `CONTROLTYPEID`（UIAutomationClient.h 的 `get_CurrentControlType` 出参），
+**不存在** `CONTROL_TYPE` 这个类型；`guard_exceptions` 在 `op/OpCaptureHelpers.h` 里，
+不是 `OpResult.h` —— 新写 draw/ocr 类门面时容易漏 include。
+
+### 2026-11-23 第五十七批（feat：绘制状态 + 真填充 + 绑定层画图 + 图片句柄上屏 + 标签替换，共 7 个新接口）
+
+DrawGui 子集的三个"用起来立刻缺"的点：颜色不能指定、填充是假的、绑定层画不了图。
+全部落在既有 `OpDraw.cpp`，**无新增 `.cpp`**。
+
+| 接口 | 契约 |
+|---|---|
+| `DrawSetColor` | Ex 系列描边色（`RRGGBB`），影响之后绘制的图元，已画的不变；非法色返 0 且不改状态；默认白 |
+| `DrawSetFill` | 填充开关 + 填充色。`enable=0` → mode 0/2 退化为描边；`color` 空 = 沿用当前色；支持 `RRGGBB`（自动 0x66 半透明）与 `AARRGGBB`（显式 alpha）；默认开、默认半透明红 |
+| `DrawImageEx` | 绑定窗口内画图片文件（客户区坐标）；**文件不存在显式返回 0**（屏幕层是静默跳过，Ex 系列一律要给明确反馈） |
+| `DrawImageFromHandle` | 图片句柄内容画到屏幕叠加层；像素折进图元，**句柄随后释放不影响已提交的图元** |
+
+实现要点：
+- `DrawRectEx` 的 `mode` 真正生效：`0` 纯填充（不描边，`line_width` 忽略）/ `1` 纯描边 / `2` 填充+描边 /
+  其它值按描边并记日志。**撤销上一批"填充按描边画"的降级说明**。
+- 两层的图元渲染抽成公共 `render_cmds(g, cmds, ox, oy)`（原先是两份重复的 switch），
+  屏幕层传 `-虚拟屏左上角`、绑定层传 `0`；改一处两层同时生效，不会再出现"屏幕层支持、绑定层漏了"。
+- 图元上限 `4096`，超限丢最旧（G5）。脚本死循环绘制不再把内存吃光；丢的是旧标注，可视化场景无害。
+- 图片句柄上屏走像素拷贝：截屏来的图像 alpha 通道通常是 0（GDI 不写 alpha），原样上屏会全透明，
+  所以统一拉满，真半透明用 `alpha` 形参控制。
+
+层覆盖：C++ / C API（`OpDrawSetColor` 等 4 个）/ COM（DISPID 542~545）/ Python（`draw_set_color` 等，
+顺带把批 B 漏注册的 7 个 `OpDraw*` 也补进了 `_ffi.py`）。
+测试：`tests/draw_batch_test.cpp` 新增 4 条（状态校验、绑定层 5 图元 + 缺文件不留图元、句柄上屏与释句柄后图元存活、上限裁剪），
+**9/9 PASS**；`c_api_null_handle_test.cpp` 重生成后两条全绿。
+文档：`gen_api_reference.py` 补 Draw 系列 12 个参数注解，覆盖 95.9% → **96.7%（1599/1653）**，Draw 段 100%。
+
+**踩到的环境坑**：Git Bash 里 `export TEMP='D:\x' TMP=$TEMP` 中 `$TEMP` 展开的是**旧值**（同一行参数展开先于赋值），
+导致 `TMP` 仍是 `C:\...\Temp`、`GetTempPathW` 走 TMP 优先 → 造图用例假红。
+必须 `export TEMP='D:\x'` 与 `export TMP='D:\x'` 分两条写死在两个**同一路径**上（斜杠方向随 bash 转换无妨）。
+
+#### 标签替换：解决"实时跟踪框只能全清重画"
+
+| 接口 | 契约 |
+|---|---|
+| `DrawRectTag` | 屏幕层带标签矩形。同标签重画 = **就地替换**（z 序移到最上），不累积 |
+| `DrawRectExTag` | 绑定层同款（客户区坐标），mode 语义同 `DrawRectEx` |
+| `DrawRemoveTag` | 删除同标签图元（**两层一起清**），返回删除个数；0 = 无匹配或标签为空 |
+
+**为什么是标签不是 id**：id 是裸数字，脚本跟丢一次就永久错位；标签是调用方自己起的名字
+（`"boss_hp"`），重画时自然复用，不需要记住任何返回值。代价是不能按"任意图元"删除——
+需要那样时仍然 `DrawClear`。
+
+实现：`push_cmd()` 统一"同标签替换 + 超限裁剪"，两层共用同一份规则（原先上限逻辑是各写一遍，
+正是"屏幕层改了绑定层忘了"的高发写法）；`erase_tag()` 供两层 `remove_tag()` 复用。
+测试新增 2 条（标签替换/删除计数、绑定层标签），含"空标签返 0""非法色返 0 - 不留图元"。
+
+### 2026-11-23 第五十六批（feat：YOLO 命名模型平台 + 加密/注册表/热键补全，共 23 个新接口）
+
+对标 OLA 补齐两块能力：**#3 YOLO 模型平台**（多模型注册表 / 热切换 / 设备枚举 /
+`OPYMOD01` 加密模型包 / 内存加载不落明文）与 **#4 低成本补全**（AES-256-GCM、PBKDF2-SHA256、
+流式文件哈希、RSA PKCS#1 v1.5、注册表四件套、全局热键）。
+
+全部落在既有编译单元（`OpCrypto.cpp` / `OpRuntime.cpp` / `OpInput.cpp` / `OpYolo.cpp` /
+`YoloDetector.cpp` / `OnnxYoloEngine.cpp`），**无新增 `.cpp`**，不需要重跑 CMake configure。
+
+#### 1. YOLO 命名模型平台（7 个）
+
+| 接口 | 契约 |
+|---|---|
+| `YoloLoadModel` | 按名字加载进注册表，返回 per-model JSON（`name/task/task_code/encrypted/active/input_*/device/dml/memory_loaded`，内存加载时省略 `path`）；新加载的自动激活 |
+| `YoloUseModel` | 热切换 active；未注册名字返 0 |
+| `YoloReleaseModel` | 释放指定模型；`name` 空 = 全部释放；释放 active 后引擎回到未加载（`task=none`） |
+| `YoloListModels` | 注册表快照 `{ok,active,count,models[]}` |
+| `YoloListDevices` | DXGI 枚举：CPU 恒在（`index=-1`、`type=cpu`），附 `dml_available` |
+| `YoloEncryptModel` / `YoloDecryptModel` | `.onnx` ↔ `OPYMOD01`（magic 8 字节无 NUL + AES-256-GCM）；解密失败不产出文件 |
+
+实现要点：
+- 加密包加载走 `load_named_memory`（`Impl::load(path, mem, len)`），**全程内存，不落明文临时文件**，
+  密码用 `--password=` 从 argv 摘除后再交给引擎，用完 `secure_zero`。
+- 失败不留半注册（注册表项与引擎状态一起回滚）；`init/release` 会清 `m_active`；
+  快照走 `snapshot_locked`，避免 `m_mutex` 重入死锁。
+
+#### 2. 加密补全（8 个）
+
+- `AesEncrypt` / `AesDecrypt`：容器 `magic[8]|version|plain_size|salt[16]|nonce[12]|tag[16]|cipher`，
+  AAD = 前 20 字节，PBKDF2-HMAC-SHA256 10 万轮；每次随机 salt/nonce ⇒ 同明文两次密文不同；
+  密码错/截断/篡改/非法 base64 一律空串（GCM 认证失败不吐乱码）。
+- `Pbkdf2Sha256`：`iterations∈[1,1e7]`、`length∈[1,1024]`，输出 hex；RFC 向量钉死。
+- `Md5File` / `Sha1File` / `Sha256File`：流式读，大文件不进内存；文件不存在返回空串。
+- `RsaEncrypt` / `RsaDecrypt`：CryptoAPI + PKCS#1 v1.5，支持 PKCS#1/PKCS#8 PEM（PKCS#8 内层解包），
+  明文上限 `mod_len-11`；公钥/私钥角色错用必须失败。
+
+#### 3. 注册表四件套（4 个）
+
+`RegistryReadString/WriteString/ReadDword/WriteDword`：支持 HKLM/HKCU/HKCR/HKU/HKCC 及 `HKEY_*` 全名，
+`name` 传空 = 默认值；类型不符/缺失返 0 并清零出参；写接口键不存在会自动创建，非法根键返 0。
+
+#### 4. 全局热键（4 个）
+
+`HotkeyRegister/Unregister/Poll/UnregisterAll`：进程级状态放在命名共享内存
+`Local\OpHotkeyShm_<pid>` + 事件 `Local\OpHotkeyEvt_<pid>`，owner 用 `InterlockedCompareExchange` 选举，
+消息窗口 `Local\OpHotkeySink_<pid>`（`HWND_MESSAGE`），ring 256 保 FIFO。
+约束：`id∈[1,0xBFFF]`、`modifiers` 只允许低 4 位、`vk∈[1,255]`；
+`Poll` 返回 id，超时 0，`timeout_ms=0` 非阻塞、`<0` 最多等 60 秒。因进程级状态不在静态变量里，
+`op_com` 与 `op_c_api` 各自静态链一份 libop 也不会分裂。
+
+#### 5. 七层链路与验证
+
+- 层：`include/libop.h` → `libop/op/Op*.cpp` → `include/op_c_api.h` + `op_c_api.cpp`
+  → `op.idl`（尾部追加 519..541）+ `OpAutomation.h/.cpp` → `bindings/python/op/_ffi.py` + `api.py`
+  → `tests/` → 本文档 + `scripts/gen_api_reference.py` + 发布件同步。
+- 导出：`dumpbin -exports` **417 个**，23 个新裸名全在。
+- 新增用例 12 个（`CryptoApiTest` / `RegistryApiTest` / `HotkeyApiTest` / `YoloModelPlatformTest`）：
+  实测 **18 PASS / 1 SKIP / 0 FAIL**。
+- 全量回归（`-WgcTest.*`）：**631 ran / 629 PASS / 2 SKIP / 0 FAILED**（用例口径修正后复跑结果）。
+  修口径前那一轮是 627 PASS + 2 个环境相关红项（`WindowServiceTest.GetCmdStrReturnsPartialOutputOnTimeout`
+  负载敏感、`CoverageOcrColorTest.AutoOcrLineIsAliasForBothBranches` 未绑定窗口时截桌面），
+  第 7 节改完靶子后均归绿。2 个 SKIP = 无 FurMark 窗口 / 注册表写受限。
+- `scripts/gen_c_api_null_handle_test.py` 两处修正（生成文件本身仍勿手改）：
+  ① 新增 `nullptr_funcs()`——`if (!handle) return nullptr;` 的 13 个 API（YOLO Ex2/任务维度、
+  FindStr 系列）失败值就是 `nullptr`，此前一律按空串断言，长期假红；
+  ② `json_funcs()` 除 `call_json_string` 外，也识别手写 null 分支直接返回 JSON 字面量的函数
+  （`OpYoloLoadModel`），按 `"ok":0` 断言。
+- 参数注解覆盖 1638 → **1574/1638 = 96.1%**（94.2% → 96.1%），23 个新接口**参数全覆盖**；
+  YOLO 分组 14 → 21（模型平台显式 `REROUTE` 归位，避免落进 OCR 段）。
+
+#### 6. 测试口径与两个坑（写下来防止再踩）
+
+- **热键用例不按真键**：直接 `PostMessage` 到 `OpHotkeySink` 窗口验证"注册 → 排队 → 轮询"整条链路；
+  连 `id+1`（未注册）也故意投一条，验证窗口只搬运 `WM_HOTKEY` 不校验注册表。无桌面会话时 SKIP。
+- **多目标模型"4 条"依赖靶子尺寸**：`yolo_multi_test.onnx` 的 4 个框在 640 输入空间里 `cy` 到 400，
+  console 类靶子（约 900×160）会让下游框判到画面外、只剩 2 条 ⇒ 该类断言必须用 640×640 纯色靶子。
+- **注册表用例在受限环境会 ERROR_ACCESS_DENIED(5)**：用例先做一次原生 `RegCreateKeyExW` 探测，
+  只在原生调用就被拒时 SKIP 并写明原因；实现坏了（原生能写、API 写不进）依旧 FAIL。
+- **base64 尾字符不是有效位**：末组只剩 1 字节时后两个字符的低位被解码器丢弃，改结尾等于没改
+  （RSA 篡改用例曾因此假红），改动必须落在中间字符。
+
+#### 7. 顺带修正：屏幕抓取类用例的"未绑定 = 空串"是错的（环境项收口）
+
+`check_bind()` 在未显式绑定时会**自动绑桌面窗口**（screen mode fallback），所以未绑定 ≠ 不识别。
+旧用例拿未绑定的 `10×10` 桌面区域断言空串，桌面左上角一旦有像素就假红（实测颜色分支返回 `"1"`，
+无色分支返回 `""`，同参数两次结果不同）。
+
+改法：靶子换成**倒置区域**（`x2 < x1`）——`with_captured_region` 因宽高 ≤ 0 不执行识别回调，
+恒返空串且 0 ms，与前台画面完全无关；未绑定的非空区域只断言"返回非空指针、不崩"，不断言内容。
+涉及 `CoverageOcrColorTest.AutoOcrLineIsAliasForBothBranches`、
+`CoverageOcrColorTest.OcrAutoColorEmptyAreaReturnsEmpty`（原 `OcrAutoColorUnboundReturnsEmpty`）、
+`CoverageQRCodeTest.InvalidInputsAreSafe`。
+
+断言区分力已验：同进程同 DLL 下 `(10,10,5,5)` 倒置区返 `''`（0 ms），`(0,0,10,10)` 桌面区颜色分支返 `'1'`
+（35 ms）——若区域裁剪失效，新断言必红。
+
+另记 OCR 默认档位口径（`HttpOcrService::normalize_engine_name`）：`""` / `onnx` / `builtin` / `v6` /
+未知档位名**全部归一化到 v6 精度档**，只有显式传 `v4` 才切快档（`OnnxOcrEngine::init` 里
+`use_v4 = (engine == L"v4")`）；`--cls=` 默认随档位（v6 开、v4 关）。
+
+### 2026-11-22 第五十五批（feat：形态学 3 模式 + 颜色转换 6 接口 + SHA256/HMAC/随机/GUID + 坐标过滤/密集区）
+
+低风险高复用补口，全部落在既有编译单元（OpImage / OpCrypto / OpAlgorithm / OpOpenCv /
+OpenCvHelpers），无新增 `.cpp`，不需要重跑 CMake configure。
+
+#### 1. 形态学：gradient / tophat / blackhat
+
+`MorphologyMode` 扩到 7 值，映射 `cv::MORPH_GRADIENT/TOPHAT/BLACKHAT`；`CvMorphology`
+与 `CvPipeline` 的 `morph` 步骤共用同一解析表，新增别名 `grad` / `top_hat` / `black_hat`。
+参数形态不变，老脚本零影响。
+
+#### 2. 颜色转换（6 个）
+
+| 接口 | 契约 |
+|---|---|
+| `Hex2RGB` / `Hex2ARGB` | 颜色串 → 分量；支持 `RRGGBB` / `AARRGGBB`、`#`/`0x` 前缀、大小写、`-delta` 后缀截断；6 位 alpha=255；解析失败返回 0 且出参清零 |
+| `ARGB2Hex` / `GetColorHex` | 分量 → `AARRGGBB` / `RRGGBB` 大写串；分量越界截断到 0/255（不回绕） |
+| `RGB2HSV` / `Hex2HSV` | H∈[0,360)、S/V∈[0,100]（double）；与 hex 路径同口径 |
+
+#### 3. 哈希与随机（4 个）
+
+- `Sha256`：CALG_SHA_256，小写 hex，口径同 Md5/Sha1（UTF-8、空串→空串）。
+- `HmacSha256`：手搓 RFC 2104（K' 补零/超长先哈希、ipad/opad），RFC 4231 向量钉死；
+  空 key→空串，空消息仍出摘要。
+- `GenerateRandomBytes`：`CryptGenRandom`，length∈(0,4096]，输出 2×length 位 hex。
+- `GenerateGuid`：`CoCreateGuid`，大写 `8-4-4-4-12`、无花括号。
+
+#### 4. 坐标算法（2 个）
+
+- `ExcludePos`：按 `x1,y1,x2,y2|...` 剔除矩形内点（含边界、坐标顺序不限、非法项跳过、
+  空列表不过滤），输出保持输入格式，另出保留点数。
+- `GetDenseRect`：固定 `width×height` 滑窗（右下开区间），锚点只需取输入点即得最优；
+  输出 `x,y,count`，并列取最靠上再靠左。
+
+#### 5. 层覆盖与验证
+
+C++ / C API / COM（DISPID 507~518）/ Python ctypes 全通；COM `op.idl` 仍为无 BOM UTF-8。
+`gen_api_reference.py` 补 12 个函数的参数注解（本轮新增参数零缺口）。
+测试：新增 10 个用例（形态学三模式判别、颜色转换边界、SHA256/HMAC 已知向量、
+随机/GUID 形态与多变性、两点过滤/密集窗），定向 10/10 通过；
+全量回归 **619 ran / 618 passed / 1 skipped（FurMark）/ 0 failed**。
+Python ctypes 冒烟：12 个新方法逐个返回预期值。
+
+#### 6. 顺带修复：时间轴 C API 的 `*ret` 恒为 0
+
+`OpInputSyncEnable` / `OpSetInputMonitor` / `OpInputSyncLink` 用 `call_ret` 把核心层的
+`long *ret` 当成了函数返回值，出参指针从未写回，调用方永远读到 0。三个入口统一改为
+`out_int(ret, 0)` + 调用后 `out_int(ret, *r)`；C# 冒烟确认 `OpSetInputMonitor` 注册/取消
+均返回 `status=1, ret=1`。op_x64 未变，op_c_api_x64 已同步到 op bin、Python 包与
+OPTool/GMAJ 运行目录。
+
+消费端：OPTool `OpSoft.cs` 补 12 个新 API + `SetInputMonitor`（OpExport 当前无法解析
+回调 typedef 且对 `std::wstring&` 出参生成非法 C#，故定点补充）；GMAJ `resource/op_runtime`
+同步 `api.py`/`_ffi.py` 与两份 x64 DLL，经 `core.opx._runtime.load_op()` 冒烟全通。
+
+### 2026-11-22 第五十四批（feat：YOLO Pose/Obb 补齐 + 全任务 Python/COM 暴露 + DirectML 可选 GPU）
+
+承接第五十批（当时明确「Pose/Obb 不做」）与本轮补齐清单第 1、3 项。
+
+#### 1. 任务维度补全：Pose / Obb
+
+引擎解码新增 `Task::Pose` / `Task::Obb`，与 Detect/Segment/Classify 共用同一套预处理
+（letterbox + CHW/255）和会话管理，任务判定的优先级不变：metadata `task` → 输出形状 → `--task`。
+
+| 接口 | 契约 |
+|---|---|
+| `YoloPose` / `YoloPoseFromFile` | 每框带 `keypoints`（按模型顺序，x/y/confidence，原图尺度）；关键点数优先 `--kpt=N`，其次 metadata `kpt_shape`，最后 17 |
+| `YoloObb` / `YoloObbFromFile` | `center/size/angle`（弧度）+ `angle_deg` + 轴对齐 `bbox` + `corners`（左上/右上/右下/左下）；重复框用旋转框裁剪后的 IoU 抑制 |
+
+**契约沿用批 C**：任务不符返回 **-1**，无结果返回 **0**。层覆盖：C++ / C API / COM（DISPID 498~505）/
+Python ctypes。同时把第五十批只到了 C++/C API 的 Classify/Segment/GetModelInfo 一并补到 COM（498~506）
+与 ctypes，避免"有接口但脚本调不到"。
+
+#### 2. DirectML：`--device=N`，失败自动回退
+
+- provider 通过 `OrtApi::GetExecutionProviderApi("DML", ...)` 获取，**不链 DML 导入库**；
+  缺 DML 版 onnxruntime.dll / DirectML.dll 时仅日志提示并回退 CPU，`SetYoloEngine` 不失败。
+- `SessionOptionsAppendExecutionProvider_DML` 调用外包 SEH：实测不匹配的 DML 运行库会直接 AV
+  （`0xc0000005`），不隔离会穿透到 C API。异常/SEH/会话创建失败三种情况都会重建 options 再走 CPU。
+- `YoloGetModelInfo` 新增 `device`（-1=CPU，>=0=实际生效适配器）与 `dml`（0/1），
+  暴露**实际生效值**而不是请求值——请求 GPU 但回退时必须是 -1。
+
+**验证诚实说明**：本机环境 DirectML 无法初始化（`GetExecutionProviderApi` 在不带 DML 的 ORT 上报
+"provider not supported"；换 DML 版 ORT 后 append 触发 AV；官方 `onnxruntime-directml==1.19.2`
+Python 轮子同样初始化 DmlExecutionProvider 失败）。因此**GPU 路径未在真实可用 DML 的设备上验证**，
+已验证的是：无 DML 时自动回退 CPU 且引擎继续可用（`YoloDeviceTest`）。
+部署 DML 版 `onnxruntime.dll` + `DirectML.dll` 后可直接用 `--device=0`，无需改代码。
+
+#### 3. 测试与产物
+
+- `tests/yolo_task_test.cpp` 新增 `YoloPoseTest` / `YoloObbTest` / `YoloDeviceTest`；
+  本轮实测 5 PASS（Pose/Obb/Device/TaskDetect 各条），4 FAIL 全部是环境项
+  `CreateConsoleLikeBmp` 返回 false（Classify/Segment 文件用例，与本轮代码无关）。
+- `scripts/gen_api_reference.py`：YOLO 新接口显式归入 yolo 分组（原会落进 OCR），
+  补参数注解；重生成 `docs/api_reference.html` / `api_llm.md`（YOLO 分组 14 个函数）。
+- 临时用于验证 DML 的运行库已还原为 CPU 版，`DirectML.dll` 不随仓库分发。
+
 ### 2026-11-22 第五十二批（feat：汇编补全 —— AsmCall 落地，Assemble/Disassemble 阻塞如实上报）
 
 五模块实施 D 批（提交 `4ea0895`）。方案见 `docs/2026-11/五模块实施规划_20261122.md` §5。

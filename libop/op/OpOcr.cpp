@@ -154,6 +154,9 @@ void op::Op::UseDict(long idx, long *ret) {
 void op::Op::AddDict(long idx, const wchar_t *dict_info, long *ret) {
     internal::set_result(ret, m_context->image_proc.AddDict(idx, dict_info));
 }
+void op::Op::RemoveDict(long idx, const wchar_t *dict_info, long *ret) {
+    internal::set_result(ret, m_context->image_proc.RemoveDict(idx, dict_info));
+}
 void op::Op::SaveDict(long idx, const wchar_t *file_name, long *ret) {
     internal::set_result(ret, m_context->image_proc.SaveDict(idx, file_name));
 }

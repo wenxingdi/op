@@ -12,6 +12,7 @@
 #include <Windows.h>
 #include <gdiplus.h>
 
+#include <algorithm>
 #include <atomic>
 #include <mutex>
 #include <string>
@@ -32,11 +33,23 @@ struct DrawCmd {
     long x1 = 0, y1 = 0, x2 = 0, y2 = 0;
     long width = 1;
     long font_size = 14;
-    DWORD color = 0xFFFFFFFF; // 0xAABBGGRR（GDI+ ARGB）
+    DWORD color = 0xFFFFFFFF; // 0xAARRGGBB（GDI+ ARGB）
+    // 填充（仅 Rect 用）：fill=true 时先铺 fill_color 再按 width 描边（width<=0 就是纯填充）。
+    bool fill = false;
+    DWORD fill_color = 0;
     std::wstring text;
+    // 标签：非空时"同层同标签只保留最新一条"（G4）。实时跟踪框用它替换旧框，
+    // 不必 DrawClear 全清重画——全清重画会闪，而且脚本很容易忘了清导致图元暴涨。
+    std::wstring tag;
     // Circle：半径放在 radius；Image：文件路径放在 text，alpha(0~255) 放在 width。
     long radius = 0;
     BYTE alpha = 255;
+    // 内存图像（DrawImageFromHandle）：4 字节/像素 BGRA，渲染时 FromScan0 直接用。
+    // 拷像素而不是存句柄的理由：渲染在 overlay 线程跑，那时句柄可能已被释放，
+    // 且图像注册表的锁不该被渲染线程持有。
+    std::vector<BYTE> pixels;
+    int px_width = 0;
+    int px_height = 0;
 };
 
 // 解析 "RRGGBB"（与找色同格式）为 GDI+ ARGB。失败返回 false。
@@ -52,6 +65,148 @@ bool parse_draw_color(const wchar_t *color, DWORD &out) {
     out = 0xFF000000u | (static_cast<DWORD>(b) << 16) | (static_cast<DWORD>(g) << 8) | r;
     return true;
 }
+
+// 填充色解析：支持 "RRGGBB"（自动加 0x66 半透明）与 "AARRGGBB"（显式 alpha）。
+// 为什么默认半透明：不透明填充会把底下的目标窗口盖死，调试叠加层就失去意义了。
+bool parse_fill_color(const wchar_t *color, DWORD &out) {
+    if (!color || !color[0])
+        return false;
+    unsigned long long v = 0;
+    if (swscanf(color, L"%llx", &v) != 1)
+        return false;
+    if (v <= 0xFFFFFFull) {
+        DWORD rgb = 0;
+        if (!parse_draw_color(color, rgb))
+            return false;
+        out = (rgb & 0x00FFFFFFu) | 0x66000000u;
+        return true;
+    }
+    if (v > 0xFFFFFFFFull)
+        return false;
+    out = static_cast<DWORD>(v);
+    return true;
+}
+
+// ---- 绘制状态（进程级，2026-11-23 G1/G2）----
+// 语义照大漠 DrawXxx 的写法：SetColor 影响之后**所有** Ex 系列图元的描边色；
+// SetFill 控制 DrawRectEx mode=0/2 的填充。默认白描边、填充开启（半透明红）。
+// 之所以用"状态"而不是给 Ex 系列加 color 形参：加形参要改 C API / COM / Python / C# 四层签名，
+// 老调用方全部二进制不兼容；状态接口零破坏。
+std::atomic<DWORD> g_stroke_color{0xFFFFFFFF};
+// 默认开启填充：mode=0 本身就是"我要填充"的显式请求，默认关闭会让人以为接口坏了。
+std::atomic<int> g_fill_enabled{1};
+std::atomic<DWORD> g_fill_color{0x66FF0000}; // GDI+ ARGB：默认半透明红（AA=0x66, R=FF）
+
+// 图元上限：脚本里 while(1) DrawRect 会把内存吃光。超限丢最旧的——可视化场景丢旧标注无害。
+constexpr size_t kMaxDrawCmds = 4096;
+
+// 入队：同标签替换 + 上限裁剪（屏幕层与绑定层共用，避免两份规则走偏）。
+// 标签非空时先删掉同层同标签的旧图元，再追加到末尾——z 序 = 最新在上，
+// 这正是"实时跟踪框"想要的效果：位置变了就重画同一个标签，不闪也不累积。
+void push_cmd(std::vector<DrawCmd> &cmds, DrawCmd cmd) {
+    if (!cmd.tag.empty()) {
+        cmds.erase(std::remove_if(cmds.begin(), cmds.end(),
+                                  [&](const DrawCmd &c) { return !c.tag.empty() && c.tag == cmd.tag; }),
+                   cmds.end());
+    }
+    if (cmds.size() >= kMaxDrawCmds)
+        cmds.erase(cmds.begin());
+    cmds.push_back(std::move(cmd));
+}
+
+// 按标签删除，返回删掉的个数（空标签不匹配任何图元）。
+size_t erase_tag(std::vector<DrawCmd> &cmds, const std::wstring &tag) {
+    if (tag.empty())
+        return 0;
+    const size_t before = cmds.size();
+    cmds.erase(std::remove_if(cmds.begin(), cmds.end(),
+                             [&](const DrawCmd &c) { return !c.tag.empty() && c.tag == tag; }),
+               cmds.end());
+    return before - cmds.size();
+}
+
+// 把一批图元画到给定 Graphics。ox/oy 是逻辑坐标→画布坐标的偏移：
+//   屏幕层传 -虚拟屏左上角；绑定层传 0（两层画布原点不同，图元语义各自保持）。
+void render_cmds(Gdiplus::Graphics &g, const std::vector<DrawCmd> &cmds, int ox, int oy) {
+    for (const auto &cmd : cmds) {
+        const Gdiplus::Color color(cmd.color);
+        const Gdiplus::REAL lw = static_cast<Gdiplus::REAL>(cmd.width < 1 ? 1 : cmd.width);
+        switch (cmd.type) {
+        case DrawCmdType::Rect: {
+            const INT x = static_cast<INT>(cmd.x1 + ox);
+            const INT y = static_cast<INT>(cmd.y1 + oy);
+            const INT w = static_cast<INT>(cmd.x2 - cmd.x1);
+            const INT h = static_cast<INT>(cmd.y2 - cmd.y1);
+            if (cmd.fill) {
+                Gdiplus::SolidBrush fill_brush(Gdiplus::Color(cmd.fill_color));
+                g.FillRectangle(&fill_brush, x, y, w, h);
+            }
+            if (cmd.width > 0) {
+                Gdiplus::Pen pen(color, lw);
+                g.DrawRectangle(&pen, x, y, w, h);
+            }
+            break;
+        }
+        case DrawCmdType::Line: {
+            Gdiplus::Pen pen(color, lw);
+            g.DrawLine(&pen, static_cast<INT>(cmd.x1 + ox), static_cast<INT>(cmd.y1 + oy),
+                       static_cast<INT>(cmd.x2 + ox), static_cast<INT>(cmd.y2 + oy));
+            break;
+        }
+        case DrawCmdType::Circle: {
+            const Gdiplus::REAL r = static_cast<Gdiplus::REAL>(cmd.radius < 1 ? 1 : cmd.radius);
+            const Gdiplus::REAL cx = static_cast<Gdiplus::REAL>(cmd.x1 + ox);
+            const Gdiplus::REAL cy = static_cast<Gdiplus::REAL>(cmd.y1 + oy);
+            Gdiplus::Pen pen(color, lw);
+            g.DrawEllipse(&pen, cx - r, cy - r, r * 2.0f, r * 2.0f);
+            break;
+        }
+        case DrawCmdType::Image: {
+            // GDI+ 的 ColorMatrix 是 REAL m[5][5]，没有 m00/m11 成员
+            Gdiplus::ColorMatrix cm = {};
+            for (int i = 0; i < 5; ++i)
+                cm.m[i][i] = 1.0f;
+            // alpha 走矩阵第 5 行第 5 列：0 = 全透明，1 = 原样
+            cm.m[3][3] = static_cast<Gdiplus::REAL>(cmd.alpha) / 255.0f;
+            Gdiplus::ImageAttributes attrs;
+            attrs.SetColorMatrix(&cm, Gdiplus::ColorMatrixFlagsDefault, Gdiplus::ColorAdjustTypeBitmap);
+            const INT dx = static_cast<INT>(cmd.x1 + ox);
+            const INT dy = static_cast<INT>(cmd.y1 + oy);
+            if (cmd.px_width > 0 && cmd.px_height > 0 && !cmd.pixels.empty()) {
+                Gdiplus::Bitmap mem(cmd.px_width, cmd.px_height, cmd.px_width * 4, PixelFormat32bppARGB,
+                                    const_cast<BYTE *>(cmd.pixels.data()));
+                if (mem.GetLastStatus() == Gdiplus::Ok) {
+                    const Gdiplus::Rect dst(dx, dy, cmd.px_width, cmd.px_height);
+                    g.DrawImage(&mem, dst, 0, 0, cmd.px_width, cmd.px_height, Gdiplus::UnitPixel, &attrs);
+                }
+            } else {
+                // 路径加载失败时静默跳过（叠加层不该因为一张图不存在就整体不画）。
+                Gdiplus::Image img(cmd.text.c_str());
+                if (img.GetLastStatus() == Gdiplus::Ok) {
+                    const Gdiplus::Rect dst(dx, dy, static_cast<INT>(img.GetWidth()),
+                                            static_cast<INT>(img.GetHeight()));
+                    g.DrawImage(&img, dst, 0, 0, static_cast<INT>(img.GetWidth()), static_cast<INT>(img.GetHeight()),
+                                Gdiplus::UnitPixel, &attrs);
+                }
+            }
+            break;
+        }
+        case DrawCmdType::Text:
+        default: {
+            Gdiplus::Font font(L"Microsoft YaHei",
+                               static_cast<Gdiplus::REAL>(cmd.font_size > 0 ? cmd.font_size : 14),
+                               Gdiplus::FontStyleRegular, Gdiplus::UnitPixel);
+            Gdiplus::SolidBrush brush(color);
+            g.DrawString(cmd.text.c_str(), static_cast<INT>(cmd.text.size()), &font,
+                         Gdiplus::PointF(static_cast<Gdiplus::REAL>(cmd.x1 + ox),
+                                         static_cast<Gdiplus::REAL>(cmd.y1 + oy)),
+                         &brush);
+            break;
+        }
+        }
+    }
+}
+
 
 class DrawOverlay {
   public:
@@ -74,7 +229,7 @@ class DrawOverlay {
             return false;
         {
             std::lock_guard<std::mutex> lk(cmds_mutex_);
-            cmds_.push_back(std::move(cmd));
+            push_cmd(cmds_, std::move(cmd));
         }
         ::PostMessageW(hwnd_, kRedrawMsg, 0, 0);
         return true;
@@ -89,6 +244,20 @@ class DrawOverlay {
         }
         ::PostMessageW(hwnd_, kRedrawMsg, 0, 0);
         return true;
+    }
+
+    // 按标签删除，返回删掉的个数
+    size_t remove_tag(const std::wstring &tag) {
+        if (!ensure_started())
+            return 0;
+        size_t n = 0;
+        {
+            std::lock_guard<std::mutex> lk(cmds_mutex_);
+            n = erase_tag(cmds_, tag);
+        }
+        if (n > 0)
+            ::PostMessageW(hwnd_, kRedrawMsg, 0, 0);
+        return n;
     }
 
     bool set_visible(bool show) {
@@ -227,53 +396,8 @@ void DrawOverlay::render() {
     g.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
     g.Clear(Gdiplus::Color(0, 0, 0, 0));
 
-    const auto cmds = snapshot();
-    for (const auto &cmd : cmds) {
-        const Gdiplus::Color color(cmd.color);
-        if (cmd.type == DrawCmdType::Rect) {
-            Gdiplus::Pen pen(color, static_cast<Gdiplus::REAL>(cmd.width < 1 ? 1 : cmd.width));
-            const int x = static_cast<int>(cmd.x1 - vx);
-            const int y = static_cast<int>(cmd.y1 - vy);
-            const int w = static_cast<int>(cmd.x2 - cmd.x1);
-            const int h = static_cast<int>(cmd.y2 - cmd.y1);
-            g.DrawRectangle(&pen, x, y, w, h);
-        } else if (cmd.type == DrawCmdType::Line) {
-            Gdiplus::Pen pen(color, static_cast<Gdiplus::REAL>(cmd.width < 1 ? 1 : cmd.width));
-            g.DrawLine(&pen, static_cast<INT>(cmd.x1 - vx), static_cast<INT>(cmd.y1 - vy),
-                       static_cast<INT>(cmd.x2 - vx), static_cast<INT>(cmd.y2 - vy));
-        } else if (cmd.type == DrawCmdType::Circle) {
-            const Gdiplus::REAL r = static_cast<Gdiplus::REAL>(cmd.radius < 1 ? 1 : cmd.radius);
-            const Gdiplus::REAL cx = static_cast<Gdiplus::REAL>(cmd.x1 - vx);
-            const Gdiplus::REAL cy = static_cast<Gdiplus::REAL>(cmd.y1 - vy);
-            Gdiplus::Pen pen(color, static_cast<Gdiplus::REAL>(cmd.width < 1 ? 1 : cmd.width));
-            g.DrawEllipse(&pen, cx - r, cy - r, r * 2.0f, r * 2.0f);
-        } else if (cmd.type == DrawCmdType::Image) {
-            // 路径加载失败时静默跳过（叠加层不该因为一张图不存在就整体不画）。
-            // GDI+ 的 Image 会锁文件；这里的用法是"画完即弃"，不需要长期持有。
-            Gdiplus::Image img(cmd.text.c_str());
-            if (img.GetLastStatus() == Gdiplus::Ok) {
-                // GDI+ 的 ColorMatrix 是 REAL m[5][5]，没有 m00/m11 成员
-                Gdiplus::ColorMatrix cm = {};
-                for (int i = 0; i < 5; ++i)
-                    cm.m[i][i] = 1.0f;
-                // alpha 走矩阵第 5 行第 5 列：0 = 全透明，1 = 原样
-                cm.m[3][3] = static_cast<Gdiplus::REAL>(cmd.alpha) / 255.0f;
-                Gdiplus::ImageAttributes attrs;
-                attrs.SetColorMatrix(&cm, Gdiplus::ColorMatrixFlagsDefault, Gdiplus::ColorAdjustTypeBitmap);
-                const Gdiplus::Rect dst(static_cast<INT>(cmd.x1 - vx), static_cast<INT>(cmd.y1 - vy),
-                                        static_cast<INT>(img.GetWidth()), static_cast<INT>(img.GetHeight()));
-                g.DrawImage(&img, dst, 0, 0, static_cast<INT>(img.GetWidth()), static_cast<INT>(img.GetHeight()),
-                            Gdiplus::UnitPixel, &attrs);
-            }
-        } else {
-            Gdiplus::Font font(L"Microsoft YaHei", static_cast<Gdiplus::REAL>(cmd.font_size > 0 ? cmd.font_size : 14),
-                               Gdiplus::FontStyleRegular, Gdiplus::UnitPixel);
-            Gdiplus::SolidBrush brush(color);
-            g.DrawString(cmd.text.c_str(), static_cast<INT>(cmd.text.size()), &font,
-                         Gdiplus::PointF(static_cast<Gdiplus::REAL>(cmd.x1 - vx), static_cast<Gdiplus::REAL>(cmd.y1 - vy)),
-                         &brush);
-        }
-    }
+    // 屏幕层画布原点 = 虚拟屏左上角，故偏移取负值
+    render_cmds(g, snapshot(), -vx, -vy);
 
     // ARGB 位图拷到 DIB 供 UpdateLayeredWindow
     Gdiplus::Rect rect(0, 0, vw, vh);
@@ -345,7 +469,7 @@ class BindOverlay {
         {
             std::lock_guard<std::mutex> lk(mutex_);
             target_ = target;
-            cmds_.push_back(std::move(cmd));
+            push_cmd(cmds_, std::move(cmd));
         }
         ::PostMessageW(hwnd_, kRedrawMsg, 0, 0);
         return true;
@@ -360,6 +484,20 @@ class BindOverlay {
         }
         ::PostMessageW(hwnd_, kRedrawMsg, 0, 0);
         return true;
+    }
+
+    // 按标签删除，返回删掉的个数
+    size_t remove_tag(const std::wstring &tag) {
+        if (!ensure_started())
+            return 0;
+        size_t n = 0;
+        {
+            std::lock_guard<std::mutex> lk(mutex_);
+            n = erase_tag(cmds_, tag);
+        }
+        if (n > 0)
+            ::PostMessageW(hwnd_, kRedrawMsg, 0, 0);
+        return n;
     }
 
     size_t count() {
@@ -485,56 +623,8 @@ void BindOverlay::render() {
     Gdiplus::Graphics g(&bmp);
     g.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
     g.Clear(Gdiplus::Color(0, 0, 0, 0));
-    for (const auto &cmd : cmds) {
-        const Gdiplus::Color color(cmd.color);
-        const Gdiplus::REAL lw = static_cast<Gdiplus::REAL>(cmd.width < 1 ? 1 : cmd.width);
-        switch (cmd.type) {
-        case DrawCmdType::Rect: {
-            Gdiplus::Pen pen(color, lw);
-            g.DrawRectangle(&pen, static_cast<INT>(cmd.x1), static_cast<INT>(cmd.y1), static_cast<INT>(cmd.x2 - cmd.x1),
-                            static_cast<INT>(cmd.y2 - cmd.y1));
-            break;
-        }
-        case DrawCmdType::Line: {
-            Gdiplus::Pen pen(color, lw);
-            g.DrawLine(&pen, static_cast<INT>(cmd.x1), static_cast<INT>(cmd.y1), static_cast<INT>(cmd.x2),
-                       static_cast<INT>(cmd.y2));
-            break;
-        }
-        case DrawCmdType::Circle: {
-            const Gdiplus::REAL r = static_cast<Gdiplus::REAL>(cmd.radius < 1 ? 1 : cmd.radius);
-            Gdiplus::Pen pen(color, lw);
-            g.DrawEllipse(&pen, static_cast<Gdiplus::REAL>(cmd.x1) - r, static_cast<Gdiplus::REAL>(cmd.y1) - r, r * 2.0f,
-                          r * 2.0f);
-            break;
-        }
-        case DrawCmdType::Text: {
-            Gdiplus::Font font(L"Microsoft YaHei",
-                               static_cast<Gdiplus::REAL>(cmd.font_size > 0 ? cmd.font_size : 14),
-                               Gdiplus::FontStyleRegular, Gdiplus::UnitPixel);
-            Gdiplus::SolidBrush brush(color);
-            g.DrawString(cmd.text.c_str(), static_cast<INT>(cmd.text.size()), &font,
-                         Gdiplus::PointF(static_cast<Gdiplus::REAL>(cmd.x1), static_cast<Gdiplus::REAL>(cmd.y1)), &brush);
-            break;
-        }
-        case DrawCmdType::Image: {
-            Gdiplus::Image img(cmd.text.c_str());
-            if (img.GetLastStatus() == Gdiplus::Ok) {
-                Gdiplus::ColorMatrix cm = {};
-                for (int i = 0; i < 5; ++i)
-                    cm.m[i][i] = 1.0f;
-                cm.m[3][3] = static_cast<Gdiplus::REAL>(cmd.alpha) / 255.0f;
-                Gdiplus::ImageAttributes attrs;
-                attrs.SetColorMatrix(&cm, Gdiplus::ColorMatrixFlagsDefault, Gdiplus::ColorAdjustTypeBitmap);
-                const Gdiplus::Rect dst(static_cast<INT>(cmd.x1), static_cast<INT>(cmd.y1),
-                                        static_cast<INT>(img.GetWidth()), static_cast<INT>(img.GetHeight()));
-                g.DrawImage(&img, dst, 0, 0, static_cast<INT>(img.GetWidth()), static_cast<INT>(img.GetHeight()),
-                            Gdiplus::UnitPixel, &attrs);
-            }
-            break;
-        }
-        }
-    }
+    // 绑定层画布原点 = 客户区左上角，图元本身就是客户区坐标，偏移 0
+    render_cmds(g, cmds, 0, 0);
 
     // 与屏幕层同一套上屏方式
     Gdiplus::Rect rect(0, 0, cw, ch);
@@ -691,17 +781,21 @@ void op::Op::DrawRectEx(long x, long y, long width, long height, long mode, long
     if (width <= 0 || height <= 0)
         return;
     DrawCmd cmd;
-    // mode：0 填充 1 描边 2 填充+描边。当前图元只画描边，填充用 line_width 大值近似会失真，
-    // 故 mode 0 也按描边处理，并在日志里说明（不假装支持填充）。
-    if (mode == 0)
-        setlog(L"DrawRectEx: mode=0(填充) 暂按描边绘制，填充待后续实现");
+    // mode：0 纯填充 / 1 纯描边 / 2 填充+描边（其它值按描边）。
+    // 填充是否真生效还要看 DrawSetFill 的开关（默认开）；关掉时 mode 0/2 退化为描边。
+    if (mode != 0 && mode != 1 && mode != 2)
+        setlog(L"DrawRectEx: mode=%ld 非 0/1/2，按描边绘制", mode);
+    const bool want_fill = (mode == 0 || mode == 2) && g_fill_enabled.load() != 0;
     cmd.type = DrawCmdType::Rect;
     cmd.x1 = x;
     cmd.y1 = y;
     cmd.x2 = x + width;
     cmd.y2 = y + height;
-    cmd.width = line_width > 0 ? line_width : 1;
-    cmd.color = 0xFFFFFFFF; // 默认白色，如需其它颜色用后续 DrawSetColor 接口（本批未加）
+    cmd.fill = want_fill;
+    cmd.fill_color = g_fill_color.load();
+    cmd.color = g_stroke_color.load();
+    // mode=0 是纯填充：width=0 表示不描边（render_cmds 里 width<=0 直接跳过 Pen）
+    cmd.width = (mode == 0) ? 0 : (line_width > 0 ? line_width : 1);
     if (BindOverlay::instance().add(target, std::move(cmd)))
         internal::set_result(ret, 1L);
 }
@@ -719,6 +813,7 @@ void op::Op::DrawCircleEx(long x, long y, long radius, long line_width, long *re
     cmd.y1 = y;
     cmd.radius = radius;
     cmd.width = line_width > 0 ? line_width : 1;
+    cmd.color = g_stroke_color.load();
     if (BindOverlay::instance().add(target, std::move(cmd)))
         internal::set_result(ret, 1L);
 }
@@ -738,6 +833,7 @@ void op::Op::DrawTextEx(long x, long y, const wchar_t *text, long font_size, lon
     cmd.y1 = y;
     cmd.font_size = font_size > 0 ? font_size : 14;
     cmd.text = text;
+    cmd.color = g_stroke_color.load();
     if (BindOverlay::instance().add(target, std::move(cmd)))
         internal::set_result(ret, 1L);
 }
@@ -749,4 +845,160 @@ void op::Op::DrawClearBind(long *ret) {
 void op::Op::DrawGetCount(long *screen_count, long *bind_count) {
     internal::set_result(screen_count, static_cast<long>(DrawOverlay::instance().snapshot().size()));
     internal::set_result(bind_count, static_cast<long>(BindOverlay::instance().count()));
+}
+
+// ---- 批 G（2026-11-23）：绘制状态 + 绑定层画图 + 图片句柄上屏 ----
+
+// 设置 Ex 系列的描边色。影响之后绘制的所有图元，已画的保持不变（与 GDI 状态机直觉一致）。
+void op::Op::DrawSetColor(const wchar_t *color, long *ret) {
+    internal::set_result(ret, 0L);
+    DWORD c = 0;
+    if (!parse_draw_color(color, c)) {
+        setlog(L"DrawSetColor: 颜色非法 \"%s\"（应为 RRGGBB）", color ? color : L"");
+        return;
+    }
+    g_stroke_color.store(c);
+    internal::set_result(ret, 1L);
+}
+
+// enable=0 关闭填充（mode 0/2 退化为描边）；enable=1 开启，color 省略则沿用当前填充色。
+void op::Op::DrawSetFill(long enable, const wchar_t *color, long *ret) {
+    internal::set_result(ret, 0L);
+    if (enable == 0) {
+        g_fill_enabled.store(0);
+        internal::set_result(ret, 1L);
+        return;
+    }
+    if (color && color[0]) {
+        DWORD c = 0;
+        if (!parse_fill_color(color, c)) {
+            setlog(L"DrawSetFill: 颜色非法 \"%s\"（RRGGBB 或 AARRGGBB）", color);
+            return;
+        }
+        g_fill_color.store(c);
+    }
+    g_fill_enabled.store(1);
+    internal::set_result(ret, 1L);
+}
+
+// 绑定窗口内画图片文件（客户区坐标）。与屏幕层 DrawImage 的差别：文件不存在时显式失败，
+// 而屏幕层是静默跳过——Ex 系列一律要给调用方明确反馈。
+void op::Op::DrawImageEx(long x, long y, const wchar_t *file_name, long alpha, long *ret) {
+    internal::set_result(ret, 0L);
+    HWND target = nullptr;
+    if (!op_bind_overlay_hwnd(m_context.get(), target)) {
+        setlog(L"DrawImageEx: 未绑定窗口（请先 BindWindow）");
+        return;
+    }
+    if (!file_name || !file_name[0])
+        return;
+    if (::GetFileAttributesW(file_name) == INVALID_FILE_ATTRIBUTES) {
+        setlog(L"DrawImageEx: 文件不存在 \"%s\"", file_name);
+        return;
+    }
+    DrawCmd cmd;
+    cmd.type = DrawCmdType::Image;
+    cmd.x1 = x;
+    cmd.y1 = y;
+    cmd.text = file_name;
+    cmd.alpha = (alpha <= 0 || alpha > 255) ? 255 : static_cast<BYTE>(alpha);
+    if (BindOverlay::instance().add(target, std::move(cmd)))
+        internal::set_result(ret, 1L);
+}
+
+// 把图片句柄（OpLoadImage 等产出的）的内容画到屏幕层。像素拷进图元，渲染时不碰注册表。
+void op::Op::DrawImageFromHandle(long x, long y, const wchar_t *image_handle, long alpha, long *ret) {
+    internal::set_result(ret, 0L);
+    if (!m_context || !image_handle || !image_handle[0])
+        return;
+    auto img = m_context->image_proc.acquire_image(image_handle);
+    if (!img || img->width <= 0 || img->height <= 0 || img->pdata == nullptr) {
+        setlog(L"DrawImageFromHandle: 图片句柄无效或已释放");
+        return;
+    }
+    DrawCmd cmd;
+    cmd.type = DrawCmdType::Image;
+    cmd.x1 = x;
+    cmd.y1 = y;
+    cmd.px_width = img->width;
+    cmd.px_height = img->height;
+    const size_t bytes = static_cast<size_t>(img->width) * static_cast<size_t>(img->height) * 4;
+    cmd.pixels.assign(img->pdata, img->pdata + bytes);
+    // 截屏来的图像 alpha 通道通常是 0（GDI 不写 alpha），原样上屏会全透明 -> 统一拉满。
+    // 需要真半透明时用 alpha 形参控制。
+    for (size_t i = 3; i < bytes; i += 4)
+        cmd.pixels[i] = 0xFF;
+    cmd.alpha = (alpha <= 0 || alpha > 255) ? 255 : static_cast<BYTE>(alpha);
+    if (DrawOverlay::instance().add(std::move(cmd)))
+        internal::set_result(ret, 1L);
+}
+
+// ---- 批 G2（2026-11-23）：标签替换（解决"只能全清重画"）----
+//
+// 为什么用标签而不是返回图元 id：脚本里 id 是裸数字，跟丢一次就永久错位；
+// 标签是调用方自己起的名字（"boss_hp"），重画时自然复用，不需要记住任何返回值。
+
+void op::Op::DrawRectTag(const wchar_t *tag, long x1, long y1, long x2, long y2, const wchar_t *color, long width,
+                         long *ret) {
+    internal::set_result(ret, 0L);
+    if (!tag || !tag[0]) {
+        setlog(L"DrawRectTag: 标签为空");
+        return;
+    }
+    DrawCmd cmd;
+    cmd.type = DrawCmdType::Rect;
+    cmd.x1 = x1;
+    cmd.y1 = y1;
+    cmd.x2 = x2;
+    cmd.y2 = y2;
+    cmd.width = width;
+    cmd.tag = tag;
+    if (!parse_draw_color(color, cmd.color)) {
+        setlog(L"DrawRectTag: 颜色非法 \"%s\"（应为 RRGGBB）", color ? color : L"");
+        return;
+    }
+    if (DrawOverlay::instance().add(std::move(cmd)))
+        internal::set_result(ret, 1L);
+}
+
+void op::Op::DrawRectExTag(const wchar_t *tag, long x, long y, long width, long height, long mode, long line_width,
+                           long *ret) {
+    internal::set_result(ret, 0L);
+    HWND target = nullptr;
+    if (!op_bind_overlay_hwnd(m_context.get(), target)) {
+        setlog(L"DrawRectExTag: 未绑定窗口（请先 BindWindow）");
+        return;
+    }
+    if (!tag || !tag[0]) {
+        setlog(L"DrawRectExTag: 标签为空");
+        return;
+    }
+    if (width <= 0 || height <= 0)
+        return;
+    DrawCmd cmd;
+    if (mode != 0 && mode != 1 && mode != 2)
+        setlog(L"DrawRectExTag: mode=%ld 非 0/1/2，按描边绘制", mode);
+    const bool want_fill = (mode == 0 || mode == 2) && g_fill_enabled.load() != 0;
+    cmd.type = DrawCmdType::Rect;
+    cmd.x1 = x;
+    cmd.y1 = y;
+    cmd.x2 = x + width;
+    cmd.y2 = y + height;
+    cmd.fill = want_fill;
+    cmd.fill_color = g_fill_color.load();
+    cmd.color = g_stroke_color.load();
+    cmd.width = (mode == 0) ? 0 : (line_width > 0 ? line_width : 1);
+    cmd.tag = tag;
+    if (BindOverlay::instance().add(target, std::move(cmd)))
+        internal::set_result(ret, 1L);
+}
+
+// 删除同标签图元（两层一起清），返回删除个数；0 = 没有匹配项或标签为空。
+void op::Op::DrawRemoveTag(const wchar_t *tag, long *ret) {
+    internal::set_result(ret, 0L);
+    if (!tag || !tag[0])
+        return;
+    const std::wstring t = tag;
+    const size_t n = DrawOverlay::instance().remove_tag(t) + BindOverlay::instance().remove_tag(t);
+    internal::set_result(ret, static_cast<long>(n));
 }

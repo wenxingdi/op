@@ -91,6 +91,12 @@ bool parse_cv_morphology_mode(const wchar_t *mode_text, opcv::MorphologyMode &mo
         {L"open", opcv::MorphologyMode::Open},
         {L"", opcv::MorphologyMode::Open},
         {L"close", opcv::MorphologyMode::Close},
+        {L"gradient", opcv::MorphologyMode::Gradient},
+        {L"grad", opcv::MorphologyMode::Gradient},
+        {L"tophat", opcv::MorphologyMode::Tophat},
+        {L"top_hat", opcv::MorphologyMode::Tophat},
+        {L"blackhat", opcv::MorphologyMode::Blackhat},
+        {L"black_hat", opcv::MorphologyMode::Blackhat},
     };
     return match_cv_alias(mode_text, kTable, mode);
 }

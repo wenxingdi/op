@@ -7,6 +7,8 @@
 
 #include <libop.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -31,6 +33,86 @@ uint64_t fnv1a64(const void *data, size_t size) {
         hash *= 1099511628211ULL;
     }
     return hash;
+}
+
+int clamp_byte(long value) {
+    return static_cast<int>(value < 0 ? 0 : (value > 255 ? 255 : value));
+}
+
+bool hex_nibble(wchar_t c, unsigned &value) {
+    if (c >= L'0' && c <= L'9') {
+        value = static_cast<unsigned>(c - L'0');
+        return true;
+    }
+    if (c >= L'a' && c <= L'f') {
+        value = static_cast<unsigned>(c - L'a' + 10);
+        return true;
+    }
+    if (c >= L'A' && c <= L'F') {
+        value = static_cast<unsigned>(c - L'A' + 10);
+        return true;
+    }
+    return false;
+}
+
+// 解析 "RRGGBB"/"AARRGGBB"（允许 #/0x 前缀，忽略 "-delta"/"@x" 等后缀）。
+// 6 位按不透明处理（alpha=255）。
+bool parse_hex_color(const wchar_t *text, int &a, int &r, int &g, int &b) {
+    if (!text)
+        return false;
+    std::wstring value(text);
+    const size_t first = value.find_first_not_of(L" \t\r\n");
+    if (first == std::wstring::npos)
+        return false;
+    const size_t last = value.find_last_not_of(L" \t\r\n");
+    value = value.substr(first, last - first + 1);
+    if (value.size() >= 2 && value[0] == L'0' && (value[1] == L'x' || value[1] == L'X')) {
+        value.erase(0, 2);
+    } else if (!value.empty() && value[0] == L'#') {
+        value.erase(0, 1);
+    }
+    const size_t non_hex = value.find_first_not_of(L"0123456789abcdefABCDEF");
+    if (non_hex != std::wstring::npos)
+        value.erase(non_hex);
+    if (value.size() != 6 && value.size() != 8)
+        return false;
+
+    unsigned nibbles[8] = {0};
+    for (size_t i = 0; i < value.size(); ++i) {
+        if (!hex_nibble(value[i], nibbles[i]))
+            return false;
+    }
+    const size_t base = value.size() == 8 ? 2 : 0;
+    a = value.size() == 8 ? static_cast<int>(nibbles[0] * 16 + nibbles[1]) : 255;
+    r = static_cast<int>(nibbles[base] * 16 + nibbles[base + 1]);
+    g = static_cast<int>(nibbles[base + 2] * 16 + nibbles[base + 3]);
+    b = static_cast<int>(nibbles[base + 4] * 16 + nibbles[base + 5]);
+    return true;
+}
+
+void rgb_to_hsv(int r, int g, int b, double &h, double &s, double &v) {
+    const double rn = r / 255.0;
+    const double gn = g / 255.0;
+    const double bn = b / 255.0;
+    const double max_c = rn > gn ? (rn > bn ? rn : bn) : (gn > bn ? gn : bn);
+    const double min_c = rn < gn ? (rn < bn ? rn : bn) : (gn < bn ? gn : bn);
+    const double delta = max_c - min_c;
+
+    v = max_c * 100.0;
+    s = max_c > 0.0 ? delta / max_c * 100.0 : 0.0;
+    if (delta <= 0.0) {
+        h = 0.0;
+        return;
+    }
+    if (max_c == rn) {
+        h = 60.0 * std::fmod((gn - bn) / delta, 6.0);
+    } else if (max_c == gn) {
+        h = 60.0 * ((bn - rn) / delta + 2.0);
+    } else {
+        h = 60.0 * ((rn - gn) / delta + 4.0);
+    }
+    if (h < 0.0)
+        h += 360.0;
 }
 
 } // namespace
@@ -252,6 +334,90 @@ void op::Op::GetColor(long x, long y, std::wstring &ret) {
     });
 
     ret = cr.towstr();
+}
+
+void op::Op::Hex2RGB(const wchar_t *color, long *r, long *g, long *b, long *ret) {
+    internal::set_result(ret, 0L);
+    internal::set_result(r, 0L);
+    internal::set_result(g, 0L);
+    internal::set_result(b, 0L);
+    int a = 0, rr = 0, gg = 0, bb = 0;
+    if (!parse_hex_color(color, a, rr, gg, bb))
+        return;
+    internal::set_result(r, rr);
+    internal::set_result(g, gg);
+    internal::set_result(b, bb);
+    internal::set_result(ret, 1L);
+}
+
+void op::Op::Hex2ARGB(const wchar_t *color, long *a, long *r, long *g, long *b, long *ret) {
+    internal::set_result(ret, 0L);
+    internal::set_result(a, 0L);
+    internal::set_result(r, 0L);
+    internal::set_result(g, 0L);
+    internal::set_result(b, 0L);
+    int aa = 0, rr = 0, gg = 0, bb = 0;
+    if (!parse_hex_color(color, aa, rr, gg, bb))
+        return;
+    internal::set_result(a, aa);
+    internal::set_result(r, rr);
+    internal::set_result(g, gg);
+    internal::set_result(b, bb);
+    internal::set_result(ret, 1L);
+}
+
+namespace {
+
+const wchar_t kHexDigits[] = L"0123456789ABCDEF";
+
+void append_hex_byte(std::wstring &out, int value) {
+    out.push_back(kHexDigits[(value >> 4) & 0xF]);
+    out.push_back(kHexDigits[value & 0xF]);
+}
+
+} // namespace
+
+void op::Op::ARGB2Hex(long a, long r, long g, long b, std::wstring &ret) {
+    ret.clear();
+    append_hex_byte(ret, clamp_byte(a));
+    append_hex_byte(ret, clamp_byte(r));
+    append_hex_byte(ret, clamp_byte(g));
+    append_hex_byte(ret, clamp_byte(b));
+}
+
+void op::Op::GetColorHex(long r, long g, long b, std::wstring &ret) {
+    ret.clear();
+    append_hex_byte(ret, clamp_byte(r));
+    append_hex_byte(ret, clamp_byte(g));
+    append_hex_byte(ret, clamp_byte(b));
+}
+
+void op::Op::RGB2HSV(long r, long g, long b, double *h, double *s, double *v, long *ret) {
+    internal::set_result(h, 0.0);
+    internal::set_result(s, 0.0);
+    internal::set_result(v, 0.0);
+    double hh = 0.0, ss = 0.0, vv = 0.0;
+    rgb_to_hsv(clamp_byte(r), clamp_byte(g), clamp_byte(b), hh, ss, vv);
+    internal::set_result(h, hh);
+    internal::set_result(s, ss);
+    internal::set_result(v, vv);
+    internal::set_result(ret, 1L);
+}
+
+void op::Op::Hex2HSV(const wchar_t *color, double *h, double *s, double *v, long *ret) {
+    internal::set_result(ret, 0L);
+    internal::set_result(h, 0.0);
+    internal::set_result(s, 0.0);
+    internal::set_result(v, 0.0);
+    int a = 0, rr = 0, gg = 0, bb = 0;
+    if (!parse_hex_color(color, a, rr, gg, bb))
+        return;
+    double hh = 0.0, ss = 0.0, vv = 0.0;
+    rgb_to_hsv(rr, gg, bb, hh, ss, vv);
+    internal::set_result(h, hh);
+    internal::set_result(s, ss);
+    internal::set_result(v, vv);
+    internal::set_result(ret, 1L);
 }
 
 void op::Op::GetColorNum(long x1, long y1, long x2, long y2, const wchar_t *color, double sim, long *ret) {

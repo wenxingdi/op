@@ -1,19 +1,24 @@
-// OpAsm.cpp: 汇编模块（批 D 2026-11-22）。
+// OpAsm.cpp: 汇编模块（批 D 2026-11-22；59 批 2026-11-23 补齐 Assemble/Disassemble）。
 //
-// 交付范围（诚实记录）：
-//   ✅ AsmCall —— 在目标进程执行一段**机器码**并取返回值。
-//      纯 BlackBone（已在依赖链里）+ Win32，**不引入任何新依赖**。
-//   ❌ Assemble / Disassemble —— **本轮阻塞**，原因见下。
+// 三个接口：
+//   AsmCall      —— 在目标进程执行一段**机器码**并取返回值。纯 BlackBone + Win32。
+//   Assemble     —— 汇编文本 -> 机器码。keystone（内嵌 LLVM MC）。
+//   Disassemble  —— 机器码 -> 汇编文本。capstone。
 //
-// 为什么 Assemble/Disassemble 没做：
-//   需要 keystone（汇编->机器码）/ capstone（机器码->汇编）。两者在 vcpkg 都有 port，
-//   但本机装不上：vcpkg 引导自己的工具链时用 `CreateFileW` 重定向 stdin 解压 7z，
-//   在沙箱里返回 ERROR_ACCESS_DENIED（"calling CreateFileW stdin failed with 5"）。
-//   手工把 7z 解包到 downloads/tools 也没用 —— vcpkg 仍坚持走它自己的解压分支。
-//   **没有偷偷降级成"写个假的汇编器"**：那会产出错码且极难排查，比没有更糟。
-//   恢复方式（在有网络且无沙箱的机器上）：
-//       vcpkg install keystone:x64-windows-static capstone:x64-windows-static
-//   然后在本文件底部按 TODO 接上（C API/COM/头文件声明都已留好位置）。
+// 依赖从哪来（2026-11-23 变更）：
+//   原先两个接口是**显式失败的占位**，因为 vcpkg 在本机装不上这两个 port ——
+//   vcpkg 引导自身工具链时用 `CreateFileW` 重定向 stdin 解压 7z，沙箱里返回
+//   ERROR_ACCESS_DENIED（"calling CreateFileW stdin failed with 5"），手工解包也无效。
+//   现在改为**本地源码构建**：`scripts/build/_wb_build_asm_libs.py` 下载
+//   keystone 0.9.2 / capstone 5.0.3 源码，用 Ninja + MSVC 按 /MT 编出静态库，
+//   落到 3rd_party/{keystone,capstone}/lib/{x64,x86}/，再由 libop/CMakeLists.txt 链接。
+//   缺库时 CMake **FATAL_ERROR**，不再退化成"编得过、跑起来才发现是空壳"。
+//
+// 为什么 Disassemble 多了 arch 参数（与原预留签名不同）：
+//   原签名 (bytes_hex, address, count) 没有位数信息。x64 宿主按 64 位模式解码
+//   32 位游戏代码会**静默产出错码**（0x48 变成 REX 前缀、0x50 从 push eax 变 push rax），
+//   这种错比直接失败更难查。接口此前从未能返回数据，加参数不构成破坏性变更。
+//   arch: 32 / 64；0 = 按当前进程位数。
 //
 // AsmCall 的安全边界（有意限制）：
 //   * 只执行**调用方给出的机器码**，插件不生成/不修改代码；
@@ -30,6 +35,13 @@
 
 #include <Windows.h>
 
+// 汇编/反汇编引擎：静态库，/MT，由 scripts/build/_wb_build_asm_libs.py 本地构建。
+// KEYSTONE_STATIC / CAPSTONE_STATIC 由 libop/CMakeLists.txt 统一定义，
+// 目的是让两个头文件的导出宏退化成空（否则 ks_* 会经 .drectve 顶进 op.dll 导出表）。
+#include <capstone/capstone.h>
+#include <keystone/keystone.h>
+
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -124,6 +136,97 @@ std::wstring to_hex(uint64_t v) {
     return buf;
 }
 
+Value JsonStr(std::wstring s) {
+    Value v;
+    v.type = Type::String;
+    v.str = std::move(s);
+    return v;
+}
+
+void Put(Value &o, const wchar_t *k, Value v) {
+    o.obj.push_back(std::make_pair(std::wstring(k), std::move(v)));
+}
+
+// 字节数组 -> "B8 2A 00 00 00"：与 AsmCall 的 code_hex 输入格式**同构**，
+// 于是 "assemble 出来的 hex 直接喂给 asm_call" 不需要任何转换。
+std::wstring bytes_to_hex_spaced(const unsigned char *p, size_t n) {
+    static const wchar_t *kDigits = L"0123456789ABCDEF";
+    std::wstring out;
+    out.reserve(n * 3);
+    for (size_t i = 0; i < n; ++i) {
+        if (i)
+            out.push_back(L' ');
+        out.push_back(kDigits[(p[i] >> 4) & 0xF]);
+        out.push_back(kDigits[p[i] & 0xF]);
+    }
+    return out;
+}
+
+std::string narrow_utf8(const wchar_t *s) {
+    if (!s || !s[0])
+        return std::string();
+    const int n = ::WideCharToMultiByte(CP_UTF8, 0, s, -1, nullptr, 0, nullptr, nullptr);
+    if (n <= 1)
+        return std::string();
+    std::string out(static_cast<size_t>(n - 1), '\0');
+    ::WideCharToMultiByte(CP_UTF8, 0, s, -1, &out[0], n, nullptr, nullptr);
+    return out;
+}
+
+std::wstring widen_utf8(const char *s) {
+    if (!s || !s[0])
+        return std::wstring();
+    const int n = ::MultiByteToWideChar(CP_UTF8, 0, s, -1, nullptr, 0);
+    if (n <= 1)
+        return std::wstring();
+    std::wstring out(static_cast<size_t>(n - 1), L'\0');
+    ::MultiByteToWideChar(CP_UTF8, 0, s, -1, &out[0], n);
+    return out;
+}
+
+// arch 归一：只认 32/64，0 = 当前进程位数。**不做猜测**——猜错会安静产出错码。
+bool resolve_arch_bits(long arch, long &bits, std::wstring &err) {
+    if (arch == 0)
+        arch = static_cast<long>(sizeof(void *) * 8);
+    if (arch != 32 && arch != 64) {
+        err = L"arch 只接受 32 / 64（0 = 按当前进程位数）";
+        return false;
+    }
+    bits = arch;
+    return true;
+}
+
+// 十六进制地址：允许 "0x" 前缀，空串按 0。拒绝负数与非法字符。
+bool parse_hex_addr(const wchar_t *text, uint64_t &out) {
+    out = 0;
+    if (!text || !text[0])
+        return true;
+    const wchar_t *p = text;
+    while (*p == L' ' || *p == L'\t')
+        ++p;
+    if (p[0] == L'0' && (p[1] == L'x' || p[1] == L'X'))
+        p += 2;
+    if (!*p)
+        return false;
+    for (const wchar_t *q = p; *q; ++q) {
+        if (q == p && *q == L'-')
+            return false;
+        const bool is_hex = (*q >= L'0' && *q <= L'9') || (*q >= L'a' && *q <= L'f') || (*q >= L'A' && *q <= L'F');
+        if (!is_hex && !(*q == L' ' || *q == L'\t'))
+            return false;
+    }
+    wchar_t *end = nullptr;
+    const unsigned long long v = wcstoull(p, &end, 16);
+    if (end == p)
+        return false;
+    while (*end == L' ' || *end == L'\t')
+        ++end;
+    if (*end != L'\0')
+        return false;
+    out = static_cast<uint64_t>(v);
+    return true;
+}
+
 } // namespace
 
 // AsmCall：在 hwnd 所属进程里执行 code_hex（机器码），返回 JSON。
@@ -201,31 +304,158 @@ long op::Op::AsmCall(LONG_PTR hwnd, const wchar_t *code_hex, long timeout_ms, st
     return 1;
 }
 
-// TODO（待 keystone/capstone 可安装后接上）：
-//   long op::Op::Assemble(const wchar_t *asm_text, long arch, std::wstring &retjson, long *ret);
-//     用 ks_open(KS_ARCH_X86, arch==32?KS_MODE_32:KS_MODE_64) -> ks_asm -> "HEX 字节串"
-//   long op::Op::Disassemble(const wchar_t *bytes_hex, const wchar_t *address, long count,
-//                            std::wstring &retjson, long *ret);
-//     用 cs_open(CS_ARCH_X86, ...) -> cs_disasm -> [{"addr":"HEX","mnemonic":"..","op_str":".."},...]
-// 头文件 / C API / COM 的声明位置已预留，见 docs/2026-11/五模块实施规划_20261122.md §5。
-
-// 未实现的两个接口：显式失败 + 明确错误文本。
-// 存在的意义：让调用方能在**运行时**问出"到底支不支持"，而不是靠文档记忆；
-// 同时保证 API 面（头文件/C API/COM）在后续接上 keystone/capstone 时不用改签名。
+// Assemble：汇编文本 -> 机器码（keystone / LLVM MC）。
+//
+// 参数：
+//   asm_text 汇编文本，支持多语句（换行或 ';' 分隔），Intel 语法（显式设定，不吃环境默认）
+//   arch     32 / 64；0 = 按当前进程位数
+//
+// 成功 JSON：{"ok":1,"code":0,"size":7,"count":1,"hex":"B8 2A 00 00 00 C3"}
+//   size  = 字节数；count = 语句数；hex = **空格分隔**，可直接喂给 AsmCall
+// 失败 JSON：{"ok":0,"code":-1,"error":"keystone 汇编失败: <ks_strerror>"}
+//
+// 注意：keystone **不会**自动补 ret。要执行就在文本里自己写 "ret"。
 long op::Op::Assemble(const wchar_t *asm_text, long arch, std::wstring &retjson, long *ret) {
     internal::set_result(ret, 0L);
-    (void)asm_text;
-    (void)arch;
-    retjson = FailureJson(L"Assemble 未实现：需要 keystone（当前环境 vcpkg 无法安装，见源码顶部说明）");
-    return 0;
+    retjson = FailureJson(L"invalid_argument");
+
+    long bits = 0;
+    std::wstring err;
+    if (!resolve_arch_bits(arch, bits, err)) {
+        retjson = FailureJson(err.c_str());
+        return 0;
+    }
+    if (!asm_text || !asm_text[0]) {
+        retjson = FailureJson(L"asm_text 为空");
+        return 0;
+    }
+
+    ks_engine *ks = nullptr;
+    if (ks_open(KS_ARCH_X86, (bits == 64) ? KS_MODE_64 : KS_MODE_32, &ks) != KS_ERR_OK || ks == nullptr) {
+        retjson = FailureJson(L"ks_open 失败（keystone 未初始化）");
+        return 0;
+    }
+    // 语法显式钉成 Intel：keystone 默认就是 Intel，但不要依赖默认值
+    ks_option(ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_INTEL);
+
+    const std::string text = narrow_utf8(asm_text);
+    unsigned char *encoding = nullptr;
+    size_t size = 0;
+    size_t statements = 0;
+    const int rc = ks_asm(ks, text.c_str(), 0, &encoding, &size, &statements);
+    if (rc != 0 || encoding == nullptr) {
+        // ks_asm 返回 -1 时真实原因在 ks_errno(ks) 里
+        std::wstring msg = L"keystone 汇编失败: ";
+        msg += widen_utf8(ks_strerror(ks_errno(ks)));
+        ks_close(ks);
+        retjson = FailureJson(msg.c_str());
+        return 0;
+    }
+    // 与 AsmCall 同一上限：超过 64KB 的"代码"基本是把数据当代码传了
+    if (size > 64 * 1024) {
+        ks_free(encoding);
+        ks_close(ks);
+        retjson = FailureJson(L"汇编结果超过 64KB");
+        return 0;
+    }
+
+    const std::wstring hex = bytes_to_hex_spaced(encoding, size);
+    ks_free(encoding);
+    ks_close(ks);
+
+    Value root;
+    root.type = Type::Object;
+    Put(root, L"ok", JsonNum(1));
+    Put(root, L"code", JsonNum(0));
+    Put(root, L"size", JsonNum(static_cast<double>(size)));
+    Put(root, L"count", JsonNum(static_cast<double>(statements)));
+    Put(root, L"hex", JsonStr(hex));
+    retjson = op::json::Stringify(root);
+    internal::set_result(ret, 1L);
+    return 1;
 }
 
-long op::Op::Disassemble(const wchar_t *bytes_hex, const wchar_t *address, long count, std::wstring &retjson,
-                         long *ret) {
+// Disassemble：机器码 -> 汇编文本（capstone）。
+//
+// 参数：
+//   bytes_hex 空格分隔的十六进制字节（与 AsmCall/Assemble 同格式），支持 ?? 占位
+//   address   起始虚拟地址，十六进制（可带 0x），空串 = 0。只影响输出的 addr 字段
+//             与**相对寻址的解析**（如 jmp/call 的目标由地址算出）
+//   count     最多解码多少条指令；<=0 = 解到字节用完为止
+//   arch      32 / 64；0 = 按当前进程位数
+//
+// 成功 JSON：{"ok":1,"code":0,"mode":64,"count":2,
+//             "insns":[{"addr":"140001000","bytes":"B8 2A 00 00 00","mnemonic":"mov","op_str":"eax, 0x2a"},
+//                      {"addr":"140001005","bytes":"C3","mnemonic":"ret","op_str":""}]}
+// 失败 JSON：{"ok":0,"code":-1,"error":"..."}
+//
+// ⚠ arch 必须给对：x64 模式解 32 位代码会**静默出错码**（0x50 是 push eax 还是 push rax、
+//    0x48 是 dec eax 还是 REX 前缀，全看模式），所以这里要求调用方显式声明而不是猜。
+long op::Op::Disassemble(const wchar_t *bytes_hex, const wchar_t *address, long count, long arch,
+                         std::wstring &retjson, long *ret) {
     internal::set_result(ret, 0L);
-    (void)bytes_hex;
-    (void)address;
-    (void)count;
-    retjson = FailureJson(L"Disassemble 未实现：需要 capstone（当前环境 vcpkg 无法安装，见源码顶部说明）");
-    return 0;
+    retjson = FailureJson(L"invalid_argument");
+
+    long bits = 0;
+    std::wstring err;
+    if (!resolve_arch_bits(arch, bits, err)) {
+        retjson = FailureJson(err.c_str());
+        return 0;
+    }
+    std::vector<unsigned char> code;
+    if (!bytes_hex || !bytes_hex[0] || !parse_machine_code(bytes_hex, code)) {
+        retjson = FailureJson(L"bytes_hex 解析失败（应为空格分隔的十六进制字节，支持 ?? 占位）");
+        return 0;
+    }
+    if (code.size() > 64 * 1024) {
+        retjson = FailureJson(L"字节数超过 64KB");
+        return 0;
+    }
+    uint64_t addr = 0;
+    if (!parse_hex_addr(address, addr)) {
+        retjson = FailureJson(L"address 解析失败（十六进制，可带 0x 前缀）");
+        return 0;
+    }
+
+    csh handle = 0;
+    if (cs_open(CS_ARCH_X86, (bits == 64) ? CS_MODE_64 : CS_MODE_32, &handle) != CS_ERR_OK) {
+        retjson = FailureJson(L"cs_open 失败（capstone 未初始化）");
+        return 0;
+    }
+    cs_insn *insn = nullptr;
+    const size_t n = cs_disasm(handle, code.data(), code.size(), addr, (count > 0) ? static_cast<size_t>(count) : 0,
+                               &insn);
+    if (n == 0 || insn == nullptr) {
+        cs_close(&handle);
+        retjson = FailureJson(L"capstone 未解出指令（字节流不完整或不是有效 x86 机器码）");
+        return 0;
+    }
+
+    Value list;
+    list.type = Type::Array;
+    list.arr.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        Value item;
+        item.type = Type::Object;
+        // capstone 的字段名是 address（不是 addr）：cs_insn{id,address,size,bytes,mnemonic,op_str,detail}
+        Put(item, L"addr", JsonStr(to_hex(insn[i].address)));
+        Put(item, L"bytes", JsonStr(bytes_to_hex_spaced(insn[i].bytes, insn[i].size)));
+        Put(item, L"mnemonic", JsonStr(widen_utf8(insn[i].mnemonic)));
+        Put(item, L"op_str", JsonStr(widen_utf8(insn[i].op_str)));
+        list.arr.push_back(std::move(item));
+    }
+    cs_free(insn, n);
+    cs_close(&handle);
+
+    Value root;
+    root.type = Type::Object;
+    Put(root, L"ok", JsonNum(1));
+    Put(root, L"code", JsonNum(0));
+    Put(root, L"mode", JsonNum(static_cast<double>(bits)));
+    Put(root, L"count", JsonNum(static_cast<double>(n)));
+    Put(root, L"insns", std::move(list));
+    retjson = op::json::Stringify(root);
+    internal::set_result(ret, 1L);
+    return 1;
 }
+

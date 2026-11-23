@@ -163,6 +163,15 @@ class OP_API Op {
     void FindNearestPos(_In_ const wchar_t *all_pos, _In_ long type, _In_ long x, _In_ long y, _Out_ std::wstring &ret);
     // 坐标点按与 (x,y) 的距离升序排序（欧氏距离平方比较）。格式与 FindNearestPos 相同，输出保持输入格式，等距保持输入顺序。
     void SortPosDistance(_In_ const wchar_t *all_pos, _In_ long type, _In_ long x, _In_ long y, _Out_ std::wstring &ret);
+    // 排除落在指定矩形内的坐标点。exclude_rects="x1,y1,x2,y2|..."（含边界，坐标顺序不限，自动归一化；
+    // 非法项跳过）。输出保持输入格式；exclude_rects 为空时原样返回；ret 为保留点数。
+    void ExcludePos(_In_ const wchar_t *all_pos, _In_ long type, _In_ const wchar_t *exclude_rects,
+                    _Out_ std::wstring &retstr, _Out_ long *ret);
+    // 找包含坐标点最多的矩形窗口（窗口大小固定 width x height，左上角取某个输入点；
+// 右/下边界为开区间 [x,x+width) × [y,y+height)）。
+    // 输出 "x,y,count"（窗口左上角与世界坐标点数）；无有效点或宽高<=0 返回空串且 ret=0；并列取最靠上再靠左。
+    void GetDenseRect(_In_ const wchar_t *all_pos, _In_ long type, _In_ long width, _In_ long height,
+                      _Out_ std::wstring &retstr, _Out_ long *ret);
     // 设置寻路障碍地图（位图文件，黑=障碍：亮度 (r+g+b)/3<128）。scale 降采样倍率（块内任一障碍像素则整格障碍）。
     // offset_x/offset_y：位图 (0,0) 对应的世界坐标（支持负值）。file 为空串清空地图。
     void SetAStarMap(_In_ const wchar_t *bitmap_file, _In_ long scale, _In_ long offset_x, _In_ long offset_y, _Out_ long *ret);
@@ -322,12 +331,53 @@ class OP_API Op {
     void EnableDebugPrivilege(_Out_ long *ret);
     // 取当前线程的 GetLastError 错误文本（调用本方法前的最后一次 Win32 错误）。无法解析返回空串。
     void GetLastErrorString(_Out_ std::wstring &ret);
+    // 注册表四件套。path 形如 "HKCU\Software\Vendor\App"（支持 HKCU/HKLM/HKCR/HKU/HKCC）；
+    // name 为空串 = 默认值。Read 成功 ret=1，键/值不存在或类型不符 ret=0 且输出清空。
+    void RegistryReadString(_In_ const wchar_t *path, _In_ const wchar_t *name, _Out_ std::wstring &retstr,
+                            _Out_ long *ret);
+    void RegistryWriteString(_In_ const wchar_t *path, _In_ const wchar_t *name, _In_ const wchar_t *value,
+                             _Out_ long *ret);
+    void RegistryReadDword(_In_ const wchar_t *path, _In_ const wchar_t *name, _Out_ long *value, _Out_ long *ret);
+    void RegistryWriteDword(_In_ const wchar_t *path, _In_ const wchar_t *name, _In_ long value, _Out_ long *ret);
+    // 全局热键：modifiers 位掩码 1=ALT 2=CTRL 4=SHIFT 8=WIN（可组合），vk 为 Win32 虚拟键码。
+    // id∈[1,0xBFFF] 由调用方分配；注册冲突/非法参数 ret=0。注销后事件队列保留已收到的事件。
+    void HotkeyRegister(_In_ long id, _In_ long modifiers, _In_ long vk, _Out_ long *ret);
+    void HotkeyUnregister(_In_ long id, _Out_ long *ret);
+    // 轮询热键事件，返回热键 id；0 = 超时。timeout_ms=0 非阻塞；<0 等待直到有事件（最长 60s）。
+    // 事件在独立消息线程上入队，脚本按自己的节奏取，不会阻塞热键线程。
+    void HotkeyPoll(_In_ long timeout_ms, _Out_ long *ret);
+    void HotkeyUnregisterAll(_Out_ long *ret);
     // MD5/SHA1（UTF-8 编码后哈希），输出小写十六进制；空输入返回空串。
     void Md5(_In_ const wchar_t *text, _Out_ std::wstring &ret);
     void Sha1(_In_ const wchar_t *text, _Out_ std::wstring &ret);
     // Base64 编码/解码（输入按 UTF-8 字节流处理）。解码遇非法串返回空串。
     void Base64Encode(_In_ const wchar_t *text, _Out_ std::wstring &ret);
     void Base64Decode(_In_ const wchar_t *base64, _Out_ std::wstring &ret);
+    // SHA256 与 HMAC-SHA256（UTF-8 编码后计算），输出小写十六进制；空串输入返回空串
+    // （HMAC 的空消息合法，只有 key 为空时返回空串）。
+    void Sha256(_In_ const wchar_t *text, _Out_ std::wstring &ret);
+    void HmacSha256(_In_ const wchar_t *key, _In_ const wchar_t *text, _Out_ std::wstring &ret);
+    // 生成 length 字节加密强随机数（CSPRNG），输出小写十六进制（长度翻倍）。0<=length<=4096，超出返回空串。
+    void GenerateRandomBytes(_In_ long length, _Out_ std::wstring &ret);
+    // 生成 GUID 文本，大写、带连字符、无花括号（8-4-4-4-12）。失败返回空串。
+    void GenerateGuid(_Out_ std::wstring &ret);
+    // AES-256-GCM 加密（随机 salt/nonce，PBKDF2-SHA256 10 万次派生），输出 Base64 密封串。
+    // 密码为空、明文为空或加密失败返回空串。格式：magic|version|size|salt|nonce|tag|cipher。
+    void AesEncrypt(_In_ const wchar_t *text, _In_ const wchar_t *password, _Out_ std::wstring &ret);
+    // 解密 AesEncrypt 的输出。密码错误或密文被篡改返回空串（GCM 认证失败）。
+    void AesDecrypt(_In_ const wchar_t *base64, _In_ const wchar_t *password, _Out_ std::wstring &ret);
+    // PBKDF2-HMAC-SHA256。iterations∈[1,10000000]，length∈[1,1024]，输出小写十六进制。
+    void Pbkdf2Sha256(_In_ const wchar_t *password, _In_ const wchar_t *salt, _In_ long iterations, _In_ long length,
+                      _Out_ std::wstring &ret);
+    // 文件摘要（流式读取，不整文件进内存），输出小写十六进制；文件不存在/无权限返回空串。
+    void Md5File(_In_ const wchar_t *file_name, _Out_ std::wstring &ret);
+    void Sha1File(_In_ const wchar_t *file_name, _Out_ std::wstring &ret);
+    void Sha256File(_In_ const wchar_t *file_name, _Out_ std::wstring &ret);
+    // RSA 加密/解密（PKCS#1 v1.5）。公钥 PEM 支持 SPKI（BEGIN PUBLIC KEY）；
+    // 私钥 PEM 支持 PKCS#8（BEGIN PRIVATE KEY）与 PKCS#1（BEGIN RSA PRIVATE KEY）。
+    // 密文输出 Base64；解密输出 UTF-8 文本。密钥格式错误/加解密失败返回空串。
+    void RsaEncrypt(_In_ const wchar_t *text, _In_ const wchar_t *public_key_pem, _Out_ std::wstring &ret);
+    void RsaDecrypt(_In_ const wchar_t *base64, _In_ const wchar_t *private_key_pem, _Out_ std::wstring &ret);
     //--------------------并发诊断（批 A 2026-11-22）----------------------------------
     // 约定不变：**单个 Op 实例不是线程安全的**（见本文件顶部），多线程场景每线程一个实例。
     // 本接口不改变该约定，只把"同实例被多线程使用"从静默污染变成可观测事实。
@@ -365,7 +415,9 @@ class OP_API Op {
     // 画在**独立透明窗口**上，不写目标 DX 后台缓冲 -> **不会出现在 DX 截图里**；
     // 窗口移动/缩放时跟随（250ms 轮询 + 每次绘制校正）。
     // 未绑定窗口时返回 0 并记日志（不静默画到屏幕，否则会被误判成坐标系问题）。
-    // ⚠ 本批只支持**描边**：mode=0（填充）会按描边绘制并记日志，不假装支持填充。
+    // mode：0 纯填充 / 1 纯描边 / 2 填充+描边（其它值按描边，并记日志）。
+    // 填充色与开关由 DrawSetFill 控制（默认开启、半透明红）；描边色由 DrawSetColor 控制（默认白）。
+    // mode=0 时 line_width 被忽略（不描边）。
     void DrawRectEx(_In_ long x, _In_ long y, _In_ long width, _In_ long height, _In_ long mode, _In_ long line_width,
                     _Out_ long *ret);
     void DrawCircleEx(_In_ long x, _In_ long y, _In_ long radius, _In_ long line_width, _Out_ long *ret);
@@ -374,6 +426,62 @@ class OP_API Op {
     void DrawClearBind(_Out_ long *ret);
     // 诊断：分别返回屏幕层/绑定层的图元数量（任一指针可为 nullptr）。
     void DrawGetCount(_Out_ long *screen_count, _Out_ long *bind_count);
+
+    // ---- 批 G 补齐（2026-11-23）：颜色/填充状态 + 绑定层画图 + 图片句柄上屏 ----
+    // 设置 Ex 系列（DrawRectEx/DrawCircleEx/DrawTextEx）的描边色，影响之后绘制的图元，
+    // 已画的保持不变。color="RRGGBB"；解析失败返回 0 并保持原色。默认白色。
+    void DrawSetColor(_In_ const wchar_t *color, _Out_ long *ret);
+    // 填充开关 + 填充色。enable=0 关闭（DrawRectEx 的 mode 0/2 退化为描边）；
+    // enable=1 开启，color 省略/空串则沿用当前填充色。
+    // color 支持 "RRGGBB"（自动加 0x66 半透明，避免把目标窗口盖死）与 "AARRGGBB"（显式 alpha）。
+    // 默认开启，默认色 = 半透明红（66FF0000）。
+    void DrawSetFill(_In_ long enable, _In_ const wchar_t *color, _Out_ long *ret);
+    // 绑定窗口内画图片文件（客户区坐标）。alpha 0~255（<=0 或 >255 视为 255）。
+    // 与屏幕层 DrawImage 的差别：文件不存在时**显式失败返回 0**（不只是静默跳过）。
+    void DrawImageEx(_In_ long x, _In_ long y, _In_ const wchar_t *file_name, _In_ long alpha, _Out_ long *ret);
+    // 把图片句柄（OpLoadImage/CropImage 等产出）的内容画到**屏幕叠加层**。
+    // 像素在图元里存一份，渲染线程不访问图像注册表——句柄随后释放也不影响已提交的图元。
+    void DrawImageFromHandle(_In_ long x, _In_ long y, _In_ const wchar_t *image_handle, _In_ long alpha,
+                             _Out_ long *ret);
+
+    // ---- 批 G2（2026-11-23）：标签替换（实时跟踪框的正确用法）----
+    // 带 tag 的图元遵循"同层同标签只保留最新一条"：重画同一个 tag 等于就地替换，
+    // 不用 DrawClear（会闪、且图元会累积）。tag 为空返回 0。
+    void DrawRectTag(_In_ const wchar_t *tag, _In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2,
+                     _In_ const wchar_t *color, _In_ long width, _Out_ long *ret);
+    // 绑定层版本，坐标 = 绑定窗口客户区；mode 语义同 DrawRectEx。
+    void DrawRectExTag(_In_ const wchar_t *tag, _In_ long x, _In_ long y, _In_ long width, _In_ long height,
+                       _In_ long mode, _In_ long line_width, _Out_ long *ret);
+    // 删除同标签图元（屏幕层 + 绑定层一起清），**返回删除个数**；0 = 没有匹配项或标签为空。
+    void DrawRemoveTag(_In_ const wchar_t *tag, _Out_ long *ret);
+
+    // ---- 批 H（2026-11-23）：UIA 元素层最小集 ----
+    //
+    // 定位：图色之外的第二条路，直接读 UI 元素树，不依赖分辨率/主题/DPI。
+    // ⚠ 只对暴露 UIA 的程序有效（Win32/WinForms/WPF/Qt/Chromium 系）；DX 自绘的游戏界面读不到节点。
+    // ⚠ 元素 id 是**本进程内**的注册表序号，op_com 与 op_c_api 各有一份注册表，跨层拿 id 必找不到。
+    // ⚠ 坐标是**屏幕物理像素**，与绑定态客户区坐标不是一套。
+    //
+    // 按深度优先列出窗口下所有元素（hwnd=0 取前台窗口）。max_depth<0 视为 0。
+    // 返回 {ok,nodes:[{id,name,class,aid,type,type_name,rect:[l,t,r,b],enabled,offscreen,depth}],count}
+    void UiaDump(_In_ LONG_PTR hwnd, _In_ long max_depth, _Out_ std::wstring &retjson);
+    // 按选择器查找。语法：name=确定 >> class=Button；`name*=确定` 包含匹配；
+    // 键支持 name / class / id(automationId) / type(控件类型名或数字) / index(0 基)。
+    // timeout_ms>0 时轮询到超时（每 100ms），0 = 只查一次。
+    // 返回 {ok,count,elements:[{id,...,value}],}；失败 {ok:0,error:"..."}
+    void UiaFind(_In_ LONG_PTR hwnd, _In_ const wchar_t *selector, _In_ long timeout_ms,
+                 _Out_ std::wstring &retjson);
+    // 屏幕坐标命中的元素（用于"鼠标所指是什么控件"）。返回 {ok,element:{...}}。
+    void UiaFromPoint(_In_ long x, _In_ long y, _Out_ std::wstring &retjson);
+    // 触发元素（Invoke 模式；复选框等走 Toggle 兜底）。1=成功。
+    void UiaInvoke(_In_ long element_id, _Out_ long *ret);
+    // 读元素的值（ValuePattern）；无该模式返回空串。
+    void UiaGetValue(_In_ long element_id, _Out_ std::wstring &retstr);
+    // 写元素的值（ValuePattern）。1=成功；只读控件返回 0。
+    void UiaSetValue(_In_ long element_id, _In_ const wchar_t *value, _Out_ long *ret);
+    // 释放单个元素 / 释放全部（返回释放个数）。长期运行的脚本必须及时释放，否则注册表只增不减。
+    void UiaRelease(_In_ long element_id, _Out_ long *ret);
+    void UiaReleaseAll(_Out_ long *ret);
     //--------------------Background -----------------------
     // 兼容旧接口的单句柄绑定。显示和输入都使用同一个 hwnd。
     void BindWindow(_In_ LONG_PTR hwnd, _In_ const wchar_t *display, _In_ const wchar_t *mouse, _In_ const wchar_t *keypad,
@@ -612,6 +720,21 @@ class OP_API Op {
                            _Out_ std::wstring &retstr);
     // 获取(x,y)的颜色
     void GetColor(_In_ long x, _In_ long y, _Out_ std::wstring &ret);
+    // 颜色串转 RGB 分量。支持 "RRGGBB"/"AARRGGBB"，可带 # / 0x 前缀，大小写不敏感；
+    // 8 位时按 AARRGGBB 解释。解析失败各分量置 0 且 ret=0。
+    void Hex2RGB(_In_ const wchar_t *color, _Out_ long *r, _Out_ long *g, _Out_ long *b, _Out_ long *ret);
+    // 同 Hex2RGB，另输出 alpha；6 位输入 alpha=255。
+    void Hex2ARGB(_In_ const wchar_t *color, _Out_ long *a, _Out_ long *r, _Out_ long *g, _Out_ long *b,
+                  _Out_ long *ret);
+    // RGB 分量转 "AARRGGBB"（大写）。分量越界按 0/255 截断；ret=1。
+    void ARGB2Hex(_In_ long a, _In_ long r, _In_ long g, _In_ long b, _Out_ std::wstring &ret);
+    // RGB 转 HSV：H∈[0,360)，S/V∈[0,100]，均为 double。分量越界按 0/255 截断。
+    void RGB2HSV(_In_ long r, _In_ long g, _In_ long b, _Out_ double *h, _Out_ double *s, _Out_ double *v,
+                 _Out_ long *ret);
+    // 颜色串转 HSV（颜色串格式同 Hex2RGB），输出口径同 RGB2HSV。
+    void Hex2HSV(_In_ const wchar_t *color, _Out_ double *h, _Out_ double *s, _Out_ double *v, _Out_ long *ret);
+    // RGB 分量转 "RRGGBB"（大写），分量越界按 0/255 截断。
+    void GetColorHex(_In_ long r, _In_ long g, _In_ long b, _Out_ std::wstring &ret);
     //
     // 设置图像输入方式，默认窗口截图
     void SetDisplayInput(_In_ const wchar_t *mode, _Out_ long *ret);
@@ -730,6 +853,9 @@ class OP_API Op {
     // argv 空格分隔，ONNX 另支持 --conf=0.25 --iou=0.45（detect 传 <=0 时的默认阈值）
     // 与 --threads=N（推理线程数，默认 0=交给 ORT 用物理核；多实例并发时建议压到 1~2
     // 免得 N 个会话各开满线程互相抢核。2026-11-21 实测放开线程比写死单线程快 3.5~4.8 倍）。
+    // GPU：--device=N 启用 DirectML（0=默认适配器）；需同版本 DML 版 onnxruntime.dll
+    // + DirectML.dll。缺失时自动回退 CPU 并在日志标注，不返回失败；--device=cpu 可显式回 CPU。
+    // 任务提示：--task=detect|segment|classify|pose|obb、--nc=N、--kpt=N（元数据缺失时）。
     long SetYoloEngine(_In_ const wchar_t *path_of_engine, _In_ const wchar_t *dll_name, _In_ const wchar_t *argv);
     void YoloDetect(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
                     _Out_ std::wstring &retjson, _Out_ long *ret);
@@ -753,8 +879,7 @@ class OP_API Op {
                             _Out_ long *ret);
 
     // ---- YOLO 任务维度（批 C 2026-11-22）----
-    // 原来的 YOLO 只有"检测"。这里按 OLA 的 Detect/Classify/Segment 三分类补齐
-    // 其中两个可复用的（Pose/Obb 未做：关键点/旋转框需要额外规格，见 docs）。
+    // 除检测外补齐 Classify / Segment / Pose / Obb 四类任务（对齐 ultralytics 导出格式）。
     //
     // 任务由模型决定：SetYoloEngine 加载时先读 ONNX metadata 的 task，读不到再按输出
     // 形状推断。任务不符时返回 -1（"模型不支持该任务"），0 表示"没有结果"——两者
@@ -775,11 +900,59 @@ class OP_API Op {
                      _Out_ std::wstring &retjson, _Out_ long *ret);
     long YoloSegmentFromFile(_In_ const wchar_t *file_name, _In_ double conf, _In_ double iou, _Out_ std::wstring &retjson,
                              _Out_ long *ret);
+    // 姿态估计（Pose）。每条结果含检测框 + keypoints（按模型顺序，坐标原图尺度）。
+    // JSON：
+    //   {"ok":1,"code":0,"task":"pose","total":N,"returned":N,
+    //    "results":[{"class_id":0,"label":"person","bbox":[x1,y1,x2,y2],"confidence":0.9,
+    //                "keypoints":[{"x":100.5,"y":80.0,"confidence":0.95}, ...]}]}
+    long YoloPose(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
+                  _Out_ std::wstring &retjson, _Out_ long *ret);
+    long YoloPoseFromFile(_In_ const wchar_t *file_name, _In_ double conf, _In_ double iou, _Out_ std::wstring &retjson,
+                          _Out_ long *ret);
+    // 旋转框（OBB）。angle 为弧度，corners 为四角点（原图坐标，顺序左上/右上/右下/左下）。
+    // JSON：
+    //   {"ok":1,"code":0,"task":"obb","total":N,"returned":N,
+    //    "results":[{"class_id":0,"label":"ship","confidence":0.9,
+    //                "center":[cx,cy],"size":[w,h],"angle":0.32,"angle_deg":18.3,
+    //                "bbox":[x1,y1,x2,y2],"corners":[[x,y],...]}]}
+    long YoloObb(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
+                 _Out_ std::wstring &retjson, _Out_ long *ret);
+    long YoloObbFromFile(_In_ const wchar_t *file_name, _In_ double conf, _In_ double iou, _Out_ std::wstring &retjson,
+                         _Out_ long *ret);
     // 当前已加载模型的元信息（未加载时 task="none"）。用途：脚本启动时自检"模型选对了没"，
     // 而不是等到识别出一堆空结果才怀疑。JSON：
     //   {"ok":1,"task":"segment","task_code":2,"input_width":640,"input_height":640,
-    //    "labels":["blob"],"labels_count":1}
+    //    "device":-1,"dml":0}
+    // device=-1 表示 CPU；>=0 为实际生效的 DirectML 适配器序号（请求 GPU 但回退时也是 -1）。
     void YoloGetModelInfo(_Out_ std::wstring &retjson);
+
+    // ---- YOLO 模型平台（2026-11-23）----
+    // 命名模型注册表：可同时加载多个模型，推理始终走当前 active 模型。
+    // 兼容旧入口：SetYoloEngine 等价于 YoloLoadModel("default", ...) 并激活。
+    //
+    // 加载 .onnx（明文）或 .opymodel（OPYMOD01 加密包）。加密包从 argv 读 --password=xxx
+    // （密码不能含空格）；明文传了密码会被忽略。同名重复加载 = 替换旧模型。
+    // retjson：{"ok":1,"name":"a","task":"detect","encrypted":0,"active":1}
+    void YoloLoadModel(_In_ const wchar_t *name, _In_ const wchar_t *path, _In_ const wchar_t *argv,
+                       _Out_ std::wstring &retjson, _Out_ long *ret);
+    // 切换 active 模型。不存在 ret=0。
+    void YoloUseModel(_In_ const wchar_t *name, _Out_ long *ret);
+    // 释放指定模型；name 为空 = 释放全部。释放 active 后 active 为空（推理返 -1）。
+    void YoloReleaseModel(_In_ const wchar_t *name, _Out_ long *ret);
+    // 列出已加载模型：
+    // {"ok":1,"active":"a","count":1,"models":[{"name":"a","task":"detect","encrypted":0,
+    //   "input_width":640,"input_height":640,"device":-1,"dml":0}]}
+    void YoloListModels(_Out_ std::wstring &retjson);
+    // 列出推理设备（DXGI 枚举 + CPU）：
+    // {"ok":1,"dml_available":0,"devices":[{"index":-1,"name":"CPU","type":"cpu"},
+    //   {"index":0,"name":"...","type":"gpu","vram_mb":8192}]}
+    void YoloListDevices(_Out_ std::wstring &retjson);
+    // 把明文 .onnx 打成 OPYMOD01 加密包（AES-256-GCM + PBKDF2），或反向解包。
+    // 密码为空/读写失败 ret=0。加密包在内存中解密后直接建会话，不落明文临时文件。
+    void YoloEncryptModel(_In_ const wchar_t *src_path, _In_ const wchar_t *dst_path, _In_ const wchar_t *password,
+                          _Out_ long *ret);
+    void YoloDecryptModel(_In_ const wchar_t *src_path, _In_ const wchar_t *dst_path, _In_ const wchar_t *password,
+                          _Out_ long *ret);
 
     // ---- 汇编模块（批 D 2026-11-22）----
     // 在目标进程执行一段**机器码**并取返回值（纯 BlackBone + Win32，无新依赖）。
@@ -792,10 +965,26 @@ class OP_API Op {
     // ⚠ 只执行调用方给的机器码，插件不生成/不修改代码；执行完立即释放可执行内存。
     long AsmCall(_In_ LONG_PTR hwnd, _In_ const wchar_t *code_hex, _In_ long timeout_ms, _Out_ std::wstring &retjson,
                  _Out_ long *ret);
-    // Assemble / Disassemble **未实现**（需要 keystone/capstone，当前环境装不上）。
-    // 调用会返回 0 并给出明确错误文本，不会假装成功。详见 libop/op/OpAsm.cpp 顶部说明。
+    // Assemble：汇编文本 -> 机器码（keystone / LLVM MC，静态链入，无新增 DLL 依赖）。
+    //   asm_text 支持多语句（换行或 ';'），Intel 语法；**不自动补 ret**
+    //   arch     32 / 64；0 = 按当前进程位数
+    //   ⚠ 数字字面量：**裸数字是十进制**（`mov eax, 100` = 100），十六进制写 `0x64`。
+    //     keystone 0.9.2 原实现无条件 radix=16（`mov eax, 100` 会变成 0x100=256，
+    //     且写不出十进制），已在 3rd_party 构建脚本里修正，见 _wb_build_asm_libs.py。
+    // 成功 JSON：{"ok":1,"code":0,"size":7,"count":1,"hex":"B8 2A 00 00 00 C3"}
+    //   hex 为空格分隔，可直接作为 AsmCall 的 code_hex 入参（两接口格式同构）
+    // 失败 JSON：{"ok":0,"code":-1,"error":"keystone 汇编失败: ..."}
     long Assemble(_In_ const wchar_t *asm_text, _In_ long arch, _Out_ std::wstring &retjson, _Out_ long *ret);
-    long Disassemble(_In_ const wchar_t *bytes_hex, _In_ const wchar_t *address, _In_ long count,
+    // Disassemble：机器码 -> 汇编文本（capstone，静态链入）。
+    //   bytes_hex 空格分隔十六进制字节（与 AsmCall/Assemble 同格式）
+    //   address   起始虚拟地址，十六进制可带 0x；空串 = 0。影响输出 addr 与 jmp/call 目标解析
+    //   count     最多解码指令数；<=0 = 解到字节用完
+    //   arch      32 / 64；0 = 按当前进程位数
+    // ⚠ arch 必须给对：x64 模式解 32 位代码会**静默出错码**（0x50 = push rax 而非 push eax），
+    //   所以宁可要求显式声明，也不按"看起来像"去猜。
+    // 成功 JSON：{"ok":1,"code":0,"mode":64,"count":2,
+    //            "insns":[{"addr":"140001000","bytes":"B8 2A 00 00 00","mnemonic":"mov","op_str":"eax, 0x2a"},...]}
+    long Disassemble(_In_ const wchar_t *bytes_hex, _In_ const wchar_t *address, _In_ long count, _In_ long arch,
                      _Out_ std::wstring &retjson, _Out_ long *ret);
     // 设置字库文件
     void SetDict(_In_ long idx, _In_ const wchar_t *file_name, _Out_ long *ret);
@@ -805,8 +994,15 @@ class OP_API Op {
     void SetMemDict(_In_ long idx, _In_reads_bytes_(size) const void *data, _In_ long size, _Out_ long *ret);
     // 使用哪个字库文件进行识别
     void UseDict(_In_ long idx, _Out_ long *ret);
-    // 给指定的字库中添加一条字库信息
+    // 给指定的字库中添加字库信息。
+    //   dict_info 支持多行（换行分隔，每行一条 `名字$高,宽,点数$点阵HEX`）
+    //   **整批原子**：任一行解析失败 → 一条都不写入，返回 0；
+    //   返回值 = 成功处理的行数（单行成功 = 1，与旧行为一致）。
     void AddDict(_In_ long idx, _In_ const wchar_t *dict_info, _Out_ long *ret);
+    // 从指定字库中删除字条。字条靠点阵唯一，dict_info 只取点阵部分（名字可留空）。
+    //   返回删除条数：0 = 没找到该点阵，1 = 已删除。
+    //   用途：做字库时发现个别字标错，不必 ClearDict 整槽重来。
+    void RemoveDict(_In_ long idx, _In_ const wchar_t *dict_info, _Out_ long *ret);
     // 保存指定的字库到指定的文件中
     void SaveDict(_In_ long idx, _In_ const wchar_t *file_name, _Out_ long *ret);
     // 清空指定的字库
