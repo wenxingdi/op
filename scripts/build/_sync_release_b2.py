@@ -43,13 +43,15 @@ TARGETS = [
     (r"D:\AutoPro\OPTool\Common\bin\Release\net10.0-windows7.0\Dll", X64 + X86),
     (r"D:\AutoPro\OPTool\OPTestTool\bin\Release\net10.0-windows7.0\Dll", X64 + X86),
     (r"D:\AutoPro\OPTool\WordDictTool\bin\Release\net10.0-windows7.0\Dll", X64 + X86),
-    (r"D:\AgentWork\WorkBuddy\2026-08-04-11-41-10\optool_verify\bin\Release\net10.0-windows7.0\Dll",
+    # 2026-11-24：原工作区 optool_verify 清理时被误删（含 GuiSmoke 冒烟器，未入 git 不可恢复）。
+    # 冒烟工程已重建到 OPTool 仓库内并入库，同步目标随之改为该处，避免二次丢失。
+    (r"D:\AutoPro\OPTool\optool_verify\GuiSmoke\bin\Release\net10.0-windows7.0\Dll",
      ["op_c_api_x64.dll", "op_c_api_x86.dll"]),
     # GuiSmoke / 验证器把 exe 放在上一层，DLL 也直接铺在 exe 同目录（另有一份 Dll 子目录）。
     # 漏同步的症状：GUI 冒烟跑的是旧 DLL，"新接口没生效"其实是没换件。
     # 只补 x64：该目录的 onnxruntime.dll 是 x64（op_x64.dll 静态导入），把 32 位件塞进来
     # 会让 32 位宿主撞 ERROR_DLL_INIT_FAILED(1114)，见 bin\x86 那段注释。
-    (r"D:\AgentWork\WorkBuddy\2026-08-04-11-41-10\optool_verify\bin\Release\net10.0-windows7.0",
+    (r"D:\AutoPro\OPTool\optool_verify\GuiSmoke\bin\Release\net10.0-windows7.0",
      X64),
     # 探针/测试用的 x64 构建树：blackbone 按 `SetPath` 目录找 `op_c_api_x86.dll`，
     # 而 `workbench/_t_dx32_*.py`、`_t_bind_any.py` 等 32 位真机探针都以这里为 DLL_DIR。
