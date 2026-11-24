@@ -35,6 +35,11 @@
 #undef DeleteFile
 // DrawText 宏同理（UNICODE 下映射 DrawTextW）
 #undef DrawText
+// DrawTextEx 宏同理（wingdi.h 映射 DrawTextExW）：批 G 新增 DrawTextEx 时漏登记，
+// 后果是 C++ 符号被改成 ?DrawTextExW@，而 SWIG 包装不引 windows.h、生成 ?DrawTextEx@
+// → pyop 链接 LNK2019。MoveToEx 同类（GDI 真函数名，解除无害）。
+#undef DrawTextEx
+#undef MoveToEx
 
 #ifdef _MSC_VER
 #pragma warning(push)

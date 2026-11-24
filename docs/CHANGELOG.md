@@ -3,6 +3,77 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-24 第六十七批（fix：DrawTextEx 宏未解除导致 pyop 无法链接）
+
+**范围**：64 + 32 位均重编。
+
+#### 1. 症状
+
+`nmake pyop` 链接失败：
+
+```
+op_wrap.cxx.obj : error LNK2019: 无法解析的外部符号
+  "public: void __cdecl op::Op::DrawTextEx(long,long,wchar_t const *,long,long *)"
+  (?DrawTextEx@Op@op@@QEAAXJJPEB_WJPEAJ@Z)，该符号在函数 _wrap_Op_DrawTextEx 中被引用
+_pyop.pyd : fatal error LNK1120: 1 个无法解析的外部命令
+```
+
+此前 `_pyop.pyd` 停在 2026-11-21 —— 第六十五批重新生成 `swig/op_wrap.cxx`（78 个新方法）
+后**从未编译过 pyd**，所以该缺陷一直隐藏到本次补编才暴露。
+
+#### 2. 根因
+
+`wingdi.h` 尾部有 A/W 映射 `#define DrawTextEx DrawTextExW`。`include/libop.h` 顶部
+已有一份 undef 清单治理这类 Win32 宏污染：
+
+```
+#undef FindWindow / FindWindowEx / SetWindowText
+#undef CopyFile / MoveFile / DeleteFile
+#undef DrawText
+```
+
+批 G 新增 `DrawTextEx`（绑定窗口叠加层绘制）时**漏登记**，于是：
+
+| 编译单元 | 是否引 windows.h | 产出的符号 |
+|---|---|---|
+| `libop/op/OpDraw.cpp` | 是（宏生效） | `?DrawTextExW@` |
+| `swig/op_wrap.cxx` | 否（宏不存在） | `?DrawTextEx@` |
+
+两个符号名不等 ⇒ 链接期无人实现。
+
+#### 3. 修法（两处必须同时改）
+
+1. `include/libop.h`：undef 清单补 `#undef DrawTextEx`（`MoveToEx` 一并补，GDI 真函数名，解除无害）。
+2. `libop/com/OpAutomation.h`：undef 清单同样补 `#undef DrawTextEx`，且**必须放在
+   `#include "op_i.h"` 之前**。
+
+只改第 1 处会立刻踩另一个坑：`op_i.h` 里的 `IOpAutomation::DrawTextEx` 已被改写成
+`DrawTextExW`，而 `STDMETHOD(DrawTextEx)` 在 undef 之后不再展开 ⇒ 纯虚未实现 ⇒
+`atlcom.h(3914): error C2259 CComContainedObject<OpAutomation> 无法实例化抽象类`。
+
+全仓无 HDC 版 `DrawTextEx` 调用，解除映射无副作用。
+
+#### 4. 验证
+
+| 项 | 结果 |
+|---|---|
+| `op_x64` 重编 | 0 error（17s），符号实测 `?DrawTextEx@Op@op@@QEAAXJJPEB_WJPEAJ@Z` |
+| `op_c_api_x64` / `op_test` 重链 | 0 error |
+| `_pyop.pyd` | 链接成功，748032 → 872960 bytes（2026-11-24 09:55） |
+| x86（`op_x86` + `op_c_api_x86`） | 0 error（configure + build 4m21s） |
+| 全量回归 | 676 ran / 648 PASS / 2 FAILED / 26 SKIP |
+| 发布件同步 | `_sync_release_b2.py` 结论「全部一致」（8 处目标 sha1 逐个比对） |
+
+**2 项 FAILED 均为环境项，非本批引入**：
+
+- `HookCaptureTest.BindLoadsMissingGraphicsAndInputModulesOnDemand`：`d3d9=true dinput8=true
+  bind_ret=0`，单跑 2/2 稳定红；改前（09:49 构建的旧 exe）同样红 ⇒ dx 注入在沙箱内不可用。
+- `WgcTest.NormalAutoCapturesPlainWindows`：全量里红、单跑 2/2 绿 ⇒ 桌面状态/用例间干扰。
+
+补充说明：`python -c "import pyop"` 的端到端冒烟在本机沙箱被拦（`DLL load failed`，
+同目录已铺全部依赖仍复现），未完成；链接成功已证明符号解析正确，pyd 加载需在正常桌面环境自测。
+
+
 ### 2026-11-24 第六十六批（docs：API 手册补齐使用案例 + 案例编译校验闭环）
 
 **范围**：仅 64 位。x86 按用户要求不动。

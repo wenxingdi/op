@@ -17,6 +17,9 @@
 #undef DeleteFile
 // DrawText 宏（UNICODE 下映射 DrawTextW）同理
 #undef DrawText
+// DrawTextEx 宏（wingdi.h 映射 DrawTextExW）同理；必须在 #include "op_i.h" 之前解除，
+// 否则 IOpAutomation::DrawTextEx 被改写成 DrawTextExW，与本文件 STDMETHOD(DrawTextEx) 失配 → C2259
+#undef DrawTextEx
 #include "op_i.h"
 // #include "Types.h"
 // #include "WindowService.h"
