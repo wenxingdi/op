@@ -1,9 +1,13 @@
 ﻿# run_tests.ps1 — op_test 运行器（解决 Windows CONSOLE gtest 在 Git Bash 下无 stdout 的问题）
-# 用法: powershell -NoProfile -ExecutionPolicy Bypass -File run_tests.ps1 [-Filter "图案"]
+# 用法: powershell -NoProfile -ExecutionPolicy Bypass -File run_tests.ps1 [-Filter "图案"] [-TimeoutSec 1800]
 # 依赖: op_x64.dll / op_c_api_x64.dll 需在 build\libop\ 下（nmake 构建产物）
 param(
     [string]$Filter = "-*Ocr*:-*OCR*:-*Yolo*",   # 默认排除依赖外部服务的测试
-    [string]$BuildDir = ""                        # 留空则自动探测 build\nmake-x64-Release
+    [string]$BuildDir = "",                       # 留空则自动探测 build\nmake-x64-Release
+    # 单次运行的上限。**全量约 10~12 分钟**（676 条，含 hook/dx 载体的等待），
+    # 原先硬编码 180s 会让每次全量都在中段被 Kill，表现为"汇总行缺失 + 最后一条用例无结果"，
+    # 极易被误读成"某条用例挂起"。默认放宽到 30 分钟；只想跑子集时可显式传小值。
+    [int]$TimeoutSec = 1800
 )
 
 $ErrorActionPreference = "Stop"
@@ -89,9 +93,9 @@ Write-Host "运行: $exe $($args -join ' ')"
 $p = Start-Process -FilePath $exe -ArgumentList $args -NoNewWindow `
     -WorkingDirectory $root `
     -RedirectStandardOutput $outFile -RedirectStandardError $errFile -PassThru
-if (-not $p.WaitForExit(180000)) {
+if (-not $p.WaitForExit($TimeoutSec * 1000)) {
     $p.Kill()
-    Write-Error "op_test 超时(180s)被杀，输出见 $outFile"
+    Write-Error "op_test 超时(${TimeoutSec}s)被杀，输出见 $outFile（全量请留足 1800s 或用 -TimeoutSec 调大）"
     exit 3
 }
 

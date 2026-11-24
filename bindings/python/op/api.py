@@ -12,6 +12,24 @@ from .errors import ClosedHandleError, OpCallError
 from .types import IntType, StringType
 
 
+class _InputEventView(ctypes.Structure):
+    """监听回调看到的事件（与 include/op_c_api.h 的 op_input_event_view 逐字段一致）。
+    字段顺序固定，改动即 ABI 变更 —— 改这里必须同步头文件与 libop.h。"""
+
+    _fields_ = [
+        ("t", ctypes.c_double),  # 相对录制起点的毫秒数（未录制时为 0）
+        ("type", ctypes.c_int),  # 0=mouse_move 1=mouse_button 2=mouse_wheel 3=key 4=key_char
+        ("vk", ctypes.c_long),
+        ("x", ctypes.c_long),  # 客户区坐标；key_char 事件里复用为字符码
+        ("y", ctypes.c_long),
+        ("wheel", ctypes.c_long),
+        ("flags", ctypes.c_long),  # MOUSEEVENTF_* / KEYEVENTF_*
+    ]
+
+
+_INPUT_MONITOR_CALLBACK = ctypes.WINFUNCTYPE(None, ctypes.POINTER(_InputEventView), ctypes.c_void_p)
+
+
 class Op:
     def __init__(
         self,
@@ -716,6 +734,73 @@ class Op:
     def draw_remove_tag(self, tag: str) -> int:
         """删除同标签图元（两层一起清），返回删除个数；0 = 没有匹配项。"""
         return self._call_int("OpDrawRemoveTag", tag)
+
+    # 输入时间轴 + 并发自省（批 E/F，2026-11-22）
+    # ⚠ 录制/回放只镜像输入事件，不做语义校验：回放期间不要同时跑别的脚本。
+    # ⚠ 回放坐标语义取决于当时是否绑定窗口（LOAD 结果的 bound 字段），见 input_playback。
+    def concurrency_info(self) -> str:
+        """同实例并发自省。返回 JSON：{"total":N,"sessions":[{"id":..,"in_flight":..,
+        "peak":..,"reentrant":..,"calls_total":..,"image_count":..,"bound":0|1},...]}。
+        peak>1 或 reentrant>0 说明踩了非线程安全线（结果不再可复现）。"""
+        return self._call_string("OpConcurrencyInfo")
+
+    def set_input_monitor(self, callback, user: int = 0) -> bool:
+        """设置全局输入监听回调（callback 为 None 取消监听）。
+        ⚠ 回调里**不要**再调输入 API：会被旁路护栏挡掉（不崩溃，但那部分输入不录）。"""
+        self._check_open()
+        if callback is None:
+            ok = self._dll.OpSetInputMonitor(self._handle, None, int(user), None)
+            return bool(ok)
+        cb = _INPUT_MONITOR_CALLBACK(callback)
+        # 回调对象必须活到注销为止，否则 ctypes 会回收函数指针 → 野调用
+        self._input_monitor = cb  # type: ignore[attr-defined]
+        ret = ctypes.c_int(0)
+        ok = self._dll.OpSetInputMonitor(self._handle, cb, int(user), ctypes.byref(ret))
+        return bool(ok)
+
+    def input_sync_enable(self, enable: bool) -> bool:
+        """开/关输入采集（0 关闭同时结束正在进行的录制）。默认关闭。"""
+        ret = ctypes.c_int(0)
+        if not self._dll.OpInputSyncEnable(self._handle, 1 if enable else 0, ctypes.byref(ret)):
+            return False
+        return bool(ret.value)
+
+    def input_sync_link(self, master: int, slave: int, enable: bool = True) -> bool:
+        """把 master 实例的输入事件异步投递到 slave 实例（enable=False 取消）。
+        ⚠ 投递可丢弃（队列满 256 即丢），迟到的点击会点错地方；master==slave 被拒绝。"""
+        ret = ctypes.c_int(0)
+        if not self._dll.OpInputSyncLink(self._handle, int(master), int(slave),
+                                         1 if enable else 0, ctypes.byref(ret)):
+            return False
+        return bool(ret.value)
+
+    def input_sync_status(self) -> str:
+        """主从链路诊断 JSON：{"enabled":0|1,"master":N,"as_master_of":N,"as_slave_of":N,
+        "async_dropped":N,"queue":N}。"""
+        return self._call_string("OpInputSyncStatus")
+
+    def input_record(self, action: int, path: str = "") -> tuple[str, int]:
+        """录制。action 0=START（path 为空自动生成 input_record_YYYYmmdd_HHMMSS.jsonl）
+        / 1=STOP。返回 (录制文件路径, 状态)：START 时状态 1 成功；STOP 时状态 = 写入条数
+        （0 表示确实没产生输入，不是出错）。已在录制时重复 START 返回 0 且不截断前一段。"""
+        ret = ctypes.c_int(0)
+        value = self._dll.OpInputRecord(self._handle, int(action), path, ctypes.byref(ret))
+        return value or "", int(ret.value)
+
+    def input_record_get_path(self) -> str:
+        """最近一次录制（或正在录制）的文件路径；没录过返回空串。"""
+        return self._call_string("OpInputRecordGetPath")
+
+    def input_playback(self, action: int, path: str = "", speed: float = 1.0,
+                       loop: int = 1) -> tuple[str, int]:
+        """回放。action 0=LOAD 1=START 2=STOP 3=FREE。
+        LOAD 返回 (JSON, 事件条数)，JSON 形如 {"ok":1,"events":N,"bound":0|1,"path":"..."}，
+        **bound=0 表示当前没绑定窗口，坐标按屏幕语义回放，与录制时不同**；
+        START 同步回放到结束，状态 1 放完 / 0 没东西可放。speed<=0 视为 1.0，loop<=0 视为 1。"""
+        ret = ctypes.c_int(0)
+        value = self._dll.OpInputPlayback(self._handle, int(action), path, float(speed), int(loop),
+                                         ctypes.byref(ret))
+        return value or "", int(ret.value)
 
     # UIA 元素层（批 H，2026-11-23）
     # ⚠ 只对暴露 UIA 的程序有效（Win32/WinForms/WPF/Qt/Chromium 系）；DX 自绘游戏读不到节点。

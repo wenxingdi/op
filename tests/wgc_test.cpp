@@ -27,7 +27,61 @@ class WgcTest : public ::testing::Test {
         if (!test_support::GetEnvString(L"OP_SKIP_WGC_TESTS").empty()) {
             GTEST_SKIP() << "WGC capture tests are disabled by OP_SKIP_WGC_TESTS.";
         }
+        // Win10 上 WGC 在背靠背会话创建时会派发访问违例（kernelbase，见 WgcCapture.cpp
+        // 的 win10InitSehGuard 注释）。op 的处理是**进程级熔断**：SEH 兜住不崩进程，
+        // 但之后本进程所有 WGC 请求快速失败——这是保证测试组跑完不中断的设计，不是缺陷。
+        //
+        // 后果：本文件里任意一条用例触发熔断后，后续用例必然拿不到帧 → 一片假红。
+        // 实测（Win10 18363，本仓库）10 条用例里第 1 条跑过之后第 2 条起全红，
+        // 但每条单独首跑都是绿的。所以这里显式跳过并把原因写清楚，
+        // 而不是让"进程已熔断"伪装成"截图为黑/颜色不对"的断言失败。
+        // 需要逐条验证 WGC 时请每条单独起进程（--gtest_filter=<单条>）。
+        //
+        // 探测方式：不在 SetUp 里主动开 WGC（那会自己制造一次熔断），而是让每条用例
+        // 自己做它的绑定；TearDown 里检查「本进程是否已经有成功绑定记录 + 本条是否没绑上」，
+        // 满足即认定熔断并置位，后续用例在 SetUp 直接跳过。
+        if (g_wgc_broken_in_process) {
+            GTEST_SKIP() << "WGC already circuit-broken in this process (SEH fault on an "
+                            "earlier bind); run this test in its own process to exercise it";
+        }
+        g_this_bound_ok = false; // 每条用例独立判定"本条是否绑上"
     }
+
+    void TearDown() override {
+        // 只在「曾经成功过、这一次没绑上」时才认定熔断。
+        // 反例保护：环境本来就不支持 WGC（首条就绑不上）时 g_wgc_ever_bound 为 false，
+        // 不会误判成熔断，用例照常判红——这样"真不支持"不会被静默成 SKIP。
+        if (g_wgc_ever_bound && g_this_bound_ok == false) {
+            g_wgc_broken_in_process = true;
+        }
+    }
+
+  public:
+    // 用例体的绑定入口：成功则记录「本进程 WGC 可用」；失败且此前可用过，
+    // 说明本进程已熔断——当场标记，后续用例在 SetUp 跳过。
+    // 返回 ret，调用方照常 ASSERT_EQ(ret, 1)：首条就失败时它仍会如实判红。
+    static long BindWgc(op::Op &op, HWND hwnd) {
+        long ret = 0;
+        op.BindWindow(static_cast<long>(reinterpret_cast<intptr_t>(hwnd)), L"normal.wgc", L"windows",
+                      L"windows", 0, &ret);
+        if (ret == 1) {
+            NoteBindOk();
+        } else if (g_wgc_ever_bound) {
+            g_wgc_broken_in_process = true;
+        }
+        return ret;
+    }
+
+    // 用例体绑定成功后调用一次：记录「本进程 WGC 确实可用过」。
+    static void NoteBindOk() {
+        g_wgc_ever_bound = true;
+        g_this_bound_ok = true;
+    }
+
+  private:
+    inline static bool g_wgc_broken_in_process = false;
+    inline static bool g_wgc_ever_bound = false; // 本进程曾成功绑定过 WGC
+    inline static bool g_this_bound_ok = false;  // 当前用例是否绑上了
 };
 
 struct NamedClassColorWindow {
@@ -96,8 +150,7 @@ TEST_F(WgcTest, CapturesStaticWindowFromStart) {
     long ret = 0;
     op.SetShowErrorMsg(3, &ret);
 
-    ret = 0;
-    op.BindWindow((long)(intptr_t)window.hwnd, L"normal.wgc", L"windows", L"windows", 0, &ret);
+    ret = BindWgc(op, window.hwnd);
     ASSERT_EQ(ret, 1);
 
     PumpMessagesFor(1000);
@@ -250,8 +303,7 @@ TEST_F(WgcTest, FirstFrameResizeAndCloseScenarios) {
 
     // 场景 #1：绑定后“不” PumpMessages，立即取色。
     // waitForBindReady 必须已在 BindWindow 内部等到首帧，否则这里会取到黑色。
-    ret = 0;
-    op.BindWindow((long)(intptr_t)window.hwnd, L"normal.wgc", L"windows", L"windows", 0, &ret);
+    ret = BindWgc(op, window.hwnd);
     ASSERT_EQ(ret, 1);
 
     std::wstring color_first;
@@ -298,8 +350,7 @@ TEST_F(WgcTest, MinimizeRestoreStillCaptures) {
     long ret = 0;
     op.SetShowErrorMsg(3, &ret);
 
-    ret = 0;
-    op.BindWindow((long)(intptr_t)window.hwnd, L"normal.wgc", L"windows", L"windows", 0, &ret);
+    ret = BindWgc(op, window.hwnd);
     ASSERT_EQ(ret, 1);
 
     // 基线：正常截到红色。
@@ -342,8 +393,7 @@ TEST_F(WgcTest, MaximizeAfterBindCapturesFullClientArea) {
     long ret = 0;
     op.SetShowErrorMsg(3, &ret);
 
-    ret = 0;
-    op.BindWindow((long)(intptr_t)window.hwnd, L"normal.wgc", L"windows", L"windows", 0, &ret);
+    ret = BindWgc(op, window.hwnd);
     ASSERT_EQ(ret, 1);
 
     ShowWindow(window.hwnd, SW_MAXIMIZE);
@@ -388,8 +438,7 @@ TEST_F(WgcTest, MaximizedWindowBindCapturesFullClientArea) {
     long ret = 0;
     op.SetShowErrorMsg(3, &ret);
 
-    ret = 0;
-    op.BindWindow((long)(intptr_t)window.hwnd, L"normal.wgc", L"windows", L"windows", 0, &ret);
+    ret = BindWgc(op, window.hwnd);
     ASSERT_EQ(ret, 1);
 
     std::wstring color;
@@ -419,8 +468,7 @@ TEST_F(WgcTest, RepeatedBindUnbindAndMaximizedRepeatedCapture) {
         long ret = 0;
         op.SetShowErrorMsg(3, &ret);
 
-        ret = 0;
-        op.BindWindow((long)(intptr_t)window.hwnd, L"normal.wgc", L"windows", L"windows", 0, &ret);
+        ret = BindWgc(op, window.hwnd);
         ASSERT_EQ(ret, 1);
 
         PumpMessagesFor(300);
@@ -445,8 +493,7 @@ TEST_F(WgcTest, RepeatedBindUnbindAndMaximizedRepeatedCapture) {
     long ret = 0;
     op.SetShowErrorMsg(3, &ret);
 
-    ret = 0;
-    op.BindWindow((long)(intptr_t)window.hwnd, L"normal.wgc", L"windows", L"windows", 0, &ret);
+    ret = BindWgc(op, window.hwnd);
     ASSERT_EQ(ret, 1);
     PumpMessagesFor(500);
 
@@ -476,8 +523,7 @@ TEST_F(WgcTest, DISABLED_CapturesAnimatedWindowLatestFrame) {
     long ret = 0;
     op.SetShowErrorMsg(3, &ret);
 
-    ret = 0;
-    op.BindWindow((long)(intptr_t)window.hwnd, L"normal.wgc", L"windows", L"windows", 0, &ret);
+    ret = BindWgc(op, window.hwnd);
     ASSERT_EQ(ret, 1);
 
     PumpMessagesFor(1400);

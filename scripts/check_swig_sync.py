@@ -65,6 +65,16 @@ _PY_SNAKE_SPECIAL = {
     "DecodeQRCode": "decode_qrcode",
     "DecodeQRCodeFromFile": "decode_qrcode_from_file",
     "CreateQRCode": "create_qrcode",
+    # 颜色换算族的缩写连写：api.py 既有实现（2026-11 之前就入库）用的是
+    # hex2rgb / hex2argb / argb2hex / rgb2hsv / hex2hsv，而通用 snake_acronym 会
+    # 拆成 hex2_rgb / argb2_hex（数字后面跟大写字母被当成词边界）。
+    # 这里登记既有拼写而不是去改 200 多处调用点——保持向后兼容，且与本表上面
+    # "缩写连写风格"的取舍一致。gen_api_reference.py 的 _PY_SNAKE_SPECIAL 必须同步。
+    "Hex2RGB": "hex2rgb",
+    "Hex2ARGB": "hex2argb",
+    "ARGB2Hex": "argb2hex",
+    "RGB2HSV": "rgb2hsv",
+    "Hex2HSV": "hex2hsv",
 }
 
 
@@ -80,16 +90,32 @@ def ctypes_name(n: str) -> str:
 
 # 全返回型方法提取：void-only 正则会漏掉 long/指针/string 返回的方法
 # （JsonIsValid/SetOcrEngine/Ver 等 6 个），导致非 void 方法漂移不被发现。
+#
+# 噪声来源（都是"长得像方法声明、其实不是"的行）：
+#   · 服务 getter：`RuntimeService &runtime(` 等 8 个成员引用
+#   · 静态成员定义：`Op::Op(` 这种以类名当方法名的
+#   · **typedef 函数指针**：`typedef void (*InputMonitorCallback)(...)` —— 正则会把
+#     `typedef void` 里的 `void` 当成方法名收进来。这个假的 `void` 会一直排在
+#     缺失集合里被打印出来，把"一个真缺口"伪装成"一整片缺口"（2026-11-23 实际踩到：
+#     真因只是该批新 API 未重新生成 SWIG 包装，却被 78 条假缺口淹没）。
+#     故在提取阶段直接跳过 `typedef` 行，而不是往噪声表里塞 `void`——
+#     否则真有一天出现 `void void(` 这种畸形声明也会被静默放过。
 _CPP_NOISE = {"Op", "operator", "runtime", "window", "binding", "input", "image", "ocr",
               "opencv", "yolo", "memory"}
+_CPP_KEYWORDS = {"void", "bool", "long", "double", "float", "int", "char", "wchar_t",
+                 "byte", "short", "unsigned", "signed", "class", "struct", "typedef"}
 
 
 def libop_methods(src: str) -> set:
     names = set()
     for m in re.finditer(r"^\s+(?:std::)?[\w:<>,\s\*&]+?\b(\w+)\s*\(", src, re.M):
         n = m.group(1)
-        if n not in _CPP_NOISE:
-            names.add(n)
+        if n in _CPP_NOISE or n in _CPP_KEYWORDS:
+            continue
+        line = src[src.rfind("\n", 0, m.start()) + 1: src.find("\n", m.end())]
+        if line.lstrip().startswith("typedef") or line.lstrip().startswith("using "):
+            continue
+        names.add(n)
     return names
 
 

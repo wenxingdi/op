@@ -677,6 +677,21 @@ TEST_F(HookCaptureTest, BindLoadsMissingGraphicsAndInputModulesOnDemand) {
 
     ret = 0;
     op.BindWindow(static_cast<long>(reinterpret_cast<intptr_t>(carrier.hwnd())), L"dx.d3d9", L"dx", L"dx", 0, &ret);
+    if (ret != 1) {
+        // 判「按需加载」的前提是注入通路本身通。安全软件按进程映像路径拦截跨进程注入
+        // （本仓库 D:\ 盘宿主实测，见 docs/CHANGELOG.md 第六十四批）时，载体进程里**一个**
+        // 模块都没有被加载过——此时失败与 ensure_render_modules / load_dinput_vtables
+        // 无关，不能记在这两个函数头上。用模块表区分：d3d9/dinput8 都没出现才是被拦。
+        const bool has_d3d9 = TargetHasModule(target_pid, L"d3d9.dll");
+        const bool has_dinput8 = TargetHasModule(target_pid, L"dinput8.dll");
+        if (!has_d3d9 && !has_dinput8) {
+            GTEST_SKIP() << "跨进程注入被拦截（载体里 d3d9/dinput8 均未加载），按需加载判据不成立";
+        }
+        // 只加载了一半：说明按需加载**部分生效**，是真实缺陷而非环境拦截，让断言报出来，
+        // 并带上是哪一侧失败，避免只看到一行 ret != 1。
+        ADD_FAILURE() << "按需加载只完成了一侧：d3d9=" << has_d3d9 << " dinput8=" << has_dinput8
+                      << " bind_ret=" << ret;
+    }
     ASSERT_EQ(ret, 1L) << "目标尚未加载 d3d9.dll / dinput8.dll 时也必须能绑上（按需加载兜底）";
 
     // 绑定后再看一次模块表：两个库都必须已经**在目标进程里**。这是"真的加载了"的硬证据 ——

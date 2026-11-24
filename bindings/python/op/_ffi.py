@@ -447,6 +447,16 @@ def _bind(dll: ctypes.WinDLL) -> ctypes.WinDLL:
         ("OpAsmCall", c_wchar_p, [op_handle, intptr_t, c_wchar_p, c_int, ctypes.POINTER(c_int)]),
         ("OpAssemble", c_wchar_p, [op_handle, c_wchar_p, c_int, ctypes.POINTER(c_int)]),
         ("OpDisassemble", c_wchar_p, [op_handle, c_wchar_p, c_wchar_p, c_int, c_int, ctypes.POINTER(c_int)]),
+        # ---- 输入时间轴 + 并发自省（批 E/F；此前 ctypes 层整段漏绑，API 有导出但 Python 调不到）----
+        # 返回 JSON 串的统一用 c_wchar_p；带 int* ret 的用 POINTER(c_int)。
+        ("OpConcurrencyInfo", c_wchar_p, [op_handle]),
+        ("OpInputSyncEnable", c_int, [op_handle, c_int, ctypes.POINTER(c_int)]),
+        ("OpInputSyncLink", c_int, [op_handle, c_int, c_int, c_int, ctypes.POINTER(c_int)]),
+        ("OpInputSyncStatus", c_wchar_p, [op_handle]),
+        ("OpInputRecord", c_wchar_p, [op_handle, c_int, c_wchar_p, ctypes.POINTER(c_int)]),
+        ("OpInputRecordGetPath", c_wchar_p, [op_handle]),
+        ("OpInputPlayback", c_wchar_p,
+         [op_handle, c_int, c_wchar_p, c_double, c_int, ctypes.POINTER(c_int)]),
         ("OpGetCursorImage", c_wchar_p, [op_handle]),
         ("OpIsDisplayDead", c_int, [op_handle, c_int, c_int, c_int, c_int, c_int, c_int]),
         ("OpCvRotate", c_int, [op_handle, c_wchar_p, c_wchar_p, c_double]),

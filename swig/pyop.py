@@ -58,6 +58,23 @@ class _SwigNonDynamicMeta(type):
     __setattr__ = _swig_setattr_nondynamic_class_variable(type.__setattr__)
 
 
+class op_input_event_view(object):
+    thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
+    __repr__ = _swig_repr
+    t = property(_pyop.op_input_event_view_t_get, _pyop.op_input_event_view_t_set)
+    type = property(_pyop.op_input_event_view_type_get, _pyop.op_input_event_view_type_set)
+    vk = property(_pyop.op_input_event_view_vk_get, _pyop.op_input_event_view_vk_set)
+    x = property(_pyop.op_input_event_view_x_get, _pyop.op_input_event_view_x_set)
+    y = property(_pyop.op_input_event_view_y_get, _pyop.op_input_event_view_y_set)
+    wheel = property(_pyop.op_input_event_view_wheel_get, _pyop.op_input_event_view_wheel_set)
+    flags = property(_pyop.op_input_event_view_flags_get, _pyop.op_input_event_view_flags_set)
+
+    def __init__(self):
+        _pyop.op_input_event_view_swiginit(self, _pyop.new_op_input_event_view())
+    __swig_destroy__ = _pyop.delete_op_input_event_view
+
+# Register op_input_event_view in _pyop:
+_pyop.op_input_event_view_swigregister(op_input_event_view)
 class Op(object):
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
     __repr__ = _swig_repr
@@ -143,6 +160,12 @@ class Op(object):
 
     def SortPosDistance(self, all_pos, type, x, y):
         return _pyop.Op_SortPosDistance(self, all_pos, type, x, y)
+
+    def ExcludePos(self, all_pos, type, exclude_rects):
+        return _pyop.Op_ExcludePos(self, all_pos, type, exclude_rects)
+
+    def GetDenseRect(self, all_pos, type, width, height):
+        return _pyop.Op_GetDenseRect(self, all_pos, type, width, height)
 
     def SetAStarMap(self, bitmap_file, scale, offset_x, offset_y):
         return _pyop.Op_SetAStarMap(self, bitmap_file, scale, offset_x, offset_y)
@@ -345,6 +368,30 @@ class Op(object):
     def GetLastErrorString(self):
         return _pyop.Op_GetLastErrorString(self)
 
+    def RegistryReadString(self, path, name):
+        return _pyop.Op_RegistryReadString(self, path, name)
+
+    def RegistryWriteString(self, path, name, value):
+        return _pyop.Op_RegistryWriteString(self, path, name, value)
+
+    def RegistryReadDword(self, path, name):
+        return _pyop.Op_RegistryReadDword(self, path, name)
+
+    def RegistryWriteDword(self, path, name, value):
+        return _pyop.Op_RegistryWriteDword(self, path, name, value)
+
+    def HotkeyRegister(self, id, modifiers, vk):
+        return _pyop.Op_HotkeyRegister(self, id, modifiers, vk)
+
+    def HotkeyUnregister(self, id):
+        return _pyop.Op_HotkeyUnregister(self, id)
+
+    def HotkeyPoll(self, timeout_ms):
+        return _pyop.Op_HotkeyPoll(self, timeout_ms)
+
+    def HotkeyUnregisterAll(self):
+        return _pyop.Op_HotkeyUnregisterAll(self)
+
     def Md5(self, text):
         return _pyop.Op_Md5(self, text)
 
@@ -356,6 +403,45 @@ class Op(object):
 
     def Base64Decode(self, base64):
         return _pyop.Op_Base64Decode(self, base64)
+
+    def Sha256(self, text):
+        return _pyop.Op_Sha256(self, text)
+
+    def HmacSha256(self, key, text):
+        return _pyop.Op_HmacSha256(self, key, text)
+
+    def GenerateRandomBytes(self, length):
+        return _pyop.Op_GenerateRandomBytes(self, length)
+
+    def GenerateGuid(self):
+        return _pyop.Op_GenerateGuid(self)
+
+    def AesEncrypt(self, text, password):
+        return _pyop.Op_AesEncrypt(self, text, password)
+
+    def AesDecrypt(self, base64, password):
+        return _pyop.Op_AesDecrypt(self, base64, password)
+
+    def Pbkdf2Sha256(self, password, salt, iterations, length):
+        return _pyop.Op_Pbkdf2Sha256(self, password, salt, iterations, length)
+
+    def Md5File(self, file_name):
+        return _pyop.Op_Md5File(self, file_name)
+
+    def Sha1File(self, file_name):
+        return _pyop.Op_Sha1File(self, file_name)
+
+    def Sha256File(self, file_name):
+        return _pyop.Op_Sha256File(self, file_name)
+
+    def RsaEncrypt(self, text, public_key_pem):
+        return _pyop.Op_RsaEncrypt(self, text, public_key_pem)
+
+    def RsaDecrypt(self, base64, private_key_pem):
+        return _pyop.Op_RsaDecrypt(self, base64, private_key_pem)
+
+    def ConcurrencyInfo(self):
+        return _pyop.Op_ConcurrencyInfo(self)
 
     def DrawRect(self, x1, y1, x2, y2, color, width):
         return _pyop.Op_DrawRect(self, x1, y1, x2, y2, color, width)
@@ -371,6 +457,72 @@ class Op(object):
 
     def DrawSetVisible(self, show):
         return _pyop.Op_DrawSetVisible(self, show)
+
+    def DrawCircle(self, x, y, radius, color, width):
+        return _pyop.Op_DrawCircle(self, x, y, radius, color, width)
+
+    def DrawImage(self, x, y, file_name, alpha):
+        return _pyop.Op_DrawImage(self, x, y, file_name, alpha)
+
+    def DrawRectEx(self, x, y, width, height, mode, line_width):
+        return _pyop.Op_DrawRectEx(self, x, y, width, height, mode, line_width)
+
+    def DrawCircleEx(self, x, y, radius, line_width):
+        return _pyop.Op_DrawCircleEx(self, x, y, radius, line_width)
+
+    def DrawTextEx(self, x, y, text, font_size):
+        return _pyop.Op_DrawTextEx(self, x, y, text, font_size)
+
+    def DrawClearBind(self):
+        return _pyop.Op_DrawClearBind(self)
+
+    def DrawGetCount(self):
+        return _pyop.Op_DrawGetCount(self)
+
+    def DrawSetColor(self, color):
+        return _pyop.Op_DrawSetColor(self, color)
+
+    def DrawSetFill(self, enable, color):
+        return _pyop.Op_DrawSetFill(self, enable, color)
+
+    def DrawImageEx(self, x, y, file_name, alpha):
+        return _pyop.Op_DrawImageEx(self, x, y, file_name, alpha)
+
+    def DrawImageFromHandle(self, x, y, image_handle, alpha):
+        return _pyop.Op_DrawImageFromHandle(self, x, y, image_handle, alpha)
+
+    def DrawRectTag(self, tag, x1, y1, x2, y2, color, width):
+        return _pyop.Op_DrawRectTag(self, tag, x1, y1, x2, y2, color, width)
+
+    def DrawRectExTag(self, tag, x, y, width, height, mode, line_width):
+        return _pyop.Op_DrawRectExTag(self, tag, x, y, width, height, mode, line_width)
+
+    def DrawRemoveTag(self, tag):
+        return _pyop.Op_DrawRemoveTag(self, tag)
+
+    def UiaDump(self, hwnd, max_depth):
+        return _pyop.Op_UiaDump(self, hwnd, max_depth)
+
+    def UiaFind(self, hwnd, selector, timeout_ms):
+        return _pyop.Op_UiaFind(self, hwnd, selector, timeout_ms)
+
+    def UiaFromPoint(self, x, y):
+        return _pyop.Op_UiaFromPoint(self, x, y)
+
+    def UiaInvoke(self, element_id):
+        return _pyop.Op_UiaInvoke(self, element_id)
+
+    def UiaGetValue(self, element_id):
+        return _pyop.Op_UiaGetValue(self, element_id)
+
+    def UiaSetValue(self, element_id, value):
+        return _pyop.Op_UiaSetValue(self, element_id, value)
+
+    def UiaRelease(self, element_id):
+        return _pyop.Op_UiaRelease(self, element_id)
+
+    def UiaReleaseAll(self):
+        return _pyop.Op_UiaReleaseAll(self)
 
     def BindWindow(self, hwnd, display, mouse, keypad, mode):
         return _pyop.Op_BindWindow(self, hwnd, display, mouse, keypad, mode)
@@ -540,6 +692,27 @@ class Op(object):
     def KeyPressStr(self, key_str, delay):
         return _pyop.Op_KeyPressStr(self, key_str, delay)
 
+    def InputSyncEnable(self, enable):
+        return _pyop.Op_InputSyncEnable(self, enable)
+
+    def SetInputMonitor(self, callback, user):
+        return _pyop.Op_SetInputMonitor(self, callback, user)
+
+    def InputRecord(self, action, path):
+        return _pyop.Op_InputRecord(self, action, path)
+
+    def InputRecordGetPath(self):
+        return _pyop.Op_InputRecordGetPath(self)
+
+    def InputPlayback(self, action, path, speed, loop):
+        return _pyop.Op_InputPlayback(self, action, path, speed, loop)
+
+    def InputSyncLink(self, master, slave, enable):
+        return _pyop.Op_InputSyncLink(self, master, slave, enable)
+
+    def InputSyncStatus(self):
+        return _pyop.Op_InputSyncStatus(self)
+
     def Capture(self, x1, y1, x2, y2, file_name):
         return _pyop.Op_Capture(self, x1, y1, x2, y2, file_name)
 
@@ -581,6 +754,24 @@ class Op(object):
 
     def GetColor(self, x, y):
         return _pyop.Op_GetColor(self, x, y)
+
+    def Hex2RGB(self, color):
+        return _pyop.Op_Hex2RGB(self, color)
+
+    def Hex2ARGB(self, color):
+        return _pyop.Op_Hex2ARGB(self, color)
+
+    def ARGB2Hex(self, a, r, g, b):
+        return _pyop.Op_ARGB2Hex(self, a, r, g, b)
+
+    def RGB2HSV(self, r, g, b, h, s, v):
+        return _pyop.Op_RGB2HSV(self, r, g, b, h, s, v)
+
+    def Hex2HSV(self, color, h, s, v):
+        return _pyop.Op_Hex2HSV(self, color, h, s, v)
+
+    def GetColorHex(self, r, g, b):
+        return _pyop.Op_GetColorHex(self, r, g, b)
 
     def SetDisplayInput(self, mode):
         return _pyop.Op_SetDisplayInput(self, mode)
@@ -750,6 +941,63 @@ class Op(object):
     def YoloDetectFromFile(self, file_name, conf, iou):
         return _pyop.Op_YoloDetectFromFile(self, file_name, conf, iou)
 
+    def YoloClassify(self, x1, y1, x2, y2, top_k):
+        return _pyop.Op_YoloClassify(self, x1, y1, x2, y2, top_k)
+
+    def YoloClassifyFromFile(self, file_name, top_k):
+        return _pyop.Op_YoloClassifyFromFile(self, file_name, top_k)
+
+    def YoloSegment(self, x1, y1, x2, y2, conf, iou):
+        return _pyop.Op_YoloSegment(self, x1, y1, x2, y2, conf, iou)
+
+    def YoloSegmentFromFile(self, file_name, conf, iou):
+        return _pyop.Op_YoloSegmentFromFile(self, file_name, conf, iou)
+
+    def YoloPose(self, x1, y1, x2, y2, conf, iou):
+        return _pyop.Op_YoloPose(self, x1, y1, x2, y2, conf, iou)
+
+    def YoloPoseFromFile(self, file_name, conf, iou):
+        return _pyop.Op_YoloPoseFromFile(self, file_name, conf, iou)
+
+    def YoloObb(self, x1, y1, x2, y2, conf, iou):
+        return _pyop.Op_YoloObb(self, x1, y1, x2, y2, conf, iou)
+
+    def YoloObbFromFile(self, file_name, conf, iou):
+        return _pyop.Op_YoloObbFromFile(self, file_name, conf, iou)
+
+    def YoloGetModelInfo(self):
+        return _pyop.Op_YoloGetModelInfo(self)
+
+    def YoloLoadModel(self, name, path, argv):
+        return _pyop.Op_YoloLoadModel(self, name, path, argv)
+
+    def YoloUseModel(self, name):
+        return _pyop.Op_YoloUseModel(self, name)
+
+    def YoloReleaseModel(self, name):
+        return _pyop.Op_YoloReleaseModel(self, name)
+
+    def YoloListModels(self):
+        return _pyop.Op_YoloListModels(self)
+
+    def YoloListDevices(self):
+        return _pyop.Op_YoloListDevices(self)
+
+    def YoloEncryptModel(self, src_path, dst_path, password):
+        return _pyop.Op_YoloEncryptModel(self, src_path, dst_path, password)
+
+    def YoloDecryptModel(self, src_path, dst_path, password):
+        return _pyop.Op_YoloDecryptModel(self, src_path, dst_path, password)
+
+    def AsmCall(self, hwnd, code_hex, timeout_ms):
+        return _pyop.Op_AsmCall(self, hwnd, code_hex, timeout_ms)
+
+    def Assemble(self, asm_text, arch):
+        return _pyop.Op_Assemble(self, asm_text, arch)
+
+    def Disassemble(self, bytes_hex, address, count, arch):
+        return _pyop.Op_Disassemble(self, bytes_hex, address, count, arch)
+
     def SetDict(self, idx, file_name):
         return _pyop.Op_SetDict(self, idx, file_name)
 
@@ -764,6 +1012,9 @@ class Op(object):
 
     def AddDict(self, idx, dict_info):
         return _pyop.Op_AddDict(self, idx, dict_info)
+
+    def RemoveDict(self, idx, dict_info):
+        return _pyop.Op_RemoveDict(self, idx, dict_info)
 
     def SaveDict(self, idx, file_name):
         return _pyop.Op_SaveDict(self, idx, file_name)

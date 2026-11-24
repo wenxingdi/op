@@ -430,6 +430,22 @@ bool load_dinput_vtables() {
         return false;
     }
 
+    // DirectInput8Create 要求调用线程是"活"的 GUI 线程：控制台宿主 / 无消息循环的进程
+    // （如 op_test、python 嵌入宿主）里，线程虽有消息队列（PeekMessage 可建）但从未分发过
+    // 消息，DirectInput8Create 会返回 E_FAIL(0x80004005)。先把本线程队列里积压的消息
+    // 取出并分发（含 ThreadDesktop 上的初始化消息），再做真实等待，让线程完成 GUI 初始化。
+    {
+        MSG msg{};
+        // 泵一小段时间（复现验证：单次 PeekMessage 不足以让 DirectInput8Create 成功）
+        const DWORD t0 = ::GetTickCount();
+        do {
+            while (::PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+                ::TranslateMessage(&msg);
+                ::DispatchMessageW(&msg);
+            }
+            ::Sleep(10);
+        } while (::GetTickCount() - t0 < 300);
+    }
     CComPtr<IDirectInput8W> directInput;
     if (directInput8Create(::GetModuleHandle(NULL), DIRECTINPUT_VERSION, OP_IID_IDirectInput8W,
                            reinterpret_cast<void **>(&directInput), NULL) < 0) {

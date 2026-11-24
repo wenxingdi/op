@@ -1422,6 +1422,12 @@ _PY_SNAKE_SPECIAL = {
     "DecodeQRCode": "decode_qrcode",
     "DecodeQRCodeFromFile": "decode_qrcode_from_file",
     "CreateQRCode": "create_qrcode",
+    # 颜色换算族缩写连写（与 scripts/check_swig_sync.py 的 _PY_SNAKE_SPECIAL 必须一致）
+    "Hex2RGB": "hex2rgb",
+    "Hex2ARGB": "hex2argb",
+    "ARGB2Hex": "argb2hex",
+    "RGB2HSV": "rgb2hsv",
+    "Hex2HSV": "hex2hsv",
 }
 
 
