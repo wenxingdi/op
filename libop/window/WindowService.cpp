@@ -1,6 +1,8 @@
 // #include "stdafx.h"
 #include "WindowService.h"
 
+#include "../base/DpiContext.h"
+
 #include <utility>
 
 namespace op {
@@ -309,9 +311,12 @@ bool WindowService::ClientToScreen(HWND hwnd, LONG &x, LONG &y) {
 
     point.x = x;
     point.y = y;
-    ::ClientToScreen(hwnd, &point);
-    x = point.x;
-    y = point.y;
+    // 输入是「帧口径」客户区坐标（与 Capture/FindPic/Ocr 的区域同一空间），输出是宿主
+    // 视角的屏幕坐标，可直接用于屏幕框选/取色/物理点击。两步（除/乘像素比）都不能省：
+    // 目标 DPI 不感知而宿主 aware 时，少了就等于把客户区坐标当屏幕坐标用，偏 1.5 倍。
+    const POINT host_point = win32::client_frame_to_screen(hwnd, point);
+    x = host_point.x;
+    y = host_point.y;
 
     return true;
 }

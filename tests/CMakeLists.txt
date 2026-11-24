@@ -188,6 +188,8 @@ set(OP_TEST_SOURCES
   "asm_batch_test.cpp"
   # 字库模块修复（第六十一批 2026-11-23）：int16 溢出、空名覆盖、批量原子性、单条删除。
   "dict_batch_test.cpp"
+  # DPI 上下文一致性（第六十二批 2026-11-23）：DPI 不感知目标窗口上区域/坐标与截帧同口径。
+  "dpi_context_test.cpp"
   # 时间轴层（批 E 2026-11-22）：录制 / 回放 / 监听 / 主从同步。
   # 全部走 C API 导出层 + 自建测试窗口（windows 绑定），不产生全局鼠标移动。
   "input_timeline_batch_test.cpp"

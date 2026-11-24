@@ -10,6 +10,7 @@
 #include "../../window/WindowService.h"
 #include "../../image/Image.h"
 #include "../../base/AutomationModes.h"
+#include "../../base/DpiContext.h"
 #include "../../base/Utils.h"
 #include "../../ipc/SharedMemory.h"
 #include "../../ipc/ProcessMutex.h"
@@ -93,6 +94,10 @@ GdiCapture::~GdiCapture() {
 long GdiCapture::BindEx(HWND hwnd, long render_type) {
     if (!::IsWindow(hwnd))
         return 0;
+    // 客户区尺寸/边框偏移必须在窗口自身的 DPI 上下文里量：窗口 DC 的位图就是这个
+    // 口径。目标 DPI 不感知而宿主 aware 时，宿主口径会大 dpi/96 倍（150% → 1.5），
+    // 量出的 _width/_height 与真实帧不符、dx_/dy_ 也偏，区域整体错位。
+    const win32::dpi_context_scope dpi_scope(hwnd);
     _hwnd = hwnd;
     _render_type = render_type;
 
@@ -149,6 +154,7 @@ long GdiCapture::UnBindEx() {
 void GdiCapture::refreshMetrics() {
     if (!::IsWindow(_hwnd))
         return;
+    const win32::dpi_context_scope dpi_scope(_hwnd); // 与 BindEx 同口径
     RECT rc2;
     if (::GetClientRect(_hwnd, &rc2)) {
         _width = rc2.right - rc2.left;
@@ -164,7 +170,10 @@ bool GdiCapture::requestCapture(int x1, int y1, int w, int h, Image &img) {
         setlog("GdiCapture::requestCapture resources not initialized");
         return false;
     }
-
+    // 本函数内全部窗口度量（窗口矩形/客户区原点/边框偏移）都在窗口自身的 DPI
+    // 上下文里做：BitBlt 的源坐标 = 区域 + 窗口左上 + 边框偏移，三个量只要有一个
+    // 用了宿主口径，抓到的画面就会整体平移。
+    const win32::dpi_context_scope dpi_scope(_hwnd);
     // 每帧重算客户区相对窗口的偏移，避免绑定后窗口 resize / 最大化 / 去边框导致
     // 边框宽度过时，进而使 normal / gdi 模式下 FindPic 坐标整体错位。
     {

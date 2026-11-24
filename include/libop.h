@@ -206,7 +206,8 @@ class OP_API Op {
                              _In_ long filter, _Out_ std::wstring &ret);
     // 根据指定进程名,枚举系统中符合条件的进程PID
     void EnumProcess(_In_ const wchar_t *name, _Out_ std::wstring &ret);
-    // 把窗口坐标转换为屏幕坐标
+    // 把窗口客户区坐标转换为屏幕坐标。输入按「截帧口径」客户区坐标解释，输出为宿主视角的
+    // 屏幕坐标（DPI-aware 宿主下即物理像素），可直接用于屏幕框选/取色；与 ScreenToClient 互逆。
     void ClientToScreen(_In_ LONG_PTR hwnd, _Inout_ long *x, _Inout_ long *y, _Out_ long *bret);
     // 查找符合类名或者标题名的顶层可见窗口
     void FindWindow(_In_ const wchar_t *class_name, _In_ const wchar_t *title, _Out_ LONG_PTR *ret);
@@ -219,10 +220,12 @@ class OP_API Op {
     // 查找符合类名或者标题名的顶层可见窗口,如果指定了parent,则在parent的第一层子窗口中查找
     void FindWindowEx(_In_ LONG_PTR parent, _In_ const wchar_t *class_name, _In_ const wchar_t *title,
                       _Out_ LONG_PTR *ret);
-    // 获取窗口客户区域在屏幕上的位置
+    // 获取窗口客户区域在屏幕上的位置。坐标与尺寸均为「截帧口径」：目标窗口 DPI 不感知时
+    // 返回其逻辑像素（与 Capture 出的图尺寸一致），而不是屏幕物理像素 —— 150% 缩放下两者
+    // 相差 1.5 倍。区域类 API（Capture/FindPic/Ocr）的坐标系与此完全一致。
     void GetClientRect(_In_ LONG_PTR hwnd, _Out_ long *x1, _Out_ long *y1, _Out_ long *x2, _Out_ long *y2,
                        _Out_ long *ret);
-    // 获取窗口客户区域的宽度和高度
+    // 获取窗口客户区域的宽度和高度（截帧口径，与 Capture 出的图尺寸相同）
     void GetClientSize(_In_ LONG_PTR hwnd, _Out_ long *width, _Out_ long *height, _Out_ long *ret);
     // 获取顶层活动窗口中具有输入焦点的窗口句柄
     void GetForegroundFocus(_Out_ LONG_PTR *ret);
@@ -253,7 +256,9 @@ class OP_API Op {
     void GetWindowTitle(_In_ LONG_PTR hwnd, _Out_ std::wstring &rettitle);
     // 移动指定窗口到指定位置
     void MoveWindow(_In_ LONG_PTR hwnd, _In_ long x, _In_ long y, _Out_ long *ret);
-    // 把屏幕坐标转换为窗口坐标
+    // 把屏幕坐标转换为窗口客户区坐标。输入按宿主视角的屏幕坐标（DPI-aware 宿主下为物理
+    // 像素）解释，输出为「截帧口径」的客户区坐标，可直接作为 Capture/FindPic/Ocr 的区域参数。
+    // 框选回填务必走本接口：自己减客户区原点会漏掉 DPI 比例，区域整体偏大 1.5 倍。
     void ScreenToClient(_In_ LONG_PTR hwnd, _Inout_ long *x, _Inout_ long *y, _Out_ long *ret);
     // 向指定窗口发送粘贴命令
     void SendPaste(_In_ LONG_PTR hwnd, _Out_ long *ret);
@@ -1372,7 +1377,9 @@ class OP_API Op {
 
     // ---- 窗口 DPI 缩放（P1 新增 2026-10-15）----
     // 取窗口实际缩放系数（1.00=96DPI 无缩放），两位小数字符串如 "1.25"；失败返回空串。
-    // 优先 GetDpiForWindow（Per-Monitor V2 感知窗口），退化为窗口所在显示器 DPI。
+    // DPI 不感知的窗口按其**实际显示比例**返回（150% 系统上为 "1.50"，旧版恒为 "1.00"）：
+    // 该值可把宿主视角的物理屏幕坐标换算成窗口客户区坐标（或直接用 ScreenToClient）。
+    // DPI 感知窗口仍按 GetDpiForWindow 计算，数值不变。
     void GetWindowScale(_In_ LONG_PTR hwnd, _Out_ std::wstring &retstr);
 
     // ---- 进程终止（P1 新增 2026-10-15，进程树逻辑复用 ipc/ProcessTree.h）----

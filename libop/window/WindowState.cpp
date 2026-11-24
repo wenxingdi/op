@@ -1,4 +1,5 @@
 #include "WindowService.h"
+#include "../base/DpiContext.h"
 #include "../base/Utils.h"
 #include "../base/WindowsHandle.h"
 
@@ -24,6 +25,10 @@ bool WindowService::GetClientRect(HWND hwnd, LONG &x, LONG &y, LONG &x1, LONG &y
     bool bret = false;
     RECT clientrect;
     if (IsWindow(hwnd)) {
+        // 必须在窗口自身的 DPI 上下文里量：截帧（窗口 DC 位图）就是这个口径。
+        // 目标进程 DPI 不感知时，DPI-aware 宿主量到的是物理像素（150% 下大 1.5 倍），
+        // 与帧尺寸不符 → 区域越界判定失效、越界部分静默读垃圾。
+        const win32::dpi_context_scope scope(hwnd);
         ::GetClientRect(hwnd, &clientrect);
         POINT point;
         point.x = clientrect.left;
@@ -46,6 +51,7 @@ bool WindowService::GetClientSize(HWND hwnd, LONG &width, LONG &height) {
     bool bret = false;
     RECT clientrect;
     if (IsWindow(hwnd)) {
+        const win32::dpi_context_scope scope(hwnd); // 与 GetClientRect 同口径，见上
         ::GetClientRect(hwnd, &clientrect);
         width = clientrect.right - clientrect.left;
         height = clientrect.bottom - clientrect.top;

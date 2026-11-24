@@ -172,6 +172,7 @@ endif()
 
 set(OP_BASE_SOURCES
   "base/AutomationModes.cpp"
+  "base/DpiContext.cpp"
   "base/Utils.cpp"
   "base/Environment.cpp"
   "base/WindowsVersion.cpp"

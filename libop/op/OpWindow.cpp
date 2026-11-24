@@ -1,6 +1,7 @@
 #include "OpContext.h"
 #include "OpResult.h"
 
+#include "base/DpiContext.h"
 #include "base/Utils.h"
 #include "window/WindowLayout.h"
 
@@ -236,7 +237,15 @@ void op::Op::GetWindowClass(LONG_PTR hwnd, std::wstring &retstring) {
 
 void op::Op::GetWindowRect(LONG_PTR hwnd, long *x1, long *y1, long *x2, long *y2, long *nret) {
     RECT winrect = {};
-    internal::set_result(nret, ::GetWindowRect(reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd)), &winrect));
+    HWND target = reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd));
+    LONG ok = 0;
+    {
+        // 与 GetClientRect 同口径（窗口自身 DPI 上下文）。两者混用口径会让
+        // 「边框宽度 = client.x - window.left」算出负数或翻倍。
+        const win32::dpi_context_scope scope(target);
+        ok = ::GetWindowRect(target, &winrect);
+    }
+    internal::set_result(nret, ok);
     internal::set_result(x1, winrect.left);
     internal::set_result(y1, winrect.top);
     internal::set_result(x2, winrect.right);
@@ -262,12 +271,17 @@ void op::Op::MoveWindow(LONG_PTR hwnd, long x, long y, long *nret) {
 }
 
 void op::Op::ScreenToClient(LONG_PTR hwnd, long *x, long *y, long *nret) {
+    HWND target = reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd));
     POINT point;
     point.x = x ? *x : 0;
     point.y = y ? *y : 0;
-    internal::set_result(nret, ::ScreenToClient(reinterpret_cast<HWND>(static_cast<LONG_PTR>(hwnd)), &point));
-    internal::set_result(x, point.x);
-    internal::set_result(y, point.y);
+    // 入参是调用方视角的屏幕坐标（宿主 DPI 口径），输出必须是「帧口径」客户区坐标
+    // —— 与 Capture/FindPic/Ocr 的区域共用同一套像素空间，否则 DPI 不感知的目标
+    // 上会把框选的屏幕坐标原样当成帧坐标，区域整体偏大 1.5 倍。
+    const POINT frame = win32::screen_to_client_frame(target, point);
+    internal::set_result(nret, (target && ::IsWindow(target)) ? 1L : 0L);
+    internal::set_result(x, frame.x);
+    internal::set_result(y, frame.y);
 }
 
 void op::Op::SetClientSize(LONG_PTR hwnd, long width, long height, long *nret) {
@@ -561,26 +575,35 @@ void op::Op::GetWindowScale(LONG_PTR hwnd, std::wstring &retstr) {
     if (!target || !IsWindow(target))
         return;
 
-    // 优先 GetDpiForWindow（与 OpRuntime::GetDPI 用 GetDpiForSystem 同口径，
-    // 均要求 Win10 1607+，本仓库已以此为基线）；退化到窗口所在显示器 DPI。
-    UINT dpi = ::GetDpiForWindow(target);
-    if (dpi == 0) {
-        HMONITOR monitor = ::MonitorFromWindow(target, MONITOR_DEFAULTTONEAREST);
-        const HMODULE shcore = ::LoadLibraryW(L"Shcore.dll");
-        if (shcore) {
-            typedef HRESULT(WINAPI * GetDpiForMonitor_t)(HMONITOR, int, UINT *, UINT *);
-            const auto get_dpi_for_monitor =
-                reinterpret_cast<GetDpiForMonitor_t>(::GetProcAddress(shcore, "GetDpiForMonitor"));
-            UINT dpi_x = 0, dpi_y = 0;
-            if (get_dpi_for_monitor && SUCCEEDED(get_dpi_for_monitor(monitor, 0, &dpi_x, &dpi_y)))
-                dpi = dpi_x;
-            ::FreeLibrary(shcore);
+    // GetDpiForWindow 对 DPI 不感知的窗口恒返 96（系统按 96dpi 记录它），但那不代表
+    // 它在屏幕上没被放大 —— 150% 系统上它被拉伸 1.5 倍显示，实测「宿主/窗口」像素比
+    // 就是 1.5，而旧实现报 1.00，凡依赖此值做换算的调用方全错。所以优先用实测比例，
+    // 量不出来（1.0，即窗口与当前线程同上下文）时再退回 DPI 推算 —— 两者在普通
+    // DPI 感知窗口上给出同一个数，不会回归。
+    double scale = win32::window_pixel_scale(target);
+    if (scale == 1.0) {
+        // 优先 GetDpiForWindow（与 OpRuntime::GetDPI 用 GetDpiForSystem 同口径，
+        // 均要求 Win10 1607+，本仓库已以此为基线）；退化到窗口所在显示器 DPI。
+        UINT dpi = ::GetDpiForWindow(target);
+        if (dpi == 0) {
+            HMONITOR monitor = ::MonitorFromWindow(target, MONITOR_DEFAULTTONEAREST);
+            const HMODULE shcore = ::LoadLibraryW(L"Shcore.dll");
+            if (shcore) {
+                typedef HRESULT(WINAPI * GetDpiForMonitor_t)(HMONITOR, int, UINT *, UINT *);
+                const auto get_dpi_for_monitor =
+                    reinterpret_cast<GetDpiForMonitor_t>(::GetProcAddress(shcore, "GetDpiForMonitor"));
+                UINT dpi_x = 0, dpi_y = 0;
+                if (get_dpi_for_monitor && SUCCEEDED(get_dpi_for_monitor(monitor, 0, &dpi_x, &dpi_y)))
+                    dpi = dpi_x;
+                ::FreeLibrary(shcore);
+            }
         }
+        if (dpi == 0)
+            dpi = 96;
+        scale = dpi / 96.0;
     }
-    if (dpi == 0)
-        dpi = 96;
 
     wchar_t buf[16] = {};
-    swprintf(buf, L"%.2f", dpi / 96.0);
+    swprintf(buf, L"%.2f", scale);
     retstr = buf;
 }

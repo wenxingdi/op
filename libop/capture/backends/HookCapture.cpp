@@ -3,6 +3,7 @@
 
 #include "HookCapture.h"
 #include "../../base/AutomationModes.h"
+#include "../../base/DpiContext.h"
 #include "../../base/Environment.h"
 #include "../../base/Utils.h"
 #include "../../hook/HookModule.h"
@@ -188,6 +189,9 @@ long HookCapture::BindEx(HWND hwnd, long render_type) {
 
     _render_type = render_type;
     RECT rc;
+    // 客户区尺寸在窗口自身的 DPI 上下文里量：hook 是在目标进程内按目标的逻辑坐标
+    // 出帧的，宿主口径量到的物理尺寸（150% 下大 1.5 倍）会让共享帧与区域全错位。
+    const win32::dpi_context_scope dpi_scope(hwnd);
     // 获取客户区大小
     ::GetClientRect(hwnd, &rc);
     _width = rc.right - rc.left;
@@ -278,6 +282,7 @@ long HookCapture::BindNox(HWND hwnd, long render_type) {
     _render_type = render_type;
     _hwnd = hwnd;
     RECT rc;
+    const win32::dpi_context_scope dpi_scope(hwnd); // 与 BindEx 同口径
     // 获取客户区大小
     ::GetClientRect(hwnd, &rc);
     _width = rc.right - rc.left;

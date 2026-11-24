@@ -5,6 +5,7 @@
 #include "OpContext.h"
 #include "OpResult.h"
 
+#include "base/DpiContext.h"
 #include "base/Utils.h"
 
 #include <libop.h>
@@ -605,14 +606,20 @@ void BindOverlay::render() {
         return;
 
     RECT rc = {};
-    ::GetClientRect(target, &rc);
+    POINT origin = {0, 0};
+    {
+        // 叠加层要盖在目标窗口客户区上。目标 DPI 不感知而宿主 aware 时，宿主口径量到
+        // 的是物理尺寸/物理原点；而叠加窗口是本进程创建的（宿主上下文），交给系统的
+        // 坐标必须是逻辑值，否则会被系统再放大一次 → 画布比窗口大 2.25 倍且整体偏移。
+        const op::win32::dpi_context_scope dpi_scope(target);
+        ::GetClientRect(target, &rc);
+        // 客户区左上角在屏幕上的位置（含边框偏移）；窗口最小化时不可见
+        ::ClientToScreen(target, &origin);
+    }
     const int cw = rc.right - rc.left;
     const int ch = rc.bottom - rc.top;
     if (cw <= 0 || ch <= 0)
         return;
-    // 客户区左上角在屏幕上的位置（含边框偏移）；窗口最小化时不可见
-    POINT origin = {0, 0};
-    ::ClientToScreen(target, &origin);
     if (::IsIconic(target)) {
         ::ShowWindow(hwnd_, SW_HIDE);
         return;
