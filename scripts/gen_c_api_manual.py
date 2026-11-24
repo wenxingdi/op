@@ -141,6 +141,301 @@ def classify(name: str, owner: dict[str, str]) -> str | None:
     return None
 
 
+def _append_usage_examples(L: list[str]) -> None:
+    """追加「使用案例」章节。
+
+    设计取舍
+    --------
+    * 案例**按任务组织**，不按导出函数组织 —— 签名清单已经在下面按分区列全了，
+      再按函数列一遍案例只会制造第二份需要维护的清单。
+    * 每个案例都是**可编译可运行的最小闭环**，语言选 C（C ABI 的原生调用方），
+      并给出 Python ctypes 对照（仓库自带 `bindings/python`，最常用的第二条路径）。
+    * 案例里出现的每个函数都必须是本手册收录的导出 —— 由 `main()` 末尾的
+      `_verify_examples()` 逐条比对，写错函数名会**非零退出**，防止案例腐化。
+    """
+    L.append("## 使用案例")
+    L.append("")
+    L.append("> 下面每个案例都是**可运行的最小闭环**，不是伪代码。坐标口径统一遵循：")
+    L.append("> 未绑定窗口时是**屏幕物理像素**；绑定后是**客户区坐标**（与 `OpCapture` 出的图同空间）。")
+    L.append("> 出参一律走指针，返回值 0=失败 / 非 0=成功（有例外会在注释里点明）。")
+    L.append("")
+    L.append("**两条贯穿全部案例的硬约定**（踩过坑，务必先读）：")
+    L.append("")
+    L.append("1. **返回 `const wchar_t *` 的接口指向实例内的复用缓冲区，调用方既不释放、也不要跨调用保存。**")
+    L.append("   实现是 `handle->string_result.clear()` 后把内部 `std::wstring` 的 `c_str()` 交出去")
+    L.append("   （见 `op_c_api.cpp` 的 `call_string`）。所以：")
+    L.append("   ```c")
+    L.append("   const wchar_t *a = OpGetPath(h);      /* 指针指向实例缓冲区 */")
+    L.append("   const wchar_t *b = OpConcurrencyInfo(h);")
+    L.append("   /* 此时 a 与 b 是同一块内存，a 的内容已被覆盖！ */")
+    L.append("   std::wstring keep = OpGetPath(h);     /* 要留住就立刻拷进自己的 std::wstring */")
+    L.append("   ```")
+    L.append("   实测确认：不同接口连调返回的是**同一个指针**。因此手册里所有案例都**不调用任何 free**。")
+    L.append("")
+    L.append("2. **`OpCreate` 与 `OpDestroy` 必须配对**。会话、图片句柄、字符串缓冲都挂在实例上，")
+    L.append("   不销毁不会立刻崩，但长驻脚本会持续累积内存。")
+    L.append("")
+    for ex in USAGE_EXAMPLES:
+        L.append(f"### {ex['title']}")
+        L.append("")
+        L.append(ex["intro"])
+        L.append("")
+        L.append(f"```{ex['lang']}")
+        L.append(ex["code"].rstrip())
+        L.append("```")
+        L.append("")
+        if ex.get("note"):
+            L.append(f"> {ex['note']}")
+            L.append("")
+
+
+USAGE_EXAMPLES = [
+    {
+        "title": "案例 1：最小生命周期 + 绑定窗口 + 截一张图",
+        "lang": "c",
+        "intro": "任何脚本的起点。`OpCreate` 拿句柄，绑定后所有区域类接口都按客户区坐标解释。"
+                 "**多数接口没有 `int *ret` 出参，返回值就是成败**（0 失败 / 非 0 成功）。",
+        "code": """
+#include <windows.h>
+#include "op_c_api.h"
+#pragma comment(lib, "op_c_api_x64.lib")   /* 构建产物 build/nmake-x64-Release/libop/ */
+
+int main(void) {
+    op_handle h = OpCreate();
+    if (!h) return 1;
+
+    /* 指向放 op_x64.dll / op_c_api_x64.dll 的目录（后台绑定要在这里找钩子 DLL） */
+    OpSetPath(h, L"D:/AutoPro/op-master/op/build/nmake-x64-Release/libop");
+    OpSetShowErrorMsg(h, 2);               /* 0 关 / 1 信息框 / 2 写文件 / 3 标准输出 */
+
+    intptr_t hwnd = OpFindWindow(h, L"Notepad", NULL);
+    if (!hwnd) { OpDestroy(h); return 2; }
+
+    /* 签名: OpBindWindow(handle, hwnd, display, mouse, keypad, mode)；返回 1 成功 */
+    if (OpBindWindow(h, hwnd, L"gdi", L"windows", L"windows", 0) != 1) {
+        OpDestroy(h); return 3;
+    }
+
+    /* 客户区尺寸：OpGetClientSize 是少数仍走指针出参的接口（无 ret，返回 1 成功） */
+    int w = 0, hgt = 0;
+    OpGetClientSize(h, hwnd, &w, &hgt);
+
+    /* 区域按客户区坐标 -> 截整张客户区 */
+    OpCapture(h, 0, 0, w, hgt, L"D:/tmp/notepad.bmp");
+
+    OpUnBindWindow(h);                     /* 可选；OpDestroy 也会回收 */
+    OpDestroy(h);                          /* 必须调：会话与图片句柄都挂在实例上 */
+    return 0;
+}
+""",
+        "note": "⚠ `OpDestroy` 不调用不会立即崩，但长驻脚本会持续累积 —— 建议一律配对使用。",
+    },
+    {
+        "title": "案例 2：找图 + 客户端↔屏幕换算 + 点击",
+        "lang": "c",
+        "intro": "找图 → 得到**客户区**坐标 → 转**屏幕**坐标 → 点击。"
+                 "转换必须走 `OpClientToScreen`：自己对客户区原点做减法，在 DPI 不一致的窗口上会整体偏 1.5 倍。",
+        "code": """
+/* 前置：已建好实例 h、已绑定 hwnd，且 w/hgt 是客户区尺寸（见案例 1）。
+   本片段不自带变量声明，直接用外层约定的 h / hwnd / w / hgt / x / y / ret。 */
+
+/* 签名: OpFindPic(handle, x1, y1, x2, y2, files, delta_color, sim, dir, &x, &y)
+   最后一个出参是方向（0=左上到右下）；坐标是**客户区**坐标，找不到时由实现置 0。 */
+int found = OpFindPic(h, 0, 0, w, hgt, L"D:/tmp/btn.bmp", L"000000", 0.9, 0, &x, &y);
+if (!found) {
+    /* 没找到：X/Y 为 0，不要当成"命中左上角" */
+    return 4;
+}
+
+/* 客户区 -> 屏幕。入参原地改写（in/out），所以先拷一份 */
+int sx = x, sy = y;
+OpClientToScreen(h, hwnd, &sx, &sy);
+
+OpMoveTo(h, sx, sy);        /* 未绑定时按屏幕坐标 */
+OpLeftClick(h);             /* 已绑定时按客户区坐标（后台消息） */
+""",
+        "note": "判断是否命中看**返回值**，不要看 X/Y 是否为 0 —— 真命中左上角时坐标本来就是 0。",
+    },
+    {
+        "title": "案例 3：OCR 取结构化结果（逐字坐标）",
+        "lang": "c",
+        "intro": "`OpOcr` 返回纯文本；要定位「某个词在图上哪一块」用 `OpOcrEx2` 的 JSON，`chars[]` 里是**原图绝对坐标**。",
+        "code": """
+/* 签名: OpOcrEx2(handle, x1, y1, x2, y2, color, sim) —— 无出参，返回 JSON 指针 */
+const wchar_t *json = OpOcrEx2(h, 0, 0, w, hgt, L"", 0.8);
+if (!json || json[0] == 0) {
+    /* 空串 = 识别失败或无文字 */
+    OpDestroy(h); return 5;
+}
+
+/* json 形如：
+   {"ok":1,"text":"...","det_count":3,
+    "chars":[{"c":"9","x1":247,"x2":344,"y1":12,"y2":40,"line":0}, ...]}
+   ⚠ x1/x2/y1/y2 已是原图绝对坐标，消费侧只能加区域偏移，绝不能再加 det 框原点。 */
+
+/* ⚠ json 指向实例复用缓冲区：不要 free，也不要留到下一次调用之后再读。
+   要留着就立刻拷走（下面用 Win32 的堆分配，纯 C 通用）。 */
+wchar_t *keep = _wcsdup(json);
+/* ...用完 wprintf(L"%s", keep); free(keep); ... */
+""",
+        "note": "旋转/竖排场景会退化成整行框，此时 JSON 里 `partial_chars=true`，别拿 chars[] 当逐字坐标用。",
+    },
+    {
+        "title": "案例 4：输入时间轴 —— 录制与回放",
+        "lang": "c",
+        "intro": "时间轴三件套：`OpInputSyncEnable` 打开采集 → `OpInputRecord` 录制 → `OpInputPlayback` 回放。"
+                 "默认**不采集**，不打开开关录出来是空的。",
+        "code": """
+/* 前置：已建好实例 h（见案例 1）。本片段不自带变量声明。 */
+OpInputSyncEnable(h, 1, &ret);                    /* 1=打开采集（默认关闭） */
+
+/* START：path 传空则自动生成 input_record_YYYYmmdd_HHMMSS.jsonl */
+const wchar_t *path = OpInputRecord(h, 0, L"D:/tmp/demo.jsonl", &ret);
+if (ret != 1) { /* 已在录制中：返回 0 且不截断前一段 */ }
+
+/* ...此处执行要录的操作... */
+
+OpInputRecord(h, 1, NULL, &ret);                  /* STOP：*ret = 写入条数，0 = 确实没产生输入 */
+const wchar_t *last = OpInputRecordGetPath(h);    /* 最近一次录制的路径 */
+
+/* 回放：0=LOAD（*ret 事件条数）1=START（同步放完，*ret 1/0）2=STOP 3=FREE */
+OpInputPlayback(h, 0, last, 1.0, 1, &ret);        /* speed=1.0 loop=1 */
+OpInputPlayback(h, 1, NULL, 1.0, 1, &ret);
+OpInputPlayback(h, 3, NULL, 1.0, 1, &ret);        /* FREE：释放已装载事件 */
+""",
+        "note": "⚠ LOAD 返回的 JSON 里 `bound=0` 表示当前**没绑窗口**，坐标按屏幕语义回放 —— 与录制时不是同一套坐标。",
+    },
+    {
+        "title": "案例 5：并发自省（判断是否踩了非线程安全线）",
+        "lang": "c",
+        "intro": "同实例被多线程同时调用时，用 `OpConcurrencyInfo` 看峰值与重入。`peak > 1` 或 `reentrant > 0` 说明结果已不可复现。",
+        "code": """
+const wchar_t *info = OpConcurrencyInfo(h);
+/* {"id":0,"in_flight":1,"peak":3,"reentrant":12,"calls_total":880,
+     "image_count":4,"bound":0,"thread_safe":false} */
+
+/* 判重入：直接在返回的 JSON 里找 "reentrant":0 这个片段。
+   注意 C 源码里写转义引号时，若这份代码还要经过文档/Markdown 转一道，容易被再吃一层
+   —— 所以这里改用宽字符码点拼接，源码里不出现转义序列，怎么转述都不会走样。 */
+static const wchar_t kNoReentry[] = {L'r',L'e',L'e',L'n',L't',L'r',L'a',L'n',L't',0x22,L':',L'0',0};
+if (wcsstr(info, kNoReentry) == NULL) {
+    /* 有重入：改成每线程一个 OpCreate 实例，或自己加锁 */
+}
+/* info 是实例缓冲区，不释放；要长期留着先拷贝 */
+""",
+        "note": "`image_count` 持续增长说明图片句柄没释放；`in_flight` 最小也会是 1（本调用自身），判并发请用 `peak`/`reentrant`。",
+    },
+    {
+        "title": "案例 6：多线程并发（每线程独立实例）",
+        "lang": "c",
+        "intro": "op 的单实例**不是线程安全**的。正确姿势是每个线程各自 `OpCreate`，不要共享同一个 handle。",
+        "code": """
+#include <windows.h>
+#include "op_c_api.h"
+
+DWORD WINAPI worker(LPVOID arg) {
+    op_handle h = OpCreate();            /* 每个线程一个实例 */
+    if (!h) return 1;
+    OpSetPath(h, L"D:/AutoPro/op-master/op/build/nmake-x64-Release/libop");
+    /* ...本线程的截图/找图/OCR... */
+    OpDestroy(h);                        /* 线程退出前销毁 */
+    return 0;
+}
+
+int main(void) {
+    HANDLE t[4];
+    for (int i = 0; i < 4; ++i) t[i] = CreateThread(NULL, 0, worker, NULL, 0, NULL);
+    WaitForMultipleObjects(4, t, TRUE, INFINITE);
+    for (int i = 0; i < 4; ++i) CloseHandle(t[i]);
+    return 0;
+}
+""",
+        "note": "跨实例共享的只有全局图片缓存（`OpSetPicCacheMax` 控制上限）与输入事件总线，其余状态都在实例内。",
+    },
+    {
+        "title": "案例 7：Python（ctypes 绑定，仓库自带）",
+        "lang": "python",
+        "intro": "`bindings/python/op` 是 ctypes 包装，方法名 snake_case，出参自动聚成返回值元组。这是跳过 C 直接写脚本最快的路径。",
+        "code": """
+import sys
+sys.path.insert(0, r"D:/AutoPro/op-master/op/bindings/python")
+from op import Op
+
+DLL = r"D:/AutoPro/op-master/op/build/nmake-x64-Release/libop/op_c_api_x64.dll"
+
+with Op(dll_path=DLL) as op:
+    print(op.version)                       # 5.2.0（Ver 在 ctypes 包中名为 version）
+
+    # 找不到时返回 0；两个参数都是关键字，可以不传
+    hwnd = op.find_window(title="Notepad")
+    assert hwnd, "记事本没开"
+    op.set_path(r"D:/AutoPro/op-master/op/build/nmake-x64-Release/libop")
+
+    # 签名: bind_window(hwnd, display="normal", mouse="normal", keypad="normal", mode=0)
+    assert op.bind_window(hwnd, "gdi", "windows", "windows", 0)
+
+    # get_client_size 返回 (宽, 高) 两个值
+    w, hgt = op.get_client_size(hwnd)
+    print("客户区", w, "x", hgt)
+    assert op.capture(0, 0, w, hgt, r"D:/tmp/shot.bmp")   # 返回 bool
+
+    # find_pic 返回 (x, y, ret)；ret=0 表示没找到，此时坐标是 0，别当成命中左上角
+    x, y, ret = op.find_pic(0, 0, w, hgt, r"D:/tmp/btn.bmp", "000000", 0.9)
+    if ret:
+        sx, sy = op.client_to_screen(hwnd, x, y)          # 返回 (x, y)，没有 ret
+        print("命中", x, y, "-> 屏幕", sx, sy)
+
+    # 时间轴（2026-11-24 补入 ctypes 层）
+    op.input_sync_enable(True)                            # 默认关闭，不打开录不到东西
+    path, st = op.input_record(0, r"D:/tmp/demo.jsonl")   # action 0=START -> (path, 1)
+    op.input_record(1)                                    # action 1=STOP  -> (path, 写入条数)
+    print(op.input_playback(0, path, 1.0, 1))             # LOAD -> (json, 事件条数)
+    op.input_playback(3)                                  # FREE
+    op.input_sync_enable(False)
+
+    print(op.concurrency_info())                          # 并发自省 JSON
+    print(op.input_sync_status())                         # 主从链路诊断 JSON
+
+# 不写 with 的话记得显式 op.close()
+""",
+        "note": "本案例已按 `inspect.signature` 实测校准并在本机跑通（`get_client_size` 返 2 值、`client_to_screen` 返 2 值、`capture` 返 bool）。",
+    },
+    {
+        "title": "案例 8：易语言 / COM 晚绑定",
+        "lang": "text",
+        "intro": "易语言走 COM 晚绑定，**必须先 `regsvr32` 注册**新 DLL，否则类型库里还是旧方法（新增方法靠 DISPID 追加，不重注册看不到）。",
+        "code": """
+.版本 2
+.局部变量 op, 对象
+.局部变量 ret, 整数型
+
+' 1) 先注册（管理员权限）：regsvr32 /s D:\\AutoPro\\op-master\\op\\bin\\x64\\op_x64.dll
+' 2) 创建对象（ProgID 见 libop/com/op.idl）
+op.创建 (“Op.Op”, )
+
+' 3) 按 DISPID 调用比按名字更稳（不受本地化影响）
+'    442 = FindStrBatch   443 = FindStrEx2   444 = OcrLastProfile
+'    445~453 = 图像句柄   454/455 = YoloEx2  456~463 = 音量
+'    时间轴 / 并发自省 本次补齐，DISPID 见 op.idl 尾部
+""",
+        "note": "不重新 regsvr32 就是调不到新方法 —— 这是「修复没生效」最常见的原因。",
+    },
+]
+
+
+def _verify_examples(decls: set[str]) -> list[str]:
+    """校验案例里引用的每个 `OpXxx(` 都是真实导出，返回不存在的名字列表。
+
+    这样案例不会随时间腐化：改了函数名却忘了改案例，生成时会直接报错。
+    """
+    missing: set[str] = set()
+    for ex in USAGE_EXAMPLES:
+        for name in re.findall(r"\b(Op[A-Z]\w*)\s*\(", ex["code"]):
+            if name not in decls:
+                missing.add(name)
+    return sorted(missing)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只校验，不写文件")
@@ -232,6 +527,9 @@ def main() -> int:
     L.append("")
     L.append("---")
     L.append("")
+    _append_usage_examples(L)
+    L.append("---")
+    L.append("")
     for sec in order:
         L.append(f"## {sec}（{len(sections[sec])} 个）")
         L.append("")
@@ -239,11 +537,21 @@ def main() -> int:
             L.append(f"- `{sig}`")
         L.append("")
 
+    # 案例里引用的函数必须都是真实导出：改函数名却忘了改案例时在这里拦住
+    # 注意 decls 是 [(name, sig)] 列表，这里要的是名字集合
+    bad_examples = _verify_examples({n for n, _ in decls})
+    if bad_examples:
+        print("[FAIL] 使用案例引用了不存在的导出：", ", ".join(bad_examples), file=sys.stderr)
+        return 3
+
     os.makedirs(os.path.dirname(OUT_MANUAL), exist_ok=True)
     with open(OUT_MANUAL, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("\n".join(L).rstrip() + "\n")
 
-    print(f"已写出 {os.path.relpath(OUT_MANUAL, ROOT)}（{total} 条 / {len(order)} 个分区）")
+    print(
+        f"已写出 {os.path.relpath(OUT_MANUAL, ROOT)}"
+        f"（{total} 条 / {len(order)} 个分区 / {len(USAGE_EXAMPLES)} 个使用案例）"
+    )
     return 0
 
 

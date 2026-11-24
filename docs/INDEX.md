@@ -8,9 +8,10 @@
 
 | 文档 | 说明 |
 |---|---|
+| [最终收尾_清理与验证_20261124.md](2026-11/最终收尾_清理与验证_20261124.md) | **本仓库当前状态的唯一入口**：清理/缺陷/验证全景（7 个真缺陷、1.5 GB 清理、"刻意未删"清单、复验命令、当前全量基线 676/647/28/1） |
 | [CHANGELOG.md](CHANGELOG.md) | 本仓库自有迭代日志（基线：上游 0.4.8.3） |
 | [api_reference.html](api_reference.html) | **API 参考手册**：426 个接口按 10 服务组分类，含参数表/**取值语义注解**（1646/1695 参数，97.1%）/搜索 + 六语言调用示例（`scripts/gen_api_reference.py` 从 libop.h + PARAM_DOCS 注解层生成，勿手改）；纯文本镜像见 [api_llm.md](api_llm.md) |
-| [OP_API手册_20261123.md](2026-11/OP_API手册_20261123.md) | **C ABI 全量签名手册**：433 个 `OP_CALL` 导出按 34 分区逐条签名（含加密/注册表/热键/并发/绘制/UIA/图像句柄/内存版识别/音频/YOLO/汇编/时间轴），`scripts/gen_c_api_manual.py` 生成，勿手改 |
+| [OP_API手册_20261123.md](2026-11/OP_API手册_20261123.md) | **C ABI 全量签名手册**：433 个 `OP_CALL` 导出按 34 分区逐条签名 + **8 个可运行使用案例**（生命周期/找图换算/OCR/时间轴/并发/多线程/Python/易语言），`scripts/gen_c_api_manual.py` 生成，勿手改；案例可用 `scripts/probes/verify_manual_examples.ps1` 编译校验 |
 
 > **v1→v2 更正（2026-11-09）**：本行原记「253 个接口 / 966/988 参数（97.8%）」，是 9 月建索引时的旧统计。按当前 `include/libop.h` 与生成器实测输出校正为 **310 个接口 / 1177/1177 参数（100%）**；服务组数 10 未变。数字取自 `scripts/gen_api_reference.py` 的 `total` 与「参数注解覆盖」两行，不是估算。
 >
@@ -150,6 +151,7 @@
 
 | 文档 | 说明 |
 |---|---|
+| [最终收尾_清理与验证_20261124.md](2026-11/最终收尾_清理与验证_20261124.md) | **第六十五批（最新）**：全项目清理与验证收尾 —— 绑定层 78+7 接口恢复可用、测试隔离修复、1.5 GB 清理、"刻意未删"清单、当前基线 |
 | [跨层API面对照_20261121.md](2026-11/跨层API面对照_20261121.md) | C++ / C API / COM 三层签名对照（新增接口时的一致性基线） |
 | [CAPI覆盖收口与并发基线_20261121.md](2026-11/CAPI覆盖收口与并发基线_20261121.md) | C API 覆盖收口 + 并发基线 4 条 |
 | [COM与Go绑定补齐_20261121.md](2026-11/COM与Go绑定补齐_20261121.md) | COM 与 Go 绑定补齐 |
@@ -211,7 +213,16 @@
 
 ## 仓库外留存（未迁入）
 
+**2026-11-24 更新**：项目根已从 7 个条目收敛为 3 个（`backup/`、`op/`、`workbench/`）。
+原先散落在根的中间产物与旧文档已按下表归位，`.vs/` 缓存与两个安装包镜像（193 MB）已删除。
+
 | 位置 | 内容 |
 |---|---|
-| `D:\AutoPro\op-master\` 根 | OP_API_REFERENCE.md / OP_BUILD_NOTES.md / OP_OCR_INTERNAL_PLAN.md / `_backup_L0_20260804` / `_backup_docs_20260827` / opencv-5.0.0.zip |
+| `op\workbench\_root_scratch_20261124\` | 从项目根归位的 44 个调试截图 + 10 个一次性探针脚本（`vnc_*.py`、`dx_selfprobe.py`） |
+| `op\workbench\_root_scratch_20261124\_superseded_docs\` | 从项目根归位的 3 份旧文档（`OP_API_REFERENCE.md` / `OP_BUILD_NOTES.md` / `OP_OCR_INTERNAL_PLAN.md`，均已被 `docs/` 取代） |
+| `op\workbench\_legacy_hand_backups_20260827\` | 原根 `_backup_L0_20260804`（12 个，git 历史里也有）+ `_backup_docs_20260827`（3 个，**git 历史里没有**，故保留） |
+| `op\workbench\_sdk_snapshot_20261123\` | 原根 `workbench-op-old`（旧 DLL 快照，仅 A/B 用） |
+| 项目根 `workbench\` | 两个 C# smoke 工程（`csharp_api_smoke` / `ui_diagnose_smoke`），已清 `bin/obj`，只留源码 |
 | WorkBuddy 工作区根 | 09-16 七份文档的原件（已复制入 docs/2026-09/） |
+
+> 清理明细与"刻意未删"清单见 [最终收尾_清理与验证_20261124.md](2026-11/最终收尾_清理与验证_20261124.md) §五。

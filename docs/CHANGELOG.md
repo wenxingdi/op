@@ -3,6 +3,326 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-24 第六十六批（docs：API 手册补齐使用案例 + 案例编译校验闭环）
+
+**范围**：仅 64 位。x86 按用户要求不动。
+
+#### 1. 手册全部重新生成，与头文件逐条对齐
+
+| 文档 | 条数 | 说明 |
+|---|---|---|
+| `docs/2026-11/OP_API手册_20261123.md` | **433 / 433**（34 分区，未归类 0） | C ABI 全量签名手册 |
+| `docs/api_reference.html` | **426**（10 服务组） | C++ 接口参考，含参数注解 1646/1695（97.1%） |
+| `docs/api_llm.md` / `.json` | 426 | LLM 上下文版速查 |
+
+三份均由脚本重新生成，无手改。
+
+#### 2. C ABI 手册新增「使用案例」章节（8 个）
+
+原先该手册**只有逐条签名，没有任何案例**（`api_reference.html` 每接口有单行调用示例，
+但 C ABI 手册是纯签名清单）。本次补齐：
+
+| # | 案例 | 覆盖要点 |
+|---|---|---|
+| 1 | 最小生命周期 + 绑定 + 截图 | `OpCreate`/`OpSetPath`/`OpBindWindow`/`OpGetClientSize`/`OpCapture`/`OpDestroy` 完整闭环 |
+| 2 | 找图 + 客户端↔屏幕换算 + 点击 | `OpFindPic` 的 `dir` 与坐标出参顺序、`OpClientToScreen` in/out 语义 |
+| 3 | OCR 结构化（逐字坐标） | `OpOcrEx2`、`chars[]` 为原图绝对坐标、缓冲区不可留用 |
+| 4 | 输入时间轴录制/回放 | `OpInputSyncEnable`→`OpInputRecord`→`OpInputPlayback` 全链路，含 `bound=0` 陷阱 |
+| 5 | 并发自省 | `OpConcurrencyInfo`，`peak`/`reentrant` 判据（`in_flight` 恒 ≥1，不能用它判断） |
+| 6 | 多线程并发 | 每线程一个 `OpCreate`，不要共享 handle |
+| 7 | Python ctypes 完整脚本 | 仓库自带 `bindings/python`，含时间轴；**按 `inspect.signature` 实测校准并在本机跑通** |
+| 8 | 易语言 / COM 晚绑定 | DISPID 调用、必须先 `regsvr32` |
+
+**两条贯穿性硬约定**（写进章节开头）：
+
+1. **返回 `const wchar_t *` 的接口指向实例内的复用缓冲区**，调用方既不释放、也不要跨调用保存。
+   实测确认：`OpGetPath` 与 `OpConcurrencyInfo` 连调返回**同一个指针**（`op_c_api.cpp` 的
+   `call_string` 复用 `handle->string_result`）。因此手册里**没有任何 free 调用**。
+2. `OpCreate` / `OpDestroy` 必须配对。
+
+#### 3. 案例要做到「可运行」，因此加了编译闭环
+
+**初稿 8 个案例里 6 个签名是错的**，肉眼完全看不出来，是编译才暴露的：
+
+- `OpBindWindow` / `OpCapture` / `OpLeftClick` / `OpUnBindWindow` / `OpSetShowErrorMsg`
+  **根本没有 `int *ret` 出参**，初稿全写成了带出参的形态；
+- 臆造了不存在的 `OpFreeString`（实际只有 `OpFreePic` / `OpFreeImage` / `OpFreeAllImages`）；
+- 案例 5 的 `wcsstr(info, L"\"reentrant\":0")` 经过 Markdown 转一道后转义丢失，
+  实际渲染成 `L""reentrant":0"`（语法错）。
+
+为此新增两个工具，形成闭环：
+
+| 工具 | 作用 |
+|---|---|
+| `scripts/gen_c_api_manual.py` 内置 `_verify_examples()` | 案例里引用的每个 `OpXxx(` 必须真实存在于头文件，否则**退出码 3** |
+| `scripts/probes/_extract_manual_examples.py` | 从生成的 md 里机械抽出 C 案例，补全 include 与片段外壳 |
+| `scripts/probes/verify_manual_examples.ps1` | 一条命令跑完「生成 → 抽取 → MSVC 编译」 |
+
+**实测结果**：6 个 C 案例 **0 error 全部编译通过**；Python 案例在本机端到端跑通
+（绑定 WorkBuddy → 截图 2010x1224 → 时间轴 START/STOP/LOAD/FREE 全绿）。
+
+**反向验证**：故意把 `OpLeftClick(h)` 改成 `OpLeftClick(h, &ret)`，
+`verify_manual_examples.ps1` 立刻报 `error C2197: 用于调用的参数太多` 并退出 1；随后恢复。
+
+#### 4. 顺带确认
+
+- 本轮**未改动任何 C++ 源码**，`bin/x64/` 与构建产物 sha1 一致，无需重新同步发布件。
+- x86 未构建、未发布（按用户要求）。
+
+
+### 2026-11-24 第六十五批（fix：收尾清理与全链验证 —— 绑定层 78+7 个接口恢复可用、测试隔离修复、7 个真缺陷）
+
+**入口文档**：`docs/2026-11/最终收尾_清理与验证_20261124.md`（唯一入口，含复验命令与"刻意未删"清单）。
+
+**先纠正一个环境前提**：本机实测是 **Windows 10 1909（build 18363）**，不是仓库多处文字
+声称的 "Win11 24H2 / 26100"。后果是 `WgcCapture::shouldUseWgcWorkerThread()`
+（`build < 22000`）在本机**为真**，`win10InitSehGuard` 的进程级熔断是真会触发的，
+"Win11 不走 worker 路径所以零影响"这句在本机不成立。这是本批 WGC 红灯的解释。
+
+#### 1. `check_swig_sync.py` 把 typedef 当方法名，78 条假缺口掩盖真缺口（fix）
+
+`libop_methods()` 的正则会把 `typedef void (*InputMonitorCallback)(...)` 里的 **`void`**
+当成方法名，于是恒列一条"{libop.h 有、pyop.py 无: void}"。假缺口与真缺口混在同一张清单里，
+实际真因只是**批 56~61 新增的 78 个 API 没重新生成 SWIG 包装**，但报告读起来像整个绑定层崩了。
+
+修法：提取阶段跳过 `typedef` / `using` 开头的行并排除 C++ 关键字。
+**没有**把 `void` 塞进噪声表 —— 那样将来真出现畸形声明也会被静默放过。
+
+附带修掉颜色换算族的命名口径分裂：`gen_api_reference.py` 与 `check_swig_sync.py`
+各自维护 `_PY_SNAKE_SPECIAL` 但都没登记，导致按通用规则算出 `argb2_hex`
+而 `api.py` 实际是 `argb2hex`，两边都报缺口。已把既有拼写登记进两张表并注明"必须同步"。
+
+#### 2. SWIG 包装落后 78 个方法 → 用 4.4.1 重新生成（fix）
+
+`swig/pyop.py` 368 → **446** def，`op_wrap.cxx` `_wrap_` 362 → **440**，
+`python/pyop/_binding.py` 同步。修复后 `check_swig_sync.py` 三层
+（pyop / wrapper / ctypes）**全部 426/426，退出码 0**。
+
+此前 Python 用户**无法调用** Draw 全家桶 / UIA / Asm / 热键 / 注册表 / 加密 / 时间轴 等 78 个接口。
+
+#### 3. ctypes 绑定整段漏绑 7 个接口（fix）
+
+`op_c_api.h` 与 DLL 导出都在（`dumpbin` 可见），但 `_ffi.py` 无签名、`api.py` 无包装：
+
+`OpConcurrencyInfo`、`OpInputSyncEnable`、`OpInputSyncLink`、`OpInputSyncStatus`、
+`OpInputRecord`、`OpInputRecordGetPath`、`OpInputPlayback`。
+
+已补签名 + 方法 + `_InputEventView` 结构 + `_INPUT_MONITOR_CALLBACK` 回调类型
+（布局与 `op_c_api.h` 逐字段一致，注释标明"改这里必须同步头文件与 libop.h"）。
+**端到端实测**（非只跑 import）：`concurrency_info` / `input_sync_status` 返回合法 JSON；
+`input_record` START→STOP→`input_playback` LOAD→FREE 全链路走通。
+
+#### 4. `run_tests.ps1` 硬编码 180 秒超时，全量必然被腰斩（fix）
+
+现象：全量跑到 `ConcurrencyBatchTest.SameInstanceReentryIsObservable` 时进程消失、
+**无 gtest 汇总行**，极易误诊为"该用例挂死"（实测单独跑 **8ms** 且 PASS）。
+根因：全量需 **10~12 分钟**，`WaitForExit(180000)` 必然中段 Kill。
+修法：加 `-TimeoutSec`（默认 1800），超时文案点明"全量请留足"。
+
+**顺带暴露的潜伏缺陷**：该脚本是 **UTF-8 无 BOM**，`powershell.exe`(5.1) 按 GBK 解析，
+中文多字节序列会吃掉引号配对 —— 改动导致行数变化后脚本直接 ParseError，
+而**文件内容本身完好**。已补 UTF-8 BOM 修根因。
+
+#### 5. 测试隔离：一次熔断污染同进程整组用例（fix）
+
+- **WGC**：本机第 1 条用例跑过后，第 2 条起 `WgcCapture::Init` 抛 `0xC0000005`，
+  SEH 兜住不崩但**置进程级熔断** → 后续 WGC 请求快速失败 → 6 条一片红。
+  实测 **每条单独首跑 10/10 全部 PASS**，纯隔离问题。
+  修法：`tests/wgc_test.cpp` 基类加 `BindWgc()` 统一入口，绑定成功记 `g_wgc_ever_bound`，
+  失败且此前成功过 → 置熔断标记 → 后续 `SetUp` 显式 SKIP 并写明原因。
+  **关键保护**：首条就绑不上时标记仍为 false，**不会**误判熔断，用例照常判红
+  —— 保证"环境真不支持"不被静默成 SKIP。
+- **DX**：`MouseKeyTest` 其余 16 条 dx 用例都有 `if (ret != 1) GTEST_SKIP()` 判据，
+  独 `BindWindowDxSuffixDoesNotPolluteSessionAttr` 用硬 `ASSERT_EQ` —— 已对齐。
+- `WindowStateTest.DxBindToSameIntegrityWindowStillSucceeds`：先探一次纯 dx 绑定，
+  不可用则跳过并注明 "integrity precheck not implicated"，
+  避免把环境故障记到完整性预检头上。
+- `HookCaptureTest.BindLoadsMissingGraphicsAndInputModulesOnDemand`：绑不上时按模块表区分
+  "注入被拦（两侧都没加载）" vs "按需加载只完成一侧（真缺陷）"，后者 `ADD_FAILURE`
+  带出 `d3d9= / dinput8= / bind_ret=`。
+
+**反向验证**：把 dx 探测临时改成"永远成功"（`probe = 1`），
+该用例立刻 **FAILED** 而非 SKIP —— 证明守卫没让断言失去判别力，随后已恢复。
+
+#### 6. 清理（约 1.5 GB）
+
+`__pycache__`×7、根 42 个编译调试日志、4 个散落 `.obj`、`build/testtmp`(35 MB)、
+`build/*.log`(42 个, 119 MB)、过期 `out/` 构建树、根 `.vs/`(235 MB, `Browse.VC.db`)、
+两个安装包镜像(193 MB, 可再下载且 OpenCV 已解压)、
+根 44 个调试截图(130 MB)/10 个一次性探针脚本/3 个旧文档 → 归位 `workbench/`、
+`workbench-op-old`(136 MB) → `workbench/_sdk_snapshot_20261123/`。
+
+**手工源码副本**：`op/backup_capture_f/` + `op/backup_yolo_f/` 共 12 个文件，
+删前逐个 `git hash-object` + `git log --all --find-object` 校验，**12/12 全在 git 历史**才删。
+
+**刻意未删**（详见入口文档 §5.2）：`docs/test-records/`(不可再生证据)、
+`backup/*_stable`(3.4 GB 回滚点)、`scripts/backup/` bundle(4.5 GB 离线冷备份)、
+`build/_deps/`(4.7 GB，删掉需数小时重建)、`assets/`(39 MB 测试素材)。
+
+#### 7. 基线（本批之后）
+
+全量 **676 条 / 649 PASS / 26 SKIP / 1 FAILED**（另一次运行 647/28，差异仅在 WGC 熔断时机，
+**判回归请盯 FAILED 数**而非 PASS/SKIP 分配，见入口文档 §7.1）。唯一 FAILED 为
+`HookCaptureTest.BindLoadsMissingGraphicsAndInputModulesOnDemand` ——
+**既有基线失败**（第四十一批起即记为 baseline FAIL），本批仅增强其诊断输出：
+
+```
+按需加载只完成了一侧：d3d9=true dinput8=true bind_ret=0
+```
+
+即**两个模块都加载成功**（按需加载功能本身没坏），失败在后续钩子活性回环
+（`BindingSession` 的 `PingHook`，原因码 `0x2009`）。同机真实 D3D9/D3D11 载体的
+`dx.d3d9` / `dx.d3d11` 绑定**均 PASS**，故这是**素载体（无渲染循环）特有**的问题。
+根因未定位到代码级，留下批，**没有为变绿而改成 SKIP**。
+
+#### 8. 明确未做
+
+- 注释瘦身：抽查判断九成注释是"踩坑判据"而非废话（删了会重踩），本轮不做；
+  以证据排除代替感觉：`libop/` 下 **0 条** TODO/FIXME、`docs/**` **0 条**断链、
+  `op_c_api.h` **433 声明 = 433 导出**（双向差集为空）。
+- 文档物理合并：`docs/2026-11` 5 份同源过程文档（1095 行）确有重叠，
+  但结论/反向验证记录仍有效且被引用，**新建统一入口而非批量删除**。
+- `sync_op_dll.py` 发布件同步、x86 构建：按既有约定需明确指示，未执行。
+
+**发布提示**：若发布，必须先跑 `sync_op_dll.py`，且 `regsvr32 op_x64.dll` 重新注册类型库
+（新增方法靠 DISPID 追加，不重注册易语言看不到）。
+
+
+### 2026-11-23 第六十四批（fix：DirectInput8Create 前置消息泵 + 排查记录：dx 注入红项根因＝安全软件按路径拦截）
+
+**代码改动（保留）**：`libop/hook/InputHook.cpp` 的 `load_dinput_vtables()` 在调
+`DirectInput8Create` 前先泵本线程消息队列（drain + Sleep(10) 循环 300ms）。
+DirectInput8Create 要求调用线程是"活"的 GUI 线程：控制台宿主 / 无消息循环的进程
+（op_test、python 嵌入宿主）里线程从未分发过消息时会返回 E_FAIL(0x80004005)。
+对正常 GUI 宿主零影响（队列本就空转，仅多 300ms 一次性等待）。
+
+**排查结论（环境项，非代码回归）**：11-21 起 dx 绑定三件套转红、11-23 晚
+`RunAppLaunchesShortcut` 进程内崩溃（0xC0000005）——根因是本机安全软件按
+**进程映像路径**拦截：位于 `D:\` 的进程 `DirectInput8Create` / ShellExecute(.lnk) /
+`CoInitializeEx` 被拦（E_FAIL / E_ACCESSDENIED / 进程内崩溃），同程序放
+`C:\Program Files` 完全正常（未签名 minhost 实验，D 盘失败、PF 目录成功）。
+机器上**腾讯管家（2023 装）与火绒（2026-04 装）并存**，安装时间无法解释 11-09 全绿
+→ 11-21 转红的时间线，触发面是安全软件的规则/库更新（管家规则库 11-23 15:02 有写入）。
+处置：把 `D:\AutoPro`、`D:\AutoPro\OPTool`、蜀门目录加入**两家**信任区后重测。
+
+**蜀门真机实测**（client.exe，32 位 D3D9，D 盘）：DPI 检测 ✓
+（`GetWindowScale=1.50`，客户区 1360x768 帧口径）；`dx.d3d9` 绑定 11s 超时返 0，
+约 40s 后该游戏进程 APPCRASH（KERNELBASE，0xc06d007e）——注入线程被反作弊/安全
+软件杀死。**蜀门上禁用 dx 绑定**。
+
+**VNC 查看器（UltraVNC，远程 LAOZ-PC）后台绑定实测**：绑定 gdi+windows/windows 后
+截帧 ✓、本地物理光标不动 ✓、**鼠标消息被查看器转发到远程**（单击选中图标、
+两次 LeftClick 间隔 0.12s 成功双击打开远程记事本并截图核实）；
+`LeftDoubleClick` 内部间隔过长，VNC 服务器不判双击（只选中不打开）。
+**键盘后台消息到不了远程**——UltraVNC 只转发合成鼠标消息，键盘只走真实硬件
+输入钩子（查看器实现限制，与 op 无关；前台 normal 模式可用）。
+
+**DPI 端到端确认**：VNC 查看器（150%、DPI 不感知目标）绑定/截帧/坐标换算全通，
+帧 vs 物理屏幕差 0.12%、坐标闭环 0px；蜀门 150% 检测正确。OPTool 侧核查：
+运行目录 `op_c_api_x64.dll` sha1 与最新构建一致（`sync_op_dll.py` 三处同步通过），
+Optool 不做坐标缩放（纯透传），坐标语义由 op dll 统一处理。
+
+**全量基线（11-23 晚，仓库根，排除崩溃用例连跑两轮，结果一致）**：
+676 ran / 650·648 PASS / 12 FAILED 稳定复现：dx 家族 3（＝本次根因）、WGC 6
+（VNC 查看器在场级联）、GetCmdStr 超时 1（既有环境项）、`RunAppLaunchesShortcut`
+（安全软件 Shell 链路拦截，排除后才能跑完全量）；`DpiContextTest` 4 条全绿。
+注：DpiContext 跨进程用例要求 **cwd=仓库根**（子进程向 `workbench/tmp` 写诊断文件），
+从其他目录跑会 10s 超时假失败。
+
+### 2026-11-23 第六十三批（fix：DPI 不一致窗口的坐标口径 —— 框选回填的区域整体错位 1.5 倍）
+
+**现象**：绑定成功后用 OPTool 框选区域，回填到 OCR / YOLO 页的坐标不是客户区里框的那块；
+偏差随「离客户区左上角的距离」线性变大，实测正好等于系统缩放比（本机 150% → ×1.5）。
+
+**根因**：op 内部存在两套像素空间，且从未对齐。
+
+- 窗口 DC 截帧（`gdi` / `gdi2` / `dx2` / hook）= **逻辑像素**（DPI 不感知窗口的真实位图尺寸
+  404x281）；
+- 跨进程 `GetClientRect` / `ClientToScreen` / `GetDpiForWindow` = **物理像素**（DPI-aware 宿主
+  量到 606x421）。
+
+目标进程 DPI 不感知（VNC 查看器、老程序、部分游戏）时两者差 `dpi/96` 倍。区域/找图/OCR 全部
+以帧像素为坐标空间，于是 `ScreenToClient` 把物理屏幕坐标原样当帧坐标用，区域整体放大 1.5 倍。
+
+自建 DPI 不感知靶子（逻辑客户区 404x281 / 物理 606x421，红块在逻辑 (200,150)）实测：
+
+| 接口 | 修复前 | 修复后 | 说明 |
+|---|---|---|---|
+| `ScreenToClient(物理 1212,872)` | `(300,225)` | **`(200,150)`** | 回填区域错位的直接原因 |
+| `ClientToScreen(200,150)` | `(1112,797)` | **`(1212,872)`** | 物理点击/取色会偏 100+ 像素 |
+| `GetClientSize` | `606x421` | **`404x281`** | 与截帧尺寸一致 |
+| `GetClientRect` | `(912,647)-(1518,1067)` | **`(608,431)-(1012,712)`** | 尺寸与帧自洽 |
+| `GetWindowRect` | `630x480` | **`420x320`** | 与客户区同口径，边框偏移自洽 |
+| `GetWindowScale` | `1.00` | **`1.50`** | 旧值恒 1.00（`GetDpiForWindow` 对不感知窗口恒返 96） |
+| `Capture(0,0,606,421)` | 产出 606x421 BMP（越界填垃圾） | **自动裁到 404x281** | 越界不再静默读垃圾 |
+
+**改法**：新增 `libop/base/DpiContext.h/.cpp`（RAII `dpi_context_scope` + `window_pixel_scale`
++ `screen_to_client_frame` / `client_frame_to_screen`），套在所有跨进程窗口度量与坐标换算处：
+
+- `WindowState.cpp`：`GetClientRect` / `GetClientSize`
+- `WindowService.cpp`：`ClientToScreen`
+- `OpWindow.cpp`：`ScreenToClient` / `GetWindowRect` / `GetWindowScale`
+- `GdiCapture.cpp`：`BindEx` / `refreshMetrics` / `requestCapture`（含每帧重算的 `dx_/dy_`）
+- `HookCapture.cpp`：`BindEx` / `BindNox`
+- `OpDraw.cpp`：绑定层叠加窗口的客户区度量
+
+**换算不能按屏幕原点缩放**（首版实现踩的坑，用例当场转红）：非客户区（标题栏/边框）**不随
+DPI 缩放** —— 实测同一个 unaware 窗口，逻辑边框 `(38,61)`、物理边框 `(42,77)`，而 `38×1.5=57≠42`。
+所以 `物理屏幕 → 逻辑屏幕` 不能简单除以像素比，必须走
+「宿主上下文 `ScreenToClient` 得**物理客户区偏移** → 偏移 ÷ 像素比」：客户区内部是纯缩放关系，
+没有边框干扰。反向同理：`物理客户区原点 + 偏移 × 像素比`。
+
+**为什么零回归**：目标窗口与调用线程同 DPI 上下文（所有 DPI 感知的正常程序）时 `scope.changed()`
+为 false、`window_pixel_scale` 返回 1.0，一个数都不改。`GetWindowScale` 对感知窗口仍走
+`GetDpiForWindow`，实测值不变。
+
+**几何量与点换算的分工**：`GetClientRect` / `GetClientSize` / `GetWindowRect` 返回**帧口径**
+（窗口逻辑像素，与截帧同空间），而 `ClientToScreen` / `ScreenToClient` 做**双向换算**
+（输入/输出与宿主物理屏幕对齐）。这样「取尺寸做区域」和「框选回填」都各自拿到对的值；
+`MoveWindow` 这类写操作对 unaware 窗口本就吃逻辑坐标，与 `GetWindowRect` 自洽。
+
+**为什么只覆盖窗口类后端**：`normal` / `normal.dxgi` / WGC 抓的是**桌面/合成 surface**，天然是
+物理像素，且内部（`MonitorFromWindow` / D3D surface / `DWMWA_EXTENDED_FRAME_BOUNDS`）全部在物理
+空间自洽——强行切上下文会让裁剪错位。它们与逻辑帧后端的**坐标空间不统一**是独立问题（同一脚本
+换显示模式坐标会跳），留下批处理，不在本批范围。
+
+用例 `tests/dpi_context_test.cpp` 4 条：不感知靶子的 `ScreenToClient` 落在红像素上（最硬判据）、
+`ClientToScreen` 回到宿主物理坐标且往返一致、`GetClientSize` 等于独立量的窗口自报尺寸、
+DPI 感知靶子的比例仍等于 DPI 换算值。100% 缩放系统上显式 `GTEST_SKIP`，不给假绿。
+
+**补充（第二轮实测，把三个坑固定下来）**
+
+1. **原生 Win32 坐标 API 本身就是个陷阱**：对 DPI 不感知目标，`ClientToScreen` / `ScreenToClient`
+   只把**起点**换成物理坐标，**增量不缩放**。实测同一窗口（150%）`ClientToScreen(30,30)` =
+   物理原点 `+30`，而该点的真实物理位置应是 `+45`。也就是说宿主若"自己减客户区原点"，
+   得到的是「物理原点 + 逻辑增量」的混合空间 —— 这正是首版实现偏 15px 的根源。
+   正确做法只能是**除以实测像素比**（op 现在的做法）。
+2. **像素比必须实测，不能查表**：`GetDpiForWindow` 对 DPI 不感知窗口**恒返 96**（实测确认），
+   拿它算比例永远得到 1.00。op 改用「宿主上下文量到的客户区尺寸 ÷ 窗口自身上下文量到的尺寸」
+   来求比例，并只接受 0.25 粒度的真实整数倍（100/125/150/175/200%），量不出来就退回 1.0
+   （宁可不换算，也不要乱换算）。
+3. **宿主进程必须自己声明 DPI 感知，op 管不了**：op 的 `OpContext` 构造里那句
+   `SetProcessDPIAware()` 只能把进程提到 **system-aware**。而
+   - 本机 Win11 24H2（build 26100）上 `user32.SetProcessDpiAwarenessContext` 对
+     `PER_MONITOR_AWARE` / `PER_MONITOR_AWARE_V2` 直接返回 `E_INVALIDARG(87)`；
+   - `shcore.dll` 已不再导出 `SetProcessDpiAwarenessContext`；
+   - 想让宿主进程是 PerMonitorV2，**只能用应用清单**声明 `<dpiAwareness>PerMonitorV2</dpiAwareness>`。
+
+   → 结论：宿主（OPTool 等）应带 PMv2 清单；在此之前，op 的坐标口径是「按调用线程当前
+   awareness 解读」，两种宿主都能得到自洽结果。
+
+**用例实现要点（可复现）**
+
+- **必须跨进程**：`SetThreadDpiAwarenessContext` 只能降级、不能把 unaware 提升为 aware，
+  而「aware 宿主 + unaware 目标」要求宿主与目标处于不同进程（窗口 awareness 由创建它的线程决定）。
+  子进程完全不碰 DPI API（保持默认 unaware），父进程用线程级 `SetThreadDpiAwarenessContext(PMv2)`
+  模拟 OPTool 这类宿主。
+- **基准不能取自原生 API**（见上）：改用**物理屏幕像素扫描** —— 一次性 `BitBlt` 屏幕区域到
+  内存位图，在里面找红块的实际物理位置，再要求 op 的换算必须命中它。这条基准完全独立于
+  op 的换算逻辑，修复前 op 偏 15px、当场判红。
+- **反向验证已做**：把换算临时改回修复前写法（去掉 ×/÷ 比例），两个跨进程用例立刻变红
+  （偏差 14~15px），两个零回归用例仍绿；随后恢复并复跑全绿。
+
 ### 2026-11-23 第六十二批（fix：WriteStringToFile 改原子写 —— 并发读者在场不再失败，失败也不毁原文件）
 
 `op::Op::WriteStringToFile`（C API `OpWriteStringToFile`）走 `write_utf8_file`，原实现是

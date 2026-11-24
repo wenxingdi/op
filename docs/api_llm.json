@@ -2,7 +2,7 @@
   "meta": {
     "title": "OP 插件 API 目录（大模型 function-calling 版）",
     "source": "include/libop.h",
-    "generated": "2026-11-23 14:30",
+    "generated": "2026-11-24 09:18",
     "generator": "scripts/gen_api_reference.py",
     "total_functions": 426,
     "usage": {
@@ -1758,7 +1758,7 @@
           "python_example": "op.ClientToScreen(hwnd, x, y)  # → (ret)",
           "python_ctypes_name": "client_to_screen",
           "in_ctypes_binding": true,
-          "description": "把窗口坐标转换为屏幕坐标",
+          "description": "把窗口客户区坐标转换为屏幕坐标。输入按「截帧口径」客户区坐标解释，输出为宿主视角的\n屏幕坐标（DPI-aware 宿主下即物理像素），可直接用于屏幕框选/取色；与 ScreenToClient 互逆。",
           "params": [
             {
               "name": "hwnd",
@@ -1799,7 +1799,7 @@
           "returns_summary": "ret: 1=成功",
           "tool_schema": {
             "name": "ClientToScreen",
-            "description": "把窗口坐标转换为屏幕坐标",
+            "description": "把窗口客户区坐标转换为屏幕坐标。输入按「截帧口径」客户区坐标解释，输出为宿主视角的\n屏幕坐标（DPI-aware 宿主下即物理像素），可直接用于屏幕框选/取色；与 ScreenToClient 互逆。",
             "parameters": {
               "type": "object",
               "properties": {
@@ -2116,7 +2116,7 @@
           "python_example": "op.GetClientRect(hwnd)  # → (x1, y1, x2, y2, ret)",
           "python_ctypes_name": "get_client_rect",
           "in_ctypes_binding": true,
-          "description": "获取窗口客户区域在屏幕上的位置",
+          "description": "获取窗口客户区域在屏幕上的位置。坐标与尺寸均为「截帧口径」：目标窗口 DPI 不感知时\n返回其逻辑像素（与 Capture 出的图尺寸一致），而不是屏幕物理像素 —— 150% 缩放下两者\n相差 1.5 倍。区域类 API（Capture/FindPic/Ocr）的坐标系与此完全一致。",
           "params": [
             {
               "name": "hwnd",
@@ -2191,7 +2191,7 @@
           "returns_summary": "x1: 窗口客户区左上角屏幕横坐标（物理像素）；y1: 左上角纵坐标；x2: 右下角横坐标；y2: 右下角纵坐标；ret: 坐标为物理像素（OP 构造时提升进程 DPI 感知，见 OP_DPI 语义文档）。窗口最小化时返回 -32000 哨兵",
           "tool_schema": {
             "name": "GetClientRect",
-            "description": "获取窗口客户区域在屏幕上的位置",
+            "description": "获取窗口客户区域在屏幕上的位置。坐标与尺寸均为「截帧口径」：目标窗口 DPI 不感知时\n返回其逻辑像素（与 Capture 出的图尺寸一致），而不是屏幕物理像素 —— 150% 缩放下两者\n相差 1.5 倍。区域类 API（Capture/FindPic/Ocr）的坐标系与此完全一致。",
             "parameters": {
               "type": "object",
               "properties": {
@@ -2214,7 +2214,7 @@
           "python_example": "op.GetClientSize(hwnd)  # → (width, height, ret)",
           "python_ctypes_name": "get_client_size",
           "in_ctypes_binding": true,
-          "description": "获取窗口客户区域的宽度和高度",
+          "description": "获取窗口客户区域的宽度和高度（截帧口径，与 Capture 出的图尺寸相同）",
           "params": [
             {
               "name": "hwnd",
@@ -2265,7 +2265,7 @@
           "returns_summary": "width: 出参：客户区宽；height: 出参：客户区高；ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
           "tool_schema": {
             "name": "GetClientSize",
-            "description": "获取窗口客户区域的宽度和高度",
+            "description": "获取窗口客户区域的宽度和高度（截帧口径，与 Capture 出的图尺寸相同）",
             "parameters": {
               "type": "object",
               "properties": {
@@ -3054,7 +3054,7 @@
           "python_example": "op.ScreenToClient(hwnd, x, y)  # → (ret)",
           "python_ctypes_name": "screen_to_client",
           "in_ctypes_binding": true,
-          "description": "把屏幕坐标转换为窗口坐标",
+          "description": "把屏幕坐标转换为窗口客户区坐标。输入按宿主视角的屏幕坐标（DPI-aware 宿主下为物理\n像素）解释，输出为「截帧口径」的客户区坐标，可直接作为 Capture/FindPic/Ocr 的区域参数。\n框选回填务必走本接口：自己减客户区原点会漏掉 DPI 比例，区域整体偏大 1.5 倍。",
           "params": [
             {
               "name": "hwnd",
@@ -3095,7 +3095,7 @@
           "returns_summary": "ret: 1=成功 0=失败（失败原因开 set_show_error_msg(2) 查 cwd/__op.log）",
           "tool_schema": {
             "name": "ScreenToClient",
-            "description": "把屏幕坐标转换为窗口坐标",
+            "description": "把屏幕坐标转换为窗口客户区坐标。输入按宿主视角的屏幕坐标（DPI-aware 宿主下为物理\n像素）解释，输出为「截帧口径」的客户区坐标，可直接作为 Capture/FindPic/Ocr 的区域参数。\n框选回填务必走本接口：自己减客户区原点会漏掉 DPI 比例，区域整体偏大 1.5 倍。",
             "parameters": {
               "type": "object",
               "properties": {
@@ -5513,7 +5513,7 @@
           "signature": "ConcurrencyInfo() → (retjson)",
           "python_example": "op.ConcurrencyInfo()  # → (retjson)",
           "python_ctypes_name": "concurrency_info",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "约定不变：**单个 Op 实例不是线程安全的**（见本文件顶部），多线程场景每线程一个实例。\n本接口不改变该约定，只把\"同实例被多线程使用\"从静默污染变成可观测事实。\n返回 JSON：\n{\"id\":1,\"in_flight\":0,\"peak\":3,\"reentrant\":12,\"calls_total\":880,\n\"image_count\":4,\"bound\":0,\"thread_safe\":false}\nin_flight 当前正在本实例上执行的调用数（同一时刻 >1 即并发使用）\npeak 历史峰值并发度（>1 说明脚本确实踩了这条线）\nreentrant 检测到同实例并发使用的累计次数（>0 时结果不再可复现）\nthread_safe 恒为 false，保留字段供脚本做显式判断\n只做原子计数，不串行化、不改行为。",
           "params": [
             {
@@ -10352,7 +10352,7 @@
           "signature": "InputSyncEnable(enable) → (ret)",
           "python_example": "op.InputSyncEnable(enable)  # → (ret)",
           "python_ctypes_name": "input_sync_enable",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "采集入口挂在**每个输入原语的后端出口**（MoveTo / LeftDown / KeyDown / …），\n所以 Down/Up 级、Click 级、KeyPressStr、DragPath 等**全部覆盖**，且一次\n「LeftClick」会录成 down+up 两条（回放才能复原\"按了几下\"）。\n坐标系：录的是**客户区坐标**（与 Mouse 各 API 同口径）。录制与回放必须\n落在同一个绑定窗口上，否则坐标含义不同（未绑定时 = 屏幕坐标）。\n录制文件格式：JSONL，一行一个事件，字段固定为\n{\"t\":12.340,\"type\":\"mouse_button\",\"vk\":0,\"x\":300,\"y\":200,\"wheel\":0,\"flags\":4}\ntype: mouse_move / mouse_button / mouse_wheel / key / key_char\nt: 相对录制起点的毫秒数（回放按它等比缩放）\nflags: mouse_button 用 MOUSEEVENTF_*（0x0002/0x0004/…）；\nmouse_wheel 用 MOUSEEVENTF_WHEEL(0x0800)/HWHEEL(0x1000)；\nkey 用 KEYEVENTF_KEYUP(0x0002)；key_char 用 KEYEVENTF_UNICODE(0x0004) 且 x 字段存字符码。\n采集开关：0 关闭（同时结束正在进行的录制）／1 打开。默认关闭，开启后热路径只有\n一次原子读，对正常脚本的输入耗时可忽略。",
           "params": [
             {
@@ -10402,7 +10402,7 @@
           "signature": "SetInputMonitor(callback, user) → (ret)",
           "python_example": "op.SetInputMonitor(callback, user)  # → (ret)",
           "python_ctypes_name": "set_input_monitor",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "传 callback=nullptr 取消监听。",
           "params": [
             {
@@ -10464,7 +10464,7 @@
           "signature": "InputRecord(action, path) → (retpath, ret)",
           "python_example": "op.InputRecord(action, path)  # → (retpath, ret)",
           "python_ctypes_name": "input_record",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "录制。\naction 0 = START：开始录制；path 为空时自动生成\n（工作目录下 input_record_YYYYmmdd_HHMMSS.jsonl）。\n返回 1 成功、0 失败；**已在录制时返回 0 且不截断前一段**。\naction 1 = STOP ：结束录制，ret = 实际写入的事件条数（0 = 确实没产生输入）；\nretpath 为文件路径。",
           "params": [
             {
@@ -10538,7 +10538,7 @@
           "signature": "InputRecordGetPath() → (retpath)",
           "python_example": "op.InputRecordGetPath()  # → (retpath)",
           "python_ctypes_name": "input_record_get_path",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "取\"最近一次录制（或正在录制）\"的文件路径；没录过返回空串。",
           "params": [
             {
@@ -10574,7 +10574,7 @@
           "signature": "InputPlayback(action, path, speed, loop) → (retjson, ret)",
           "python_example": "op.InputPlayback(action, path, speed, loop)  # → (retjson, ret)",
           "python_ctypes_name": "input_playback",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "回放。\naction 0 = LOAD ：读入 JSONL。ret = 事件条数，retjson 形如\n{\"ok\":1,\"events\":12,\"bound\":1,\"path\":\"D:\\\\a.jsonl\"}（读失败 ok=0 + error）。\n⚠ bound=0 表示**当前没绑定窗口**，坐标会按屏幕语义回放，与录制时不同。\naction 1 = START：同步回放（本调用阻塞到放完或被 STOP）。speed 为倍速（<=0 视为 1.0），\nloop 为循环次数（<=0 视为 1）。ret=1 放完 / 0 没东西可放。\naction 2 = STOP ：请求停止（下一次事件边界生效，最长等待 5ms 的睡眠片）。\naction 3 = FREE ：释放已装载的事件。\n时间轴按 t 等比缩放：目标时刻 = t / speed，按\"相对回放起点的绝对时刻\"推进，\n长录音不会累积漂移。",
           "params": [
             {
@@ -10672,7 +10672,7 @@
           "signature": "InputSyncLink(master, slave, enable) → (ret)",
           "python_example": "op.InputSyncLink(master, slave, enable)  # → (ret)",
           "python_ctypes_name": "input_sync_link",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "主从同步：把 master 实例产生的输入事件**异步**投递到 slave 实例。\nenable 0 = 取消（master 必须确实是当前的 master，否则返回 0）；\nenable 1 = 建立/改绑。\n语义与限制（重要）：\n* 投递是**异步 + 可丢弃**的：输入是边沿事件，迟到的点击会点错地方，所以队列\n满（256 条）时丢事件而不是阻塞主实例。丢弃数可从 InputSyncStatus 读到。\n* master == slave 会被拒绝（自己投自己会自我放大）。\n* slave 的绑定模式决定投递效果：WIN 语义（normal/windows）可完整复现；\nDX 模式的移动需要目标进程内载入器，可能只复现按键。",
           "params": [
             {
@@ -10746,7 +10746,7 @@
           "signature": "InputSyncStatus() → (retjson)",
           "python_example": "op.InputSyncStatus()  # → (retjson)",
           "python_ctypes_name": "input_sync_status",
-          "in_ctypes_binding": false,
+          "in_ctypes_binding": true,
           "description": "主从链路诊断（本实例视角）：\n{\"ok\":1,\"enabled\":0/1,\"master\":,\"as_master_of\":N,\"as_slave_of\":N,\n\"async_dropped\":0,\"queue\":0}",
           "params": [
             {
@@ -12604,8 +12604,8 @@
           "name": "Hex2RGB",
           "signature": "Hex2RGB(color) → (r, g, b, ret)",
           "python_example": "op.Hex2RGB(color)  # → (r, g, b, ret)",
-          "python_ctypes_name": "hex2_rgb",
-          "in_ctypes_binding": false,
+          "python_ctypes_name": "hex2rgb",
+          "in_ctypes_binding": true,
           "description": "颜色串转 RGB 分量。支持 \"RRGGBB\"/\"AARRGGBB\"，可带 # / 0x 前缀，大小写不敏感；\n8 位时按 AARRGGBB 解释。解析失败各分量置 0 且 ret=0。",
           "params": [
             {
@@ -12690,8 +12690,8 @@
           "name": "Hex2ARGB",
           "signature": "Hex2ARGB(color) → (a, r, g, b, ret)",
           "python_example": "op.Hex2ARGB(color)  # → (a, r, g, b, ret)",
-          "python_ctypes_name": "hex2_argb",
-          "in_ctypes_binding": false,
+          "python_ctypes_name": "hex2argb",
+          "in_ctypes_binding": true,
           "description": "同 Hex2RGB，另输出 alpha；6 位输入 alpha=255。",
           "params": [
             {
@@ -12788,8 +12788,8 @@
           "name": "ARGB2Hex",
           "signature": "ARGB2Hex(a, r, g, b) → (ret)",
           "python_example": "op.ARGB2Hex(a, r, g, b)  # → (ret)",
-          "python_ctypes_name": "argb2_hex",
-          "in_ctypes_binding": false,
+          "python_ctypes_name": "argb2hex",
+          "in_ctypes_binding": true,
           "description": "RGB 分量转 \"AARRGGBB\"（大写）。分量越界按 0/255 截断；ret=1。",
           "params": [
             {
@@ -12874,8 +12874,8 @@
           "name": "RGB2HSV",
           "signature": "RGB2HSV(r, g, b) → (h, s, v, ret)",
           "python_example": "op.RGB2HSV(r, g, b)  # → (h, s, v, ret)",
-          "python_ctypes_name": "rgb2_hsv",
-          "in_ctypes_binding": false,
+          "python_ctypes_name": "rgb2hsv",
+          "in_ctypes_binding": true,
           "description": "RGB 转 HSV：H∈[0,360)，S/V∈[0,100]，均为 double。分量越界按 0/255 截断。",
           "params": [
             {
@@ -12984,8 +12984,8 @@
           "name": "Hex2HSV",
           "signature": "Hex2HSV(color) → (h, s, v, ret)",
           "python_example": "op.Hex2HSV(color)  # → (h, s, v, ret)",
-          "python_ctypes_name": "hex2_hsv",
-          "in_ctypes_binding": false,
+          "python_ctypes_name": "hex2hsv",
+          "in_ctypes_binding": true,
           "description": "颜色串转 HSV（颜色串格式同 Hex2RGB），输出口径同 RGB2HSV。",
           "params": [
             {
@@ -25961,7 +25961,7 @@
           "python_example": "op.GetWindowScale(hwnd)  # → (retstr)",
           "python_ctypes_name": "get_window_scale",
           "in_ctypes_binding": true,
-          "description": "取窗口实际缩放系数（1.00=96DPI 无缩放），两位小数字符串如 \"1.25\"；失败返回空串。\n优先 GetDpiForWindow（Per-Monitor V2 感知窗口），退化为窗口所在显示器 DPI。",
+          "description": "取窗口实际缩放系数（1.00=96DPI 无缩放），两位小数字符串如 \"1.25\"；失败返回空串。\nDPI 不感知的窗口按其**实际显示比例**返回（150% 系统上为 \"1.50\"，旧版恒为 \"1.00\"）：\n该值可把宿主视角的物理屏幕坐标换算成窗口客户区坐标（或直接用 ScreenToClient）。\nDPI 感知窗口仍按 GetDpiForWindow 计算，数值不变。",
           "params": [
             {
               "name": "hwnd",
@@ -25988,7 +25988,7 @@
           "returns_summary": "retstr: 窗口所在显示器缩放比（两位小数，如 1.50）；多屏混合 DPI 时与 GetDPI 系统级值可不同",
           "tool_schema": {
             "name": "GetWindowScale",
-            "description": "取窗口实际缩放系数（1.00=96DPI 无缩放），两位小数字符串如 \"1.25\"；失败返回空串。\n优先 GetDpiForWindow（Per-Monitor V2 感知窗口），退化为窗口所在显示器 DPI。",
+            "description": "取窗口实际缩放系数（1.00=96DPI 无缩放），两位小数字符串如 \"1.25\"；失败返回空串。\nDPI 不感知的窗口按其**实际显示比例**返回（150% 系统上为 \"1.50\"，旧版恒为 \"1.00\"）：\n该值可把宿主视角的物理屏幕坐标换算成窗口客户区坐标（或直接用 ScreenToClient）。\nDPI 感知窗口仍按 GetDpiForWindow 计算，数值不变。",
             "parameters": {
               "type": "object",
               "properties": {

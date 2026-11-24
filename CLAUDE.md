@@ -50,8 +50,9 @@ cmake -S . -B build/nmake-x64-Release -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Re
 ## 测试
 
 ```bash
-# 一键全量（PowerShell）：自动带工作目录
-powershell -File scripts/run_tests.ps1
+# 一键全量（PowerShell）：自动带工作目录。TimeoutSec 必须给足，全量要 10~12 分钟
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_tests.ps1 `
+    -Filter "-*WindowServiceTest.RunAppLaunchesShortcut" -TimeoutSec 2400
 
 # 手动跑（必须 cd 仓库根 + PATH 带 libop，否则 op_test 按 cwd 找不到 testdata）
 cd D:/AutoPro/op-master/op
@@ -61,7 +62,13 @@ build/nmake-x64-Release/tests/op_test.exe --gtest_filter="OcrTest.*"
 
 **禁忌**：测试进程运行期间**不要构建**（op_test.exe 占用 lib → LNK1104）。构建与测试串行。
 
-基线：全量 270 ran / 262 PASS / 6 SKIP / 2 FAILED（2 条为键鼠域环境项）。
+基线（2026-11-24）：全量 676 ran / **649 PASS / 26 SKIP / 1 FAILED**（另一次 647/28）。
+**PASS/SKIP 的分配会随 WGC 熔断时机抖动，判回归请盯 FAILED 数**（恒为 1）。
+唯一 FAILED 是 `HookCaptureTest.BindLoadsMissingGraphicsAndInputModulesOnDemand`（既有基线失败，
+素载体特有的钩子活性回环，非注入通路问题）；SKIP 全是环境项：
+dx 通道不可用 16 条、WGC 进程级熔断后 8~10 条、其余为缺素材/环境前置。
+另 `WindowServiceTest.RunAppLaunchesShortcut` 本机会崩（`0xC0000005`，基线同样崩），全量需排除。
+详见 `docs/2026-11/最终收尾_清理与验证_20261124.md`。
 
 ## 发布件同步（构建后必做）
 
@@ -94,6 +101,21 @@ build/nmake-x64-Release/tests/op_test.exe --gtest_filter="OcrTest.*"
   （表现为一堆 `path.empty()` 断言失败）。这不是代码问题。
   `$env:TEMP="$pwd\workbench\tmp"; $env:TMP=$env:TEMP`。
   详见 `docs/2026-11/环境诊断_原生进程TEMP写入失败_20261120.md`。
+- **全量回归必须给足超时（2026-11-24）**：全量 676 条要 **10~12 分钟**。
+  `scripts/run_tests.ps1` 曾硬编码 180s，会在中段 Kill 进程 → **无 gtest 汇总行 + 最后一条用例无结果**，
+  极易误诊成"某条用例挂死"（实测那条单独跑只需 8ms 且 PASS）。
+  现在用 `-TimeoutSec 2400`。另：该脚本是 **UTF-8 无 BOM**，`powershell.exe`(5.1) 按 GBK 解析，
+  中文会吃掉引号配对 —— 改动行数后可能直接 ParseError（**文件内容却是好的**）。
+  **改这个脚本后务必确认文件带 BOM**。
+- **WGC 用例在同进程内只有前 1~2 条能真跑（2026-11-24）**：Windows 10 上 WGC 背靠背建会话会派发
+  访问违例（kernelbase），`win10InitSehGuard` 兜住不崩进程但**置进程级熔断**，之后所有 WGC 请求
+  快速失败。这是**有意设计**。实测每条单独首跑 **10/10 全 PASS**，合起来却一片红 = 隔离问题。
+  已改为显式 SKIP 并写明原因；要逐条验证请**每条单独起进程**。
+  **注意本机是 Win10 1909（build 18363）**，`build < 22000` → 走 worker 路径，熔断真的会触发。
+- **dx 绑定失败先判环境再判代码（2026-11-24）**：本机 dx 通道整体不可用（安全软件按映像路径拦截），
+  `MouseKeyTest` 里绝大多数 dx 用例已有 `if (ret != 1) GTEST_SKIP()` 统一判据 ——
+  **新增 dx 用例请沿用它，别用硬 `ASSERT_EQ(ret, 1)`**，否则环境项会一直挂着红。
+  同理别把环境故障记到完整性预检等组件的头上（见 `window_state_test.cpp` 的 dx 前提探测写法）。
 - **新增 C API 必须检查导出名是裸名（2026-11-21）**：x64 的 C 导出靠 `include/op_c_api.h` 里的 `extern "C" {` 块，x86 靠 CMake 从该头生成的 `.def`。
 若把新声明追加在**头文件末尾（`#ifdef __cplusplus } #endif` 之后）**，x64 下会变成 **C++ 修饰名**：
   ```

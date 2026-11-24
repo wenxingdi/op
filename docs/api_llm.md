@@ -1,6 +1,6 @@
 # OP 插件 API 速查（LLM 上下文版）
 
-> 源：`include/libop.h` · 426 个接口 · 生成于 2026-11-23 14:30 · 由 scripts/gen_api_reference.py 生成（勿手改）
+> 源：`include/libop.h` · 426 个接口 · 生成于 2026-11-24 09:18 · 由 scripts/gen_api_reference.py 生成（勿手改）
 
 调用约定：出参不传入，聚成返回值元组（顺序 = signature 的 → 后列表）；坐标为物理像素，绑定窗口后为客户区坐标；字符串 UTF-16。
 
@@ -44,13 +44,13 @@
 - `EnumWindow(parent, title, class_name, filter) → (ret)` — 根据指定条件,枚举系统中符合条件的窗口
 - `EnumWindowByProcess(process_name, title, class_name, filter) → (ret)` — 根据指定进程以及其它条件,枚举系统中符合条件的窗口
 - `EnumProcess(name) → (ret)` — 根据指定进程名,枚举系统中符合条件的进程PID
-- `ClientToScreen(hwnd, x, y) → (ret)` — 把窗口坐标转换为屏幕坐标
+- `ClientToScreen(hwnd, x, y) → (ret)` — 把窗口客户区坐标转换为屏幕坐标。输入按「截帧口径」客户区坐标解释，输出为宿主视角的
 - `FindWindow(class_name, title) → (ret)` — 查找符合类名或者标题名的顶层可见窗口
 - `FindWindowByProcess(process_name, class_name, title) → (ret)` — 根据指定的进程名字，来查找可见窗口
 - `FindWindowByProcessId(process_id, class_name, title) → (ret)` — 根据指定的进程Id，来查找可见窗口
 - `FindWindowEx(parent, class_name, title) → (ret)` — 查找符合类名或者标题名的顶层可见窗口,如果指定了parent,则在parent的第一层子窗口中查找
-- `GetClientRect(hwnd) → (x1, y1, x2, y2, ret)` — 获取窗口客户区域在屏幕上的位置
-- `GetClientSize(hwnd) → (width, height, ret)` — 获取窗口客户区域的宽度和高度
+- `GetClientRect(hwnd) → (x1, y1, x2, y2, ret)` — 获取窗口客户区域在屏幕上的位置。坐标与尺寸均为「截帧口径」：目标窗口 DPI 不感知时
+- `GetClientSize(hwnd) → (width, height, ret)` — 获取窗口客户区域的宽度和高度（截帧口径，与 Capture 出的图尺寸相同）
 - `GetForegroundFocus() → (ret)` — 获取顶层活动窗口中具有输入焦点的窗口句柄
 - `GetForegroundWindow() → (ret)` — 获取顶层活动窗口,可以获取到按键自带插件无法获取到的句柄
 - `GetMousePointWindow() → (ret)` — 获取鼠标指向的可见窗口句柄
@@ -65,7 +65,7 @@
 - `GetWindowState(hwnd, flag) → (ret)` — 获取指定窗口的一些属性
 - `GetWindowTitle(hwnd) → (ret)` — 获取窗口的标题
 - `MoveWindow(hwnd, x, y) → (ret)` — 移动指定窗口到指定位置
-- `ScreenToClient(hwnd, x, y) → (ret)` — 把屏幕坐标转换为窗口坐标
+- `ScreenToClient(hwnd, x, y) → (ret)` — 把屏幕坐标转换为窗口客户区坐标。输入按宿主视角的屏幕坐标（DPI-aware 宿主下为物理
 - `SendPaste(hwnd) → (ret)` — 向指定窗口发送粘贴命令
 - `SetClientSize(hwnd, width, hight) → (ret)` — 设置窗口客户区域的宽度和高度
 - `SetWindowState(hwnd, flag) → (ret)` — 设置窗口的状态
