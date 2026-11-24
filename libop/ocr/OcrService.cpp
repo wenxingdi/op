@@ -242,6 +242,8 @@ int HttpOcrService::init_unlocked(const std::wstring &engine, const std::wstring
                                   const std::vector<std::string> &argv) {
     const std::string eng = _ws2string(engine);
     const std::string name = normalize_engine_name(eng);
+    if (eng == "v4" || eng == "V4")
+        cout << "SetOcrEngine: v4 fast tier removed, falling back to v6" << endl;
 #ifdef OP_ENABLE_HTTP_OCR_BACKEND
     std::string dummy;
     const bool is_http = (eng.rfind("http", 0) == 0) || try_resolve_ocr_backend(eng, dummy);
@@ -249,7 +251,7 @@ int HttpOcrService::init_unlocked(const std::wstring &engine, const std::wstring
         m_engine = std::make_unique<HttpOcrEngine>();
         cout << "HttpOcrService: selected HttpOcrEngine (remote)" << endl;
     } else {
-        // 空 / "onnx" / "builtin" / 未知 → 默认档（v6）；显式 "v4" → 快档
+        // 空 / "onnx" / "builtin" / "v4" / 未知 → 统一 v6 精度档
         m_engine = builtin_engine_unlocked(name, dllName, argv);
         if (!m_engine)
             return -1;
@@ -259,7 +261,7 @@ int HttpOcrService::init_unlocked(const std::wstring &engine, const std::wstring
 #else
     // HTTP 远程后端已隐藏：http(s):// 与旧远程别名（tesseract/paddle 系）显式拒绝
     // （dll_name 位同样检查——旧远程写法允许经 dll_name 传 URL），
-    // 其余按档位名归一化后选内置引擎（v6 默认 / v4 快档，B8 热切换）。
+    // 其余按档位名归一化后选内置引擎（统一 v6 精度档，v4 兼容回落）。
     if (is_removed_remote_backend(eng) || is_removed_remote_backend(_ws2string(dllName))) {
         cout << "SetOcrEngine: HTTP backend removed (built-in ONNX only, remote aliases "
                 "tesseract/paddle rejected); define OP_ENABLE_HTTP_OCR_BACKEND to restore"
@@ -282,9 +284,8 @@ int HttpOcrService::init_unlocked(const std::wstring &engine, const std::wstring
 }
 
 std::string HttpOcrService::normalize_engine_name(const std::string &eng) {
-    if (eng == "v4" || eng == "V4")
-        return "v4";
-    // 空 / "onnx" / "builtin" / "v6" / 未知 → 默认精度档
+    // 2026-11-24：V4 快档已移除。兼容旧脚本："v4"/"V4" 静默回落 v6。
+    // 空 / "onnx" / "builtin" / "v6" / 未知 → 默认精度档 v6。
     return "v6";
 }
 

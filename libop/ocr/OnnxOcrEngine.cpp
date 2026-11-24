@@ -426,14 +426,13 @@ public:
     Ort::SessionOptions sopts;
     std::unique_ptr<Ort::Session> det;
     std::unique_ptr<Ort::Session> rec;
-    std::unique_ptr<Ort::Session> cls; // 0/180 orientation, shared by v4/v6 tiers
+    std::unique_ptr<Ort::Session> cls; // 0/180 orientation fix
     std::vector<std::string> keys;
     std::vector<uint8_t> m_det, m_rec, m_cls, m_keys; // 持有模型 buffer 保证会话生命周期内有效
     CharSetRule m_rule;                        // --charset= 解析结果（空=全字典）
     std::vector<uint8_t> m_mask;               // 类别白名单（尺寸=keys+1；空=全放行）
     float oscale = 2.0f;                       // entry upscale factor for low-res small text (<=1 disables)
-    bool use_v4 = false;                       // B8: load V4 fast-tier resources instead of V6
-    bool cls_on = true;                        // --cls= 0/180 orientation fix (default: on for v6, off for v4)
+    bool cls_on = false;                       // --cls= 0/180 orientation fix (default: off, speed first)
     bool ok = false;
 
     // P3 profile (2026-11-21): per-section timings of the last OCR call.
@@ -761,14 +760,11 @@ public:
     }
 
     bool load() {
-        // B8: resource set selected by engine name ("v4" -> V4 fast tier, else V6 default)
-        const int id_det = use_v4 ? IDR_OCR_V4_DET : IDR_OCR_DET;
-        const int id_rec = use_v4 ? IDR_OCR_V4_REC : IDR_OCR_REC;
-        const int id_keys = use_v4 ? IDR_OCR_V4_KEYS : IDR_OCR_KEYS;
-        m_det = LoadRes(id_det);
-        m_rec = LoadRes(id_rec);
-        m_keys = LoadRes(id_keys);
-        m_cls = LoadRes(IDR_OCR_CLS); // shared by both tiers; absence is non-fatal
+        // 2026-11-24: V4 快档已移除，固定加载 PP-OCRv6 small 资源。
+        m_det = LoadRes(IDR_OCR_DET);
+        m_rec = LoadRes(IDR_OCR_REC);
+        m_keys = LoadRes(IDR_OCR_KEYS);
+        m_cls = LoadRes(IDR_OCR_CLS); // absence is non-fatal
         if (m_det.empty() || m_rec.empty()) {
             cout << "OnnxOcrEngine: model resource missing (det/rec)" << endl;
             return false;
@@ -789,7 +785,7 @@ public:
             }
         }
         build_mask();
-        cout << "OnnxOcrEngine: models loaded (" << (use_v4 ? "v4" : "v6") << "), keys=" << keys.size()
+        cout << "OnnxOcrEngine: models loaded (v6), keys=" << keys.size()
              << ", charset_mask=" << (m_mask.empty() ? 0 : int(m_mask.size()) - 1)
              << ", oscale=" << oscale << ", cls=" << (cls ? (cls_on ? "on" : "off") : "missing") << endl;
         ok = true;
@@ -810,7 +806,7 @@ ocr_profile_t OnnxOcrEngine::profile() const {
 int OnnxOcrEngine::init(const std::wstring &engine, const std::wstring &dllName,
                         const std::vector<std::string> &argv) {
     (void)dllName;
-    m_impl->use_v4 = (engine == L"v4"); // B8: engine name selects resource tier
+    (void)engine; // 档位名已在 OcrService 归一化；V4 快档 2026-11-24 移除，统一走 v6
     // P3: OP_OCR_PROFILE=0 turns off the per-section timers. Default on: the cost is
     // two steady_clock reads per OCR call (well under 1us), negligible next to det/rec.
     {
@@ -836,9 +832,9 @@ int OnnxOcrEngine::init(const std::wstring &engine, const std::wstring &dllName,
             cls_set = true;
         }
     }
-    // CLS 默认策略：v6 精度档常开（180 度翻转检测，批量推理开销 <5ms）；
-    // v4 快档默认关（坐标小图争分夺秒），需要时显式 --cls=1。
-    if (!cls_set) m_impl->cls_on = !m_impl->use_v4;
+    // CLS 默认关闭：0/180 度翻转检测额外一次批量推理，实测约 2ms；
+    // 有倒置文本的场景用 --cls=1 打开（此时才做翻转修正）。
+    if (!cls_set) m_impl->cls_on = false;
     // 线程策略：--threads=N>0 显式指定；--threads=0 不调用 Set（走 ORT 默认=全物理核）；
     // 缺省 min(4, 核) —— rec 单行 320x48 4 线程约 10-15ms，覆盖 9-13ms 目标且不失控。
     if (have_threads && threads > 0) {
@@ -993,7 +989,7 @@ int OnnxOcrEngine::ocr_common(byte *data, int w, int h, int bpp, vocr_rec_t &res
     }
     if (rois.empty()) return 0;
     // CLS 0/180 方向修正：批量一次 Run，180 度的 ROI 原地翻转后再进 rec。
-    // v4 快档默认关闭（见 init），失败静默忽略保持原图。
+    // 失败静默忽略保持原图。
     if (impl.cls_on) impl.cls_fix(rois);
     std::vector<std::string> texts;
     std::vector<float> confs;

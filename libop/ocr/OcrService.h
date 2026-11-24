@@ -160,7 +160,7 @@ private:
   std::map<std::string, std::shared_ptr<OcrEngine>> m_engine_cache;
   std::vector<std::string> m_cache_lru; // 最近使用顺序，末尾最新
   // 记录每个引擎实例是否已成功跑过至少一次推理（失败实例不占缓存名额，下次重建）。
-  // 归一化档位名：空/"onnx"/"builtin"/未知 -> "v6"（默认精度的档）；"v4" -> 快档。
+  // 归一化档位名：所有输入（含 "v4"/"V4" 兼容回落）-> "v6"（唯一精度档）。
   static std::string normalize_engine_name(const std::string &eng);
   // 缓存淘汰：调用方必须已持锁。保留 m_engine 引用的实例，其余按 LRU 淘汰到 cap 以内。
   void evict_cache_unlocked();
