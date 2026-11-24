@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """release_assets.py — 把稳定版本备份包上传为 wenxingdi/op 的 Release 附件。
 
-用法: python release_assets.py <备份目录>   （如 D:\\AutoPro\\op-master\\backup\\2026-09-28_stable）
-tag 自动取目录名日期部分：2026-09-28_stable → backup-2026-09-28（幂等，已存在的附件跳过）。
+用法: python release_assets.py <备份目录> [tag]
+tag 缺省取目录名日期部分：2026-09-28_stable → backup-2026-09-28（幂等，已存在的附件跳过）。
+同一天有多份备份时会撞 tag，此时用第二参数显式指定（如 backup-2026-10-16-2）。
 
 附件：op-repo.bundle / optool-repo.bundle / runtime-snapshot.zip / manifest.json / RESTORE.md
       （本地名「恢复说明.md」→ 上传名 RESTORE.md：Release 附件名不支持非 ASCII）
@@ -24,7 +25,10 @@ ASSETS = ["op-repo.bundle", "optool-repo.bundle", "runtime-snapshot.zip",
 # 三次都把「恢复说明.md」落成 default.md（`RESTORE-恢复说明.md` 更被吃成 `RESTORE-.md`）。
 # 故上传时改用 ASCII 名，文件内容不变。传完仍会校验，名不符则按 asset id 纠正。
 UPLOAD_NAME = {"恢复说明.md": "RESTORE.md"}
-RELEASE_TAG = f"backup-{BACKUP_DATE}"
+# 同一天可能有多份备份（_stable / _stable_2 / _stable_3），目录名日期相同会撞 tag。
+# 故支持第二位置参数显式覆盖，缺省仍按日期推导（保持既有调用不变）。
+TAG_OVERRIDE = sys.argv[2].strip() if len(sys.argv) > 2 else ""
+RELEASE_TAG = TAG_OVERRIDE or f"backup-{BACKUP_DATE}"
 
 
 def token():
@@ -82,7 +86,7 @@ def create_release(tok, commit):
     body = {
         "tag_name": RELEASE_TAG,
         "target_commitish": commit,
-        "name": f"稳定版本备份 backup-{BACKUP_DATE}（升级前基线）",
+        "name": f"稳定版本备份 {RELEASE_TAG}（升级前基线）",
         "body": (
             f"OP Master + OPTool 备份点 {BACKUP_DATE}。\n\n"
             "| 仓库 | commit |\n|---|---|\n"

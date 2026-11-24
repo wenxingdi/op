@@ -12,7 +12,8 @@
   - token 走 GCM，不落盘、不打印。
 
 用法:
-    python verify_assets.py <备份目录>
+    python verify_assets.py <备份目录> [tag]
+    （tag 缺省按目录名日期推导为 backup-YYYY-MM-DD；同一天多份备份时需显式指定）
 """
 import hashlib
 import json
@@ -82,7 +83,7 @@ def main():
     m = re.search(r"(\d{4}-\d{2}-\d{2})", bk.name)
     if not m:
         sys.exit("备份目录名须含日期，实际: %s" % bk.name)
-    tag = "backup-%s" % m.group(1)
+    tag = sys.argv[2].strip() if len(sys.argv) > 2 else "backup-%s" % m.group(1)
 
     tok = token()
     bad = 1
