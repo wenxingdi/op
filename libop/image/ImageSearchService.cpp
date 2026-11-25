@@ -253,6 +253,89 @@ void clear_global_file_dict(int idx) {
     std::unique_lock<std::shared_mutex> lock(g_file_dict_mutex);
     g_file_dicts[static_cast<size_t>(idx)].reset();
 }
+
+// Lanczos3 核（a=3）。带负旁瓣是必需的：双线性放大后再缩回 rec 输入高度，
+// 结果与直接双线性缩小**完全等价**——信息量一点没增加，白付成本。
+// 负旁瓣把边缘过冲出来，细笔画（犬的末点、寺的竖钩）才有可分辨的灰度梯度。
+inline float lanczos3_kernel(float x) {
+    const float a = 3.0f;
+    x = std::fabs(x);
+    if (x < 1e-6f) return 1.0f;
+    if (x >= a) return 0.0f;
+    const float px = 3.14159265358979323846f * x;
+    return (a * std::sin(px) * std::sin(px / a)) / (px * px);
+}
+
+// 分离式两趟 Lanczos3（水平 → 垂直）。Image 是 32bpp BGRA：前 3 通道加权，
+// alpha 统一写 255（二值化只看 BGR）。越界按边缘像素钳制，不做环绕。
+Image upscale_lanczos3(const Image &src, double k) {
+    Image out;
+    if (src.empty() || k <= 1.0) return out;
+    const int sw = src.width, sh = src.height;
+    const int dw = int(std::lround(sw * k)), dh = int(std::lround(sh * k));
+    if (dw <= 0 || dh <= 0 || dw > 16384 || dh > 16384) return out;
+
+    const float sx = float(dw) / float(sw);
+    const float sy = float(dh) / float(sh);
+    const int sup_x = int(std::ceil(3.0f * (std::max)(1.0f, sx)));
+    const int sup_y = int(std::ceil(3.0f * (std::max)(1.0f, sy)));
+
+    std::vector<float> mid(size_t(dw) * size_t(sh) * 4, 0.0f);
+    for (int y = 0; y < sh; ++y) {
+        const color_t *row = src.ptr<color_t>(y);
+        for (int x = 0; x < dw; ++x) {
+            const float cx = (x + 0.5f) / sx - 0.5f;
+            const int c0 = int(std::floor(cx));
+            float acc[4] = {0, 0, 0, 0};
+            float ws = 0;
+            for (int t = -sup_x; t <= sup_x; ++t) {
+                const float w = lanczos3_kernel(cx - float(c0 + t));
+                if (w == 0.0f) continue;
+                int px = c0 + t;
+                px = px < 0 ? 0 : (px >= sw ? sw - 1 : px);
+                const unsigned char *s = reinterpret_cast<const unsigned char *>(&row[px]);
+                acc[0] += s[0] * w;
+                acc[1] += s[1] * w;
+                acc[2] += s[2] * w;
+                acc[3] += s[3] * w;
+                ws += w;
+            }
+            float *o = &mid[(size_t(y) * size_t(dw) + size_t(x)) * 4];
+            const float inv = ws != 0.0f ? 1.0f / ws : 0.0f;
+            for (int c = 0; c < 4; ++c) o[c] = acc[c] * inv;
+        }
+    }
+
+    out.create(dw, dh);
+    for (int y = 0; y < dh; ++y) {
+        const float cy = (y + 0.5f) / sy - 0.5f;
+        const int c0 = int(std::floor(cy));
+        color_t *orow = out.ptr<color_t>(y);
+        for (int x = 0; x < dw; ++x) {
+            float acc[3] = {0, 0, 0};
+            float ws = 0;
+            for (int t = -sup_y; t <= sup_y; ++t) {
+                const float w = lanczos3_kernel(cy - float(c0 + t));
+                if (w == 0.0f) continue;
+                int py = c0 + t;
+                py = py < 0 ? 0 : (py >= sh ? sh - 1 : py);
+                const float *s = &mid[(size_t(py) * size_t(dw) + size_t(x)) * 4];
+                acc[0] += s[0] * w;
+                acc[1] += s[1] * w;
+                acc[2] += s[2] * w;
+                ws += w;
+            }
+            const float inv = ws != 0.0f ? 1.0f / ws : 0.0f;
+            unsigned char *d = reinterpret_cast<unsigned char *>(&orow[x]);
+            for (int c = 0; c < 3; ++c) {
+                const float v = acc[c] * inv;
+                d[c] = (unsigned char)(v < 0.0f ? 0 : (v > 255.0f ? 255 : int(std::lround(v))));
+            }
+            d[3] = 255;
+        }
+    }
+    return out;
+}
 } // namespace
 
 ImageSearchService::ImageSearchService() {
@@ -267,6 +350,13 @@ ImageSearchService::ImageSearchService() {
     _binary_isolated_threshold = 0;
     _binary_min_component_area = 2;
     _binary_bridge_gap = 1;
+    // OCR 预放大默认关闭：改变默认值等于改变所有既有调用的耗时与坐标口径，
+    // OCR 预放大默认 2x：九张任务面板截图实测命中从 29/56 提到 45/56，
+    // 形近字（沼→召、犬→大、选等→远寺、鲁→兽）与漏检行都被修掉；
+    // 代价是 det 输入面积 ×4，单次耗时约 +400ms（396ms → 820ms）。
+    // 高频轮询场景可用 --pre_scale=1 关回。
+    _ocr_pre_scale = 2.0;
+    _ocr_bridge = false;
 }
 
 ImageSearchService::~ImageSearchService() {
@@ -887,14 +977,23 @@ long ImageSearchService::ocr_auto_color(const wstring &color, double sim, wstrin
     out_str.clear();
     sim = clamp_sim_default(sim);
 
+    auto dict = ActiveDict(_curr_idx);
+    // 字库模板是按原分辨率制作的，放大后模板匹配会整体失效 —— 字库分支不预放大。
+    Image saved_src;
+    const double pre = dict ? 1.0 : begin_ocr_upscale(saved_src);
+
     // 1) 按颜色二值化 -> _binary（WORD_COLOR=1 命中文字，WORD_BKCOLOR=0 背景）。
     //    用 str2binaryfbk 而非裸 str2colordfs+bgr2binary：它支持 "@背景色" 格式
     //    （分流到 bgr2binarybk，反白字/白字深底场景），与字库制作同一入口。
     //    无显式偏色段时容差用 kOcrImplicitColorDiff（0x60 包全抗锯齿笔画），不用 sim 推导——
     //    中间容差带（只包半个边缘）比零容差更糟，实测结论。
     str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);
+    // 免字库分支补形态学桥接：颜色二值化会把抗锯齿过渡像素判成背景，细笔画被切成
+    // 断续的点（实测容差 0x02 时识别直接崩成乱码）。桥接把 1 像素的缝接回去。
+    // 只桥接、不去噪（mode=4）：去噪会把抗锯齿边缘的孤立浅色像素删掉，笔画变细反而更难认。
+    if (!dict && _ocr_bridge) ApplyBinaryPreprocess(4);
+    end_ocr_upscale(saved_src);
 
-    auto dict = ActiveDict(_curr_idx);
     if (dict) {
         // 字库兜底：在颜色二值化结果上做字库 OCR
         return ImageSearchAlgorithms::Ocr(*dict, sim, out_str);
@@ -910,6 +1009,7 @@ long ImageSearchService::ocr_auto_color(const wstring &color, double sim, wstrin
     engine_ocr_filtered(buf.data(), w, h, sim, res);
     for (auto &it : res)
         out_str += it.text;
+    (void)pre; // 纯文本出口没有坐标，无需除回
     return 0;
 }
 
@@ -917,12 +1017,17 @@ long ImageSearchService::ocr_auto_color_line(const wstring &color, double sim, w
     out_str.clear();
     sim = clamp_sim_default(sim);
 
+    auto dict = ActiveDict(_curr_idx);
+    Image saved_src;
+    const double pre = dict ? 1.0 : begin_ocr_upscale(saved_src);
+
     // 1) 按颜色二值化 -> _binary（命中文字=1，背景=0）。
     //    str2binaryfbk：支持 "@背景色" 反白格式，与字库制作同一入口。
     //    无显式偏色段时容差用 kOcrImplicitColorDiff，理由同 ocr_auto_color。
     str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);
+    if (!dict && _ocr_bridge) ApplyBinaryPreprocess(4);
+    end_ocr_upscale(saved_src);
 
-    auto dict = ActiveDict(_curr_idx);
     if (dict) {
         // 字库兜底：在颜色二值化结果上做字库 OCR
         return ImageSearchAlgorithms::Ocr(*dict, sim, out_str);
@@ -946,7 +1051,10 @@ long ImageSearchService::ocr_auto_color_line(const wstring &color, double sim, w
     }
     // 按行间空隙切段：行内字符纵向像素连续（或 <=2px 微隙），行间留白通常 >=3px；
     // 段高 < kMinH 视为噪点残留，丢弃。
-    const int kMaxInLineGap = 3, kMinSegH = 5;
+    // 阈值按预放大倍率同比放大：否则 2x 后原图 2px 的行内微隙变成 4px，会把一行
+    // 从中间切开（表现为每行只识别出前半句）。
+    const int kMaxInLineGap = (std::max)(3, int(std::lround(3.0 * pre)));
+    const int kMinSegH = (std::max)(5, int(std::lround(5.0 * pre)));
     std::vector<std::pair<int, int>> segs; // (y0, y1) 含
     for (int y = 0; y < h;) {
         if (row[size_t(y)] == 0) { ++y; continue; }
@@ -979,12 +1087,17 @@ long ImageSearchService::ocr_auto_color_ex(const wstring &color, double sim, wst
     out_str.clear();
     sim = clamp_sim_default(sim);
 
+    auto dict = ActiveDict(_curr_idx);
+    Image saved_src;
+    const double pre = dict ? 1.0 : begin_ocr_upscale(saved_src);
+
     // 1) 按颜色二值化 -> _binary。
     //    str2binaryfbk：支持 "@背景色" 反白格式，与字库制作同一入口。
     //    无显式偏色段时容差用 kOcrImplicitColorDiff，理由同 ocr_auto_color。
     str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);
+    if (!dict && _ocr_bridge) ApplyBinaryPreprocess(4);
+    end_ocr_upscale(saved_src);
 
-    auto dict = ActiveDict(_curr_idx);
     if (dict) {
         // 字库兜底：沿用 OcrEx 的 "x,y,text|..." 格式
         return ImageSearchAlgorithms::OcrEx(*dict, sim, out_str);
@@ -998,6 +1111,11 @@ long ImageSearchService::ocr_auto_color_ex(const wstring &color, double sim, wst
     binary_to_white_on_black_bgra(_binary.data(), w, h, buf);
     vocr_rec_t res;
     engine_ocr_filtered(buf.data(), w, h, sim, res);
+    // 除回原图尺度：后续 _x1/_y1 偏移量是原图坐标，不除回会整体放大 pre 倍。
+    if (pre > 1.0) {
+        vocr_line_ext_t no_ext;
+        scale_ocr_result(res, no_ext, 1.0 / pre);
+    }
     // det 结果按阅读序稳定排序（上→下、同行左→右），输出顺序确定
     std::stable_sort(res.begin(), res.end(), [](const auto &a, const auto &b) {
         if (a.left_top.y != b.left_top.y)
@@ -1211,9 +1329,16 @@ void ImageSearchService::str2pointbinaryfbk(const wstring &color, double sim) {
     ApplyBinaryPreprocess();
 }
 
-void ImageSearchService::ApplyBinaryPreprocess() {
-    if (_binary_preprocess_mode <= 0 || _binary.empty())
+void ImageSearchService::ApplyBinaryPreprocess(int mode_override) {
+    const long mode = mode_override >= 0 ? mode_override : _binary_preprocess_mode;
+    if (mode <= 0 || _binary.empty())
         return;
+    // mode=4 = 仅桥接，不做任何删除。OCR 免字库路径固定用它：抗锯齿边缘的浅色像素
+    // 天然就是"孤立点"，mode>=1 的去噪会把细笔画整条削细——实测把九张图的命中数
+    // 从 43/56 打到 1/56。桥接只加不减，不会制造这种损伤。
+    const bool do_isolated = (mode == 1 || mode == 2 || mode == 3);
+    const bool do_component = (mode == 2 || mode == 3);
+    const bool do_bridge = (mode >= 3);
 
     auto count_neighbors = [](const ImageBin &image, int x, int y) {
         int count = 0;
@@ -1232,7 +1357,7 @@ void ImageSearchService::ApplyBinaryPreprocess() {
         return count;
     };
 
-    if (_binary_preprocess_mode >= 1) {
+    if (do_isolated) {
         ImageBin source = _binary;
         for (int y = 0; y < source.height; ++y) {
             for (int x = 0; x < source.width; ++x) {
@@ -1244,7 +1369,7 @@ void ImageSearchService::ApplyBinaryPreprocess() {
         }
     }
 
-    if (_binary_preprocess_mode >= 2 && _binary_min_component_area > 1) {
+    if (do_component && _binary_min_component_area > 1) {
         ImageBin visited;
         visited.create(_binary.width, _binary.height);
         std::fill(visited.begin(), visited.end(), 0);
@@ -1291,7 +1416,7 @@ void ImageSearchService::ApplyBinaryPreprocess() {
         }
     }
 
-    if (_binary_preprocess_mode >= 3 && _binary_bridge_gap > 0) {
+    if (do_bridge && _binary_bridge_gap > 0) {
         ImageBin source = _binary;
         for (int y = 0; y < source.height; ++y) {
             for (int x = 0; x < source.width; ++x) {
@@ -1305,6 +1430,50 @@ void ImageSearchService::ApplyBinaryPreprocess() {
                 if (bridge_x || bridge_y)
                     _binary.at(y, x) = WORD_COLOR;
             }
+        }
+    }
+}
+
+// 预放大 _src 供二值化使用。返回实际倍率（1.0 = 未放大），由调用方在识别结束后
+// 用 scale_ocr_result 把坐标除回。成对调用，否则 _src 会停留在放大状态。
+double ImageSearchService::begin_ocr_upscale(Image &saved_src) {
+    if (_ocr_pre_scale <= 1.0 || _src.empty()) return 1.0;
+    const int max_side = (std::max)(_src.width, _src.height);
+    if (max_side <= 0) return 1.0;
+    // det 入口会把整图压到 max side <= 960，放大超过这个尺度检测端反而要再缩回去；
+    // 1280 是"det 已经吃满 + rec 还能拿到放大 ROI"的折中点。
+    const double room = 1280.0 / double(max_side);
+    const double k = (std::min)(_ocr_pre_scale, room);
+    // 不足 1.25 倍时字形量化步长没变（18px 的字放大 1.2 倍还是 21px，抗锯齿边缘
+    // 依然落在同一处分界），收益抵不过整图重采样的耗时。
+    if (k < 1.25) return 1.0;
+    Image up = upscale_lanczos3(_src, k);
+    if (up.empty()) return 1.0;
+    saved_src = std::move(_src);
+    _src = std::move(up);
+    return k;
+}
+
+void ImageSearchService::end_ocr_upscale(Image &saved_src) {
+    if (saved_src.empty()) return;
+    _src = std::move(saved_src);
+}
+
+void ImageSearchService::scale_ocr_result(vocr_rec_t &res, vocr_line_ext_t &ext, double inv) const {
+    if (inv <= 0.0 || inv == 1.0) return;
+    for (auto &r : res) {
+        r.left_top.x = int(std::lround(double(r.left_top.x) * inv));
+        r.left_top.y = int(std::lround(double(r.left_top.y) * inv));
+        r.right_bottom.x = int(std::lround(double(r.right_bottom.x) * inv));
+        r.right_bottom.y = int(std::lround(double(r.right_bottom.y) * inv));
+    }
+    for (auto &line : ext) {
+        for (auto &c : line.chars) {
+            c.x1 = int(std::lround(double(c.x1) * inv));
+            c.x2 = int(std::lround(double(c.x2) * inv));
+            // 2x 空间相邻两字的边界除回后会撞到同一像素，必须保住 [x1, x2) 半开区间，
+            // 否则下游"A1 chars 在框内 / x2 > x1"的契约会被打破。
+            if (c.x2 <= c.x1) c.x2 = c.x1 + 1;
         }
     }
 }
@@ -1470,9 +1639,14 @@ long ImageSearchService::ocr_auto_color_ex2(const wstring &color, double sim, st
     }
     sim = clamp_sim_default(sim);
 
-    str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);
-
     auto dict = ActiveDict(_curr_idx);
+    Image saved_src;
+    const double pre = dict ? 1.0 : begin_ocr_upscale(saved_src);
+
+    str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);
+    if (!dict && _ocr_bridge) ApplyBinaryPreprocess(4);
+    end_ocr_upscale(saved_src);
+
     if (dict) {
         std::wstring legacy;
         long ct = ImageSearchAlgorithms::OcrEx(*dict, sim, legacy);
@@ -1487,6 +1661,11 @@ long ImageSearchService::ocr_auto_color_ex2(const wstring &color, double sim, st
     vocr_rec_t res;
     vocr_line_ext_t ext;
     engine_ocr_filtered_ext(buf.data(), w, h, sim, res, ext);
+    // 坐标除回原图尺度后再排序/裁剪，否则 box 与 chars 会整体放大 pre 倍，
+    // 且 build_ocr_json 的 clip 边界（原图宽高）会把它们全部裁到右下角。
+    if (pre > 1.0) scale_ocr_result(res, ext, 1.0 / pre);
+    const int clip_w = pre > 1.0 ? int(std::lround(double(w) / pre)) : w;
+    const int clip_h = pre > 1.0 ? int(std::lround(double(h) / pre)) : h;
     // 与 ocr_auto_color_ex 同一阅读序排序，且 ext 同步换位以保持一一对应
     std::vector<size_t> order(res.size());
     for (size_t i = 0; i < order.size(); ++i) order[i] = i;
@@ -1505,7 +1684,7 @@ long ImageSearchService::ocr_auto_color_ex2(const wstring &color, double sim, st
     // 二值化路径的 is_partial 无 det 框贴边语义参考，统一 false；partial_chars 由引擎给。
     // 注意：这里不能传 force_full_width_chars=true——引擎已经给出真实逐字 x，
     // 只有字库路径/旋转降级才需要压平成整行跨度。
-    return build_ocr_json(sorted, sorted_ext, _x1 + _dx, _y1 + _dy, w, h, /*bbox_known=*/true,
+    return build_ocr_json(sorted, sorted_ext, _x1 + _dx, _y1 + _dy, clip_w, clip_h, /*bbox_known=*/true,
                           /*force_full_width_chars=*/false, out_json);
 }
 

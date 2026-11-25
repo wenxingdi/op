@@ -262,6 +262,13 @@ class ImageSearchService : public ImageSearchAlgorithms {
 
     void str2binaryfbk(const wstring &color);
 
+    // OCR 颜色路径预放大倍率：<=1 关闭，建议 2~3。大图会被内部上限自动降级。
+    void SetOcrPreScale(double k) { _ocr_pre_scale = (k > 1.0 && k <= 4.0) ? k : 1.0; }
+    double GetOcrPreScale() const { return _ocr_pre_scale; }
+    // OCR 颜色路径桥接开关（默认关，需配合 SetOcrPreScale>1 才安全）。
+    void SetOcrBridge(bool on) { _ocr_bridge = on; }
+    bool GetOcrBridge() const { return _ocr_bridge; }
+
   private:
     // SetDict/SetMemDict 写入全局字库槽；AddDict/ClearDict 写入对象私有槽。
     Dictionary _private_dicts[_max_dict];
@@ -272,6 +279,14 @@ class ImageSearchService : public ImageSearchAlgorithms {
     long _binary_isolated_threshold;
     long _binary_min_component_area;
     long _binary_bridge_gap;
+    // OCR 颜色路径的预放大倍率：在**二值化之前**放大 _src，识别完把坐标除回。
+    // 1.0 = 关闭（历史行为）。二值化是不可逆的阈值判决，先二值化再放大补不回
+    // 被判成背景的抗锯齿边缘，所以放大必须发生在 str2binaryfbk 之前。
+    // 只作用于免字库分支：字库模板按原尺寸制作，放大后模板匹配会失效。
+    double _ocr_pre_scale;
+    // OCR 颜色路径是否启用单像素桥接（补断笔）。默认关：1px 缝在原尺度上会把相邻
+    // 笔画/相邻字粘成一团（实测命中数从 26/30 掉到 1/56），必须先放大再考虑桥接。
+    bool _ocr_bridge;
 
   public:
     // 当前目录
@@ -288,7 +303,15 @@ class ImageSearchService : public ImageSearchAlgorithms {
 void str2binaryfbk(const wstring &color, double sim, int implicit_df_override = -1);
     void str2pointbinaryfbk(const wstring &color);
     void str2pointbinaryfbk(const wstring &color, double sim);
-    void ApplyBinaryPreprocess();
+    // mode_override >= 0 时临时用该模式（OCR 颜色路径固定传 3：去孤立点 + 去小块 + 桥接断笔），
+    // 负值走成员 _binary_preprocess_mode（字库路径的既有行为）。
+    void ApplyBinaryPreprocess(int mode_override = -1);
+    // OCR 预放大：放大 _src 供二值化，返回实际倍率（1.0 = 未放大）。
+    // 调用方必须成对调用 end_ocr_upscale 恢复 _src，否则后续 FindPic 等会拿到放大图。
+    double begin_ocr_upscale(Image &saved_src);
+    void end_ocr_upscale(Image &saved_src);
+    // 把识别结果的坐标从放大空间除回原图空间（res 的框 + ext 的逐字 x）。
+    void scale_ocr_result(vocr_rec_t &res, vocr_line_ext_t &ext, double inv) const;
     long FetchWordsFromBinary(const wstring &words, const std::vector<rect_t> &rects, std::wstring &out_str);
     std::shared_ptr<Dictionary> ActiveDict(int idx);
     Dictionary &MutablePrivateDict(int idx);

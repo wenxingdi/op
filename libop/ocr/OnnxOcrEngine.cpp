@@ -899,6 +899,9 @@ int OnnxOcrEngine::ocr_common(byte *data, int w, int h, int bpp, vocr_rec_t &res
     // 坐标最后统一除回 up，调用方看到的仍是原图像素坐标。
     // 已二值化的输入（指定颜色路径喂入的纯白纯黑图）不放大：灰度细节已不存在，
     // 放大只白花 4 倍 det 成本。按 >2% 非黑白像素判定为非二值图。
+    // 颜色路径需要的"二值化前放大"不在这一层做——一旦二值化完成，抗锯齿边缘已经
+    // 被判成背景，再放大补不回来。那一步由 ImageSearchService 的 pre_scale
+    // （--pre_scale=，默认 2x）在 str2binaryfbk 之前完成。
     const float up = impl.oscale;
     const int ow = w, oh = h;
     bool binarized = false;
