@@ -148,6 +148,45 @@ void planar_rgb_imagenet(const BGR &s, std::vector<float> &dst) {
     }
 }
 
+// 判断紧贴段内是否存在"内部墨迹间断"：单行段的上下边界就是墨迹边界（上游水平
+// 投影分段已紧贴墨迹），若段内出现 >=2 连续空行，说明竖直方向上还叠着别的行
+// （多行内容）。1px 空洞视为二值化噪声桥接。行判据用"有/无墨迹"（>2% 行宽），
+// 不用 20% 阈值——窄行在宽图里大部分字行达不到 20%，会把单行误判成多行。
+// 背景色用 64 档粗量化直方图众数估计（与 ink_extent 同一套判据）。
+bool has_internal_ink_gap(const BGR &img) {
+    if (img.w <= 0 || img.h <= 0) return false;
+    auto bin_of = [](const uint8_t *p) {
+        return (((p[0] >> 4) & 3) << 4) | (((p[1] >> 4) & 3) << 2) | ((p[2] >> 4) & 3);
+    };
+    std::vector<int> histogram(64, 0);
+    for (int y = 0; y < img.h; y += 2)
+        for (int x = 0; x < img.w; x += 2) histogram[bin_of(img.at(y, x)) & 63]++;
+    const int bg_bin = int(std::max_element(histogram.begin(), histogram.end()) - histogram.begin());
+    const int min_ink = (std::max)(1, img.w / 50); // >2% 行宽视为有墨
+    auto row_ink = [&](int y) {
+        int ink = 0;
+        for (int x = 0; x < img.w; ++x)
+            if ((bin_of(img.at(y, x)) & 63) != bg_bin) ++ink;
+        return ink;
+    };
+    int first = -1, last = -1;
+    for (int y = 0; y < img.h; ++y)
+        if (row_ink(y) >= min_ink) {
+            if (first < 0) first = y;
+            last = y;
+        }
+    if (first < 0 || last - first < 2) return false;
+    int gap = 0;
+    for (int y = first; y <= last; ++y) {
+        if (row_ink(y) < min_ink) {
+            if (++gap >= 2) return true;
+        } else {
+            gap = 0;
+        }
+    }
+    return false;
+}
+
 // 运行一次 ONNX 推理（单输入单输出，输入由 shape 描述）。
 // ms（可选出参，P3）：累加本次 Run 的墙钟耗时；nullptr 不计时（零开销）。
 // failed（可选出参）：Run 抛异常或被吞时 +1，供 profile 暴露"静默失败"次数。
@@ -446,12 +485,25 @@ public:
     // 对单张 BGR 图直接做 rec（跳过检测）：缩放+归一化+CTC 解码。
     // 返回 false = 推理失败；txt 为 UTF-8（可为空）。
     // spans（可选出参）：逐字跨度（P0），t→x 已按该图自己的 tw 映射为 ROI 内像素坐标。
+    //
+    // P2 动态长宽比（2026-11-25，与批量路径 rec_images 对齐）：宽度不再固定 320，
+    //   而是按本图长宽比动态决定 RW = clamp(align32(ceil(48*ratio)), 320, 960)。
+    //   原实现固定 320（6.67:1），超过 ~40 字的长行会被横向压扁、字宽趋于 1~2px，
+    //   识别精度显著下降。rec 模型是动态 T 输入，ONNX 原生支持，无需重新导出。
+    //   短行（ratio <= 6.67）RW 仍为 320，行为与改动前完全一致。
     bool rec_image(const BGR &roi, std::string &txt, float &conf,
                    std::vector<CharSpan> *spans = nullptr) {
-        const int RH = 48, RW = 320;
+        const int RH = 48;
+        const int RW_MIN = 320;  // 基线宽度（6.67:1），短行不变
+        const int RW_MAX = 960;  // 与 det 的 960 限制对齐
+        const int RW_ALIGN = 32;
         float ratio = float(roi.w) / roi.h;
-        int tw = int(std::ceil(48.0f * ratio));
+        const int want = int(std::ceil(48.0f * ratio));
+        int RW = std::max(RW_MIN, ((want + RW_ALIGN - 1) / RW_ALIGN) * RW_ALIGN);
+        if (RW > RW_MAX) RW = RW_MAX;
+        int tw = want;
         if (tw > RW) tw = RW;
+        m_prof.rec_width = RW; // 单行路径同样暴露实际生效宽度（profile 口径与批量一致）
         BGR rs = resize_bilinear(roi, RH, tw);
         std::vector<float> rin(size_t(3) * RH * RW, 0.0f);
         for (int c = 0; c < 3; ++c) {
@@ -1089,7 +1141,7 @@ int OnnxOcrEngine::ocr_line_common(byte *data, int w, int h, int bpp, vocr_rec_t
     const auto t_entry = std::chrono::steady_clock::now();
     impl.m_prof = ocr_profile_t{};
     impl.m_prof.oscale = impl.oscale;
-    impl.m_prof.rec_width = 320; // single-line path still uses the fixed 320 baseline
+    impl.m_prof.rec_width = 0; // rec_image 内部会回填实际生效的动态宽度
     struct ProfileGuard {
         Impl &impl;
         std::chrono::steady_clock::time_point t_entry;
@@ -1114,6 +1166,17 @@ int OnnxOcrEngine::ocr_line_common(byte *data, int w, int h, int bpp, vocr_rec_t
     if (size_t(w) * h * bpp > 64ULL * 1024 * 1024) return -2;
 
     BGR img = to_bgr(data, w, h, bpp);
+
+    // 多行内容自动分流：rec 是单行识别器，整幅多行图被压到 48px 高必然糊成一条
+    // 条纹带（220x236 的 17 行窗口 -> 每行约 2.8px，远低于训练分辨率），输出注定
+    // 不可读。判据用"紧贴段内是否有竖直墨迹间断"（>=2 连续空行）：单行段的墨迹
+    // 上下连续，出现内部空行即说明叠了多行。误分流代价仅多一次 det（数 ms），
+    // 漏分流则结果必然错误，故判据取宽。
+    if (img.h >= 40 && has_internal_ink_gap(img)) {
+        cout << "OnnxOcrEngine: ocr_line input looks multi-line (" << img.w << "x" << img.h
+             << "), routing to det path" << endl;
+        return ocr_common(data, w, h, bpp, result, ext_out);
+    }
 
     // 倾斜校正（PCA 主轴）：与 ocr() 的单行 rec 分支一致——仅扁矩形才计算 PCA。
     BGR roi = img;

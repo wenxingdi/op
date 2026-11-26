@@ -1796,6 +1796,18 @@ int OP_CALL OpOcrWarmup(op_handle handle) {
     return call_ret(handle, [](op::Op &op, long *ret) { op.OcrWarmup(ret); });
 }
 
+int OP_CALL OpSetOcrMemoEnabled(op_handle handle, int enable) {
+    return call_ret(handle, [enable](op::Op &op, long *ret) { op.SetOcrMemoEnabled(enable, ret); });
+}
+
+int OP_CALL OpGetOcrMemoHits(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.GetOcrMemoHits(ret); });
+}
+
+int OP_CALL OpGetOcrMemoMisses(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.GetOcrMemoMisses(ret); });
+}
+
 int OP_CALL OpSetYoloEngine(op_handle handle, const wchar_t *path_of_engine, const wchar_t *dll_name,
                             const wchar_t *argv) {
     return call_int(handle, [&](op::Op &op) {
@@ -2317,6 +2329,18 @@ const wchar_t *OP_CALL OpVirtualAllocEx(op_handle handle, intptr_t hwnd, const w
     return call_string(handle, [&](op::Op &op, std::wstring &ret) {
         op.VirtualAllocEx(static_cast<LONG_PTR>(hwnd), safe_text(address), size, alloc_type, protect, ret);
     });
+}
+
+int OP_CALL OpSetMemHandleCacheEnabled(op_handle handle, int enable) {
+    return call_ret(handle, [enable](op::Op &op, long *ret) { op.SetMemHandleCacheEnabled(enable, ret); });
+}
+
+int OP_CALL OpGetMemHandleCacheHits(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.GetMemHandleCacheHits(ret); });
+}
+
+int OP_CALL OpGetMemHandleCacheMisses(op_handle handle) {
+    return call_ret(handle, [](op::Op &op, long *ret) { op.GetMemHandleCacheMisses(ret); });
 }
 
 const wchar_t *OP_CALL OpFindColorBlockExS(op_handle handle, int x1, int y1, int x2, int y2, const wchar_t *color,

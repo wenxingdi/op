@@ -8,8 +8,8 @@
 // - 超时统一四阶段（解析/连接/发送/接收）取同一值，钳 1000-300000ms。
 // - 非 2xx 不算传输失败：ok=false 但 response 带回响应体（大模型错误 JSON 可见）。
 //
-// 注意：与 network/HttpClient.h/.cpp（旧 OCR/YOLO 远程后端，ANSI 版，已移出构建）
-// 完全无关，本文件为独立新实现。
+// 注意：旧 OCR/YOLO 远程后端的 ANSI HttpClient.h/.cpp 已随 2026-11-26 清理删除，
+// 本文件为独立新实现（宽字符 WinHTTP），互无关联。
 
 #include <string>
 

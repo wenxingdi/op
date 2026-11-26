@@ -193,3 +193,16 @@ void op::Op::VirtualAllocEx(LONG_PTR hwnd, const wchar_t *address, long size, lo
                                   static_cast<uint32_t>(alloc_type), static_cast<uint32_t>(protect));
     });
 }
+
+void op::Op::SetMemHandleCacheEnabled(long enable, long *ret) {
+    internal::set_result(ret, 1L);
+    op::ProcessMemory::SetHandleCacheEnabled(enable != 0);
+}
+
+void op::Op::GetMemHandleCacheHits(long *ret) {
+    internal::set_result(ret, op::ProcessMemory::HandleCacheHits());
+}
+
+void op::Op::GetMemHandleCacheMisses(long *ret) {
+    internal::set_result(ret, op::ProcessMemory::HandleCacheMisses());
+}

@@ -85,7 +85,7 @@ struct yolo_obb_t {
 using vyolo_obb_t = std::vector<yolo_obb_t>;
 
 // YOLO 引擎抽象。当前仅进程内 ONNX 实现（OnnxYoloEngine）；
-// HTTP 远程实现（HttpYoloEngine）已隐藏不入构建，见 YoloDetector.h 顶部说明。
+// HTTP 远程实现已随 2026-11-26 清理整体删除（原死代码不入构建）。
 // init 语义与 SetYoloEngine(engine, dllName, argv) 对齐；各 detect/classify/segment
 // 输入像素 buffer（bpp=1/3/4），conf/iou <=0 时用引擎默认值。
 class YoloEngine {

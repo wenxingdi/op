@@ -8,9 +8,14 @@
 // 共享 onnx 分支的 CMake 不链系统库，按需 pragma 补链（同 OpCrypto 先例）。
 #pragma comment(lib, "psapi.lib")
 
+#include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstring>
 #include <cwchar>
 #include <cwctype>
+#include <map>
+#include <mutex>
 #include <sstream>
 #include <vector>
 
@@ -91,6 +96,45 @@ bool address_has_operator(const wstring &address) {
     return false;
 }
 
+// ===== 远程句柄缓存（提效 4，2026-11-26）=====
+// 背景：ProcessMemory 实例是每次 API 调用临时构造的（OpMemory.cpp 的 memory_call），
+// 而每次 prepare_process 都走 BlackBone Attach = Detach(CloseHandle) + OpenProcess。
+// 汇编循环里连续 patch（上千次 ReadInt/WriteInt）就有上千次句柄往返。
+// 做法：全局缓存 pid → 常驻 Process（OpenProcess 句柄），默认关、显式开启；
+//   校验 = 10s 空闲 TTL + GetProcessTimes 创建时间比对（防 pid 复用指向新进程）；
+//   BlackBone ProcessModules::GetModule 自带缓存校验+重枚举，长驻不会拿到过期模块表。
+// 安全：Disable/Clear 时统一 Detach 释放；容量 8 个 + 最久未用淘汰，句柄泄漏面有界。
+namespace {
+
+struct MemHandleCacheEntry {
+    std::shared_ptr<blackbone::Process> proc;
+    FILETIME create_time{}; // GetProcessTimes 的 creation time
+    std::chrono::steady_clock::time_point last_use{};
+};
+
+std::mutex g_mem_handle_cache_mutex;
+std::map<DWORD, MemHandleCacheEntry> g_mem_handle_cache;
+std::atomic<bool> g_mem_handle_cache_enabled{false};
+std::atomic<long> g_mem_handle_cache_hits{0};
+std::atomic<long> g_mem_handle_cache_misses{0};
+constexpr std::chrono::seconds kMemHandleCacheTtl{10};
+constexpr size_t kMemHandleCacheMaxEntries = 8;
+
+bool read_creation_time(blackbone::Process &proc, FILETIME *ft) {
+    if (!ft)
+        return false;
+    FILETIME exit_time{}, kernel_time{}, user_time{};
+    return GetProcessTimes(proc.core().handle(), ft, &exit_time, &kernel_time, &user_time) != FALSE;
+}
+
+void detach_and_erase(std::map<DWORD, MemHandleCacheEntry>::iterator it) {
+    if (it->second.proc)
+        it->second.proc->Detach();
+    g_mem_handle_cache.erase(it);
+}
+
+} // namespace
+
 size_t parse_hex_word(const wstring &num) {
     if (num.empty())
         return 0;
@@ -137,6 +181,81 @@ wstring toUpperHex(uintptr_t value) {
 }
 
 } // namespace
+
+void ProcessMemory::SetHandleCacheEnabled(bool on) {
+    g_mem_handle_cache_enabled.store(on, std::memory_order_release);
+    if (!on)
+        ClearHandleCache();
+}
+
+bool ProcessMemory::HandleCacheEnabled() {
+    return g_mem_handle_cache_enabled.load(std::memory_order_acquire);
+}
+
+long ProcessMemory::HandleCacheHits() {
+    return g_mem_handle_cache_hits.load(std::memory_order_relaxed);
+}
+
+long ProcessMemory::HandleCacheMisses() {
+    return g_mem_handle_cache_misses.load(std::memory_order_relaxed);
+}
+
+void ProcessMemory::ClearHandleCache() {
+    std::lock_guard<std::mutex> lk(g_mem_handle_cache_mutex);
+    for (auto it = g_mem_handle_cache.begin(); it != g_mem_handle_cache.end();) {
+        if (it->second.proc)
+            it->second.proc->Detach();
+        it = g_mem_handle_cache.erase(it);
+    }
+}
+
+// 命中返回缓存的 Process；未命中/过期/pid 复用时重新 Attach 并灌入缓存；
+// OpenProcess 失败返回 nullptr（调用方回落到逐次 Attach 旧路径，行为不变）。
+std::shared_ptr<blackbone::Process> attach_handle_cached(DWORD pid) {
+    const auto now = std::chrono::steady_clock::now();
+    std::lock_guard<std::mutex> lk(g_mem_handle_cache_mutex);
+
+    if (const auto it = g_mem_handle_cache.find(pid); it != g_mem_handle_cache.end()) {
+        MemHandleCacheEntry &entry = it->second;
+        const bool expired = now - entry.last_use > kMemHandleCacheTtl;
+        FILETIME now_ct{};
+        const bool same_process =
+            !expired && entry.proc && read_creation_time(*entry.proc, &now_ct) &&
+            CompareFileTime(&now_ct, &entry.create_time) == 0;
+        if (same_process) {
+            entry.last_use = now;
+            ++g_mem_handle_cache_hits;
+            return entry.proc;
+        }
+        // 进程已退出被复用 / TTL 到期：释放旧句柄后走下方重新 Attach
+        detach_and_erase(it);
+    }
+
+    ++g_mem_handle_cache_misses;
+
+    // 容量：满则淘汰最久未用条目
+    if (g_mem_handle_cache.size() >= kMemHandleCacheMaxEntries) {
+        auto oldest = std::min_element(g_mem_handle_cache.begin(), g_mem_handle_cache.end(),
+                                       [](const auto &a, const auto &b) { return a.second.last_use < b.second.last_use; });
+        if (oldest != g_mem_handle_cache.end())
+            detach_and_erase(oldest);
+    }
+
+    auto proc = std::make_shared<blackbone::Process>();
+    if (proc->Attach(pid) < 0)
+        return nullptr;
+    FILETIME ct{};
+    if (!read_creation_time(*proc, &ct)) {
+        proc->Detach();
+        return nullptr;
+    }
+    MemHandleCacheEntry entry;
+    entry.proc = proc;
+    entry.create_time = ct;
+    entry.last_use = now;
+    g_mem_handle_cache.emplace(pid, std::move(entry));
+    return proc;
+}
 
 namespace {
 
@@ -465,6 +584,8 @@ long ProcessMemory::WriteString(HWND hwnd, const wstring &address, long type, co
 
 bool ProcessMemory::prepare_process(HWND hwnd) {
     _hwnd = hwnd;
+    _active_proc = nullptr;
+    _attached.reset();
     if (!_hwnd) {
         // 切回"读写当前进程"模式：立即释放之前附加的远程进程句柄
         // （否则旧 BlackBone 句柄会保持打开直到下次 Attach 或析构）
@@ -476,12 +597,24 @@ bool ProcessMemory::prepare_process(HWND hwnd) {
 
     DWORD pid = 0;
     ::GetWindowThreadProcessId(hwnd, &pid);
+
+    // 提效 4：句柄缓存命中时复用全局常驻 Process，跳过每次 Attach 的
+    // OpenProcess/CloseHandle 往返；未命中/失败回落逐次 Attach（行为同旧）。
+    if (HandleCacheEnabled()) {
+        if (auto cached = attach_handle_cached(pid)) {
+            _attached = std::move(cached);
+            _active_proc = _attached.get();
+            return true;
+        }
+    }
+
     // BlackBone Process::Attach 内部先 Detach 旧进程再 Open 新进程，
     // 切换窗口句柄不会泄漏旧进程对象。
     if (_proc.Attach(pid) < 0) {
         setlog(L"prepare_process: BlackBone Attach pid=%lu 失败", pid);
         return false;
     }
+    _active_proc = &_proc;
     return true;
 }
 
@@ -489,7 +622,7 @@ bool ProcessMemory::mem_read(void *dst, size_t src, size_t size) {
     if (!dst || size == 0)
         return false;
     if (_hwnd) {
-        return _proc.memory().Read(src, size, dst) >= 0;
+        return _active_proc->memory().Read(src, size, dst) >= 0;
     }
     SIZE_T read = 0;
     return ::ReadProcessMemory(::GetCurrentProcess(), reinterpret_cast<LPCVOID>(src), dst, size, &read) && read == size;
@@ -499,7 +632,7 @@ bool ProcessMemory::mem_write(size_t dst, void *src, size_t size) {
     if (!src || size == 0)
         return false;
     if (_hwnd) {
-        return _proc.memory().Write(dst, size, src) >= 0;
+        return _active_proc->memory().Write(dst, size, src) >= 0;
     }
     SIZE_T written = 0;
     return ::WriteProcessMemory(::GetCurrentProcess(), reinterpret_cast<LPVOID>(dst), src, size, &written) &&
@@ -536,7 +669,7 @@ size_t ProcessMemory::str2address(const wstring &caddress) {
         if (_hwnd == 0)
             hmod = ::GetModuleHandleW(mod_name.data());
         else {
-            auto mptr = _proc.modules().GetModule(mod_name);
+            auto mptr = _active_proc->modules().GetModule(mod_name);
             if (mptr)
                 hmod = (HMODULE)mptr->baseAddress;
         }
@@ -819,7 +952,7 @@ uint32_t ProcessMemory::GetModuleSize(HWND hwnd, const wstring &module) {
         return 0;
     if (!prepare_process(hwnd))
         return 0;
-    HANDLE hp = process_handle_of(*this, _hwnd, _proc);
+    HANDLE hp = process_handle_of(*this, _hwnd, *_active_proc);
     DWORD needed = 0;
     if (!EnumProcessModules(hp, nullptr, 0, &needed) || needed == 0)
         return 0;
@@ -846,7 +979,7 @@ std::wstring ProcessMemory::GetModuleInfoList(HWND hwnd) {
     oss << L"{\"ok\":0,\"modules\":[]}";
     if (!prepare_process(hwnd))
         return oss.str();
-    HANDLE hp = process_handle_of(*this, _hwnd, _proc);
+    HANDLE hp = process_handle_of(*this, _hwnd, *_active_proc);
     DWORD needed = 0;
     if (!EnumProcessModules(hp, nullptr, 0, &needed) || needed == 0)
         return oss.str();
@@ -887,7 +1020,7 @@ bool ProcessMemory::VirtualProtectEx(HWND hwnd, const wstring &address, size_t s
     const size_t addr = str2address(address);
     if (addr == 0)
         return false;
-    HANDLE hp = process_handle_of(*this, _hwnd, _proc);
+    HANDLE hp = process_handle_of(*this, _hwnd, *_active_proc);
     DWORD oldp = 0;
     if (!::VirtualProtectEx(hp, reinterpret_cast<LPVOID>(addr), size, new_protect, &oldp))
         return false;
@@ -908,7 +1041,7 @@ std::wstring ProcessMemory::VirtualAllocEx(HWND hwnd, const wstring &address, si
             return L"";
         want = reinterpret_cast<LPVOID>(addr);
     }
-    HANDLE hp = process_handle_of(*this, _hwnd, _proc);
+    HANDLE hp = process_handle_of(*this, _hwnd, *_active_proc);
     LPVOID out = ::VirtualAllocEx(hp, want, size, alloc_type ? alloc_type : (MEM_COMMIT | MEM_RESERVE),
                                   protect ? protect : PAGE_READWRITE);
     if (!out)

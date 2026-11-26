@@ -2,7 +2,28 @@
 #ifndef OP_IMAGE_IMAGE_H_
 #define OP_IMAGE_IMAGE_H_
 #include "../base/Types.h"
+// include/libop.h 会 #undef DeleteFile/MoveFile 等 Win32 宏（Op 类有同名成员函数，
+// 需取消映射才能声明），但 ATL 的 atltransactionmanager.h 依赖这些宏映射
+// （::DeleteFile → ::DeleteFileW）。本头若在 libop.h 之后被包含（测试 TU 的
+// 典型顺序），ATL 会因找不到全局符号 DeleteFile/MoveFile 报 C2039。
+// 此处包含 ATL 前临时恢复宏映射，包含完用 push/pop_macro 还原到进入本头时的状态
+// （libop.h 场景还原为"未定义"，不破坏其后 Op 实现的命名）。
+#ifdef _MSC_VER
+#pragma push_macro("MoveFile")
+#pragma push_macro("DeleteFile")
+#endif
+#ifdef UNICODE
+#define MoveFile MoveFileW
+#define DeleteFile DeleteFileW
+#else
+#define MoveFile MoveFileA
+#define DeleteFile DeleteFileA
+#endif
 #include <atlimage.h>
+#ifdef _MSC_VER
+#pragma pop_macro("MoveFile")
+#pragma pop_macro("DeleteFile")
+#endif
 #include <limits>
 #include <vector>
 

@@ -132,6 +132,8 @@ long op::Op::SetOcrEngine(const wchar_t *path_of_engine, const wchar_t *dll_name
     // 默认 2x：实测命中 29/56 → 45/56，代价约 +400ms/次；--pre_scale=1 关回。
     double pre_scale = 2.0;
     bool bridge = false;
+    bool auto_pick_color = false;
+    bool ocr_memo = false; // OCR 帧 memo（2026-11-26）：画面未变时重复 OCR 直接返回上次结果
     for (const auto &a : vstr) {
         if (a.rfind("--pre_scale=", 0) == 0) {
             try {
@@ -141,16 +143,38 @@ long op::Op::SetOcrEngine(const wchar_t *path_of_engine, const wchar_t *dll_name
             }
         } else if (a == "--bridge=1" || a == "--bridge=true") {
             bridge = true;
+        } else if (a == "--auto_pick_color=1" || a == "--auto_pick_color=true") {
+            // OcrAutoColorLine 颜色留空时自动挑文字主色再二值化（默认关，见 ImageSearchService）
+            auto_pick_color = true;
+        } else if (a == "--ocr_memo=1" || a == "--ocr_memo=true") {
+            // OCR 帧 memo（默认关）：字库/引擎/识别设置任何变更都会使缓存自动失配，
+            // 不会返回过期结果。详见 ImageSearchService::ocr_memo_wrap。
+            ocr_memo = true;
         }
     }
     m_context->image_proc.SetOcrPreScale(pre_scale);
     m_context->image_proc.SetOcrBridge(bridge);
-    return op::ocr::HttpOcrService::getInstance()->init(engine, dll, vstr) == 0 ? 1 : 0;
+    m_context->image_proc.SetOcrAutoPickColor(auto_pick_color);
+    m_context->image_proc.SetOcrMemoEnabled(ocr_memo);
+    return op::ocr::OcrService::getInstance()->init(engine, dll, vstr) == 0 ? 1 : 0;
 }
 
 void op::Op::OcrWarmup(long *ret) {
-    internal::set_result(ret, op::ocr::HttpOcrService::getInstance()->warmup() == 0 ? 1L : 0L);
+    internal::set_result(ret, op::ocr::OcrService::getInstance()->warmup() == 0 ? 1L : 0L);
 }
+void op::Op::SetOcrMemoEnabled(long enable, long *ret) {
+    internal::set_result(ret, 1L);
+    m_context->image_proc.SetOcrMemoEnabled(enable != 0);
+}
+
+void op::Op::GetOcrMemoHits(long *ret) {
+    internal::set_result(ret, m_context->image_proc.ocr_memo_hits());
+}
+
+void op::Op::GetOcrMemoMisses(long *ret) {
+    internal::set_result(ret, m_context->image_proc.ocr_memo_misses());
+}
+
 void op::Op::SetDict(long idx, const wchar_t *file_name, long *ret) {
     internal::set_result(ret, m_context->image_proc.SetDict(idx, file_name));
 }

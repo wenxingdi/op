@@ -55,8 +55,8 @@ struct ocr_profile_t {
 };
 
 // 抽象 OCR 引擎接口：所有 OCR 后端统一实现此接口。
-// 当前仅内置进程内 ONNX 引擎；HTTP 远程后端已隐藏（条件宏 OP_ENABLE_HTTP_OCR_BACKEND，
-// 定义后在 OcrService.cpp 恢复，且需把 network/HttpClient.cpp 加回 CMake 源列表）。
+// 当前仅内置进程内 ONNX 引擎（v6 精度档）。HTTP 远程后端 2026-11-26 整体移除
+// （代码删除，非条件隐藏）：v6 完善后不再需要外置引擎，远程别名在 init 显式拒绝。
 class OcrEngine {
 public:
   virtual ~OcrEngine() = default;
@@ -92,32 +92,14 @@ public:
   virtual ocr_profile_t profile() const { return ocr_profile_t{}; }
 };
 
-#ifdef OP_ENABLE_HTTP_OCR_BACKEND
-// HTTP 后端（原 HttpOcrService 的 HTTP 实现），保留作可选远程兜底。
-// 当前默认不编译：需在编译定义 OP_ENABLE_HTTP_OCR_BACKEND 且加回 network/HttpClient.cpp。
-class HttpOcrEngine : public OcrEngine {
-public:
-  HttpOcrEngine();
-  ~HttpOcrEngine() override;
-  int init(const std::wstring &engine, const std::wstring &dllName,
-           const std::vector<std::string> &argv) override;
-  int ocr(byte *data, int w, int h, int bpp, vocr_rec_t &result) override;
-  int release();
-
-private:
-  std::mutex m_mutex;
-  std::string m_endpoint;
-  int m_timeout_ms;
-};
-#endif // OP_ENABLE_HTTP_OCR_BACKEND
-
 class OnnxOcrEngine; // 前向声明，完整定义见 OnnxOcrEngine.h
 
-// OCR 引擎管理器（单例）：按 engine 名选择具体引擎实现，对外保持原 HttpOcrService 调用接口不变。
-class HttpOcrService {
+// OCR 引擎管理器（单例）：归一化档位名 + LRU 缓存内置引擎实例。
+// 2026-11-26 由 OcrService 改名：HTTP 远程后端已移除，"Http" 前缀名不副实。
+class OcrService {
 public:
-  static HttpOcrService *getInstance();
-  ~HttpOcrService();
+  static OcrService *getInstance();
+  ~OcrService();
   int init(const std::wstring &engine, const std::wstring &dllName,
            const std::vector<std::string> &argv);
   int release();
@@ -128,14 +110,17 @@ public:
   int ocr_line_ext(byte *data, int w, int h, int bpp, vocr_rec_t &result, vocr_line_ext_t &ext);
   // 上一次 OCR 的分项耗时（P3）。引擎不支持 profile 或还没跑过 → valid=false。
   ocr_profile_t last_profile();
+  // 引擎代次（2026-11-26）：活动引擎**实例**每次更换（含 release）+1，同实例重 init
+  // （命中引擎缓存、零成本切换）不加。OCR 帧 memo 用它做指纹：引擎换了上次结果不可复用。
+  unsigned long long generation() const { return m_generation; }
   // OCR 预热（P2 第二十六批 2026-10-16）：触发懒加载 + 一次小图推理，
   // 消掉首次真实调用的模型加载延迟。返回 0 成功（引擎就绪），-1 引擎不可用。
   int warmup();
 
 private:
-  HttpOcrService();
-  HttpOcrService(const HttpOcrService &) = delete;
-  HttpOcrService &operator=(const HttpOcrService &) = delete;
+  OcrService();
+  OcrService(const OcrService &) = delete;
+  OcrService &operator=(const OcrService &) = delete;
   // 锁内复用的引擎选择+加载逻辑（init/懒初始化共用，调用方必须已持锁）。
   int init_unlocked(const std::wstring &engine, const std::wstring &dllName,
                     const std::vector<std::string> &argv);
@@ -147,6 +132,7 @@ private:
   // 并发推理期间 release()/重 init 不会销毁正在使用的引擎实例。
   std::shared_ptr<OcrEngine> m_engine; // 当前选中的引擎（默认内置 OnnxOcrEngine）
   bool m_lazy_failed = false;          // 懒初始化已尝试且失败：只试一次，后续快速返回 -1
+  unsigned long long m_generation = 0; // 引擎实例代次（init 真正换实例/release 时 +1，见 generation()）
   // B8 多档热切换：已加载引擎缓存（key -> engine）。同一档位+同一 argv 命中缓存后，
   // 切换为零成本（只换活动指针），首次使用的档位懒加载。
   //

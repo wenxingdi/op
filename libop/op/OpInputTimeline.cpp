@@ -256,13 +256,10 @@ long op::Op::InputPlayback(long action, const wchar_t *path, double speed, long 
 void op::Op::InputSyncLink(long master, long slave, long enable, long *ret) {
     InstanceScope scope(m_context->id);
     auto &bus = InputEventBus::instance();
-    // 两个实例都得有后端登记，否则"链路建起来了但投不进去"。
-    // 当前实例既可能是 master 也可能是 slave，所以两处都登记（后注册的同 id 覆盖，幂等）。
+    // 只登记**本实例**的后端。master/slave 指向的其它实例必须由它们自己调任意
+    // 时间轴 API（InputSyncEnable 等）登记各自的后端——这里拿本实例的后端指针
+    // 去登记对方 id 会覆盖对方正确的登记，投递会打到错误的窗口（2026-11-25 修）。
     bus.register_backends(m_context->id, m_context->bkproc._mouse.get(), m_context->bkproc._keyboard.get());
-    if (master != m_context->id)
-        bus.register_backends(master, m_context->bkproc._mouse.get(), m_context->bkproc._keyboard.get());
-    if (slave >= 0 && slave != m_context->id)
-        bus.register_backends(slave, m_context->bkproc._mouse.get(), m_context->bkproc._keyboard.get());
     internal::set_result(ret, bus.sync_link(master, slave, enable, nullptr));
 }
 

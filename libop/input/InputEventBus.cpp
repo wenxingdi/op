@@ -4,6 +4,7 @@
 // 2026-11-22 批 A 实测过，把 <atomic>/<chrono> 放在项目头之后会让 MSVC 的
 // <chrono>/<filesystem> 解析坏（C2061 / C3861）。下面所有标准库头都在项目头之前。
 #include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
@@ -360,7 +361,10 @@ struct InputEventBus::Impl {
 
     // 主从
     mutable std::mutex sync_mutex;
-    std::map<long, long> link; // master -> slave
+    // master -> slaves（1:N 扇出，2026-11-25 起一对多；重复建链同一对幂等）。
+    // 早期实现是 map<long,long>（1:1），同一 master 建第二个 slave 会把前一个
+    // 覆盖掉——多开同步（1 master + N slave 星型）必须一对多。
+    std::map<long, std::vector<long>> link;
     std::atomic<long> sync_dropped{0};
     std::unique_ptr<SyncWorker> worker;
 
@@ -691,26 +695,36 @@ long InputEventBus::playback_run(double speed, long loop_count, long owner_id, l
 }
 
 std::wstring InputEventBus::sync_status(long master_id, long slave_id) const {
-    long as_master_of = -1;
+    long as_master_of = 0; // slave 数量（1:N 扇出后 as_master_of 是计数不是 id）
     long as_slave_of = -1;
+    std::wstring slaves_json = L"[]";
     {
         std::lock_guard<std::mutex> lk(impl_->sync_mutex);
         const auto it = impl_->link.find(master_id);
-        if (it != impl_->link.end())
-            as_master_of = it->second;
+        if (it != impl_->link.end()) {
+            as_master_of = static_cast<long>(it->second.size());
+            slaves_json = L"[";
+            for (size_t i = 0; i < it->second.size(); ++i) {
+                if (i)
+                    slaves_json += L",";
+                slaves_json += std::to_wstring(it->second[i]);
+            }
+            slaves_json += L"]";
+        }
         for (const auto &kv : impl_->link) {
-            if (kv.second == slave_id) {
+            const auto sit = std::find(kv.second.begin(), kv.second.end(), slave_id);
+            if (sit != kv.second.end()) {
                 as_slave_of = kv.first;
                 break;
             }
         }
     }
 
-    wchar_t buf[256];
-    _snwprintf_s(buf, 256,
-                 L"{\"ok\":1,\"enabled\":%d,\"master\":%ld,\"slave\":%ld,\"as_master_of\":%ld,"
+    wchar_t buf[320];
+    _snwprintf_s(buf, 320,
+                 L"{\"ok\":1,\"enabled\":%d,\"master\":%ld,\"as_master_of\":%ld,\"slaves\":%ls,"
                  L"\"as_slave_of\":%ld,\"async_dropped\":%ld,\"queue\":%ld}",
-                 as_master_of >= 0 ? 1 : 0, master_id, as_master_of, as_master_of, as_slave_of,
+                 as_master_of > 0 ? 1 : 0, master_id, as_master_of, slaves_json.c_str(), as_slave_of,
                  impl_->sync_dropped.load(std::memory_order_relaxed),
                  impl_->worker ? impl_->worker->drain(0) ? 0L : 1L : 0L);
     return buf;
@@ -720,13 +734,29 @@ long InputEventBus::sync_link(long master_id, long slave_id, long enable, long *
     if (enable == 0) {
         std::lock_guard<std::mutex> lk(impl_->sync_mutex);
         const auto it = impl_->link.find(master_id);
-        // 关闭时同时校验从实例：避免"关错了另一条链路"却返回成功
-        if (it == impl_->link.end() || (slave_id != 0 && it->second != slave_id)) {
+        if (it == impl_->link.end()) {
             if (ret)
                 *ret = 0;
             return 0;
         }
-        impl_->link.erase(it);
+        if (slave_id == 0) {
+            // slave=0 是通配：撤掉该 master 的全部链路（1:N 下逐条撤太啰嗦）
+            impl_->link.erase(it);
+            if (ret)
+                *ret = 1;
+            return 1;
+        }
+        auto &slaves = it->second;
+        const auto sit = std::find(slaves.begin(), slaves.end(), slave_id);
+        if (sit == slaves.end()) {
+            // 关闭时校验从实例：避免"关错了另一条链路"却返回成功
+            if (ret)
+                *ret = 0;
+            return 0;
+        }
+        slaves.erase(sit);
+        if (slaves.empty())
+            impl_->link.erase(it);
         if (ret)
             *ret = 1;
         return 1;
@@ -742,8 +772,10 @@ long InputEventBus::sync_link(long master_id, long slave_id, long enable, long *
 
     {
         std::lock_guard<std::mutex> lk(impl_->sync_mutex);
-        // 一个实例只能有一个从属目标；重新 Link 视为改绑（便于脚本热改配置）
-        impl_->link[master_id] = slave_id;
+        // 1:N 扇出：同一 master 可挂多个 slave；重复建链同一对幂等（不再覆盖）。
+        auto &slaves = impl_->link[master_id];
+        if (std::find(slaves.begin(), slaves.end(), slave_id) == slaves.end())
+            slaves.push_back(slave_id);
     }
     ensure_worker_running();
     impl_->enabled.store(true, std::memory_order_release);
@@ -892,32 +924,34 @@ void InputEventBus::emit(long owner_id, InputEvent event) {
         }
     }
 
-    // 3) 主从投递（异步、可丢弃）
+    // 3) 主从投递（异步、可丢弃；1:N 扇出——每个 slave 一份独立投递任务）
     if (in_record_bypass())
         return;
 
-    long slave = -1;
+    std::vector<long> slaves;
     SyncWorker *worker = nullptr;
     {
         std::lock_guard<std::mutex> lk(impl_->sync_mutex);
         const auto it = impl_->link.find(owner);
         if (it != impl_->link.end()) {
-            slave = it->second;
+            slaves = it->second;
             worker = impl_->worker.get();
         }
     }
-    if (slave < 0 || !worker)
+    if (slaves.empty() || !worker)
         return;
 
-    SyncWorker::Job job;
-    job.slave_id = slave;
-    job.event = event;
     // 投递线程里不能读"当前实例"的线程局部（那里是 -1），所以 slave 用**显式 id**。
     // 注意不能用 this 捕获：worker 的生命周期独立于本次调用。
     InputEventBus *self = this;
-    job.deliver = [self, slave](const InputEvent &ev) -> long { return self->replay_on_instance(slave, ev); };
-    if (!worker->post(std::move(job)))
-        impl_->sync_dropped.fetch_add(1, std::memory_order_relaxed);
+    for (long slave : slaves) {
+        SyncWorker::Job job;
+        job.slave_id = slave;
+        job.event = event;
+        job.deliver = [self, slave](const InputEvent &ev) -> long { return self->replay_on_instance(slave, ev); };
+        if (!worker->post(std::move(job)))
+            impl_->sync_dropped.fetch_add(1, std::memory_order_relaxed);
+    }
 }
 
 void emit_input_event(long owner_id, InputEvent event) {

@@ -3135,6 +3135,113 @@ TEST(OpenCvTest, MatchTemplateRotatedFindsRotatedTemplate) {
     std::filesystem::remove(template_path);
 }
 
+// MaskedTemplate 端到端（提效 3，2026-11-26）：真实自定义 mask 经 LoadMaskedTemplate 入库后，
+// 五个命名匹配变体（MatchTemplate / Scale / Rotated / Any / All）都必须只按 mask 区域计分。
+// 场景：模板 = 中央 32x32 图案 + 白色外边距；源图 = 同图案贴在深灰底上（位置已知）。
+//   带 mask（只保留中央图案）→ 各变体命中真实位置且高分；
+//   对照：同一模板不带 mask 加载，白色边距与深灰底不匹配，同阈值下必须不命中，
+//   证明命中确实来自 mask 而非模板本身的偶然相似。
+TEST(OpenCvTest, MaskedTemplateAppliesAcrossAllNamedVariants) {
+    // 中央图案：斜条纹 + 斑块，灰度图。
+    cv::Mat object(32, 32, CV_8UC1);
+    for (int y = 0; y < object.rows; ++y) {
+        for (int x = 0; x < object.cols; ++x) {
+            int v = ((x + 2 * y) / 6) % 2 == 0 ? 230 : 20;
+            if (x > 10 && x < 22 && y > 10 && y < 22) {
+                v = 140;
+            }
+            object.at<uchar>(y, x) = static_cast<uchar>(v);
+        }
+    }
+
+    // 模板：48x48，白底（255）+ 居中图案；mask 只放行中央 32x32。
+    cv::Mat templ(48, 48, CV_8UC1, cv::Scalar(255));
+    object.copyTo(templ(cv::Rect(8, 8, 32, 32)));
+    cv::Mat mask_img(48, 48, CV_8UC1, cv::Scalar(0));
+    mask_img(cv::Rect(8, 8, 32, 32)).setTo(cv::Scalar(255));
+
+    // 源图：200x200 深灰底（80），图案贴在已知位置。
+    const cv::Point truth_origin(70, 90);
+    cv::Mat source(200, 200, CV_8UC1, cv::Scalar(80));
+    object.copyTo(source(cv::Rect(truth_origin, object.size())));
+
+    const std::filesystem::path dir = std::filesystem::temp_directory_path();
+    const auto templ_path = dir / L"op_cv_masked_templ.png";
+    const auto mask_path = dir / L"op_cv_masked_mask.png";
+    ASSERT_TRUE(WritePngFile(templ_path.wstring(), templ));
+    ASSERT_TRUE(WritePngFile(mask_path.wstring(), mask_img));
+
+    const opcv::ImageHandle source_image = ImageFromMat(source);
+    const opcv::Region full_region{0, 0, source.cols, source.rows};
+    const double threshold = 0.95; // 对照组理论分 ≈0.85（白边距 vs 深灰底），与 masked ≈1.0 拉开
+    const int method = cv::TM_CCORR_NORMED; // mask 仅 SQDIFF 系/CCORR_NORMED 可用
+    const auto color_mode = opcv::MatchColorMode::Gray;
+    const cv::Rect truth_rect(truth_origin.x - 8, truth_origin.y - 8, 48, 48); // 模板左上角 = 图案位置 - 8px 边距
+
+    // ---- 带 mask：五个变体全部命中真实位置 ----
+    opcv::RemoveAllTemplates();
+    ASSERT_TRUE(opcv::LoadMaskedTemplate(L"masked_probe", templ_path.wstring(), mask_path.wstring()));
+
+    opcv::MatchResult match;
+    ASSERT_TRUE(opcv::MatchTemplate(source_image, L"masked_probe", full_region, threshold, match,
+                                    opcv::SearchDirection::LeftToRight, opcv::StripMode::None, method, color_mode));
+    ExpectNearRect(match, truth_rect, 2);
+
+    opcv::MatchResult scale_match;
+    ASSERT_TRUE(opcv::MatchTemplateScale(source_image, L"masked_probe", full_region, {0.8, 1.0, 1.2}, threshold,
+                                         scale_match, method, color_mode));
+    ExpectNearRect(scale_match, truth_rect, 2);
+
+    opcv::MatchResult rot_match;
+    double best_angle = 0.0;
+    ASSERT_TRUE(opcv::MatchTemplateRotated(source_image, L"masked_probe", full_region, {0.0, 90.0, 180.0}, threshold,
+                                           rot_match, best_angle, method, color_mode));
+    EXPECT_NEAR(best_angle, 0.0, 0.5);
+    ExpectNearRect(rot_match, truth_rect, 2);
+
+    opcv::NamedMatchResult any_match;
+    ASSERT_TRUE(opcv::MatchAnyTemplate(source_image, {L"masked_probe"}, full_region, threshold, any_match,
+                                       opcv::SearchDirection::LeftToRight, opcv::StripMode::None, method, color_mode));
+    EXPECT_EQ(any_match.name, L"masked_probe");
+    ExpectNearRect(any_match.match, truth_rect, 2);
+
+    std::vector<opcv::NamedMatchResult> all_matches;
+    ASSERT_TRUE(opcv::MatchAllTemplates(source_image, {L"masked_probe"}, full_region, threshold, all_matches,
+                                        opcv::SearchDirection::LeftToRight, opcv::StripMode::None, method, color_mode));
+    ASSERT_EQ(all_matches.size(), 1u);
+    EXPECT_EQ(all_matches[0].name, L"masked_probe");
+    ExpectNearRect(all_matches[0].match, truth_rect, 2);
+
+    // ---- 对照：同一模板不带 mask，同阈值必须全军覆没 ----
+    opcv::RemoveAllTemplates();
+    ASSERT_TRUE(opcv::LoadTemplate(L"masked_probe", templ_path.wstring()));
+
+    opcv::MatchResult plain_match;
+    EXPECT_FALSE(opcv::MatchTemplate(source_image, L"masked_probe", full_region, threshold, plain_match,
+                                     opcv::SearchDirection::LeftToRight, opcv::StripMode::None, method, color_mode));
+
+    opcv::MatchResult plain_scale_match;
+    EXPECT_FALSE(opcv::MatchTemplateScale(source_image, L"masked_probe", full_region, {0.8, 1.0, 1.2}, threshold,
+                                          plain_scale_match, method, color_mode));
+
+    opcv::MatchResult plain_rot_match;
+    double plain_angle = 0.0;
+    EXPECT_FALSE(opcv::MatchTemplateRotated(source_image, L"masked_probe", full_region, {0.0, 90.0, 180.0},
+                                            threshold, plain_rot_match, plain_angle, method, color_mode));
+
+    opcv::NamedMatchResult plain_any;
+    EXPECT_FALSE(opcv::MatchAnyTemplate(source_image, {L"masked_probe"}, full_region, threshold, plain_any,
+                                        opcv::SearchDirection::LeftToRight, opcv::StripMode::None, method, color_mode));
+
+    std::vector<opcv::NamedMatchResult> plain_all;
+    EXPECT_FALSE(opcv::MatchAllTemplates(source_image, {L"masked_probe"}, full_region, threshold, plain_all,
+                                         opcv::SearchDirection::LeftToRight, opcv::StripMode::None, method, color_mode));
+
+    opcv::RemoveAllTemplates();
+    std::filesystem::remove(templ_path);
+    std::filesystem::remove(mask_path);
+}
+// 素材由 workbench/make_bs_assets.py 生成；选点已离线校验全图唯一（峰值 1.0、次佳 < 0.90）。
 // 真实素材验证：用 BlueStacks 截图裁出的 4 个模板，验证真实画面下的定位能力。
 // 素材由 workbench/make_bs_assets.py 生成；选点已离线校验全图唯一（峰值 1.0、次佳 < 0.90）。
 TEST(OpenCvTest, BlueStacksScreenshotTemplateMatching) {

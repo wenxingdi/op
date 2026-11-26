@@ -54,13 +54,13 @@ struct word_t {
         return true;
     }
     void set_chars(const std::wstring &s) {
-        memcpy(info._char, s.c_str(), min(sizeof(info._char), (s.length() + 1) * sizeof(wchar_t)));
+        memcpy(info._char, s.c_str(), (std::min)(sizeof(info._char), (s.length() + 1) * sizeof(wchar_t)));
     }
     // 从 dm 字库中 的一个点阵转化为op的点阵
     void fromDm(const wchar_t *str, int ct, const std::wstring &w) {
         int bin[50] = {0};
         constexpr int DM_DICT_HEIGTH = 11;
-        ct = min(ct, 88);
+        ct = (std::min)(ct, 88);
         int i = 0;
         auto hex2bin = [](wchar_t c) { return c <= L'9' ? c - L'0' : c - L'A' + 10; };
         while (i < ct) {
@@ -129,8 +129,8 @@ struct word1_t {
         }
     }
     void from_binary(const ImageBin &binary, const rect_t &rc) {
-        int x2 = min(rc.x1 + 255, rc.x2);
-        int y2 = min(rc.y1 + 255, rc.y2);
+        int x2 = (std::min)(rc.x1 + 255, rc.x2);
+        int y2 = (std::min)(rc.y1 + 255, rc.y2);
         info.w = x2 - rc.x1;
         info.h = y2 - rc.y1;
         info.bit_cnt = 0;

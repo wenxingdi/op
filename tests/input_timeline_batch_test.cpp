@@ -112,6 +112,15 @@ std::wstring Take(const wchar_t *p) {
     return p ? std::wstring(p) : std::wstring();
 }
 
+// 从 sync_status JSON 里取数值字段（如 "master":2）。查不到返回 -1。
+long JsonLong(const std::wstring &json, const wchar_t *key) {
+    const std::wstring needle = std::wstring(L"\"") + key + L"\":";
+    const size_t pos = json.find(needle);
+    if (pos == std::wstring::npos)
+        return -1;
+    return std::wcstol(json.c_str() + pos + needle.size(), nullptr, 10);
+}
+
 // 带消息泵的等待。
 //
 // 为什么必须有：回放/输入走 `SendMessageTimeout(SMTO_BLOCK, 2000ms)`，而被调窗口
@@ -631,6 +640,42 @@ TEST_F(TimelineFixture, SyncLinkRejectsSelfLink) {
     int ret = -1;
     // master == slave：自己投自己会让一条输入变成两条、再变成四条（自我放大）
     EXPECT_EQ(0, OpInputSyncLink(handle, 777, 777, 1, &ret)) << "master == slave 必须被拒绝";
+}
+
+// 1:N 扇出（2026-11-25 多开同步）：同一 master 可挂多个 slave，
+// 后建的不会覆盖先建的；逐条撤链后全部干净。
+// 注意：status 以**调用实例自己的 id**（m_context->id）查链路表，而实例 id 由
+// OpCreate 传入、随进程内实例数自增（本夹具里不是 0），所以 master 必须先从
+// status 的 "master" 字段把本实例 id 读出来再建链。传外来 id 链会建成但
+// status 按自己的 key 查，as_master_of 恒为 0——这是扇出测试第一轮红掉的原因。
+TEST_F(TimelineFixture, SyncLinkFanoutMultipleSlaves) {
+    int ret = 0;
+    const long me = JsonLong(Take(OpInputSyncStatus(handle)), L"master");
+    ASSERT_GE(me, 0) << "应能从 status 读到本实例 id";
+    ASSERT_EQ(1, OpInputSyncLink(handle, me, 9001, 1, &ret));
+    ASSERT_EQ(1, OpInputSyncLink(handle, me, 9002, 1, &ret)) << "第二个 slave 不得覆盖第一个";
+    ASSERT_EQ(1, OpInputSyncLink(handle, me, 9003, 1, &ret));
+
+    std::wstring status = Take(OpInputSyncStatus(handle));
+    EXPECT_NE(std::wstring::npos, status.find(L"\"as_master_of\":3")) << status;
+    EXPECT_NE(std::wstring::npos, status.find(L"9001")) << status;
+    EXPECT_NE(std::wstring::npos, status.find(L"9002")) << status;
+    EXPECT_NE(std::wstring::npos, status.find(L"9003")) << status;
+
+    // 重复建链同一对：幂等，不变成 4 条
+    ASSERT_EQ(1, OpInputSyncLink(handle, me, 9001, 1, &ret));
+    status = Take(OpInputSyncStatus(handle));
+    EXPECT_NE(std::wstring::npos, status.find(L"\"as_master_of\":3")) << status;
+
+    EXPECT_EQ(1, OpInputSyncLink(handle, me, 9002, 0, &ret));
+    status = Take(OpInputSyncStatus(handle));
+    EXPECT_NE(std::wstring::npos, status.find(L"\"as_master_of\":2")) << status;
+
+    // slave=0 通配：撤掉该 master 剩余全部链路
+    EXPECT_EQ(1, OpInputSyncLink(handle, me, 0, 0, &ret));
+    status = Take(OpInputSyncStatus(handle));
+    EXPECT_NE(std::wstring::npos, status.find(L"\"as_master_of\":0")) << status;
+    EXPECT_EQ(0, OpInputSyncLink(handle, me, 9001, 0, &ret)) << "已清空的链路再撤必须返回 0";
 }
 
 // 异步投递不能阻塞主实例：链路建在一个**不存在**的 slave 上时，

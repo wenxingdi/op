@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import locale
+import warnings
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,19 @@ from . import constants
 from ._ffi import NativeApi, load_dll
 from .errors import ClosedHandleError, OpCallError
 from .types import IntType, StringType
+
+
+def _warn_deprecated_alias(old: str, new: str) -> None:
+    """废弃别名的统一告警。
+
+    DeprecationWarning 对库调用方（非 __main__）默认静默，不会刷 GMAJ 日志；
+    脚本（__main__）里可见，提示迁移到归一入口。
+    """
+    warnings.warn(
+        f"Op.{old}() 是废弃别名，后续版本可能移除；新代码请用 Op.{new}()。",
+        DeprecationWarning,
+        stacklevel=3,
+    )
 
 
 class _InputEventView(ctypes.Structure):
@@ -176,6 +190,11 @@ class Op:
         return self._call_ok("OpSetShowErrorMsg", int(show_type))
 
     def sleep(self, milliseconds: int) -> bool:
+        """硬阻塞当前线程（底层 ``::Sleep``），**不处理消息队列**。
+
+        与 :meth:`delay` 的区别：delay 是消息泵等待（等待期间继续处理本线程消息，
+        UI/热键不卡）；sleep 完全挂起。一般脚本延时请用 :meth:`delay`。
+        """
         return self._call_ok("OpSleep", int(milliseconds))
 
     def inject_dll(self, process_name: str, dll_name: str) -> bool:
@@ -193,6 +212,10 @@ class Op:
         return self._call_ok("OpSetPicCacheMax", int(max_count))
 
     def capture_pre(self, file_name: str | Path) -> bool:
+        """**全屏截图**存盘（历史名 CapturePre，"Pre" 无实际语义，就是不过区域参数的整屏截图）。
+
+        与 :meth:`capture` 的区别：不需要绑定窗口客户区坐标，直接截全屏。
+        """
         return self._call_ok("OpCapturePre", str(file_name))
 
     def set_screen_data_mode(self, mode: constants.ScreenDataMode | int) -> bool:
@@ -493,9 +516,18 @@ class Op:
         self._check_open()
         return float(self._dll.OpGetRandomDouble(self._handle, float(min_value), float(max_value)))
 
-    def gai_lu(self, p: int) -> bool:
-        """以 1/p 的概率返回 True（拟人化概率判定）。p<=0 恒 False，p==1 恒 True。"""
+    def prob(self, p: int) -> bool:
+        """以 1/p 的概率返回 True（拟人化概率判定）。p<=0 恒 False，p==1 恒 True。
+
+        正名（2026-11-26 起）；C 导出仍为 OpGaiLu（对外契约冻结），python 层不再用拼音名。
+        """
         return self._call_int("OpGaiLu", int(p)) == 1
+
+    def gai_lu(self, p: int) -> bool:
+        """.. deprecated:: 2026-11-26
+        拼音旧名，正名 :meth:`prob`，新代码请用 ``prob``。"""
+        _warn_deprecated_alias("gai_lu", "prob")
+        return self.prob(p)
 
     def get_machine_code(self) -> str:
         return self._call_string("OpGetMachineCode")
@@ -1438,8 +1470,21 @@ class Op:
     def cv_to_gray(self, src_file: str | Path, dst_file: str | Path) -> bool:
         return self._call_ok("OpCvToGray", str(src_file), str(dst_file))
 
-    def cv_to_binary(self, src_file: str | Path, dst_file: str | Path) -> bool:
+    def cv_shape_mask(self, src_file: str | Path, dst_file: str | Path) -> bool:
+        """生成形状掩码（正名，2026-11-26 起）：alpha 通道优先转 mask，否则 Otsu 自动
+        阈值 + 自动反相保证前景为白——供 :meth:`cv_shape_match_template` 使用。
+
+        ⚠ 这不是中性二值化；要通用二值化（指定阈值/模式、不自动反相）请用
+        :meth:`cv_threshold`。
+        """
         return self._call_ok("OpCvToBinary", str(src_file), str(dst_file))
+
+    def cv_to_binary(self, src_file: str | Path, dst_file: str | Path) -> bool:
+        """.. deprecated:: 2026-11-26
+        名实不符的旧名（实为形状掩码，非中性二值化），新代码请用 :meth:`cv_shape_mask`；
+        要通用二值化请用 :meth:`cv_threshold`。"""
+        _warn_deprecated_alias("cv_to_binary", "cv_shape_mask")
+        return self.cv_shape_mask(str(src_file), str(dst_file))
 
     def cv_to_edge(self, src_file: str | Path, dst_file: str | Path) -> bool:
         return self._call_ok("OpCvToEdge", str(src_file), str(dst_file))
@@ -1719,7 +1764,27 @@ class Op:
         """OCR 预热：触发引擎懒加载 + 一次小图推理。返回 True 引擎就绪。"""
         return self._call_ok("OpOcrWarmup")
 
+    def set_ocr_memo_enabled(self, enable: bool) -> bool:
+        """OCR 帧 memo 开关（默认关）：轮询场景画面未变时重复 OCR 直接返回上次结果，
+        跳过重复 det+rec。字库/引擎/识别设置任何变更自动失配，不会返回过期结果。
+        也可用 set_ocr_engine(argv="--ocr_memo=1") 开启，效果相同。"""
+        return self._call_ok("OpSetOcrMemoEnabled", int(bool(enable)))
+
+    def get_ocr_memo_hits(self) -> int:
+        """OCR 帧 memo 命中计数（配合 get_ocr_memo_misses 诊断命中率）。"""
+        return self._call_int("OpGetOcrMemoHits")
+
+    def get_ocr_memo_misses(self) -> int:
+        """OCR 帧 memo 未命中计数。"""
+        return self._call_int("OpGetOcrMemoMisses")
+
     def set_yolo_engine(self, path_of_engine: str | Path, dll_name: str, argv: str) -> bool:
+        """旧式模型加载入口（保留兼容）。
+
+        ⚠ ``dll_name`` 形参实为**模型文件路径**（历史命名，不是 DLL），如
+        ``set_yolo_engine("onnx", "D:/xx/best.onnx", "--task=detect")``。
+        新代码推荐 :meth:`yolo_load_model` + :meth:`yolo_use_model`（命名模型平台）。
+        """
         return self._call_ok("OpSetYoloEngine", str(path_of_engine), dll_name, argv)
 
     def yolo_detect(self, x1: int, y1: int, x2: int, y2: int, conf: float, iou: float) -> str:
@@ -1773,6 +1838,9 @@ class Op:
         self, name: str, path: str | Path, argv: str = ""
     ) -> tuple[str, int]:
         """按名字加载模型进注册表，返回 (JSON, 1/0)；加载成功的新模型自动激活。
+
+        ⚠ 注册表是**单推理会话**：可注册多份配置，推理始终走当前 active 模型，
+        热切换（:meth:`yolo_use_model`）= 用该配置重载同一会话，并非多会话并行。
 
         密文包（头 OPYMOD01）必须用 argv 传 "--password=xxx"：
         走内存解密加载，不落明文临时文件。失败时 JSON 里 code 为
@@ -1907,6 +1975,11 @@ class Op:
         return self._call_string("OpFetchWordEx", int(x1), int(y1), int(x2), int(y2), color, float(sim), word)
 
     def extract_word_rects(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float, min_word_h: int) -> str:
+        """自动切出指定范围内的点阵字块，返回 ``"x1,y1,x2,y2|..."``。
+
+        ⚠ ``min_word_h`` 是**历史错误命名**：该参数实际按"字块宽度 >= min_word_h"过滤
+        （不过滤高度，C 侧行为如此）。要宽高双重过滤请用 :meth:`extract_word_rects_ex`。
+        """
         return self._call_string(
             "OpExtractWordRects",
             int(x1),
@@ -2097,17 +2170,22 @@ class Op:
         )
 
     def ocr_auto_color_from_file(self, file_name: str | Path, color_format: str, sim: float) -> str:
-        """文件版 OcrAutoColor：读取图片后按颜色二值化再做免字库 OCR。"""
+        """.. deprecated:: 2026-11-26
+        文件版已被 :meth:`auto_ocr_from_file`（color_format 非空 = 按颜色二值化）归一，
+        新代码请用 ``auto_ocr_from_file``。"""
+        _warn_deprecated_alias("ocr_auto_color_from_file", "auto_ocr_from_file")
         return self._call_string("OpOcrAutoColorFromFile", str(file_name), color_format, float(sim))
 
     def autoocr_line(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
         """.. deprecated:: 2026-10-15
         旧名别名，等同于 :meth:`ocr_auto_color_line`，新代码请用新名。"""
+        _warn_deprecated_alias("autoocr_line", "ocr_auto_color_line")
         return self.ocr_auto_color_line(x1, y1, x2, y2, color, sim)
 
     def autoocr_ex(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> tuple[str, int]:
         """.. deprecated:: 2026-10-15
         旧名别名，等同于 :meth:`ocr_auto_color_ex`，新代码请用新名。"""
+        _warn_deprecated_alias("autoocr_ex", "ocr_auto_color_ex")
         return self.ocr_auto_color_ex(x1, y1, x2, y2, color, sim)
 
     def find_str(self, x1: int, y1: int, x2: int, y2: int, strs: str, color: str, sim: float) -> tuple[int, int, int]:
@@ -2117,12 +2195,19 @@ class Op:
         return self._call_string("OpFindStrEx", int(x1), int(y1), int(x2), int(y2), strs, color, float(sim))
 
     def ocr_auto(self, x1: int, y1: int, x2: int, y2: int, sim: float) -> str:
+        """.. deprecated:: 2026-11-26
+        原图直识已被 :meth:`autoocr`（color 传空串）归一，新代码请用 ``autoocr``。"""
+        _warn_deprecated_alias("ocr_auto", 'autoocr(..., color="")')
         return self._call_string("OpOcrAuto", int(x1), int(y1), int(x2), int(y2), float(sim))
 
     def ocr_from_file(self, file_name: str | Path, color_format: str, sim: float) -> str:
+        # 非别名：免字库时 color 不参与过滤（区别于 auto_ocr_from_file 的二值化分支），保留为正名。
         return self._call_string("OpOcrFromFile", str(file_name), color_format, float(sim))
 
     def ocr_auto_from_file(self, file_name: str | Path, sim: float) -> str:
+        """.. deprecated:: 2026-11-26
+        已被 :meth:`auto_ocr_from_file`（color_format 传空串）归一，新代码请用 ``auto_ocr_from_file``。"""
+        _warn_deprecated_alias("ocr_auto_from_file", 'auto_ocr_from_file(..., color_format="")')
         return self._call_string("OpOcrAutoFromFile", str(file_name), float(sim))
 
     def find_line(self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float) -> str:
@@ -2231,6 +2316,21 @@ class Op:
         return self._call_string(
             "OpVirtualAllocEx", int(hwnd), str(address), int(size), int(alloc_type), int(protect)
         )
+
+    def set_mem_handle_cache_enabled(self, enable: bool) -> bool:
+        """远程句柄缓存开关（默认关）：启用后跨调用复用 OpenProcess 句柄
+        （key=pid，10s 空闲 TTL + 进程创建时间校验防 pid 复用，容量 8），
+        高频读写场景（汇编循环连续 patch）省去每次 Attach 的句柄往返。
+        只影响远程进程路径（hwnd≠0）；本进程读写不受影响。"""
+        return self._call_ok("OpSetMemHandleCacheEnabled", int(bool(enable)))
+
+    def get_mem_handle_cache_hits(self) -> int:
+        """远程句柄缓存命中计数（配合 get_mem_handle_cache_misses 诊断命中率）。"""
+        return self._call_int("OpGetMemHandleCacheHits")
+
+    def get_mem_handle_cache_misses(self) -> int:
+        """远程句柄缓存未命中计数。"""
+        return self._call_int("OpGetMemHandleCacheMisses")
 
     def find_color_block_ex_s(
         self, x1: int, y1: int, x2: int, y2: int, color: str, sim: float, count: int, height: int, width: int,

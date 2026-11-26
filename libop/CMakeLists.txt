@@ -194,11 +194,10 @@ set(OP_IMAGE_SOURCES
   "audio/AudioService.cpp"
 )
 
-# HTTP 远程后端整体隐藏（2026-09-18 决策：YOLO 依赖自训模型，不走 HTTP 服务）。
-# 如需恢复：取消下列注释 + 在 OcrService.cpp / YoloDetector.cpp 定义
-# OP_ENABLE_HTTP_OCR_BACKEND / OP_ENABLE_HTTP_YOLO_BACKEND（代码以条件宏保留）。
-# 2026-10-16：HttpRequest.cpp（P3 第二项 HTTP 小族，WinHTTP 宽字符版）入构建，
-# 与旧 HttpClient.cpp（ANSI 版，已隐藏）无关，不冲突。
+# HTTP 远程后端已移除（2026-11-26）：OCR 的 HttpOcrEngine、YOLO 的 HttpYoloEngine
+# 及旧 ANSI HttpClient.h/.cpp 死代码全部删除；内置 ONNX 为唯一引擎（远程别名 init
+# 显式拒绝）。network/HttpRequest.cpp 是通用 HTTP 小族（OpHttp.cpp 用），保留。
+# 2026-10-16：HttpRequest.cpp（P3 第二项 HTTP 小族，WinHTTP 宽字符版）入构建。
 set(OP_NETWORK_SOURCES
   "network/HttpRequest.cpp"
 )
@@ -280,7 +279,6 @@ endif()
 
 set(OP_YOLO_SOURCES
   "yolo/YoloDetector.cpp"
-  # "yolo/HttpYoloEngine.cpp"  # HTTP 远程后端隐藏（见 OP_NETWORK_SOURCES 说明）
 )
 if(OP_HAS_ONNX)
   list(APPEND OP_YOLO_SOURCES "yolo/OnnxYoloEngine.cpp")

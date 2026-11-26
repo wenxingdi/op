@@ -189,4 +189,137 @@ TEST(MemoryReadWriteTest, MultiLevelPointerExpression) {
     EXPECT_EQ(v, 0x1122334455667788ll);
 }
 
+// ---------- 远程句柄缓存（提效 4，2026-11-26）----------
+// 背景：ProcessMemory 每次 API 调用临时构造，远程路径每次都 OpenProcess/CloseHandle。
+// 启用缓存后跨调用复用句柄（10s TTL + 创建时间校验防 pid 复用）。
+// 此处用 plain_carrier 独立进程做远程读目标：命中/未命中计数 + 缓存前后读值一致性。
+
+// 最小载体启动器：与 hook_capture_test 的 CarrierProcess 同思路（独立 exe + 回报文件轮询），
+// 本测试只需要一个窗口句柄做远程目标，故用 plain_carrier（只依赖 user32/gdi32）。
+class PlainCarrier {
+  public:
+    PlainCarrier() = default;
+    ~PlainCarrier() { Stop(); }
+    PlainCarrier(const PlainCarrier &) = delete;
+    PlainCarrier &operator=(const PlainCarrier &) = delete;
+
+    bool Start() {
+        wchar_t self[MAX_PATH] = {};
+        if (!GetModuleFileNameW(nullptr, self, MAX_PATH))
+            return false;
+        std::wstring exe(self);
+        const size_t cut = exe.find_last_of(L"\\/");
+        if (cut == std::wstring::npos)
+            return false;
+        exe = exe.substr(0, cut) + L"\\plain_carrier.exe";
+
+        wchar_t dir[MAX_PATH] = {};
+        const DWORD dlen = GetTempPathW(MAX_PATH, dir);
+        report_ = std::wstring(dir, dlen) + L"op_mem_cache_carrier.txt";
+        DeleteFileW(report_.c_str());
+
+        std::wstring cmd = L"\"" + exe + L"\" --seconds 30 --report \"" + report_ + L"\"";
+        STARTUPINFOW si = {};
+        si.cb = sizeof(si);
+        PROCESS_INFORMATION pi = {};
+        if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si,
+                            &pi)) {
+            return false;
+        }
+        process_ = pi.hProcess;
+        CloseHandle(pi.hThread);
+
+        for (int i = 0; i < 300; ++i) { // 最长 15s
+            hwnd_ = ReadHwndFromReport();
+            if (hwnd_)
+                return true;
+            Sleep(50);
+        }
+        return false;
+    }
+
+    void Stop() {
+        if (process_) {
+            WaitForSingleObject(process_, 1000);
+            if (WaitForSingleObject(process_, 0) != WAIT_OBJECT_0)
+                TerminateProcess(process_, 0);
+            CloseHandle(process_);
+            process_ = nullptr;
+        }
+        if (!report_.empty())
+            DeleteFileW(report_.c_str());
+    }
+
+    HWND hwnd() const { return hwnd_; }
+
+  private:
+    HWND ReadHwndFromReport() {
+        HANDLE f = CreateFileW(report_.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (f == INVALID_HANDLE_VALUE)
+            return nullptr;
+        char buf[512] = {};
+        DWORD n = 0;
+        const BOOL ok = ReadFile(f, buf, sizeof(buf) - 1, &n, nullptr);
+        CloseHandle(f);
+        if (!ok || n == 0)
+            return nullptr;
+        const std::string s(buf, n);
+        const auto k = s.find("hwnd=0x");
+        if (k == std::string::npos)
+            return nullptr;
+        const auto num = strtoull(s.c_str() + k + 7, nullptr, 16);
+        return reinterpret_cast<HWND>(num);
+    }
+
+    HANDLE process_ = nullptr;
+    HWND hwnd_ = nullptr;
+    std::wstring report_;
+};
+
+TEST(MemoryReadWriteTest, RemoteHandleCacheHitsAcrossRepeatedReads) {
+    PlainCarrier carrier;
+    ASSERT_TRUE(carrier.Start());
+    CApiHandle api;
+    const auto hwnd = reinterpret_cast<intptr_t>(carrier.hwnd());
+
+    // 模块基址必然存在且可读，作为稳定的远程读目标。
+    const wchar_t *base_str = OpGetModuleBaseAddr(api.handle, hwnd, L"plain_carrier.exe");
+    ASSERT_NE(base_str, nullptr);
+    const std::wstring base = base_str;
+    ASSERT_FALSE(base.empty());
+
+    // 1) 缓存关闭：两次读应成功且结果一致（基址是 PE 头，MZ 签名 i16 = 0x5A4D）。
+    ASSERT_EQ(OpSetMemHandleCacheEnabled(api.handle, 0), 1);
+    int64_t v0 = 0, v1 = 0;
+    OpReadInt(api.handle, hwnd, base.c_str(), 1, &v0); // i16
+    OpReadInt(api.handle, hwnd, base.c_str(), 1, &v1);
+    EXPECT_EQ(v0, 0x5A4D);
+    EXPECT_EQ(v0, v1);
+
+    // 2) 开启缓存：首次 miss、其后 hit，读值与关闭缓存时完全一致。
+    ASSERT_EQ(OpSetMemHandleCacheEnabled(api.handle, 1), 1);
+    EXPECT_EQ(OpGetMemHandleCacheHits(api.handle), 0);
+    EXPECT_EQ(OpGetMemHandleCacheMisses(api.handle), 0);
+
+    int64_t v2 = 0, v3 = 0;
+    OpReadInt(api.handle, hwnd, base.c_str(), 1, &v2);
+    EXPECT_EQ(OpGetMemHandleCacheHits(api.handle), 0);
+    EXPECT_EQ(OpGetMemHandleCacheMisses(api.handle), 1);
+
+    OpReadInt(api.handle, hwnd, base.c_str(), 1, &v3);
+    EXPECT_EQ(OpGetMemHandleCacheHits(api.handle), 1);
+    EXPECT_EQ(OpGetMemHandleCacheMisses(api.handle), 1);
+    EXPECT_EQ(v2, v0);
+    EXPECT_EQ(v3, v0);
+
+    // 3) 关闭缓存：清空句柄并回落逐次 Attach，读仍成功，计数不再增长。
+    ASSERT_EQ(OpSetMemHandleCacheEnabled(api.handle, 0), 1);
+    int64_t v4 = 0;
+    OpReadInt(api.handle, hwnd, base.c_str(), 1, &v4);
+    EXPECT_EQ(v4, v0);
+    EXPECT_EQ(OpGetMemHandleCacheHits(api.handle), 1);
+    EXPECT_EQ(OpGetMemHandleCacheMisses(api.handle), 1);
+}
+
 } // namespace

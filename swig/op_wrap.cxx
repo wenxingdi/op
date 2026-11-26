@@ -22558,6 +22558,142 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_Op_SetOcrMemoEnabled(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long arg2 ;
+  long *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long val2 ;
+  int ecode2 = 0 ;
+  long temp3 ;
+  int res3 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[2] ;
+  
+  arg3 = &temp3;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_SetOcrMemoEnabled", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetOcrMemoEnabled" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetOcrMemoEnabled" "', argument " "2"" of type '" "long""'");
+  } 
+  arg2 = static_cast< long >(val2);
+  {
+    try {
+      (arg1)->SetOcrMemoEnabled(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res3)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res3) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg3), SWIGTYPE_p_long, new_flags), 1);
+  }
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_GetOcrMemoHits(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long temp2 ;
+  int res2 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[1] ;
+  
+  arg2 = &temp2;
+  (void)self;
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetOcrMemoHits" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  {
+    try {
+      (arg1)->GetOcrMemoHits(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res2)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res2) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg2), SWIGTYPE_p_long, new_flags), 1);
+  }
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_GetOcrMemoMisses(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long temp2 ;
+  int res2 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[1] ;
+  
+  arg2 = &temp2;
+  (void)self;
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetOcrMemoMisses" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  {
+    try {
+      (arg1)->GetOcrMemoMisses(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res2)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res2) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg2), SWIGTYPE_p_long, new_flags), 1);
+  }
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_Op_SetYoloEngine(PyObject *self, PyObject *args) {
   PyObject *resultobj = 0;
   op::Op *arg1 = 0 ;
@@ -32231,6 +32367,142 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_Op_SetMemHandleCacheEnabled(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long arg2 ;
+  long *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long val2 ;
+  int ecode2 = 0 ;
+  long temp3 ;
+  int res3 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[2] ;
+  
+  arg3 = &temp3;
+  (void)self;
+  if (!SWIG_Python_UnpackTuple(args, "Op_SetMemHandleCacheEnabled", 2, 2, swig_obj)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_SetMemHandleCacheEnabled" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  ecode2 = SWIG_AsVal_long(swig_obj[1], &val2);
+  if (!SWIG_IsOK(ecode2)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "Op_SetMemHandleCacheEnabled" "', argument " "2"" of type '" "long""'");
+  } 
+  arg2 = static_cast< long >(val2);
+  {
+    try {
+      (arg1)->SetMemHandleCacheEnabled(arg2,arg3);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res3)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg3)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res3) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg3), SWIGTYPE_p_long, new_flags), 1);
+  }
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_GetMemHandleCacheHits(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long temp2 ;
+  int res2 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[1] ;
+  
+  arg2 = &temp2;
+  (void)self;
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetMemHandleCacheHits" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  {
+    try {
+      (arg1)->GetMemHandleCacheHits(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res2)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res2) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg2), SWIGTYPE_p_long, new_flags), 1);
+  }
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_Op_GetMemHandleCacheMisses(PyObject *self, PyObject *args) {
+  PyObject *resultobj = 0;
+  op::Op *arg1 = 0 ;
+  long *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  long temp2 ;
+  int res2 = SWIG_TMPOBJ ;
+  PyObject *swig_obj[1] ;
+  
+  arg2 = &temp2;
+  (void)self;
+  if (!args) SWIG_fail;
+  swig_obj[0] = args;
+  res1 = SWIG_ConvertPtr(swig_obj[0], &argp1,SWIGTYPE_p_op__Op, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Op_GetMemHandleCacheMisses" "', argument " "1"" of type '" "op::Op *""'"); 
+  }
+  arg1 = reinterpret_cast< op::Op * >(argp1);
+  {
+    try {
+      (arg1)->GetMemHandleCacheMisses(arg2);
+    } catch (const std::exception &e) {
+      PyErr_SetString(PyExc_RuntimeError, e.what());
+      SWIG_fail;
+    } catch (...) {
+      PyErr_SetString(PyExc_RuntimeError, "Unknown C++ exception");
+      SWIG_fail;
+    }
+  }
+  resultobj = SWIG_Py_Void();
+  if (SWIG_IsTmpObj(res2)) {
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_From_long((*arg2)), 1);
+  } else {
+    int new_flags = SWIG_IsNewObj(res2) ? (SWIG_POINTER_OWN |  0 ) :  0 ;
+    resultobj = SWIG_Python_AppendOutput(resultobj, SWIG_NewPointerObj((void*)(arg2), SWIGTYPE_p_long, new_flags), 1);
+  }
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_Op_FileExists(PyObject *self, PyObject *args) {
   PyObject *resultobj = 0;
   op::Op *arg1 = 0 ;
@@ -35030,6 +35302,9 @@ static PyMethodDef SwigMethods[] = {
 	 { "Op_CvShapeMatchTemplate", _wrap_Op_CvShapeMatchTemplate, METH_VARARGS, NULL},
 	 { "Op_SetOcrEngine", _wrap_Op_SetOcrEngine, METH_VARARGS, NULL},
 	 { "Op_OcrWarmup", _wrap_Op_OcrWarmup, METH_O, NULL},
+	 { "Op_SetOcrMemoEnabled", _wrap_Op_SetOcrMemoEnabled, METH_VARARGS, NULL},
+	 { "Op_GetOcrMemoHits", _wrap_Op_GetOcrMemoHits, METH_O, NULL},
+	 { "Op_GetOcrMemoMisses", _wrap_Op_GetOcrMemoMisses, METH_O, NULL},
 	 { "Op_SetYoloEngine", _wrap_Op_SetYoloEngine, METH_VARARGS, NULL},
 	 { "Op_YoloDetect", _wrap_Op_YoloDetect, METH_VARARGS, NULL},
 	 { "Op_YoloDetectEx2", _wrap_Op_YoloDetectEx2, METH_VARARGS, NULL},
@@ -35150,6 +35425,9 @@ static PyMethodDef SwigMethods[] = {
 	 { "Op_GetModuleInfoList", _wrap_Op_GetModuleInfoList, METH_VARARGS, NULL},
 	 { "Op_VirtualProtectEx", _wrap_Op_VirtualProtectEx, METH_VARARGS, NULL},
 	 { "Op_VirtualAllocEx", _wrap_Op_VirtualAllocEx, METH_VARARGS, NULL},
+	 { "Op_SetMemHandleCacheEnabled", _wrap_Op_SetMemHandleCacheEnabled, METH_VARARGS, NULL},
+	 { "Op_GetMemHandleCacheHits", _wrap_Op_GetMemHandleCacheHits, METH_O, NULL},
+	 { "Op_GetMemHandleCacheMisses", _wrap_Op_GetMemHandleCacheMisses, METH_O, NULL},
 	 { "Op_FileExists", _wrap_Op_FileExists, METH_VARARGS, NULL},
 	 { "Op_CreateFolder", _wrap_Op_CreateFolder, METH_VARARGS, NULL},
 	 { "Op_DeleteFolder", _wrap_Op_DeleteFolder, METH_VARARGS, NULL},

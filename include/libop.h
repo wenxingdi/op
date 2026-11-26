@@ -668,18 +668,23 @@ class OP_API Op {
     long InputPlayback(_In_ long action, _In_ const wchar_t *path, _In_ double speed, _In_ long loop,
                        _Out_ std::wstring &retjson, _Out_ long *ret);
     // 主从同步：把 master 实例产生的输入事件**异步**投递到 slave 实例。
-    //   enable 0 = 取消（master 必须确实是当前的 master，否则返回 0）；
-    //   enable 1 = 建立/改绑。
+    // 1:N 扇出（2026-11-25）：同一 master 可对多个 slave 建链（星型多开同步），
+    // 重复建链同一对幂等；slave=0 的取消操作视为撤掉该 master 的全部链路。
+    //   enable 0 = 取消该 (master,slave) 链路（master 必须是当前 master，否则返回 0）；
+    //   enable 1 = 建立。
     // 语义与限制（重要）：
     //   * 投递是**异步 + 可丢弃**的：输入是边沿事件，迟到的点击会点错地方，所以队列
-    //     满（256 条）时丢事件而不是阻塞主实例。丢弃数可从 InputSyncStatus 读到。
+    //     满（256 条/slave）时丢事件而不是阻塞主实例。丢弃数可从 InputSyncStatus 读到。
     //   * master == slave 会被拒绝（自己投自己会自我放大）。
+    //   * master/slave 实例都要调过任意时间轴 API（如 InputSyncEnable）登记各自后端，
+    //     否则链路建起来了但投不进去（投递打不到窗口会限流告警）。
     //   * slave 的绑定模式决定投递效果：WIN 语义（normal/windows）可完整复现；
     //     DX 模式的移动需要目标进程内载入器，可能只复现按键。
     void InputSyncLink(_In_ long master, _In_ long slave, _In_ long enable, _Out_ long *ret);
     // 主从链路诊断（本实例视角）：
-    //   {"ok":1,"enabled":0/1,"master":<本实例 id>,"as_master_of":N,"as_slave_of":N,
-    //    "async_dropped":0,"queue":0}
+    //   {"ok":1,"enabled":0/1,"master":<本实例 id>,"as_master_of":N,"slaves":[id,...],
+    //    "as_slave_of":<master id 或 -1>,"async_dropped":0,"queue":0}
+    // as_master_of 是 slave 数量（1:N 后不再是 slave id），slaves 列出全部 slave id。
     void InputSyncStatus(_Out_ std::wstring &retjson);
     //--------------------image and color-----------------------
     // 抓取指定区域(x1, y1, x2, y2)的图像, 保存为file
@@ -786,6 +791,8 @@ class OP_API Op {
     void CvGetOpenCvVersion(_Out_ std::wstring &retstr);
     void CvLoadTemplateList(_In_ const wchar_t *template_list, _Out_ long *ret);
     void CvToGray(_In_ const wchar_t *src_file, _In_ const wchar_t *dst_file, _Out_ long *ret);
+    // ⚠ 名为 CvToBinary，实为"形状掩码"（供 CvShapeMatchTemplate 用）：alpha 优先转 mask，
+    // 否则 Otsu 阈值 + 自动反相保证前景为白，不是中性二值化。通用二值化请用 CvThreshold。
     void CvToBinary(_In_ const wchar_t *src_file, _In_ const wchar_t *dst_file, _Out_ long *ret);
     void CvToEdge(_In_ const wchar_t *src_file, _In_ const wchar_t *dst_file, _Out_ long *ret);
     void CvToOutline(_In_ const wchar_t *src_file, _In_ const wchar_t *dst_file, _Out_ long *ret);
@@ -854,6 +861,13 @@ class OP_API Op {
     // OCR 预热（P2 第二十六批 2026-10-16，对齐 OLA OcrWarmup）：触发引擎懒加载 + 一次小图推理，
     // 消掉首次真实调用的模型加载延迟。ret=1 引擎就绪，0 引擎不可用。
     void OcrWarmup(_Out_ long *ret);
+    // OCR 帧 memo（2026-11-26，默认关）：轮询场景（每隔几百 ms 对同一区域 OCR）画面未变时
+    // 直接返回上次结果，跳过重复 det+rec。指纹 = 区域像素哈希 + kind/color/sim + 引擎代次 +
+    // 字库代次 + 识别设置；任一变更自动失配，不会返回过期结果。
+    // 也可用 SetOcrEngine argv "--ocr_memo=1" 开启，效果相同。hits/misses 供诊断命中率。
+    void SetOcrMemoEnabled(_In_ long enable, _Out_ long *ret);
+    void GetOcrMemoHits(_Out_ long *ret);
+    void GetOcrMemoMisses(_Out_ long *ret);
     // 选择 YOLO 引擎并加载模型。统一入口：path_of_engine 直接传 .onnx 模型文件路径
     // （dll_name 留空）即自动切进程内 ONNX 引擎，等价于 ("onnx", 模型路径, argv)。
     // 旧写法仍兼容：engine 以 "onnx" 开头=进程内 ONNX（dll_name=模型路径，空=内置资源段模型）；
@@ -866,6 +880,8 @@ class OP_API Op {
     // GPU：--device=N 启用 DirectML（0=默认适配器）；需同版本 DML 版 onnxruntime.dll
     // + DirectML.dll。缺失时自动回退 CPU 并在日志标注，不返回失败；--device=cpu 可显式回 CPU。
     // 任务提示：--task=detect|segment|classify|pose|obb、--nc=N、--kpt=N（元数据缺失时）。
+    // ⚠ dll_name 形参实为**模型文件路径**（历史命名，不是 DLL）：SetYoloEngine("onnx", "D:/xx/best.onnx", ...)。
+    // 新代码推荐 YoloLoadModel + YoloUseModel（命名模型平台，见下）。
     long SetYoloEngine(_In_ const wchar_t *path_of_engine, _In_ const wchar_t *dll_name, _In_ const wchar_t *argv);
     void YoloDetect(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
                     _Out_ std::wstring &retjson, _Out_ long *ret);
@@ -937,7 +953,8 @@ class OP_API Op {
     void YoloGetModelInfo(_Out_ std::wstring &retjson);
 
     // ---- YOLO 模型平台（2026-11-23）----
-    // 命名模型注册表：可同时加载多个模型，推理始终走当前 active 模型。
+    // 命名模型注册表（⚠ 单推理会话）：可注册多份模型配置，推理始终走当前 active 模型；
+    // 热切换 = 用该配置重载同一会话，不是多会话并行。
     // 兼容旧入口：SetYoloEngine 等价于 YoloLoadModel("default", ...) 并激活。
     //
     // 加载 .onnx（明文）或 .opymodel（OPYMOD01 加密包）。加密包从 argv 读 --password=xxx
@@ -1104,9 +1121,14 @@ class OP_API Op {
     // 区域截图后按颜色二值化再做免字库 OCR：输入区域、颜色、相似度（置信度阈值，默认 0.7）。
     void OcrAutoColor(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color, _In_ double sim,
                       _Out_ std::wstring &ret_str);
-    // 单行快模式 OcrAutoColor：颜色二值化后整图直接 rec（跳过检测），适用于读出区/固定单行文本。
-    // 区域须只含单行文本，否则结果语义由使用方承担。
-    // 行切分参数为硬编码阈值（OC6，暂不提供参数）：行间隙 >3px 切段、段高 <5px 视为噪点丢弃。
+    // 单行快模式 OcrAutoColor（2026-11-25 起三段式颜色策略，免字库路径）：
+    //   填了颜色 -> 按指定颜色二值化后识别。支持多色 "色1|色2"（并集）、容差 "色-偏色"
+    //     （如 "ffffff-606060"，无偏色段默认 0x60）、反白 "@背景色"；指定色优先。
+    //   不填颜色 + 自动挑色关（默认）-> 原图直识，无颜色限制（同 OcrAuto 语义）。
+    //   不填颜色 + 自动挑色开（OcrStart 传 --auto_pick_color=1）-> 自动挑图内文字主色
+    //     再按颜色二值化识别；挑不到回退原图直识。
+    // 多行输入：颜色二值化后先按"2 连续空行"切段，实心段直 rec；段内仍有多行残留时
+    // 该段自动交 det 分行（不再整块压扁）。区域以单行文本为主，多行结果按行拼接。
     void OcrAutoColorLine(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ const wchar_t *color,
                           _In_ double sim, _Out_ std::wstring &ret_str);
     // 结构化 OcrAutoColor：输出 "x1,y1,x2,y2,conf,text|..."（bbox 为客户区坐标，相对绑定窗口客户区左上角），返回命中行数。
@@ -1350,6 +1372,13 @@ class OP_API Op {
     // alloc_type/protect 传 0 用默认 MEM_COMMIT|MEM_RESERVE / PAGE_READWRITE。
     void VirtualAllocEx(_In_ LONG_PTR hwnd, _In_ const wchar_t *address, _In_ long size, _In_ long alloc_type,
                         _In_ long protect, _Out_ std::wstring &retstr);
+    // 远程句柄缓存（2026-11-26，默认关）：启用后跨调用复用 OpenProcess 句柄
+    // （key=pid，10s 空闲 TTL + 进程创建时间校验防 pid 复用，容量 8 + 最久未用淘汰），
+    // 高频读写场景（汇编循环连续 patch）省去每次 Attach 的句柄往返。
+    // 只影响远程进程路径（hwnd≠0）；本进程读写不受影响。hits/misses 供诊断命中率。
+    void SetMemHandleCacheEnabled(_In_ long enable, _Out_ long *ret);
+    void GetMemHandleCacheHits(_Out_ long *ret);
+    void GetMemHandleCacheMisses(_Out_ long *ret);
 
     // ---- 文件模块（P1 新增 2026-10-15，参考 OLA 文件模块常用子集）----
     // 全部路径为宽字符绝对/相对路径；返回值约定与窗口系一致：ret=1 成功，0 失败（路径非法/不存在/拒绝访问）。

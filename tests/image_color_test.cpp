@@ -828,8 +828,9 @@ TEST(ImageColorTest, ClearPicCacheForcesReloadFromFile) {
     std::filesystem::remove(std::filesystem::path(file_path));
 }
 
-// 反向验证判据：若无上限淘汰（旧实现），f1 缓存不淘汰 → 删源文件后 GetPicSize 仍 ret=1，断言必挂。
-TEST(ImageColorTest, SetPicCacheMaxEvictsWholeCacheWhenFull) {
+// 反向验证判据（LRU 语义，2026-11-26 起）：缓存满且存入新 key 时，只淘汰最久未用条目。
+// f1 最先存入且从未命中 → 存 f3 时淘汰 f1；随后命中 f2 刷新其时间戳 → 存 f4 时淘汰 f3 而非 f2。
+TEST(ImageColorTest, SetPicCacheMaxEvictsLeastRecentlyUsed) {
     op::Op loader;
     op::Op matcher;
     long ret = 0;
@@ -840,36 +841,155 @@ TEST(ImageColorTest, SetPicCacheMaxEvictsWholeCacheWhenFull) {
     const std::wstring f1 = test_support::GetTempBmpPath(L"op_cache_max_f1.bmp");
     const std::wstring f2 = test_support::GetTempBmpPath(L"op_cache_max_f2.bmp");
     const std::wstring f3 = test_support::GetTempBmpPath(L"op_cache_max_f3.bmp");
+    const std::wstring f4 = test_support::GetTempBmpPath(L"op_cache_max_f4.bmp");
     WriteBmpFile(f1, MakeFlatTemplate(0x11, 0x22, 0x33));
     WriteBmpFile(f2, MakeFlatTemplate(0x44, 0x55, 0x66));
     WriteBmpFile(f3, MakeFlatTemplate(0x77, 0x88, 0x99));
+    WriteBmpFile(f4, MakeFlatTemplate(0xaa, 0xbb, 0xcc));
 
     loader.LoadPic(f1.c_str(), &ret);
     ASSERT_EQ(ret, 1);
     loader.LoadPic(f2.c_str(), &ret);
     ASSERT_EQ(ret, 1);
-    // 第 3 次加载达到上限 → 整体清空重存 → f1/f2 出缓存，f3 在缓存。
+    // 第 3 次加载达到上限 → LRU 淘汰最久未用的 f1，f2/f3 保留。
     loader.LoadPic(f3.c_str(), &ret);
     ASSERT_EQ(ret, 1);
 
     long pic_w = 0;
     long pic_h = 0;
-    matcher.GetPicSize(f3.c_str(), &pic_w, &pic_h, &ret);
-    EXPECT_EQ(ret, 1);
-    EXPECT_EQ(pic_w, 2);
-    EXPECT_EQ(pic_h, 2);
 
-    // f1 已被整体清空淘汰：删源文件后 GetPicSize 读不到（若未淘汰则纯走缓存仍 ret=1）。
+    // f1 已被淘汰：删源文件后 GetPicSize 读不到（若仍在缓存则纯走缓存仍 ret=1）。
     std::filesystem::remove(std::filesystem::path(f1));
     matcher.GetPicSize(f1.c_str(), &pic_w, &pic_h, &ret);
     EXPECT_EQ(ret, 0);
+
+    // 命中 f2 刷新其 LRU 时间戳。
+    matcher.GetPicSize(f2.c_str(), &pic_w, &pic_h, &ret);
+    EXPECT_EQ(ret, 1);
+
+    // 存第 4 个新 key → 淘汰 f2/f3 中最久未用的 f3，f2 保留。
+    loader.LoadPic(f4.c_str(), &ret);
+    ASSERT_EQ(ret, 1);
+
+    // 删掉 f2/f3 源文件后：f2 走缓存仍可读，f3 已淘汰且文件不存在 → ret=0。
+    std::filesystem::remove(std::filesystem::path(f2));
+    std::filesystem::remove(std::filesystem::path(f3));
+    matcher.GetPicSize(f2.c_str(), &pic_w, &pic_h, &ret);
+    EXPECT_EQ(ret, 1);
+    EXPECT_EQ(pic_w, 2);
+    EXPECT_EQ(pic_h, 2);
+    matcher.GetPicSize(f3.c_str(), &pic_w, &pic_h, &ret);
+    EXPECT_EQ(ret, 0);
+    matcher.GetPicSize(f4.c_str(), &pic_w, &pic_h, &ret);
+    EXPECT_EQ(ret, 1);
 
     // 恢复进程级默认（无上限），避免污染其他用例。
     matcher.SetPicCacheMax(0, &ret);
     EXPECT_EQ(ret, 1);
     matcher.ClearPicCache(&ret);
-    std::filesystem::remove(std::filesystem::path(f2));
-    std::filesystem::remove(std::filesystem::path(f3));
+    std::filesystem::remove(std::filesystem::path(f4));
+}
+
+// ===== OCR 帧 memo（2026-11-26）=====
+// 经 op::Op 公开接口 + FromFile 喂图：无需绑定窗口，也无需 OCR 引擎——
+// 引擎不可用时识别返回空，memo 的命中/失效语义照常可验证；
+// 引擎可用时命中直接返回上次结果，同理。
+namespace {
+
+std::wstring WriteMemoBmp(const wchar_t *name, uchar b, uchar g, uchar r) {
+    const std::wstring path = test_support::GetTempBmpPath(name);
+    WriteBmpFile(path, MakeFlatTemplate(b, g, r));
+    return path;
+}
+
+long MemoHits(op::Op &op) {
+    long v = -1;
+    op.GetOcrMemoHits(&v);
+    return v;
+}
+
+long MemoMisses(op::Op &op) {
+    long v = -1;
+    op.GetOcrMemoMisses(&v);
+    return v;
+}
+
+void EnableMemo(op::Op &op) {
+    long ret = 0;
+    op.SetOcrMemoEnabled(1, &ret);
+    ASSERT_EQ(ret, 1);
+}
+
+} // namespace
+
+TEST(ImageColorTest, OcrFrameMemoDisabledByDefault) {
+    op::Op op;
+    const auto f = WriteMemoBmp(L"op_ocr_memo_off.bmp", 0x7f, 0x7f, 0x7f);
+    std::wstring out;
+    op.OcrAutoFromFile(f.c_str(), 0.8, out);
+    op.OcrAutoFromFile(f.c_str(), 0.8, out);
+    EXPECT_EQ(MemoHits(op), 0);
+    EXPECT_EQ(MemoMisses(op), 0); // 关闭时连 store 都不做，零开销
+}
+
+TEST(ImageColorTest, OcrFrameMemoHitOnUnchangedFrame) {
+    op::Op op;
+    EnableMemo(op);
+    const auto f = WriteMemoBmp(L"op_ocr_memo_hit.bmp", 0x7f, 0x7f, 0x7f);
+    std::wstring a, b;
+    op.OcrAutoFromFile(f.c_str(), 0.8, a); // miss → store
+    op.OcrAutoFromFile(f.c_str(), 0.8, b); // hit → 直接返回上次结果
+    EXPECT_EQ(a, b);
+    EXPECT_EQ(MemoHits(op), 1);
+    EXPECT_EQ(MemoMisses(op), 1);
+}
+
+TEST(ImageColorTest, OcrFrameMemoMissOnPixelChange) {
+    op::Op op;
+    EnableMemo(op);
+    const auto f = WriteMemoBmp(L"op_ocr_memo_px.bmp", 0x7f, 0x7f, 0x7f);
+    std::wstring out;
+    op.OcrAutoFromFile(f.c_str(), 0.8, out); // miss
+    WriteMemoBmp(L"op_ocr_memo_px.bmp", 0x80, 0x7f, 0x7f); // 改一个通道 → 帧哈希变
+    op.OcrAutoFromFile(f.c_str(), 0.8, out);               // 必须 miss
+    EXPECT_EQ(MemoHits(op), 0);
+    EXPECT_EQ(MemoMisses(op), 2);
+}
+
+TEST(ImageColorTest, OcrFrameMemoMissOnParamChange) {
+    op::Op op;
+    EnableMemo(op);
+    const auto f = WriteMemoBmp(L"op_ocr_memo_sim.bmp", 0x7f, 0x7f, 0x7f);
+    std::wstring out;
+    op.OcrAutoFromFile(f.c_str(), 0.8, out); // miss（sim=0.8）
+    op.OcrAutoFromFile(f.c_str(), 0.9, out); // sim 进指纹 → miss
+    EXPECT_EQ(MemoHits(op), 0);
+    EXPECT_EQ(MemoMisses(op), 2);
+}
+
+TEST(ImageColorTest, OcrFrameMemoInvalidatesOnDictChange) {
+    op::Op op;
+    EnableMemo(op);
+    const auto f = WriteMemoBmp(L"op_ocr_memo_dict.bmp", 0x7f, 0x7f, 0x7f);
+    std::wstring out;
+    long ret = 0;
+    op.OcrAutoFromFile(f.c_str(), 0.8, out); // miss → store（记下当前字库代次）
+    op.ClearDict(0, &ret);                   // 字库内容代次 +1（即便槽位本就为空）
+    op.OcrAutoFromFile(f.c_str(), 0.8, out); // 像素/参数都没变，但字库代次失配 → 必须 miss
+    EXPECT_EQ(MemoHits(op), 0);
+    EXPECT_EQ(MemoMisses(op), 2);
+}
+
+TEST(ImageColorTest, OcrFrameMemoKindSeparatesEntries) {
+    op::Op op;
+    EnableMemo(op);
+    const auto f = WriteMemoBmp(L"op_ocr_memo_kind.bmp", 0x7f, 0x7f, 0x7f);
+    std::wstring out;
+    op.OcrAutoFromFile(f.c_str(), 0.8, out);                  // miss（kind=auto）
+    op.OcrAutoColorFromFile(f.c_str(), L"000000", 0.8, out);  // miss（kind=auto_color，不共享 auto 的结果）
+    op.OcrAutoFromFile(f.c_str(), 0.8, out);                  // auto 的槽已被挤掉 → 再次 miss
+    EXPECT_EQ(MemoHits(op), 0);
+    EXPECT_EQ(MemoMisses(op), 3);
 }
 
 TEST(ImageColorTest, MissingPicSizeClearsOutputValues) {

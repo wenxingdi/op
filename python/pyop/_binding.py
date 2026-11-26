@@ -926,6 +926,15 @@ class Op(object):
     def OcrWarmup(self):
         return _pyop.Op_OcrWarmup(self)
 
+    def SetOcrMemoEnabled(self, enable):
+        return _pyop.Op_SetOcrMemoEnabled(self, enable)
+
+    def GetOcrMemoHits(self):
+        return _pyop.Op_GetOcrMemoHits(self)
+
+    def GetOcrMemoMisses(self):
+        return _pyop.Op_GetOcrMemoMisses(self)
+
     def SetYoloEngine(self, path_of_engine, dll_name, argv):
         return _pyop.Op_SetYoloEngine(self, path_of_engine, dll_name, argv)
 
@@ -1285,6 +1294,15 @@ class Op(object):
 
     def VirtualAllocEx(self, hwnd, address, size, alloc_type, protect):
         return _pyop.Op_VirtualAllocEx(self, hwnd, address, size, alloc_type, protect)
+
+    def SetMemHandleCacheEnabled(self, enable):
+        return _pyop.Op_SetMemHandleCacheEnabled(self, enable)
+
+    def GetMemHandleCacheHits(self):
+        return _pyop.Op_GetMemHandleCacheHits(self)
+
+    def GetMemHandleCacheMisses(self):
+        return _pyop.Op_GetMemHandleCacheMisses(self)
 
     def FileExists(self, file_name):
         return _pyop.Op_FileExists(self, file_name)

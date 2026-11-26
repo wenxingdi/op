@@ -42,6 +42,7 @@ OP_C_API const wchar_t *OP_CALL OpGetBasePath(op_handle handle);
 OP_C_API int OP_CALL OpGetID(op_handle handle);
 OP_C_API int OP_CALL OpGetLastError(op_handle handle);
 OP_C_API int OP_CALL OpSetShowErrorMsg(op_handle handle, int show_type);
+// 硬阻塞当前线程（::Sleep），不处理消息队列；脚本延时建议用 OpDelay（消息泵等待）。
 OP_C_API int OP_CALL OpSleep(op_handle handle, int millseconds);
 OP_C_API int OP_CALL OpInjectDll(op_handle handle, const wchar_t *process_name, const wchar_t *dll_name);
 OP_C_API int OP_CALL OpEnablePicCache(op_handle handle, int enable);
@@ -59,6 +60,7 @@ OP_C_API int OP_CALL OpIsLineBlocked(op_handle handle, int x1, int y1, int x2, i
 OP_C_API int OP_CALL OpFindNearestPathPoint(op_handle handle, const wchar_t *path, int x, int y, int *index, int *nx,
                                             int *ny);
 OP_C_API int OP_CALL OpPointInPolygon(op_handle handle, const wchar_t *point, const wchar_t *polygon);
+// 全屏截图存盘（历史名 CapturePre，"Pre" 无实际语义 = 不传区域参数的整屏截图）。
 OP_C_API int OP_CALL OpCapturePre(op_handle handle, const wchar_t *file_name);
 OP_C_API int OP_CALL OpSetScreenDataMode(op_handle handle, int mode);
 
@@ -133,6 +135,7 @@ OP_C_API int OP_CALL OpWinExec(op_handle handle, const wchar_t *cmdline, int cmd
 OP_C_API const wchar_t *OP_CALL OpGetCmdStr(op_handle handle, const wchar_t *cmd, int millseconds);
 OP_C_API int OP_CALL OpSetClipboard(op_handle handle, const wchar_t *str);
 OP_C_API const wchar_t *OP_CALL OpGetClipboard(op_handle handle);
+// 延时毫秒数：消息泵等待（等待期间继续处理本线程消息，UI/热键不卡）。随机区间版见 OpDelays。
 OP_C_API int OP_CALL OpDelay(op_handle handle, int mis);
 OP_C_API int OP_CALL OpDelays(op_handle handle, int mis_min, int mis_max);
 
@@ -411,6 +414,9 @@ OP_C_API const wchar_t *OP_CALL OpCvGetAllTemplateNames(op_handle handle);
 OP_C_API const wchar_t *OP_CALL OpCvGetOpenCvVersion(op_handle handle);
 OP_C_API int OP_CALL OpCvLoadTemplateList(op_handle handle, const wchar_t *template_list);
 OP_C_API int OP_CALL OpCvToGray(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file);
+/* ⚠ 名为 ToBinary，实为"形状掩码"（供 ShapeMatch 用）：alpha 通道优先转 mask，
+ * 否则 Otsu 自动阈值 + 自动反相保证前景为白——不是中性二值化。
+ * 要通用二值化（指定阈值/模式、不自动反相）请用 OpCvThreshold。 */
 OP_C_API int OP_CALL OpCvToBinary(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file);
 OP_C_API int OP_CALL OpCvToEdge(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file);
 OP_C_API int OP_CALL OpCvToOutline(op_handle handle, const wchar_t *src_file, const wchar_t *dst_file);
@@ -470,6 +476,15 @@ OP_C_API int OP_CALL OpSetOcrEngine(op_handle handle, const wchar_t *path_of_eng
                                     const wchar_t *argv);
 // OCR 预热：触发引擎懒加载 + 一次小图推理。返回 1 引擎就绪，0 不可用。
 OP_C_API int OP_CALL OpOcrWarmup(op_handle handle);
+// OCR 帧 memo（2026-11-26，默认关）：轮询场景画面未变时直接返回上次结果。
+// 字库/引擎/识别设置任何变更自动失配，不会返回过期结果。也可用 SetOcrEngine
+// argv "--ocr_memo=1" 开启；hits/misses 供诊断命中率。
+OP_C_API int OP_CALL OpSetOcrMemoEnabled(op_handle handle, int enable);
+OP_C_API int OP_CALL OpGetOcrMemoHits(op_handle handle);
+OP_C_API int OP_CALL OpGetOcrMemoMisses(op_handle handle);
+// 旧式模型加载入口（保留兼容）。⚠ dll_name 形参实为**模型文件路径**（历史命名，不是 DLL）：
+// 如 SetYoloEngine("onnx", "D:/xx/best.onnx", "--task=detect")。
+// 新代码推荐 OpYoloLoadModel + OpYoloUseModel（命名模型平台，见下）。
 OP_C_API int OP_CALL OpSetYoloEngine(op_handle handle, const wchar_t *path_of_engine, const wchar_t *dll_name,
                                      const wchar_t *argv);
 OP_C_API const wchar_t *OP_CALL OpYoloDetect(op_handle handle, int x1, int y1, int x2, int y2, double conf,
@@ -724,6 +739,12 @@ OP_C_API int OP_CALL OpVirtualProtectEx(op_handle handle, intptr_t hwnd, const w
 // alloc_type/protect 传 0 用默认 MEM_COMMIT|MEM_RESERVE / PAGE_READWRITE。
 OP_C_API const wchar_t *OP_CALL OpVirtualAllocEx(op_handle handle, intptr_t hwnd, const wchar_t *address, long size,
                                                  int alloc_type, int protect);
+// 远程句柄缓存（2026-11-26，默认关）：启用后跨调用复用 OpenProcess 句柄
+// （key=pid，10s 空闲 TTL + 进程创建时间校验防 pid 复用），高频读写省去 Attach 往返。
+// 只影响远程进程路径；hits/misses 供诊断命中率。
+OP_C_API int OP_CALL OpSetMemHandleCacheEnabled(op_handle handle, int enable);
+OP_C_API int OP_CALL OpGetMemHandleCacheHits(op_handle handle);
+OP_C_API int OP_CALL OpGetMemHandleCacheMisses(op_handle handle);
 // 颜色块增强版：mode=0 raw；mode=1 重合窗口聚类合并，每块只返回一个左上角坐标。
 OP_C_API const wchar_t *OP_CALL OpFindColorBlockExS(op_handle handle, int x1, int y1, int x2, int y2,
                                                     const wchar_t *color, double sim, int count, int height,
@@ -867,7 +888,8 @@ OP_C_API const wchar_t *OP_CALL OpYoloObbFromFile(op_handle handle, const wchar_
 OP_C_API const wchar_t *OP_CALL OpYoloGetModelInfo(op_handle handle);
 
 /* ---- YOLO 模型平台（2026-11-23）----
- * 命名模型注册表：可同时加载多个模型，推理始终走当前 active 模型。
+ * 命名模型注册表（⚠ 单推理会话）：可注册多份模型配置，推理始终走当前 active 模型；
+ * 热切换（UseModel）= 用该配置重载同一会话，不是多会话并行。
  * LoadModel 支持 .onnx 明文与 OPYMOD01 加密包（从 argv 读 --password=xxx，密码不含空格）；
  * 加密包在内存中解密后直接建会话，明文不落临时文件。同名重复加载 = 替换。
  * *ret：1 成功；0 失败（retjson 里 "error" 说明原因：file_not_found / password_required /

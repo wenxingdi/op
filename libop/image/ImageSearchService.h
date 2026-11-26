@@ -2,6 +2,8 @@
 #include "ImageSearchAlgorithms.h"
 #include "../algorithm/StrMatch.h" // P1 FindStr 增强的匹配内核（纯头文件）
 #include "../ocr/OcrService.h"     // vocr_rec_t / vocr_line_ext_t（P0 逐字 JSON 用）
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -268,6 +270,17 @@ class ImageSearchService : public ImageSearchAlgorithms {
     // OCR 颜色路径桥接开关（默认关，需配合 SetOcrPreScale>1 才安全）。
     void SetOcrBridge(bool on) { _ocr_bridge = on; }
     bool GetOcrBridge() const { return _ocr_bridge; }
+    // OCR 自动挑色开关（默认关）：OcrAutoColorLine 颜色留空时，自动从图内挑文字主色
+    // 再按颜色二值化识别；挑不到回退原图直识。填了颜色时本开关不影响（指定色优先）。
+    void SetOcrAutoPickColor(bool on) { _ocr_auto_pick_color = on; }
+    bool GetOcrAutoPickColor() const { return _ocr_auto_pick_color; }
+    // OCR 帧 memo 开关（2026-11-26，默认关）：轮询场景（画面未变时反复对同一区域 OCR）
+    // 命中时直接返回上次结果，跳过 det+rec/字库匹配。SetOcrEngine 传 --ocr_memo=1 开启。
+    void SetOcrMemoEnabled(bool on) { _ocr_memo_enabled = on; }
+    bool GetOcrMemoEnabled() const { return _ocr_memo_enabled; }
+    // memo 命中/未命中累计（诊断用，验证 memo 是否生效）。
+    long ocr_memo_hits() const { return _ocr_memo_hits; }
+    long ocr_memo_misses() const { return _ocr_memo_misses; }
 
   private:
     // SetDict/SetMemDict 写入全局字库槽；AddDict/ClearDict 写入对象私有槽。
@@ -287,6 +300,36 @@ class ImageSearchService : public ImageSearchAlgorithms {
     // OCR 颜色路径是否启用单像素桥接（补断笔）。默认关：1px 缝在原尺度上会把相邻
     // 笔画/相邻字粘成一团（实测命中数从 26/30 掉到 1/56），必须先放大再考虑桥接。
     bool _ocr_bridge;
+    // OCR 自动挑色开关（默认关）。见 SetOcrAutoPickColor。
+    bool _ocr_auto_pick_color;
+
+    // ===== OCR 帧 memo（2026-11-26）=====
+    // 单槽结果缓存：key = (入口 kind, color, sim, _src 像素 FNV-1a, 引擎代次, 字库代次, 设置指纹)。
+    // 轮询场景画面未变时直接返回上次结果，跳过 det+rec（百毫秒级 → <1ms）。
+    // 默认关（SetOcrEngine 传 --ocr_memo=1 开启）：开启期间字库/引擎/识别设置任何变更
+    // 都会使指纹失配，不会返回过期结果。实例本身不支持并发调用（见类头注释），无需加锁。
+    bool _ocr_memo_enabled = false;
+    bool _ocr_memo_valid = false;
+    uint64_t _ocr_memo_hash = 0;                 // _src 像素 FNV-1a（w*h*4 字节）
+    unsigned long long _ocr_memo_engine_gen = 0; // OcrService 引擎代次
+    unsigned long long _ocr_memo_dict_gen = 0;   // 字库内容代次（文件级全局原子）
+    std::string _ocr_memo_kind;
+    std::wstring _ocr_memo_color;
+    double _ocr_memo_sim = 0;
+    // 设置指纹：当前字库槽 + 颜色路径三开关 + 二值化预处理四参数（变更即失配，无需手动失效）。
+    int _ocr_memo_dict_idx = -1;
+    double _ocr_memo_pre_scale = 1.0;
+    bool _ocr_memo_bridge = false;
+    bool _ocr_memo_auto_pick = false;
+    long _ocr_memo_bp_mode = 0, _ocr_memo_bp_iso = 0, _ocr_memo_bp_area = 0, _ocr_memo_bp_gap = 0;
+    long _ocr_memo_ret = 0;
+    std::wstring _ocr_memo_out;
+    long _ocr_memo_hits = 0, _ocr_memo_misses = 0;
+    uint64_t ocr_memo_hash_src() const;
+    bool ocr_memo_match(const char *kind, const wstring &color, double sim) const;
+    void ocr_memo_store(const char *kind, const wstring &color, double sim, long ret, const std::wstring &out);
+    long ocr_memo_wrap(const char *kind, const wstring &color, double sim, std::wstring &out,
+                       const std::function<long(std::wstring &)> &work);
 
   public:
     // 当前目录

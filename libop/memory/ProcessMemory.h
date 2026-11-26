@@ -5,6 +5,7 @@
 #include "BlackBone/Process/Process.h"
 #include <Windows.h>
 #include <cstdint>
+#include <memory>
 
 namespace op {
 
@@ -76,7 +77,21 @@ class ProcessMemory {
     bool prepare_process(HWND hwnd);
 
     blackbone::Process _proc;
+    // 提效 4（2026-11-26）：远程句柄缓存命中时指向全局缓存的 Process（借 _attached 保活），
+    // 否则指向成员 _proc。mem_read/mem_write/str2address 一律经此指针访问。
+    blackbone::Process *_active_proc = nullptr;
+    std::shared_ptr<blackbone::Process> _attached;
     HWND _hwnd;
+
+  public:
+    // 远程句柄缓存（默认关）：启用后跨调用复用 OpenProcess 句柄（key=pid，10s TTL +
+    // 进程创建时间校验防 pid 复用），高频读写场景省去每次 Attach 的句柄往返。
+    // 命中/未命中计数供诊断命中率；Disable 时同时清空并释放全部缓存句柄。
+    static void SetHandleCacheEnabled(bool on);
+    static bool HandleCacheEnabled();
+    static long HandleCacheHits();
+    static long HandleCacheMisses();
+    static void ClearHandleCache();
 };
 
 } // namespace op

@@ -15,25 +15,39 @@
 #include <mutex>
 #include <shared_mutex>
 #include <sstream>
+#include <unordered_map>
 
 namespace op::image {
 
-using op::ocr::HttpOcrService;
+using op::ocr::OcrService;
 
 namespace {
 // 普通找图模板缓存。放在进程级别，多个 Op 实例共享同一份已解码图片和预处理模板。
 // 匹配时会复制 shared_ptr 快照；FreePic 只移除缓存入口，不会提前释放正在匹配的图片。
 std::map<wstring, std::shared_ptr<Image>> g_pic_cache;
 std::map<wstring, std::shared_ptr<PicMatchTemplate>> g_pic_match_cache;
+// LRU 时间戳（与上面两个 map 同 key 同生命周期）：值 = 最近一次命中/写入的时钟。
+// 淘汰时扫最小值逐出最久未用条目（O(n) 只发生在淘汰瞬间，n<=上限默认 500）。
+std::map<wstring, unsigned long long> g_pic_cache_tick;
+unsigned long long g_pic_cache_clock = 0;
 std::shared_mutex g_pic_cache_mutex;
-// 图片缓存条目上限。达到上限（且不是刷新已有条目）时整体清空重存——
-// 简单可预期，不做 LRU；防止长跑/遍历大模板目录时缓存单调膨胀。
+// 图片缓存条目上限。达到上限（且不是刷新已有条目）时按 LRU 淘汰最久未用条目；
+// max_entries<=0 = 不设上限。2026-11-26 起由"整体清空"改为 LRU（长跑素材数超上限时
+// 全清会导致命中率雪崩，FindPic 退化为每次重新解码+建模板）。
 std::atomic<long> g_pic_cache_max_entries{500};
+
+// OCR 帧 memo 的字库代次（文件级全局原子，2026-11-26）：任何字库内容变更
+// （全局文件槽 store/clear、对象私有槽 MutablePrivateDict、ClearDict）+1，
+// 使所有实例的 memo 失效。静态字典函数够不到实例成员，故用全局原子。
+std::atomic<unsigned long long> &ocr_dict_epoch() {
+    static std::atomic<unsigned long long> epoch{0};
+    return epoch;
+}
 
 // 图像句柄注册表（2026-11-21，内存直操作一期地基）。
 // 与上面 g_pic_cache 的区别：pic 缓存是**按路径自动**缓存解码结果，key 由文件名决定；
 // 图像注册表是**调用方显式**创建的像素句柄（img:<n>），生命周期由 FreeImage 控制。
-// 两者共用 shared_ptr 快照策略，但上限行为不同：pic 缓存满了整体清空，
+// 两者共用 shared_ptr 快照策略，但上限行为不同：pic 缓存满了按 LRU 淘汰，
 // 图像注册表满了**拒绝新增**（显式句柄突然失效是更糟的失败模式）。
 std::map<wstring, std::shared_ptr<Image>> g_image_registry;
 std::shared_mutex g_image_registry_mutex;
@@ -70,6 +84,70 @@ color_t sim_to_point_color_diff(double sim) {
 // 0x60 能包全笔画，而背景色差普遍 >200 不会误包。
 constexpr int kOcrImplicitColorDiff = 0x60;
 
+namespace {
+// 桥接：背景像素上下或左右都是文字时补成文字（只加不减）。从 ApplyBinaryPreprocess 抽出，
+// 供"整图二值化"与"逐行 ROI 二值化"两处共用，逻辑只有一份。
+void bridge_binary_gaps(ImageBin &bin) {
+    ImageBin source = bin;
+    for (int y = 0; y < source.height; ++y) {
+        for (int x = 0; x < source.width; ++x) {
+            if (source.at(y, x) == WORD_COLOR)
+                continue;
+            const bool bridge_x = x > 0 && x + 1 < source.width && source.at(y, x - 1) == WORD_COLOR &&
+                                  source.at(y, x + 1) == WORD_COLOR;
+            const bool bridge_y = y > 0 && y + 1 < source.height && source.at(y - 1, x) == WORD_COLOR &&
+                                  source.at(y + 1, x) == WORD_COLOR;
+            if (bridge_x || bridge_y)
+                bin.at(y, x) = WORD_COLOR;
+        }
+    }
+}
+
+// 自动挑文字主色（--auto_pick_color=1 时使用）：背景 = 精确色直方图众数（stride 2 采样），
+// 文字色 = 与背景逐通道色差 >= 0x40 的最高频精确色。多色 UI 上可能挑到装饰色/面板色
+// （best-effort）；找不到候选返回空串，调用方回退原图直识。
+std::wstring pick_text_color(const Image &src) {
+    if (src.width <= 0 || src.height <= 0 || src.pdata == nullptr)
+        return L"";
+    std::unordered_map<unsigned int, int> hist;
+    for (int y = 0; y < src.height; y += 2) {
+        const unsigned char *base = src.pdata + static_cast<size_t>(y) * src.width * 4;
+        for (int x = 0; x < src.width; x += 2) {
+            const auto *c = reinterpret_cast<const color_t *>(base + static_cast<size_t>(x) * 4);
+            const unsigned int key = (static_cast<unsigned int>(c->r) << 16) |
+                                     (static_cast<unsigned int>(c->g) << 8) | c->b;
+            ++hist[key];
+        }
+    }
+    if (hist.empty())
+        return L"";
+    const auto bg_it = std::max_element(hist.begin(), hist.end(),
+                                        [](const auto &a, const auto &b) { return a.second < b.second; });
+    const unsigned int bg = bg_it->first;
+    const int bg_b = static_cast<int>(bg & 0xff), bg_g = static_cast<int>((bg >> 8) & 0xff),
+              bg_r = static_cast<int>((bg >> 16) & 0xff);
+    int best_n = 0;
+    unsigned int best = 0;
+    for (const auto &kv : hist) {
+        const int r = static_cast<int>((kv.first >> 16) & 0xff), g = static_cast<int>((kv.first >> 8) & 0xff),
+                  b = static_cast<int>(kv.first & 0xff);
+        const int diff = (std::max)((std::max)(std::abs(r - bg_r), std::abs(g - bg_g)), std::abs(b - bg_b));
+        if (diff < 0x40)
+            continue; // 与背景同色系，不是文字色
+        if (kv.second > best_n) {
+            best_n = kv.second;
+            best = kv.first;
+        }
+    }
+    if (best_n <= 0)
+        return L"";
+    wchar_t buf[8];
+    swprintf(buf, 8, L"%02x%02x%02x", static_cast<unsigned int>((best >> 16) & 0xff),
+             static_cast<unsigned int>((best >> 8) & 0xff), static_cast<unsigned int>(best & 0xff));
+    return buf;
+}
+} // namespace
+
 // 免字库共用：二值图（1=文字, 0=背景）-> 白字黑底 BGRA 缓冲，喂给 OCR 引擎。
 void binary_to_white_on_black_bgra(const unsigned char *bin, int w, int h, std::vector<unsigned char> &buf) {
     buf.assign(static_cast<size_t>(w) * h * 4, 0);
@@ -95,7 +173,7 @@ double clamp_sim_exact(double sim) {
 // 免字库共用：引擎调用 + 置信度过滤一体化，res 只保留 conf >= sim 的条目。
 // OcrFree/OcrEx/ocr_auto_color(_line/_ex)/FindStr/FindStrEx 的重复样板收拢于此。
 void engine_ocr_filtered(unsigned char *data, int w, int h, double sim, vocr_rec_t &res) {
-    HttpOcrService::getInstance()->ocr(data, w, h, 4, res);
+    OcrService::getInstance()->ocr(data, w, h, 4, res);
     res.erase(std::remove_if(res.begin(), res.end(),
                              [sim](const ocr_rec_t &r) { return r.confidence < sim - 1e-9; }),
               res.end());
@@ -105,7 +183,7 @@ void engine_ocr_filtered(unsigned char *data, int w, int h, double sim, vocr_rec
 // （过滤时按相同条件同步剔除）。引擎不支持逐字时 ext 各元素为空结构。
 void engine_ocr_filtered_ext(unsigned char *data, int w, int h, double sim, vocr_rec_t &res,
                              vocr_line_ext_t &ext) {
-    HttpOcrService::getInstance()->ocr_ext(data, w, h, 4, res, ext);
+    OcrService::getInstance()->ocr_ext(data, w, h, 4, res, ext);
     // 引擎若未回填（长度不匹配），补齐成空结构以保证等长
     if (ext.size() != res.size()) ext.assign(res.size(), ocr_line_ext_t{});
     // 同步过滤：按 conf 阈值同时剔除 res 与 ext，保持一一对应
@@ -169,18 +247,27 @@ std::shared_ptr<PicMatchTemplate> make_pic_match(std::shared_ptr<Image> image) {
 }
 
 bool find_cached_pic(const wstring &key, std::shared_ptr<Image> &image, std::shared_ptr<PicMatchTemplate> &match) {
-    std::shared_lock<std::shared_mutex> lock(g_pic_cache_mutex);
-    auto it = g_pic_cache.find(key);
-    if (it == g_pic_cache.end())
+    {
+        // 第一阶段：shared_lock 快速查找（读多写少，miss 路径不阻塞并发读）。
+        std::shared_lock<std::shared_mutex> lock(g_pic_cache_mutex);
+        auto it = g_pic_cache.find(key);
+        if (it == g_pic_cache.end())
+            return false;
+        auto match_it = g_pic_match_cache.find(key);
+        if (match_it == g_pic_match_cache.end())
+            return false;
+        image = it->second;
+        match = match_it->second;
+        if (!image || !match)
+            return false;
+    }
+    // 第二阶段：命中后升级 unique_lock 刷新 LRU 时间戳。
+    // 必须重新 find——换锁期间该条目可能已被 erase/淘汰，迭代器可能失效。
+    std::unique_lock<std::shared_mutex> lock(g_pic_cache_mutex);
+    if (g_pic_cache.find(key) == g_pic_cache.end() || g_pic_match_cache.find(key) == g_pic_match_cache.end())
         return false;
-
-    auto match_it = g_pic_match_cache.find(key);
-    if (match_it == g_pic_match_cache.end())
-        return false;
-
-    image = it->second;
-    match = match_it->second;
-    return image && match;
+    g_pic_cache_tick[key] = ++g_pic_cache_clock;
+    return true;
 }
 
 bool store_cached_pic(const wstring &key, std::shared_ptr<Image> image, std::shared_ptr<PicMatchTemplate> match) {
@@ -189,15 +276,30 @@ bool store_cached_pic(const wstring &key, std::shared_ptr<Image> image, std::sha
 
     std::unique_lock<std::shared_mutex> lock(g_pic_cache_mutex);
     const long max_entries = g_pic_cache_max_entries.load(std::memory_order_relaxed);
-    // 达到上限（且不是刷新已有条目）时整体清空重存，防止长跑场景缓存单调膨胀。
-    // max_entries<=0 = 不设上限。
-    if (max_entries > 0 && g_pic_cache.find(key) == g_pic_cache.end() &&
-        static_cast<long>(g_pic_cache.size()) >= max_entries) {
-        g_pic_cache.clear();
-        g_pic_match_cache.clear();
+    // 达到上限（且不是刷新已有条目）时按 LRU 淘汰最久未用条目，防止长跑场景缓存单调膨胀，
+    // 同时保留热条目避免命中率雪崩。max_entries<=0 = 不设上限。
+    while (max_entries > 0 && static_cast<long>(g_pic_cache.size()) >= max_entries &&
+           g_pic_cache.find(key) == g_pic_cache.end()) {
+        // 扫 tick map 找最小值（O(n) 仅在淘汰瞬间发生，n<=上限，代价可忽略）。
+        const wstring *oldest = nullptr;
+        unsigned long long oldest_tick = 0;
+        for (const auto &tick : g_pic_cache_tick) {
+            if (!oldest || tick.second < oldest_tick) {
+                oldest = &tick.first;
+                oldest_tick = tick.second;
+            }
+        }
+        if (!oldest)  // tick map 与缓存脱节（不应发生），防御退出。
+            break;
+        g_pic_cache.erase(*oldest);
+        g_pic_match_cache.erase(*oldest);
+        g_pic_cache_tick.erase(*oldest);
+        if (g_pic_cache.empty())
+            break;
     }
     g_pic_cache[key] = std::move(image);
     g_pic_match_cache[key] = std::move(match);
+    g_pic_cache_tick[key] = ++g_pic_cache_clock;
     return true;
 }
 
@@ -209,7 +311,8 @@ bool erase_cached_pic(const wstring &key) {
     std::unique_lock<std::shared_mutex> lock(g_pic_cache_mutex);
     const bool erased_image = g_pic_cache.erase(key) > 0;
     const bool erased_match = g_pic_match_cache.erase(key) > 0;
-    return erased_image || erased_match;
+    const bool erased_tick = g_pic_cache_tick.erase(key) > 0;
+    return erased_image || erased_match || erased_tick;
 }
 
 std::shared_ptr<Image> read_pic_file(const wstring &path) {
@@ -243,6 +346,7 @@ bool store_global_file_dict(int idx, std::shared_ptr<Dictionary> dict) {
 
     std::unique_lock<std::shared_mutex> lock(g_file_dict_mutex);
     g_file_dicts[static_cast<size_t>(idx)] = std::move(dict);
+    ocr_dict_epoch()++; // 字库内容变更：各实例 OCR 帧 memo 失效
     return true;
 }
 
@@ -252,6 +356,7 @@ void clear_global_file_dict(int idx) {
 
     std::unique_lock<std::shared_mutex> lock(g_file_dict_mutex);
     g_file_dicts[static_cast<size_t>(idx)].reset();
+    ocr_dict_epoch()++; // 字库内容变更：各实例 OCR 帧 memo 失效
 }
 
 // Lanczos3 核（a=3）。带负旁瓣是必需的：双线性放大后再缩回 rec 输入高度，
@@ -357,6 +462,7 @@ ImageSearchService::ImageSearchService() {
     // 高频轮询场景可用 --pre_scale=1 关回。
     _ocr_pre_scale = 2.0;
     _ocr_bridge = false;
+    _ocr_auto_pick_color = false;
 }
 
 ImageSearchService::~ImageSearchService() {
@@ -626,6 +732,7 @@ long ImageSearchService::ClearDict(long idx) {
 
     _private_dicts[idx].clear();
     _private_dict_overrides[idx] = true;
+    ocr_dict_epoch()++; // 字库内容变更：各实例 OCR 帧 memo 失效
     return 1;
 }
 
@@ -661,6 +768,7 @@ Dictionary &ImageSearchService::MutablePrivateDict(int idx) {
         }
     }
     _private_dict_overrides[idx] = true;
+    ocr_dict_epoch()++; // 字库内容变更：各实例 OCR 帧 memo 失效
     return _private_dicts[idx];
 }
 
@@ -947,6 +1055,81 @@ long ImageSearchService::RenameWordDict(const wstring &dict_info, const wstring 
     return static_cast<long>(entries.size());
 }
 
+// ===== OCR 帧 memo（2026-11-26）=====
+uint64_t ImageSearchService::ocr_memo_hash_src() const {
+    if (_src.width <= 0 || _src.height <= 0 || _src.pdata == nullptr)
+        return 0;
+    const auto *p = reinterpret_cast<const unsigned char *>(_src.pdata);
+    const size_t n = static_cast<size_t>(_src.width) * static_cast<size_t>(_src.height) * 4;
+    uint64_t h = 1469598103934665603ULL; // FNV-1a 64（与 OpImage.cpp OpIsDisplayDead 同口径）
+    for (size_t i = 0; i < n; ++i) {
+        h ^= p[i];
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+
+bool ImageSearchService::ocr_memo_match(const char *kind, const wstring &color, double sim) const {
+    if (!_ocr_memo_valid)
+        return false;
+    if (_ocr_memo_kind != kind || _ocr_memo_color != color || _ocr_memo_sim != sim)
+        return false;
+    if (_ocr_memo_hash != ocr_memo_hash_src())
+        return false;
+    if (_ocr_memo_engine_gen != OcrService::getInstance()->generation())
+        return false;
+    if (_ocr_memo_dict_gen != ocr_dict_epoch())
+        return false;
+    // 设置指纹：当前字库槽 + 颜色路径三开关 + 二值化预处理四参数。
+    if (_ocr_memo_dict_idx != _curr_idx || _ocr_memo_pre_scale != _ocr_pre_scale ||
+        _ocr_memo_bridge != _ocr_bridge || _ocr_memo_auto_pick != _ocr_auto_pick_color ||
+        _ocr_memo_bp_mode != _binary_preprocess_mode || _ocr_memo_bp_iso != _binary_isolated_threshold ||
+        _ocr_memo_bp_area != _binary_min_component_area || _ocr_memo_bp_gap != _binary_bridge_gap)
+        return false;
+    return true;
+}
+
+void ImageSearchService::ocr_memo_store(const char *kind, const wstring &color, double sim, long ret,
+                                        const std::wstring &out) {
+    _ocr_memo_valid = true;
+    // 注意：store 时的 _src 必须仍是入口时的原图。wrapped 入口内部若做 begin/end_ocr_upscale
+    // 会在返回前恢复 _src，此处拿到的哈希与 match() 时刻一致。
+    _ocr_memo_hash = ocr_memo_hash_src();
+    _ocr_memo_engine_gen = OcrService::getInstance()->generation();
+    _ocr_memo_dict_gen = ocr_dict_epoch();
+    _ocr_memo_kind = kind;
+    _ocr_memo_color = color;
+    _ocr_memo_sim = sim;
+    _ocr_memo_dict_idx = _curr_idx;
+    _ocr_memo_pre_scale = _ocr_pre_scale;
+    _ocr_memo_bridge = _ocr_bridge;
+    _ocr_memo_auto_pick = _ocr_auto_pick_color;
+    _ocr_memo_bp_mode = _binary_preprocess_mode;
+    _ocr_memo_bp_iso = _binary_isolated_threshold;
+    _ocr_memo_bp_area = _binary_min_component_area;
+    _ocr_memo_bp_gap = _binary_bridge_gap;
+    _ocr_memo_ret = ret;
+    _ocr_memo_out = out;
+}
+
+long ImageSearchService::ocr_memo_wrap(const char *kind, const wstring &color, double sim, std::wstring &out,
+                                       const std::function<long(std::wstring &)> &work) {
+    out.clear();
+    if (_ocr_memo_enabled && ocr_memo_match(kind, color, sim)) {
+        out = _ocr_memo_out;
+        ++_ocr_memo_hits;
+        return _ocr_memo_ret;
+    }
+    std::wstring tmp;
+    const long ret = work(tmp);
+    out = tmp;
+    if (_ocr_memo_enabled) {
+        ocr_memo_store(kind, color, sim, ret, tmp);
+        ++_ocr_memo_misses;
+    }
+    return ret;
+}
+
 long ImageSearchService::OcrFree(double sim, std::wstring &out_str) {
     out_str.clear();
     sim = clamp_sim_default(sim);
@@ -962,98 +1145,145 @@ long ImageSearchService::OcrFree(double sim, std::wstring &out_str) {
 }
 
 long ImageSearchService::OCR(const wstring &color, double sim, std::wstring &out_str) {
-    out_str.clear();
-    sim = clamp_sim_default(sim);
-    auto dict = ActiveDict(_curr_idx);
-    if (!dict) {
-        // 免字库路径：直接对整幅区域原图识别，color 不参与（要按颜色过滤请用 OcrAutoColor 系）
-        return OcrFree(sim, out_str);
-    }
-    str2pointbinaryfbk(color, sim);
-    return ImageSearchAlgorithms::Ocr(*dict, sim, out_str);
+    return ocr_memo_wrap("ocr", color, sim, out_str, [&](std::wstring &s) -> long {
+        s.clear();
+        sim = clamp_sim_default(sim);
+        auto dict = ActiveDict(_curr_idx);
+        if (!dict) {
+            // 免字库路径：直接对整幅区域原图识别，color 不参与（要按颜色过滤请用 OcrAutoColor 系）
+            return OcrFree(sim, s);
+        }
+        str2pointbinaryfbk(color, sim);
+        return ImageSearchAlgorithms::Ocr(*dict, sim, s);
+    });
 }
 
 long ImageSearchService::ocr_auto_color(const wstring &color, double sim, wstring &out_str) {
-    out_str.clear();
-    sim = clamp_sim_default(sim);
+    return ocr_memo_wrap("auto_color", color, sim, out_str, [&](std::wstring &s) -> long {
+        s.clear();
+        sim = clamp_sim_default(sim);
 
-    auto dict = ActiveDict(_curr_idx);
-    // 字库模板是按原分辨率制作的，放大后模板匹配会整体失效 —— 字库分支不预放大。
-    Image saved_src;
-    const double pre = dict ? 1.0 : begin_ocr_upscale(saved_src);
+        auto dict = ActiveDict(_curr_idx);
 
-    // 1) 按颜色二值化 -> _binary（WORD_COLOR=1 命中文字，WORD_BKCOLOR=0 背景）。
-    //    用 str2binaryfbk 而非裸 str2colordfs+bgr2binary：它支持 "@背景色" 格式
-    //    （分流到 bgr2binarybk，反白字/白字深底场景），与字库制作同一入口。
-    //    无显式偏色段时容差用 kOcrImplicitColorDiff（0x60 包全抗锯齿笔画），不用 sim 推导——
-    //    中间容差带（只包半个边缘）比零容差更糟，实测结论。
-    str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);
-    // 免字库分支补形态学桥接：颜色二值化会把抗锯齿过渡像素判成背景，细笔画被切成
-    // 断续的点（实测容差 0x02 时识别直接崩成乱码）。桥接把 1 像素的缝接回去。
-    // 只桥接、不去噪（mode=4）：去噪会把抗锯齿边缘的孤立浅色像素删掉，笔画变细反而更难认。
-    if (!dict && _ocr_bridge) ApplyBinaryPreprocess(4);
-    end_ocr_upscale(saved_src);
+        // 空颜色 = 不做颜色过滤 -> 原图直识（与 AutoOcr/AutoOcrLine/ocr_auto_color_ex2
+        // 归一语义一致）。空色继续走二值化会落到 bgr2binarybk 的灰度 auto 分支
+        // （阈值 20），渐变底/彩色字的笔画被吃掉——2026-11-25 找字扫描"色=原图"
+        // 大面积错字的根因。字库分支保持既有行为（空色=自动背景二值化）。
+        if (!dict && color.empty()) {
+            if (_src.width <= 0 || _src.height <= 0)
+                return 0;
+            vocr_rec_t res;
+            engine_ocr_filtered(_src.pdata, _src.width, _src.height, sim, res);
+            for (auto &it : res)
+                s += it.text;
+            return static_cast<long>(res.size());
+        }
 
-    if (dict) {
-        // 字库兜底：在颜色二值化结果上做字库 OCR
-        return ImageSearchAlgorithms::Ocr(*dict, sim, out_str);
-    }
+        // 字库模板是按原分辨率制作的，放大后模板匹配会整体失效 —— 字库分支不预放大。
+        Image saved_src;
+        const double pre = dict ? 1.0 : begin_ocr_upscale(saved_src);
 
-    // 2) 免字库：把二值图转成白字黑底 BGRA 缓冲，喂给 OnnxOcrEngine
-    int w = _binary.width, h = _binary.height;
-    if (w <= 0 || h <= 0)
+        // 1) 按颜色二值化 -> _binary（WORD_COLOR=1 命中文字，WORD_BKCOLOR=0 背景）。
+        //    用 str2binaryfbk 而非裸 str2colordfs+bgr2binary：它支持 "@背景色" 格式
+        //    （分流到 bgr2binarybk，反白字/白字深底场景），与字库制作同一入口。
+        //    无显式偏色段时容差用 kOcrImplicitColorDiff（0x60 包全抗锯齿笔画），不用 sim 推导——
+        //    中间容差带（只包半个边缘）比零容差更糟，实测结论。
+        str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);
+        // 免字库分支补形态学桥接：颜色二值化会把抗锯齿过渡像素判成背景，细笔画被切成
+        // 断续的点（实测容差 0x02 时识别直接崩成乱码）。桥接把 1 像素的缝接回去。
+        // 只桥接、不去噪（mode=4）：去噪会把抗锯齿边缘的孤立浅色像素删掉，笔画变细反而更难认。
+        if (!dict && _ocr_bridge) ApplyBinaryPreprocess(4);
+        end_ocr_upscale(saved_src);
+
+        if (dict) {
+            // 字库兜底：在颜色二值化结果上做字库 OCR
+            return ImageSearchAlgorithms::Ocr(*dict, sim, s);
+        }
+
+        // 2) 免字库：把二值图转成白字黑底 BGRA 缓冲，喂给 OnnxOcrEngine
+        int w = _binary.width, h = _binary.height;
+        if (w <= 0 || h <= 0)
+            return 0;
+        std::vector<unsigned char> buf;
+        binary_to_white_on_black_bgra(_binary.data(), w, h, buf);
+        vocr_rec_t res;
+        engine_ocr_filtered(buf.data(), w, h, sim, res);
+        for (auto &it : res)
+            s += it.text;
+        (void)pre; // 纯文本出口没有坐标，无需除回
         return 0;
-    std::vector<unsigned char> buf;
-    binary_to_white_on_black_bgra(_binary.data(), w, h, buf);
-    vocr_rec_t res;
-    engine_ocr_filtered(buf.data(), w, h, sim, res);
-    for (auto &it : res)
-        out_str += it.text;
-    (void)pre; // 纯文本出口没有坐标，无需除回
-    return 0;
+    });
 }
 
 long ImageSearchService::ocr_auto_color_line(const wstring &color, double sim, wstring &out_str) {
-    out_str.clear();
+    return ocr_memo_wrap("auto_color_line", color, sim, out_str, [&](std::wstring &s) -> long {
+    s.clear();
     sim = clamp_sim_default(sim);
 
     auto dict = ActiveDict(_curr_idx);
     Image saved_src;
     const double pre = dict ? 1.0 : begin_ocr_upscale(saved_src);
 
-    // 1) 按颜色二值化 -> _binary（命中文字=1，背景=0）。
-    //    str2binaryfbk：支持 "@背景色" 反白格式，与字库制作同一入口。
-    //    无显式偏色段时容差用 kOcrImplicitColorDiff，理由同 ocr_auto_color。
-    str2binaryfbk(color, 1.0, kOcrImplicitColorDiff);
-    if (!dict && _ocr_bridge) ApplyBinaryPreprocess(4);
-    end_ocr_upscale(saved_src);
-
-    if (dict) {
-        // 字库兜底：在颜色二值化结果上做字库 OCR
-        return ImageSearchAlgorithms::Ocr(*dict, sim, out_str);
+    // 三段式颜色策略（免字库）：
+    //   1) 填了颜色 -> 按指定颜色二值化（支持 "色1|色2" 多色并集、"色-偏色" 容差、
+    //      "@背景色" 反白），指定色优先；
+    //   2) 不填颜色 + 自动挑色关（默认）-> 原图直识，无颜色限制（同 OcrAuto 语义）；
+    //   3) 不填颜色 + 自动挑色开（--auto_pick_color=1）-> 先从图内挑文字主色再按 1) 走，
+    //      挑不到（无明确主色）回退 2)。
+    std::wstring eff_color = color;
+    if (!dict && eff_color.empty()) {
+        if (_ocr_auto_pick_color)
+            eff_color = pick_text_color(_src);
+        if (eff_color.empty()) {
+            // 默认段：原图直识（用预放大前的原图，与 OcrAuto/OpOcrAutoFromFile 同口径同耗时）
+            const Image &orig = saved_src.empty() ? _src : saved_src;
+            if (orig.width > 0 && orig.height > 0) {
+                vocr_rec_t res;
+                engine_ocr_filtered(orig.pdata, orig.width, orig.height, sim, res);
+                for (auto &it : res)
+                    s += it.text;
+            }
+            end_ocr_upscale(saved_src);
+            return 0;
+        }
     }
 
-    // 2) 免字库快路径：二值图水平投影切行 -> 每行独立直 rec（跳过 det，保持快路径）。
+    // 1) 整图按颜色二值化 -> _binary（命中文字=1，背景=0）。先不桥接。
+    //    str2binaryfbk：支持 "@背景色" 反白格式，与字库制作同一入口。
+    //    无显式偏色段时容差用 kOcrImplicitColorDiff，理由同 ocr_auto_color。
+    //    顺序必须是"先拆行再桥接/rec"：桥接若先做，会把相邻文字行（2x 后行距 <=6px）
+    //    缝合成一整块，水平投影只看到一个段，整图被当单行压扁
+    //    （真实素材 8.bmp 自动 116 字符 -> 14 字符）。
+    str2binaryfbk(eff_color, 1.0, kOcrImplicitColorDiff);
+
+    if (dict) {
+        end_ocr_upscale(saved_src);
+        // 字库兜底：在颜色二值化结果上做字库 OCR（与历史行为一致，不桥接）
+        return ImageSearchAlgorithms::Ocr(*dict, sim, s);
+    }
+
+    // 2) 免字库快路径：二值图水平投影切行 -> 每段独立"桥接 + rec"（跳过 det，保持快路径）。
     //    必须裁行：整区域直 rec 会把含上下留白的区域等比压扁（字符糊），
     //    真机实测整窗 160px 高、文本行仅 35px 时 10px 级字符必错字（愿->原、丢负号）。
     int w = _binary.width, h = _binary.height;
-    if (w <= 0 || h <= 0)
+    if (w <= 0 || h <= 0) {
+        end_ocr_upscale(saved_src);
         return 0;
-    const unsigned char *bin = _binary.data();
+    }
     // 水平投影：统计每行前景(文字)像素
     std::vector<int> row(size_t(h), 0);
     for (int y = 0; y < h; ++y) {
-        const unsigned char *p = bin + size_t(y) * w;
+        const unsigned char *p = _binary.data() + size_t(y) * w;
         int cnt = 0;
         for (int x = 0; x < w; ++x)
             if (p[x]) ++cnt;
         row[size_t(y)] = cnt;
     }
-    // 按行间空隙切段：行内字符纵向像素连续（或 <=2px 微隙），行间留白通常 >=3px；
-    // 段高 < kMinH 视为噪点残留，丢弃。
-    // 阈值按预放大倍率同比放大：否则 2x 后原图 2px 的行内微隙变成 4px，会把一行
-    // 从中间切开（表现为每行只识别出前半句）。
-    const int kMaxInLineGap = (std::max)(3, int(std::lround(3.0 * pre)));
+    // 按行间空隙切段：2 个连续空行即分段——与引擎 has_internal_ink_gap 多行判据一致。
+    //    不能用历史上的 kMaxInLineGap(3px*pre=6px@2x)：真实 UI 行距 2~3px，2x 后 4~6px，
+    //    6px 容差恰好把相邻行缝成一个段。单行图段内不存在 2 连空行（引擎按同一口径
+    //    从未误判），口径对齐后引擎兜底与这里分段不会互相漏。
+    // 段高 < kMinSegH 视为噪点残留，丢弃（阈值按预放大倍率同比放大）。
     const int kMinSegH = (std::max)(5, int(std::lround(5.0 * pre)));
     std::vector<std::pair<int, int>> segs; // (y0, y1) 含
     for (int y = 0; y < h;) {
@@ -1061,33 +1291,92 @@ long ImageSearchService::ocr_auto_color_line(const wstring &color, double sim, w
         int y0 = y, y1 = y, gap = 0;
         for (++y; y < h; ++y) {
             if (row[size_t(y)] != 0) { y1 = y; gap = 0; }
-            else if (++gap > kMaxInLineGap) break;
+            else if (++gap >= 2) break;
         }
         if (y1 - y0 + 1 >= kMinSegH) segs.push_back({y0, y1});
     }
+    end_ocr_upscale(saved_src);
     if (segs.empty())
         return 0;
 
-    for (const auto &s : segs) {
-        int seg_h = s.second - s.first + 1;
+    // 实心判据：段内"主体区域"每行前景都 >= max(2, 2% 行宽)（与引擎 has_internal_ink_gap
+    //  同行宽口径）。主体区域 = 去掉首尾各 seg_h/4 的边缘行——下伸笔画（J/Q 尾、逗号点）
+    //  只出现在段的边缘行，宽行上这些行前景只有几个像素，必须豁免；而多行残留的
+    //  内部全空行、细笔画段（1~2px 横画被削瘦）内部稀疏行都在主体区域内，据此分流：
+    //  - 实心段 = 单行 -> 拷出 -> 桥接（只作用于本段，不可能跨段缝合）-> 直 rec，保持快路径；
+    //  - 非实心段 = 多行残留或细笔画行：行间 2px 微隙在 2x 下可能只剩 1 空行（2 空行
+    //    判据拆不开，直 rec 必糊）；细笔画行稀疏命中、直 rec 错字率高——这两类统一交
+    //    det（det 能可靠拆行且对稀疏笔画鲁棒），按行 rec 后拼接。
+    const int min_seg_ink = (std::max)(2, w / 50);
+    for (const auto &sg : segs) {
+        const int seg_h = sg.second - sg.first + 1;
+        const int margin = (std::max)(1, seg_h / 4);
+        const int y_core0 = sg.first + margin, y_core1 = sg.second - margin;
+        bool solid = true;
+        for (int y = y_core0; y <= y_core1; ++y) {
+            if (row[size_t(y)] < min_seg_ink) { solid = false; break; }
+        }
         std::vector<unsigned char> buf;
-        binary_to_white_on_black_bgra(bin + size_t(s.first) * w, w, seg_h, buf);
         vocr_rec_t res;
-        HttpOcrService::getInstance()->ocr_line(buf.data(), w, seg_h, 4, res);
+        if (solid) {
+            ImageBin seg_bin;
+            seg_bin.create(w, seg_h);
+            std::memcpy(seg_bin.data(), _binary.data() + size_t(sg.first) * w, size_t(w) * seg_h);
+            if (_ocr_bridge && _binary_bridge_gap > 0)
+                bridge_binary_gaps(seg_bin);
+            binary_to_white_on_black_bgra(seg_bin.data(), w, seg_h, buf);
+            OcrService::getInstance()->ocr_line(buf.data(), w, seg_h, 4, res);
+        } else {
+            binary_to_white_on_black_bgra(_binary.data() + size_t(sg.first) * w, w, seg_h, buf);
+            engine_ocr_filtered(buf.data(), w, seg_h, sim, res);
+        }
         res.erase(std::remove_if(res.begin(), res.end(),
                                  [sim](const ocr_rec_t &r) { return r.confidence < sim - 1e-9; }),
                   res.end());
         for (auto &it : res)
-            out_str += it.text;
+            s += it.text;
     }
     return 0;
+    });
 }
 
 long ImageSearchService::ocr_auto_color_ex(const wstring &color, double sim, wstring &out_str) {
-    out_str.clear();
+    return ocr_memo_wrap("auto_color_ex", color, sim, out_str, [&](std::wstring &s) -> long {
+    s.clear();
     sim = clamp_sim_default(sim);
 
     auto dict = ActiveDict(_curr_idx);
+
+    // 空颜色 = 不做颜色过滤 -> 原图直识，与 ocr_auto_color 同理由；输出格式保持
+    // 本函数的 x1,y1,x2,y2,conf,text 结构（不能转调 OcrEx——那个只给中心点坐标，
+    // 上游 OcrRapBoxes 按 6 字段解析会错位）。字库分支保持既有行为。
+    if (!dict && color.empty()) {
+        if (_src.width <= 0 || _src.height <= 0)
+            return 0;
+        vocr_rec_t res;
+        engine_ocr_filtered(_src.pdata, _src.width, _src.height, sim, res);
+        std::stable_sort(res.begin(), res.end(), [](const auto &a, const auto &b) {
+            if (a.left_top.y != b.left_top.y)
+                return a.left_top.y < b.left_top.y;
+            return a.left_top.x < b.left_top.x;
+        });
+        long find_ct = 0;
+        wchar_t itembuf[96];
+        for (auto &it : res) {
+            if (find_ct >= _max_return_obj_ct)
+                break;
+            swprintf(itembuf, 96, L"%d,%d,%d,%d,%.2f,", it.left_top.x + _x1 + _dx, it.left_top.y + _y1 + _dy,
+                     it.right_bottom.x + _x1 + _dx, it.right_bottom.y + _y1 + _dy, it.confidence);
+            s += itembuf;
+            s += it.text;
+            s += L"|";
+            ++find_ct;
+        }
+        if (!s.empty() && s.back() == L'|')
+            s.pop_back();
+        return find_ct;
+    }
+
     Image saved_src;
     const double pre = dict ? 1.0 : begin_ocr_upscale(saved_src);
 
@@ -1100,7 +1389,7 @@ long ImageSearchService::ocr_auto_color_ex(const wstring &color, double sim, wst
 
     if (dict) {
         // 字库兜底：沿用 OcrEx 的 "x,y,text|..." 格式
-        return ImageSearchAlgorithms::OcrEx(*dict, sim, out_str);
+        return ImageSearchAlgorithms::OcrEx(*dict, sim, s);
     }
 
     // 2) 免字库：白字黑底 BGRA 缓冲 -> det+rec，bbox 偏移为客户区坐标（_x1/_y1 由 capture_region 设为区域左上角，_dx/_dy 恒 0）
@@ -1129,14 +1418,15 @@ long ImageSearchService::ocr_auto_color_ex(const wstring &color, double sim, wst
             break; // 先判上限再收集（置信度已在 engine_ocr_filtered 过滤）
         swprintf(itembuf, 96, L"%d,%d,%d,%d,%.2f,", it.left_top.x + _x1 + _dx, it.left_top.y + _y1 + _dy,
                  it.right_bottom.x + _x1 + _dx, it.right_bottom.y + _y1 + _dy, it.confidence);
-        out_str += itembuf;
-        out_str += it.text;
-        out_str += L"|";
+        s += itembuf;
+        s += it.text;
+        s += L"|";
         ++find_ct;
     }
-    if (!out_str.empty() && out_str.back() == L'|')
-        out_str.pop_back();
+    if (!s.empty() && s.back() == L'|')
+        s.pop_back();
     return find_ct;
+    });
 }
 
 wstring ImageSearchService::GetColor(long x, long y) {
@@ -1247,6 +1537,7 @@ long ImageSearchService::clear_pic_cache() {
     std::unique_lock<std::shared_mutex> lock(g_pic_cache_mutex);
     g_pic_cache.clear();
     g_pic_match_cache.clear();
+    g_pic_cache_tick.clear();
     return 1;
 }
 
@@ -1416,22 +1707,8 @@ void ImageSearchService::ApplyBinaryPreprocess(int mode_override) {
         }
     }
 
-    if (do_bridge && _binary_bridge_gap > 0) {
-        ImageBin source = _binary;
-        for (int y = 0; y < source.height; ++y) {
-            for (int x = 0; x < source.width; ++x) {
-                if (source.at(y, x) == WORD_COLOR)
-                    continue;
-
-                const bool bridge_x = x > 0 && x + 1 < source.width && source.at(y, x - 1) == WORD_COLOR &&
-                                      source.at(y, x + 1) == WORD_COLOR;
-                const bool bridge_y = y > 0 && y + 1 < source.height && source.at(y - 1, x) == WORD_COLOR &&
-                                      source.at(y + 1, x) == WORD_COLOR;
-                if (bridge_x || bridge_y)
-                    _binary.at(y, x) = WORD_COLOR;
-            }
-        }
-    }
+    if (do_bridge && _binary_bridge_gap > 0)
+        bridge_binary_gaps(_binary);
 }
 
 // 预放大 _src 供二值化使用。返回实际倍率（1.0 = 未放大），由调用方在识别结束后
@@ -1527,7 +1804,8 @@ void ImageSearchService::files2mats(const wstring &files, std::vector<PicMatchTe
 }
 
 long ImageSearchService::OcrEx(const wstring &color, double sim, std::wstring &retstr) {
-    retstr.clear();
+    return ocr_memo_wrap("oex", color, sim, retstr, [&](std::wstring &s) -> long {
+    s.clear();
     sim = clamp_sim_default(sim);
     auto dict = ActiveDict(_curr_idx);
     if (!dict) {
@@ -1542,22 +1820,24 @@ long ImageSearchService::OcrEx(const wstring &color, double sim, std::wstring &r
             if (find_ct >= _max_return_obj_ct)
                 break; // 先判上限再收集（与 ocr_auto_color_ex 一致；置信度已过滤）
             swprintf(coordbuf, 64, L"%d,%d,", it.left_top.x + _x1 + _dx, it.left_top.y + _y1 + _dy);
-            retstr += coordbuf;
-            retstr += it.text;
-            retstr += L"|";
+            s += coordbuf;
+            s += it.text;
+            s += L"|";
             ++find_ct;
         }
-        if (!retstr.empty() && retstr.back() == L'|')
-            retstr.pop_back();
+        if (!s.empty() && s.back() == L'|')
+            s.pop_back();
         return find_ct;
     } else {
         str2pointbinaryfbk(color, sim);
-        return ImageSearchAlgorithms::OcrEx(*dict, sim, retstr);
+        return ImageSearchAlgorithms::OcrEx(*dict, sim, s);
     }
+    });
 }
 
 long ImageSearchService::ocr_ex2(const wstring &color, double sim, std::wstring &out_json) {
-    out_json.clear();
+    return ocr_memo_wrap("ex2", color, sim, out_json, [&](std::wstring &s) -> long {
+    s.clear();
     sim = clamp_sim_default(sim);
     auto dict = ActiveDict(_curr_idx);
     if (!dict) {
@@ -1567,13 +1847,14 @@ long ImageSearchService::ocr_ex2(const wstring &color, double sim, std::wstring 
         vocr_rec_t res;
         vocr_line_ext_t ext;
         engine_ocr_filtered_ext(_src.pdata, _src.width, _src.height, sim, res, ext);
-        return build_ocr_json(res, ext, 0, 0, 0, 0, /*bbox_known=*/false, false, out_json);
+        return build_ocr_json(res, ext, 0, 0, 0, 0, /*bbox_known=*/false, false, s);
     }
     // 字库路径：字库匹配无逐字信息，仅输出整行结果（chars 为空数组）
     str2pointbinaryfbk(color, sim);
     std::wstring legacy;
     long ct = ImageSearchAlgorithms::OcrEx(*dict, sim, legacy);
-    return legacy_ocr_to_json(legacy, ct, out_json);
+    return legacy_ocr_to_json(legacy, ct, s);
+    });
 }
 
 // 智能选路（2026-11-20）：统计源图中命中指定颜色（含容差）的像素数。
@@ -1623,19 +1904,20 @@ long ImageSearchService::count_color_hits(const wstring &color, int &out_total_p
 }
 
 long ImageSearchService::ocr_auto_color_ex2(const wstring &color, double sim, std::wstring &out_json) {
-    out_json.clear();
+    return ocr_memo_wrap("auto_color_ex2", color, sim, out_json, [&](std::wstring &s) -> long {
+    s.clear();
     // 空颜色 = 不做颜色过滤 -> 走原图直识，与 AutoOcr / AutoOcrLine 的归一语义一致。
     // 空颜色若继续走二值化会产出全背景图、结果恒空（历史 bug #ocr-empty-color，
     // 见 op_c_api.cpp 中 OpAutoOcrLine 的注释）。实测 4.bmp 传空色即因此返回 0 行。
     if (color.empty())
-        return ocr_ex2(color, sim, out_json);
+        return ocr_ex2(color, sim, s);
     // 智能选路：图里几乎没有目标色时，二值化会得到全背景图、识别恒空。
     // 此时回退原图直识（白字场景的实测准确率是 100%，见上方 count_color_hits 注释）。
     // 阈值 1/1000：小图上 30~400 个彩色字像素约占 0.5%~7%，而纯白字图的命中数是 0。
     int total_px = 0;
     const long hits = count_color_hits(color, total_px);
     if (hits >= 0 && total_px > 0 && hits * 1000 < total_px) {
-        return ocr_ex2(color, sim, out_json);
+        return ocr_ex2(color, sim, s);
     }
     sim = clamp_sim_default(sim);
 
@@ -1650,7 +1932,7 @@ long ImageSearchService::ocr_auto_color_ex2(const wstring &color, double sim, st
     if (dict) {
         std::wstring legacy;
         long ct = ImageSearchAlgorithms::OcrEx(*dict, sim, legacy);
-        return legacy_ocr_to_json(legacy, ct, out_json);
+        return legacy_ocr_to_json(legacy, ct, s);
     }
 
     int w = _binary.width, h = _binary.height;
@@ -1685,7 +1967,8 @@ long ImageSearchService::ocr_auto_color_ex2(const wstring &color, double sim, st
     // 注意：这里不能传 force_full_width_chars=true——引擎已经给出真实逐字 x，
     // 只有字库路径/旋转降级才需要压平成整行跨度。
     return build_ocr_json(sorted, sorted_ext, _x1 + _dx, _y1 + _dy, clip_w, clip_h, /*bbox_known=*/true,
-                          /*force_full_width_chars=*/false, out_json);
+                          /*force_full_width_chars=*/false, s);
+    });
 }
 
 long ImageSearchService::build_ocr_json(const vocr_rec_t &res, const vocr_line_ext_t &ext, int off_x,
@@ -1840,7 +2123,7 @@ long ImageSearchService::legacy_ocr_to_json(const std::wstring &legacy, long cou
 long ImageSearchService::ocr_last_profile(std::wstring &out_json) {
     using namespace op::json;
     out_json.clear();
-    const op::ocr::ocr_profile_t p = HttpOcrService::getInstance()->last_profile();
+    const op::ocr::ocr_profile_t p = OcrService::getInstance()->last_profile();
 
     auto num = [](double d) {
         Value n;
@@ -2296,7 +2579,8 @@ long ImageSearchService::OcrAuto(double sim, std::wstring &retstr) {
     // ⇒ 一旦加载过字库就恒返回空串（静默失败，实测 2026-09-30：同区域
     // ocr(color='000000')='AB12' 而 ocr_auto()=''）。
     // 无字库时两条路径等价（都走 OcrFree），故此改动不改变既有用例行为。
-    return OcrFree(sim, retstr);
+    return ocr_memo_wrap("auto", L"", sim, retstr,
+                         [&](std::wstring &s) -> long { return OcrFree(sim, s); });
 }
 
 long ImageSearchService::OcrFromFile(const wstring &files, const wstring &color, double sim, std::wstring &retstr) {
@@ -2316,7 +2600,9 @@ long ImageSearchService::OcrAutoFromFile(const wstring &files, double sim, std::
     if (!Path2GlobalPath(files, _curr_path, fullpath))
         return 0;
     _src.read(fullpath.data());
-    return OcrFree(sim, retstr); // 同 OcrAuto：Auto 系 = 免字库，不走字库
+    // 经 OcrAuto 而非直调 OcrFree：口径相同（Auto 系 = 免字库，不走字库），
+    // 且统一经过 OCR 帧 memo（画面未变时命中直接返回上次结果）。
+    return OcrAuto(sim, retstr);
 }
 
 long ImageSearchService::ocr_auto_color_from_file(const wstring &files, const wstring &color, double sim, std::wstring &retstr) {

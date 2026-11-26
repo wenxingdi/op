@@ -1,8 +1,5 @@
 #include "YoloDetector.h"
 #include "OnnxYoloEngine.h"
-#ifdef OP_ENABLE_HTTP_YOLO_BACKEND
-#include "HttpYoloEngine.h"
-#endif
 #include <iostream>
 
 using std::cout;
@@ -11,17 +8,6 @@ using std::endl;
 namespace op::yolo {
 
 namespace {
-#ifdef OP_ENABLE_HTTP_YOLO_BACKEND
-// engine 名以 "onnx" 开头（onnx / onnx_yolo / onnxruntime ...）-> 内置 ONNX 引擎
-bool is_onnx_engine_name(const std::wstring &engine) {
-    std::wstring e = engine;
-    for (auto &c : e)
-        c = static_cast<wchar_t>(towlower(c));
-    return e.rfind(L"onnx", 0) == 0;
-}
-#endif
-
-#ifndef OP_ENABLE_HTTP_YOLO_BACKEND
 // HTTP 远程后端隐藏期：http(s):// 地址与旧远程别名一律视为"已移除"，
 // init 显式拒绝并提示，避免静默落到 ONNX 引擎造成语义漂移。
 bool is_removed_remote_name(const std::wstring &engine) {
@@ -31,7 +17,6 @@ bool is_removed_remote_name(const std::wstring &engine) {
     return e.rfind(L"http", 0) == 0 || e == L"yolo" || e == L"yolo11" || e == L"yolov11" ||
            e == L"yolo_http" || e == L"yolo_server";
 }
-#endif
 } // namespace
 
 // 默认引擎 = OnnxYoloEngine（构造轻量，模型在 init 时才加载）。
@@ -53,7 +38,7 @@ YoloDetector::~YoloDetector() {
 }
 
 YoloDetector *YoloDetector::getInstance() {
-    // 故意泄漏（同 HttpOcrService::getInstance）：持有 ORT Session 的引擎
+    // 故意泄漏（同 OcrService::getInstance）：持有 ORT Session 的引擎
     // 不能在进程退出的静态析构里拆除，否则 ORT 线程池 teardown 死锁挂起。
     static YoloDetector *sYoloEngine = new YoloDetector();
     return sYoloEngine;
@@ -69,24 +54,6 @@ int YoloDetector::init(const std::wstring &engine, const std::wstring &dllName, 
 
 int YoloDetector::init_locked(const std::wstring &engine, const std::wstring &dllName, const vector<string> &argvs,
                               const std::vector<uint8_t> *mem) {
-#ifdef OP_ENABLE_HTTP_YOLO_BACKEND
-    // 内存模型只有 ONNX 引擎支持；HTTP 后端没有"上传模型字节"的语义。
-    if (mem) {
-        if (dynamic_cast<OnnxYoloEngine *>(m_engine.get()) == nullptr)
-            m_engine = std::make_unique<OnnxYoloEngine>();
-        return m_engine->init_from_memory(*mem, argvs);
-    }
-    // 注意：一旦 init 成功切到 onnx 引擎，后续再调 init("yolo",...) 会切回 HTTP。
-    // 这是显式选择，不做粘性记忆。
-    if (is_onnx_engine_name(engine)) {
-        if (dynamic_cast<OnnxYoloEngine *>(m_engine.get()) == nullptr)
-            m_engine = std::make_unique<OnnxYoloEngine>();
-    } else {
-        if (dynamic_cast<HttpYoloEngine *>(m_engine.get()) == nullptr)
-            m_engine = std::make_unique<HttpYoloEngine>();
-    }
-    return m_engine->init(engine, dllName, argvs);
-#else
 #if !defined(OP_HAS_ONNX) || !OP_HAS_ONNX
     cout << "SetYoloEngine: built-in YOLO not compiled (OP_HAS_ONNX=0, no onnxruntime for "
             "this architecture)" << endl;
@@ -94,7 +61,7 @@ int YoloDetector::init_locked(const std::wstring &engine, const std::wstring &dl
 #endif
     if (is_removed_remote_name(engine)) {
         cout << "SetYoloEngine: HTTP backend removed (self-trained ONNX model only, remote aliases "
-                "yolo/yolo11/yolo_http/yolo_server rejected); define OP_ENABLE_HTTP_YOLO_BACKEND to restore"
+                "yolo/yolo11/yolo_http/yolo_server rejected)"
              << endl;
         return -1;
     }
@@ -115,7 +82,6 @@ int YoloDetector::init_locked(const std::wstring &engine, const std::wstring &dl
     return rc;
 #else
     return -1; // OP_HAS_ONNX=0：上面已提前返回，此处仅为编译完整性
-#endif
 #endif
 }
 

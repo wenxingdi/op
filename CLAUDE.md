@@ -62,12 +62,18 @@ build/nmake-x64-Release/tests/op_test.exe --gtest_filter="OcrTest.*"
 
 **禁忌**：测试进程运行期间**不要构建**（op_test.exe 占用 lib → LNK1104）。构建与测试串行。
 
-基线（2026-11-24）：全量 676 ran / **649 PASS / 26 SKIP / 1 FAILED**（另一次 647/28）。
-**PASS/SKIP 的分配会随 WGC 熔断时机抖动，判回归请盯 FAILED 数**（恒为 1）。
-唯一 FAILED 是 `HookCaptureTest.BindLoadsMissingGraphicsAndInputModulesOnDemand`（既有基线失败，
-素载体特有的钩子活性回环，非注入通路问题）；SKIP 全是环境项：
-dx 通道不可用 16 条、WGC 进程级熔断后 8~10 条、其余为缺素材/环境前置。
-另 `WindowServiceTest.RunAppLaunchesShortcut` 本机会崩（`0xC0000005`，基线同样崩），全量需排除。
+基线（2026-11-26 更新）：注册 690（4 DISABLED），全量回归实跑 685（排除 RunAppLaunchesShortcut；
+本日新增 8：OCR memo 6 / mask 端到端 1 / 内存句柄缓存 1），除 1 个既有 FAILED 全 PASS
+（PASS/SKIP 分配随 WGC 熔断时机抖动，
+判回归请盯 FAILED 数）。**跑 op_test 前必须先把 TEMP 指到工作区**
+（`mkdir -p workbench/tmp; $env:TEMP="$pwd\workbench\tmp"; $env:TMP=$env:TEMP`）：
+本机沙箱拦截原生进程写系统 `%TEMP%`，不指的话所有落盘造图的用例会 pseudo-fail **98 个**
+（OcrEx2Test / CoverageOcrColorTest / OpenCvTest 全军覆没，全是假象）。
+恒定 FAILED 是 `HookCaptureTest.BindLoadsMissingGraphicsAndInputModulesOnDemand`（d3d9/dinput8
+按需加载，素载体环境项）；`WindowServiceTest.GetCmdStrReturnsPartialOutputOnTimeout`（控制台
+部分输出时序）**偶发**红，出现时复核一次即可。SKIP 全是环境项：dx 通道不可用、WGC 进程级
+熔断、缺素材/环境前置。另 `WindowServiceTest.RunAppLaunchesShortcut` 本机会崩（`0xC0000005`，
+基线同样崩），全量需排除。
 详见 `docs/2026-11/最终收尾_清理与验证_20261124.md`。
 
 ## 发布件同步（构建后必做）
@@ -96,12 +102,13 @@ dx 通道不可用 16 条、WGC 进程级熔断后 8~10 条、其余为缺素材
   若绕过该脚本构建，或怀疑"修复没生效/断言恒真"，先查
   `(Get-Item <对应>.obj).LastWriteTime` 是否晚于你改文件的时间。
   详见 `docs/2026-11/构建缺陷_改头文件不触发重编译_20261121.md`。
-- **跑 `op_test.exe` 前把 TEMP 指到工作区（DSH 沙箱环境）**：DSH 会拦截原生子进程对
-  `%TEMP%` 的写入（`ERROR_ACCESS_DENIED`），导致所有 `GetTempBmpPath` 落盘的用例伪失败
-  （表现为一堆 `path.empty()` 断言失败）。这不是代码问题。
-  `$env:TEMP="$pwd\workbench\tmp"; $env:TMP=$env:TEMP`。
+- **跑 `op_test.exe` 前把 TEMP 指到工作区（DSH 沙箱环境，2026-11-26 升级为一票否决项）**：
+  DSH 会拦截原生子进程对 `%TEMP%` 的写入（`ERROR_ACCESS_DENIED`），导致所有 `GetTempBmpPath`
+  落盘的用例伪失败（2026-11-26 实测全量 pseudo-fail **98 个**：OcrEx2Test /
+  CoverageOcrColorTest / OpenCvTest 全军覆没，全是假象，不指 TEMP 的回归结果一律作废）。
+  用法（先 mkdir）：`mkdir -p workbench/tmp; $env:TEMP="$pwd\workbench\tmp"; $env:TMP=$env:TEMP`。
   详见 `docs/2026-11/环境诊断_原生进程TEMP写入失败_20261120.md`。
-- **全量回归必须给足超时（2026-11-24）**：全量 676 条要 **10~12 分钟**。
+- **全量回归必须给足超时（2026-11-24）**：全量 685 条要 **10~12 分钟**。
   `scripts/run_tests.ps1` 曾硬编码 180s，会在中段 Kill 进程 → **无 gtest 汇总行 + 最后一条用例无结果**，
   极易误诊成"某条用例挂死"（实测那条单独跑只需 8ms 且 PASS）。
   现在用 `-TimeoutSec 2400`。另：该脚本是 **UTF-8 无 BOM**，`powershell.exe`(5.1) 按 GBK 解析，
