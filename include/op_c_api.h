@@ -885,6 +885,28 @@ OP_C_API const wchar_t *OP_CALL OpYoloObb(op_handle handle, int x1, int y1, int 
                                           int *find_count);
 OP_C_API const wchar_t *OP_CALL OpYoloObbFromFile(op_handle handle, const wchar_t *file_name, double conf, double iou,
                                                   int *find_count);
+/* YOLO 任务族 Ex2 过滤变体（2026-11-26，对称 OpYoloDetectEx2）：
+ * json_options {"class_ids":[],"labels":[],"max_results":N}，class_ids 与 labels 取并集，
+ * max_results 按 score/confidence 降序截断；空串 = 不过滤。
+ * 非法 options：返回 nullptr（*find_count=0）——与"没结果"（返回合法 JSON、results 为空）
+ * 通过返回值是否为 nullptr 区分，与 OpYoloDetectEx2 同一口径。
+ * JSON 比旧接口多 total（过滤前）与每条 index；segment/pose 条目多 cx/cy/w/h。 */
+OP_C_API const wchar_t *OP_CALL OpYoloClassifyEx2(op_handle handle, int x1, int y1, int x2, int y2, int top_k,
+                                                  const wchar_t *json_options, int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloClassifyFromFileEx2(op_handle handle, const wchar_t *file_name, int top_k,
+                                                          const wchar_t *json_options, int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloSegmentEx2(op_handle handle, int x1, int y1, int x2, int y2, double conf,
+                                                 double iou, const wchar_t *json_options, int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloSegmentFromFileEx2(op_handle handle, const wchar_t *file_name, double conf,
+                                                         double iou, const wchar_t *json_options, int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloPoseEx2(op_handle handle, int x1, int y1, int x2, int y2, double conf,
+                                              double iou, const wchar_t *json_options, int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloPoseFromFileEx2(op_handle handle, const wchar_t *file_name, double conf,
+                                                      double iou, const wchar_t *json_options, int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloObbEx2(op_handle handle, int x1, int y1, int x2, int y2, double conf, double iou,
+                                             const wchar_t *json_options, int *find_count);
+OP_C_API const wchar_t *OP_CALL OpYoloObbFromFileEx2(op_handle handle, const wchar_t *file_name, double conf,
+                                                     double iou, const wchar_t *json_options, int *find_count);
 OP_C_API const wchar_t *OP_CALL OpYoloGetModelInfo(op_handle handle);
 
 /* ---- YOLO 模型平台（2026-11-23）----

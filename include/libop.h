@@ -945,6 +945,31 @@ class OP_API Op {
                  _Out_ std::wstring &retjson, _Out_ long *ret);
     long YoloObbFromFile(_In_ const wchar_t *file_name, _In_ double conf, _In_ double iou, _Out_ std::wstring &retjson,
                          _Out_ long *ret);
+
+    // ---- YOLO 任务族 Ex2 过滤变体（2026-11-26，对称 Detect 族 Ex2）----
+    // json_options 形如 {"class_ids":[0,2],"labels":["person"],"max_results":20}：
+    // class_ids 与 labels 取并集，max_results 按 score/confidence 降序截断；
+    // 空串 = 不过滤。非法 options 返回 -1（显式失败，不当作"没结果"）。
+    // JSON 在旧结构基础上：total 恒为过滤前条数、returned 为过滤后条数，
+    // 每条多 index（原始下标）；segment/pose 条目多 cx/cy/w/h。
+    // 分类：排序键为 score；segment/pose 为框 confidence；obb 为 confidence。
+    long YoloClassifyEx2(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ long top_k,
+                         _In_ const wchar_t *json_options, _Out_ std::wstring &retjson, _Out_ long *ret);
+    long YoloClassifyFromFileEx2(_In_ const wchar_t *file_name, _In_ long top_k, _In_ const wchar_t *json_options,
+                                 _Out_ std::wstring &retjson, _Out_ long *ret);
+    long YoloSegmentEx2(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
+                        _In_ const wchar_t *json_options, _Out_ std::wstring &retjson, _Out_ long *ret);
+    long YoloSegmentFromFileEx2(_In_ const wchar_t *file_name, _In_ double conf, _In_ double iou,
+                                _In_ const wchar_t *json_options, _Out_ std::wstring &retjson, _Out_ long *ret);
+    long YoloPoseEx2(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
+                     _In_ const wchar_t *json_options, _Out_ std::wstring &retjson, _Out_ long *ret);
+    long YoloPoseFromFileEx2(_In_ const wchar_t *file_name, _In_ double conf, _In_ double iou,
+                             _In_ const wchar_t *json_options, _Out_ std::wstring &retjson, _Out_ long *ret);
+    long YoloObbEx2(_In_ long x1, _In_ long y1, _In_ long x2, _In_ long y2, _In_ double conf, _In_ double iou,
+                    _In_ const wchar_t *json_options, _Out_ std::wstring &retjson, _Out_ long *ret);
+    long YoloObbFromFileEx2(_In_ const wchar_t *file_name, _In_ double conf, _In_ double iou,
+                            _In_ const wchar_t *json_options, _Out_ std::wstring &retjson, _Out_ long *ret);
+
     // 当前已加载模型的元信息（未加载时 task="none"）。用途：脚本启动时自检"模型选对了没"，
     // 而不是等到识别出一堆空结果才怀疑。JSON：
     //   {"ok":1,"task":"segment","task_code":2,"input_width":640,"input_height":640,

@@ -726,6 +726,22 @@ class ATL_NO_VTABLE OpAutomation
     STDMETHOD(YoloObb)(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou, BSTR *retstr, LONG *ret);
     STDMETHOD(YoloObbFromFile)(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR *retstr, LONG *ret);
     STDMETHOD(YoloGetModelInfo)(BSTR *retstr);
+    // ---- YOLO 任务族 Ex2 过滤变体（2026-11-26，id 561-568）----
+    STDMETHOD(YoloClassifyEx2)(LONG x1, LONG y1, LONG x2, LONG y2, LONG top_k, BSTR json_options, BSTR *retstr,
+                               LONG *ret);
+    STDMETHOD(YoloClassifyFromFileEx2)(BSTR file_name, LONG top_k, BSTR json_options, BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloSegmentEx2)(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou, BSTR json_options,
+                              BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloSegmentFromFileEx2)(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR json_options, BSTR *retstr,
+                                      LONG *ret);
+    STDMETHOD(YoloPoseEx2)(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou, BSTR json_options,
+                           BSTR *retstr, LONG *ret);
+    STDMETHOD(YoloPoseFromFileEx2)(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR json_options, BSTR *retstr,
+                                   LONG *ret);
+    STDMETHOD(YoloObbEx2)(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou, BSTR json_options, BSTR *retstr,
+                          LONG *ret);
+    STDMETHOD(YoloObbFromFileEx2)(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR json_options, BSTR *retstr,
+                                  LONG *ret);
     // ---- 颜色转换 / 坐标过滤 / 哈希增强（2026-11-22，id 507-518）----
     STDMETHOD(ExcludePos)(BSTR all_pos, LONG type, BSTR exclude_rects, BSTR *retstr, LONG *ret);
     STDMETHOD(GetDenseRect)(BSTR all_pos, LONG type, LONG width, LONG height, BSTR *retstr, LONG *ret);

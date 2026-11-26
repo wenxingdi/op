@@ -349,6 +349,12 @@ class OnnxYoloEngine::Impl {
         m_kpt = 0;
         m_device = -1;
         m_device_applied = -1;
+        // 2026-11-26 修复：m_labels 同样必须随本次加载重置——此前漏掉，
+        // 进程内连续加载两个模型时，后加载模型的 metadata names 因
+        // "if (m_labels.empty())" 门禁被跳过，直接继承上一个模型的类别名
+        // （实测：seg 模型后再加载 cls 模型，class 0 报成 "blob"，其余为空）。
+        // 显式 --labels= 在下面的解析里重新填充；未给则由 metadata 自动加载。
+        m_labels.clear();
         for (const std::string &a : argv) {
             if (a.rfind("--conf=", 0) == 0) {
                 float v = float(atof(a.c_str() + 7));

@@ -526,6 +526,18 @@ interface IOpAutomation : IDispatch
 	[id(505)] HRESULT YoloObbFromFile([in] BSTR file_name, [in] DOUBLE conf, [in] DOUBLE iou, [out] BSTR* retstr, [out, retval] LONG* ret);
 	[id(506)] HRESULT YoloGetModelInfo([out, retval] BSTR* retstr);
 
+	// ---- YOLO 任务族 Ex2 过滤变体（2026-11-26，id 561-568，对称 YoloDetectEx2 454/455）----
+	// json_options {"class_ids":[],"labels":[],"max_results":N}：class_ids 与 labels 取并集，
+	// max_results 按 score/confidence 降序截断；空串 = 不过滤。非法 options 时 ret=-1。
+	[id(561)] HRESULT YoloClassifyEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] LONG top_k, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(562)] HRESULT YoloClassifyFromFileEx2([in] BSTR file_name, [in] LONG top_k, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(563)] HRESULT YoloSegmentEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE conf, [in] DOUBLE iou, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(564)] HRESULT YoloSegmentFromFileEx2([in] BSTR file_name, [in] DOUBLE conf, [in] DOUBLE iou, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(565)] HRESULT YoloPoseEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE conf, [in] DOUBLE iou, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(566)] HRESULT YoloPoseFromFileEx2([in] BSTR file_name, [in] DOUBLE conf, [in] DOUBLE iou, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(567)] HRESULT YoloObbEx2([in] LONG x1, [in] LONG y1, [in] LONG x2, [in] LONG y2, [in] DOUBLE conf, [in] DOUBLE iou, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
+	[id(568)] HRESULT YoloObbFromFileEx2([in] BSTR file_name, [in] DOUBLE conf, [in] DOUBLE iou, [in] BSTR json_options, [out] BSTR* retstr, [out, retval] LONG* ret);
+
 	// ---- 颜色转换 / 坐标过滤 / 哈希增强（2026-11-22，id 507-518）----
 	// 颜色串格式："RRGGBB"/"AARRGGBB"（可带 #/0x 前缀），6 位输入 alpha=255。
 	[id(507)] HRESULT ExcludePos([in] BSTR all_pos, [in] LONG type, [in] BSTR exclude_rects, [out] BSTR* retstr, [out, retval] LONG* ret);

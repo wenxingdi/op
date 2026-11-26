@@ -2988,6 +2988,109 @@ STDMETHODIMP OpAutomation::YoloGetModelInfo(BSTR *retstr) {
     return CopyOutBstr(retstr, s);
 }
 
+// ===== YOLO 任务族 Ex2 过滤变体（2026-11-26，id 561-568）=====
+STDMETHODIMP OpAutomation::YoloClassifyEx2(LONG x1, LONG y1, LONG x2, LONG y2, LONG top_k, BSTR json_options,
+                                           BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloClassifyEx2(x1, y1, x2, y2, top_k, json_options ? json_options : L"", s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloClassifyFromFileEx2(BSTR file_name, LONG top_k, BSTR json_options, BSTR *retstr,
+                                                   LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloClassifyFromFileEx2(file_name, top_k, json_options ? json_options : L"", s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloSegmentEx2(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou,
+                                          BSTR json_options, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloSegmentEx2(x1, y1, x2, y2, static_cast<double>(conf), static_cast<double>(iou),
+                                       json_options ? json_options : L"", s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloSegmentFromFileEx2(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR json_options,
+                                                  BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloSegmentFromFileEx2(file_name, static_cast<double>(conf), static_cast<double>(iou),
+                                               json_options ? json_options : L"", s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloPoseEx2(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou,
+                                       BSTR json_options, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloPoseEx2(x1, y1, x2, y2, static_cast<double>(conf), static_cast<double>(iou),
+                                    json_options ? json_options : L"", s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloPoseFromFileEx2(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR json_options,
+                                               BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloPoseFromFileEx2(file_name, static_cast<double>(conf), static_cast<double>(iou),
+                                            json_options ? json_options : L"", s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloObbEx2(LONG x1, LONG y1, LONG x2, LONG y2, DOUBLE conf, DOUBLE iou,
+                                      BSTR json_options, BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloObbEx2(x1, y1, x2, y2, static_cast<double>(conf), static_cast<double>(iou),
+                                   json_options ? json_options : L"", s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
+STDMETHODIMP OpAutomation::YoloObbFromFileEx2(BSTR file_name, DOUBLE conf, DOUBLE iou, BSTR json_options,
+                                              BSTR *retstr, LONG *ret) {
+    if (!retstr || !ret)
+        return E_POINTER;
+    *ret = 0;
+    wstring s;
+    const long rc = obj.YoloObbFromFileEx2(file_name, static_cast<double>(conf), static_cast<double>(iou),
+                                           json_options ? json_options : L"", s, ret);
+    if (rc < 0)
+        *ret = -1;
+    return CopyOutBstr(retstr, s);
+}
+
 // ===== 颜色转换 / 坐标过滤 / 哈希增强（2026-11-22，id 507-518）=====
 STDMETHODIMP OpAutomation::ExcludePos(BSTR all_pos, LONG type, BSTR exclude_rects, BSTR *retstr, LONG *ret) {
     wstring s;

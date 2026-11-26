@@ -974,6 +974,30 @@ class Op(object):
     def YoloObbFromFile(self, file_name, conf, iou):
         return _pyop.Op_YoloObbFromFile(self, file_name, conf, iou)
 
+    def YoloClassifyEx2(self, x1, y1, x2, y2, top_k, json_options):
+        return _pyop.Op_YoloClassifyEx2(self, x1, y1, x2, y2, top_k, json_options)
+
+    def YoloClassifyFromFileEx2(self, file_name, top_k, json_options):
+        return _pyop.Op_YoloClassifyFromFileEx2(self, file_name, top_k, json_options)
+
+    def YoloSegmentEx2(self, x1, y1, x2, y2, conf, iou, json_options):
+        return _pyop.Op_YoloSegmentEx2(self, x1, y1, x2, y2, conf, iou, json_options)
+
+    def YoloSegmentFromFileEx2(self, file_name, conf, iou, json_options):
+        return _pyop.Op_YoloSegmentFromFileEx2(self, file_name, conf, iou, json_options)
+
+    def YoloPoseEx2(self, x1, y1, x2, y2, conf, iou, json_options):
+        return _pyop.Op_YoloPoseEx2(self, x1, y1, x2, y2, conf, iou, json_options)
+
+    def YoloPoseFromFileEx2(self, file_name, conf, iou, json_options):
+        return _pyop.Op_YoloPoseFromFileEx2(self, file_name, conf, iou, json_options)
+
+    def YoloObbEx2(self, x1, y1, x2, y2, conf, iou, json_options):
+        return _pyop.Op_YoloObbEx2(self, x1, y1, x2, y2, conf, iou, json_options)
+
+    def YoloObbFromFileEx2(self, file_name, conf, iou, json_options):
+        return _pyop.Op_YoloObbFromFileEx2(self, file_name, conf, iou, json_options)
+
     def YoloGetModelInfo(self):
         return _pyop.Op_YoloGetModelInfo(self)
 

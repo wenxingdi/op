@@ -3094,6 +3094,210 @@ const wchar_t *OP_CALL OpYoloGetModelInfo(op_handle handle) {
     return call_string(handle, [&](op::Op &op, std::wstring &ret) { op.YoloGetModelInfo(ret); });
 }
 
+// ---- YOLO 任务族 Ex2 过滤变体（2026-11-26，对称 OpYoloDetectEx2）----
+// 实现约束：下面的导出函数必须留在本 extern "C" 块内——移出去会变成 C++ 修饰名导出，
+// x64 下 Python/易语言 GetProcAddress 按裸名找不到（2026-11-21 踩过的坑）。
+
+const wchar_t *OP_CALL OpYoloClassifyEx2(op_handle handle, int x1, int y1, int x2, int y2, int top_k,
+                                         const wchar_t *json_options, int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc =
+            handle->op.YoloClassifyEx2(x1, y1, x2, y2, top_k, safe_text(json_options), handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr; // 参数非法：显式失败，与"没结果 0"区分
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloClassifyEx2: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloClassifyFromFileEx2(op_handle handle, const wchar_t *file_name, int top_k,
+                                                 const wchar_t *json_options, int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloClassifyFromFileEx2(safe_text(file_name), top_k, safe_text(json_options),
+                                                           handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloClassifyFromFileEx2: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloSegmentEx2(op_handle handle, int x1, int y1, int x2, int y2, double conf, double iou,
+                                        const wchar_t *json_options, int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloSegmentEx2(x1, y1, x2, y2, conf, iou, safe_text(json_options),
+                                                  handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloSegmentEx2: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloSegmentFromFileEx2(op_handle handle, const wchar_t *file_name, double conf, double iou,
+                                                const wchar_t *json_options, int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloSegmentFromFileEx2(safe_text(file_name), conf, iou, safe_text(json_options),
+                                                          handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloSegmentFromFileEx2: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloPoseEx2(op_handle handle, int x1, int y1, int x2, int y2, double conf, double iou,
+                                     const wchar_t *json_options, int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloPoseEx2(x1, y1, x2, y2, conf, iou, safe_text(json_options),
+                                               handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloPoseEx2: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloPoseFromFileEx2(op_handle handle, const wchar_t *file_name, double conf, double iou,
+                                             const wchar_t *json_options, int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloPoseFromFileEx2(safe_text(file_name), conf, iou, safe_text(json_options),
+                                                       handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloPoseFromFileEx2: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloObbEx2(op_handle handle, int x1, int y1, int x2, int y2, double conf, double iou,
+                                    const wchar_t *json_options, int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloObbEx2(x1, y1, x2, y2, conf, iou, safe_text(json_options),
+                                              handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloObbEx2: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
+const wchar_t *OP_CALL OpYoloObbFromFileEx2(op_handle handle, const wchar_t *file_name, double conf, double iou,
+                                            const wchar_t *json_options, int *find_count) {
+    if (!handle) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+    try {
+        handle->string_result.clear();
+        long found = 0;
+        const long rc = handle->op.YoloObbFromFileEx2(safe_text(file_name), conf, iou, safe_text(json_options),
+                                                      handle->string_result, &found);
+        out_int(find_count, found);
+        if (rc < 0)
+            return nullptr;
+        return handle->string_result.c_str();
+    } catch (const std::exception &e) {
+        setlog("op_c_api: exception in OpYoloObbFromFileEx2: %s", e.what());
+        out_int(find_count, 0);
+        return nullptr;
+    } catch (...) {
+        out_int(find_count, 0);
+        return nullptr;
+    }
+}
+
 // ---- YOLO 模型平台（2026-11-23）----
 const wchar_t *OP_CALL OpYoloLoadModel(op_handle handle, const wchar_t *name, const wchar_t *path, const wchar_t *argv,
                                        int *ret) {

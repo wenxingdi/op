@@ -3,6 +3,30 @@
 > 基线：上游 0.4.8.3（6d6b285，2026-07-07）。以下为本仓库自有迭代记录。
 > 位置：`docs/CHANGELOG.md`（已纳入版本库，每次 fix/feat 提交后追加）；`doc2/CHANGELOG.md` 为历史副本（doc2/ 在 .gitignore）。
 
+### 2026-11-26 第七十批（feat：YOLO 任务族 Ex2 过滤变体 + fix：labels 跨模型粘连）
+
+**范围**：64 + 32 位 DLL 均重编；只影响 YOLO 任务族（classify/segment/pose/obb），Detect 族与旧任务入口不变。
+
+- 新增 8 个 Ex2 过滤接口（对称 Detect 族 Ex2）：`YoloClassifyEx2` / `YoloClassifyFromFileEx2` /
+  `YoloSegmentEx2` / `YoloSegmentFromFileEx2` / `YoloPoseEx2` / `YoloPoseFromFileEx2` /
+  `YoloObbEx2` / `YoloObbFromFileEx2`，C++ Op / C API / COM（DISPID 561-568）/
+  ctypes + swig 四层同步。
+- `json_options` 与 Detect Ex2 同一契约：`{"class_ids":[],"labels":[],"max_results":N}`，
+  class_ids 与 labels 取**并集**，max_results 按 score/confidence 降序截断；空串 = 不过滤；
+  非法 options 返回 -1（nullptr），与"没结果"（合法 JSON、results 空数组）严格区分。
+- JSON 在旧结构上增加 `total`（过滤前条数）与每条 `index`（原始下标）；segment/pose 条目
+  另增 `cx/cy/w/h`（对齐 Detect Ex2）；OBB 本身已有 center/size/angle 不重复。
+- 结构：过滤/截断/JSON 核心抽至 `YoloDetectCore.h`（`KeepByClassLabel` / `SelectKept` /
+  `CountKept` / `BuildClassify|Segment|Pose|ObbJson`），旧入口 `extra_fields=false` 输出
+  **逐字节不变**（有 parity 用例对照）。
+- **fix：labels 跨模型粘连**。`OnnxYoloEngine::parse_argv` 重置了 task/kpt/device 却漏了
+  `m_labels`：进程内连续 `SetYoloEngine` 两个模型时，后加载模型的 metadata names 因
+  `if (m_labels.empty())` 门禁被跳过，直接继承上一个模型的类别名（实测 seg 后加载 cls，
+  class 0 报成 "blob"、其余为空）。补 `m_labels.clear()`，与相邻字段同口径。
+- 测试：新增 `yolo_task_ex2_test.cpp` 12 例（6 核心喂合成数据 + 6 端到端走真实任务模型，
+  覆盖并集语义/降序截断/total-returned/index/旧结构 parity/非法 options）。
+  YOLO 全家族定向 27/27 PASS。
+
 ### 2026-11-25 第六十九批（feat：颜色 OCR 二值化前预放大，修形近字与漏检行）
 
 **范围**：64 + 32 位 DLL 均重编；只影响颜色路径的**免字库**分支，字库路径与 `OcrFree` 不变。

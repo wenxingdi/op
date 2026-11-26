@@ -299,6 +299,9 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_json_failure(OpCvMatchTemplateRot(nullptr, 0, 0, 0, 0, L"", L"", 0.0, 0, 0), "OpCvMatchTemplateRot");
     EXPECT_EQ(OpSetOcrEngine(nullptr, L"", L"", L""), 0) << "OpSetOcrEngine";
     EXPECT_EQ(OpOcrWarmup(nullptr), 0) << "OpOcrWarmup";
+    EXPECT_EQ(OpSetOcrMemoEnabled(nullptr, 0), 0) << "OpSetOcrMemoEnabled";
+    EXPECT_EQ(OpGetOcrMemoHits(nullptr), 0) << "OpGetOcrMemoHits";
+    EXPECT_EQ(OpGetOcrMemoMisses(nullptr), 0) << "OpGetOcrMemoMisses";
     EXPECT_EQ(OpSetYoloEngine(nullptr, L"", L"", L""), 0) << "OpSetYoloEngine";
     expect_json_failure(OpYoloDetect(nullptr, 0, 0, 0, 0, 0.0, 0.0), "OpYoloDetect");
     EXPECT_EQ(OpYoloDetectEx2(nullptr, 0, 0, 0, 0, 0.0, 0.0, L"", nullptr), nullptr) << "OpYoloDetectEx2";  // 契约：失败值=nullptr
@@ -308,6 +311,7 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     EXPECT_EQ(OpSetMemDict(nullptr, 0, nullptr, 0), 0) << "OpSetMemDict";
     EXPECT_EQ(OpUseDict(nullptr, 0), 0) << "OpUseDict";
     EXPECT_EQ(OpAddDict(nullptr, 0, L""), 0) << "OpAddDict";
+    EXPECT_EQ(OpRemoveDict(nullptr, 0, L""), 0) << "OpRemoveDict";
     EXPECT_EQ(OpSaveDict(nullptr, 0, L""), 0) << "OpSaveDict";
     EXPECT_EQ(OpClearDict(nullptr, 0), 0) << "OpClearDict";
     EXPECT_EQ(OpGetDictCount(nullptr, 0), 0) << "OpGetDictCount";
@@ -378,6 +382,9 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     expect_json_failure(OpGetModuleInfoList(nullptr, 0), "OpGetModuleInfoList");
     EXPECT_EQ(OpVirtualProtectEx(nullptr, 0, L"", 0, 0, nullptr), 0) << "OpVirtualProtectEx";
     expect_empty(OpVirtualAllocEx(nullptr, 0, L"", 0, 0, 0), "OpVirtualAllocEx");
+    EXPECT_EQ(OpSetMemHandleCacheEnabled(nullptr, 0), 0) << "OpSetMemHandleCacheEnabled";
+    EXPECT_EQ(OpGetMemHandleCacheHits(nullptr), 0) << "OpGetMemHandleCacheHits";
+    EXPECT_EQ(OpGetMemHandleCacheMisses(nullptr), 0) << "OpGetMemHandleCacheMisses";
     expect_empty(OpFindColorBlockExS(nullptr, 0, 0, 0, 0, L"", 0.0, 0, 0, 0, 0), "OpFindColorBlockExS");
     expect_empty(OpFindLineExS(nullptr, 0, 0, 0, 0, L"", 0.0, 0, nullptr), "OpFindLineExS");
     EXPECT_EQ(OpFileExists(nullptr, L""), 0) << "OpFileExists";
@@ -422,6 +429,14 @@ TEST(CApiNullHandle, AllHandleFunctionsReturnFailure) {
     EXPECT_EQ(OpYoloPoseFromFile(nullptr, L"", 0.0, 0.0, nullptr), nullptr) << "OpYoloPoseFromFile";  // 契约：失败值=nullptr
     EXPECT_EQ(OpYoloObb(nullptr, 0, 0, 0, 0, 0.0, 0.0, nullptr), nullptr) << "OpYoloObb";  // 契约：失败值=nullptr
     EXPECT_EQ(OpYoloObbFromFile(nullptr, L"", 0.0, 0.0, nullptr), nullptr) << "OpYoloObbFromFile";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloClassifyEx2(nullptr, 0, 0, 0, 0, 0, L"", nullptr), nullptr) << "OpYoloClassifyEx2";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloClassifyFromFileEx2(nullptr, L"", 0, L"", nullptr), nullptr) << "OpYoloClassifyFromFileEx2";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloSegmentEx2(nullptr, 0, 0, 0, 0, 0.0, 0.0, L"", nullptr), nullptr) << "OpYoloSegmentEx2";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloSegmentFromFileEx2(nullptr, L"", 0.0, 0.0, L"", nullptr), nullptr) << "OpYoloSegmentFromFileEx2";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloPoseEx2(nullptr, 0, 0, 0, 0, 0.0, 0.0, L"", nullptr), nullptr) << "OpYoloPoseEx2";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloPoseFromFileEx2(nullptr, L"", 0.0, 0.0, L"", nullptr), nullptr) << "OpYoloPoseFromFileEx2";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloObbEx2(nullptr, 0, 0, 0, 0, 0.0, 0.0, L"", nullptr), nullptr) << "OpYoloObbEx2";  // 契约：失败值=nullptr
+    EXPECT_EQ(OpYoloObbFromFileEx2(nullptr, L"", 0.0, 0.0, L"", nullptr), nullptr) << "OpYoloObbFromFileEx2";  // 契约：失败值=nullptr
     expect_empty(OpYoloGetModelInfo(nullptr), "OpYoloGetModelInfo");
     expect_json_failure(OpYoloLoadModel(nullptr, L"", L"", L"", nullptr), "OpYoloLoadModel");
     EXPECT_EQ(OpYoloUseModel(nullptr, L""), 0) << "OpYoloUseModel";

@@ -165,6 +165,8 @@ set(OP_TEST_SOURCES
   "mem_image_test.cpp"
   "yolo_test.cpp"
   "yolo_task_test.cpp"
+  # YOLO 任务族 Ex2 过滤变体（2026-11-26）：classify/segment/pose/obb 的过滤/截断/JSON 契约
+  "yolo_task_ex2_test.cpp"
   "utils_test.cpp"
   # C API 覆盖收口（2026-11-21）：补齐 10 个"无任何端到端调用证据"的导出
   # （二维码三件套 / GetWindowScale / TerminateProcess 两兄弟 / OcrAutoColor 系列 / AutoOcrLine / KeyPressHotkey）。

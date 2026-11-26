@@ -1829,6 +1829,67 @@ class Op:
     def yolo_obb_from_file(self, file_name: str | Path, conf: float, iou: float) -> tuple[str, int]:
         return self._call_string_with_int("OpYoloObbFromFile", str(file_name), float(conf), float(iou))
 
+    def yolo_classify_ex2(
+        self, x1: int, y1: int, x2: int, y2: int, top_k: int = 5, json_options: str = ""
+    ) -> tuple[str, int]:
+        """分类 Ex2：class_ids/labels 过滤（并集）+ max_results 按 score 降序截断。
+        非法 json_options 返回 ("", 0)。JSON 多 total/index 字段。"""
+        return self._call_string_with_int(
+            "OpYoloClassifyEx2", int(x1), int(y1), int(x2), int(y2), int(top_k), json_options
+        )
+
+    def yolo_classify_from_file_ex2(
+        self, file_name: str | Path, top_k: int = 5, json_options: str = ""
+    ) -> tuple[str, int]:
+        return self._call_string_with_int(
+            "OpYoloClassifyFromFileEx2", str(file_name), int(top_k), json_options
+        )
+
+    def yolo_segment_ex2(
+        self, x1: int, y1: int, x2: int, y2: int, conf: float, iou: float, json_options: str = ""
+    ) -> tuple[str, int]:
+        """分割 Ex2：过滤键为框 class_id/label，截断键为框 confidence。"""
+        return self._call_string_with_int(
+            "OpYoloSegmentEx2", int(x1), int(y1), int(x2), int(y2), float(conf), float(iou), json_options
+        )
+
+    def yolo_segment_from_file_ex2(
+        self, file_name: str | Path, conf: float, iou: float, json_options: str = ""
+    ) -> tuple[str, int]:
+        return self._call_string_with_int(
+            "OpYoloSegmentFromFileEx2", str(file_name), float(conf), float(iou), json_options
+        )
+
+    def yolo_pose_ex2(
+        self, x1: int, y1: int, x2: int, y2: int, conf: float, iou: float, json_options: str = ""
+    ) -> tuple[str, int]:
+        """姿态 Ex2：过滤键为框 class_id/label，截断键为框 confidence。"""
+        return self._call_string_with_int(
+            "OpYoloPoseEx2", int(x1), int(y1), int(x2), int(y2), float(conf), float(iou), json_options
+        )
+
+    def yolo_pose_from_file_ex2(
+        self, file_name: str | Path, conf: float, iou: float, json_options: str = ""
+    ) -> tuple[str, int]:
+        return self._call_string_with_int(
+            "OpYoloPoseFromFileEx2", str(file_name), float(conf), float(iou), json_options
+        )
+
+    def yolo_obb_ex2(
+        self, x1: int, y1: int, x2: int, y2: int, conf: float, iou: float, json_options: str = ""
+    ) -> tuple[str, int]:
+        """旋转框 Ex2：过滤键为 class_id/label，截断键为 confidence。"""
+        return self._call_string_with_int(
+            "OpYoloObbEx2", int(x1), int(y1), int(x2), int(y2), float(conf), float(iou), json_options
+        )
+
+    def yolo_obb_from_file_ex2(
+        self, file_name: str | Path, conf: float, iou: float, json_options: str = ""
+    ) -> tuple[str, int]:
+        return self._call_string_with_int(
+            "OpYoloObbFromFileEx2", str(file_name), float(conf), float(iou), json_options
+        )
+
     def yolo_get_model_info(self) -> str:
         """当前模型信息（JSON：ok/task/task_code/input_width/input_height/device/dml）。"""
         return self._call_string("OpYoloGetModelInfo")
